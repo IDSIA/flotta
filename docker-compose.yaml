@@ -5,6 +5,10 @@ networks:
   www:
     external: true
 
+volumes:
+  spearhead-server-data:
+  spearhead-db-data:
+
 services:
   database:
     image: postgres
@@ -12,6 +16,8 @@ services:
       - POSTGRES_USER=${DATABASE_USER}
       - POSTGRES_PASSWORD=${DATABASE_PASS}
       - POSTGRES_DB=${DATABASE_SCHEMA}
+    volumes:
+      - spearhead-db-data:/var/lib/postgresql/data
     networks:
       - spearhead
 
@@ -22,6 +28,9 @@ services:
       dockerfile: Dockerfile
     environment:
       - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
+      - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
+    volumes: 
+      - spearhead-server-data:/spearhead/data
     networks:
       - www
       - spearhead

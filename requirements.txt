@@ -1,5 +1,7 @@
+cryptography
 fastapi
 fastapi-sqlalchemy
+keyring
 prometheus-client
 psycopg2-binary
 pydantic
