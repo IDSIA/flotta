@@ -5,6 +5,12 @@ from sqlalchemy.orm import relationship
 from . import Base
 
 
+class Setting(Base):
+    __tablename__ = 'settings'
+    key = Column(String, primary_key=True, index=True)
+    value = Column(String)
+
+
 class Client(Base):
     """Table used to keep track of current clients."""
     __tablename__ = 'clients'

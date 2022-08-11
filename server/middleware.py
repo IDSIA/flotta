@@ -10,8 +10,19 @@ import os
 
 class AccessMiddleware(BaseHTTPMiddleware):
     
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, skip_paths: list[str]=list()) -> None:
         super().__init__(app)
+
+        self.skip_paths = skip_paths
     
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        path = request.url.path
+        headers = request.headers
+
+        if path in self.skip_paths:
+            try:
+                return await call_next(request)
+            except Exception as e:
+                raise e
+
         return await call_next(request)
