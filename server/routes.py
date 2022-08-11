@@ -2,16 +2,16 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 import uvicorn
-from server import crypto
+from server import security
 
-from server.middleware import AccessMiddleware
+from server.middleware import SecurityMiddleware
 
 from database import SessionLocal, crud, startup
 
 
 api = FastAPI()
 
-api.add_middleware(AccessMiddleware)
+api.add_middleware(SecurityMiddleware)
 
 
 def get_db():
@@ -29,7 +29,7 @@ async def populate_database():
     try:
         db = SessionLocal()
         startup.init_content(db)
-        crypto.generate_keys(db)
+        security.generate_keys(db)
     finally:
         db.close()
 

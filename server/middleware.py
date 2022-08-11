@@ -8,7 +8,7 @@ from time import time
 import os
 
 
-class AccessMiddleware(BaseHTTPMiddleware):
+class SecurityMiddleware(BaseHTTPMiddleware):
     
     def __init__(self, app: ASGIApp, skip_paths: list[str]=list()) -> None:
         super().__init__(app)
