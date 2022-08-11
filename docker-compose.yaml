@@ -1,0 +1,34 @@
+version: '3.3'
+
+networks:
+  spearhead:
+  www:
+    external: true
+
+services:
+  database:
+    image: postgres
+    environment:
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASS}
+      - POSTGRES_DB=${DATABASE_SCHEMA}
+    networks:
+      - spearhead
+
+  server: 
+    image: idsia.spearhead.server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
+    networks:
+      - www
+      - spearhead
+    depends_on:
+      - database
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.spearhead.rule=Host(`spearhead.${DOMAIN}`)"
+      - "traefik.http.routers.spearhead.entrypoints=web"
+      - "traefik.http.services.spearhead.loadbalancer.server.port=1456"
