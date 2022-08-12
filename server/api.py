@@ -13,7 +13,7 @@ from .routes.client import client_router
 def init_api() -> FastAPI:
     api = FastAPI()
     
-    api.add_middleware(SecurityMiddleware)
+    api.add_middleware(SecurityMiddleware, skip_paths=['/client/join'])
     api.include_router(client_router)
 
     return api

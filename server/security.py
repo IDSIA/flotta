@@ -1,20 +1,19 @@
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_ssh_public_key
 
 from hashlib import sha256
-
 from sqlalchemy.orm import Session
-
 from time import time
 
 from database.settings import KeyValueStore
+from database.tables import Client
+from .schemas.client import ClientJoinRequest
 
 import logging
 import os
-
-from .schemas.client import ClientJoinRequest
+import uuid
 
 
 MAIN_KEY = 'SERVER_MAIN_PASSWORD'
@@ -23,6 +22,12 @@ PRIVATE_KEY = 'SERVER_KEY_PRIVATE'
 
 
 def generate_keys(db: Session) -> None:
+    """Initizalization method for the generation of keys for the server.
+    Requires to have the environment variable 'SERVER_MAIN_PASSWORD'.
+
+    :param db:
+        Current session to the database.
+    """
 
     SMP_VALUE = os.environ.get(MAIN_KEY, None)
 
@@ -77,14 +82,36 @@ def generate_keys(db: Session) -> None:
     logging.info('Keys generation completed')
 
 
-def generate_token(client: ClientJoinRequest, client_uuid: str) -> str:
+def generate_token(client: ClientJoinRequest) -> tuple[str, str]:
+    """Generates a client token with the data received from the client.
+
+    :param client:
+        Data received from the outside.
+    """
+    client_uuid = str(uuid.uuid4())
     ms = round(time() * 1000)
 
     token = f'{client_uuid}~{client.system}${client.mac_address}£{client.node}={ms};'
     token = sha256().hexdigest().encode('ascii')
     token = sha256(token).hexdigest().encode('ascii')
 
-    return token
+    return token, client_uuid
+
+
+def check_token(db: Session, token: str) -> bool:
+    """Check if the given token exists in the database.
+
+    :param db:
+        Current session to the database.
+    :param token:
+        Header token received from the client.
+    :return:
+        True if the token is valid, otherwise false.
+    """
+
+    db_client = db.query(Client).filter(Client.token == token).first()
+
+    return db_client is not None
 
 
 def get_server_public_key(db: Session) -> str:
@@ -99,6 +126,13 @@ def get_server_public_key(db: Session) -> str:
 
 
 def encrypt(public_key_str: str, text: str) -> str:
+    """Encrypt a text to be sent outside of the server.
+
+    :param public_key_str:
+        Client public key in string format.
+    :param text:
+        Content to be encrypted.
+    """
     public_key: bytes = public_key_str.encode('ascii')
     plain_text: bytes = text.encode('ascii')
 
@@ -108,6 +142,14 @@ def encrypt(public_key_str: str, text: str) -> str:
 
 
 def decrypt(db: Session, text: str) -> str:
+    """Decrypt a text received from the outside using the private key
+    stored in the server.
+
+    :param db:
+        Current session to the database.
+    :param text:
+        Content to be decrypted.
+    """
     kvs = KeyValueStore(db)
     private_key = kvs.get_bytes(PRIVATE_KEY)
     plain_text: bytes = text.encode('ascii')

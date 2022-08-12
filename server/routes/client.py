@@ -17,9 +17,8 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session=D
     """API for new client joining."""
     try:
         ip_address = request.client.host
-        client_uuid = str(uuid.uuid4())
 
-        token = generate_token(client, client_uuid)
+        token, client_uuid = generate_token(client)
 
         db_client = Client(
             version=client.version,
