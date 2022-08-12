@@ -15,19 +15,33 @@ def generate_keys(db: Session) -> None:
     SMP_KEY = 'SERVER_MAIN_PASSWORD'
     SMP_VALUE = os.environ.get(SMP_KEY, None)
 
+    if SMP_VALUE is None:
+        logging.fatal(f'Environment variable {SMP_KEY} is missing.')
+        raise ValueError(f'{SMP_KEY} missing')
+
+    kvs = KeyValueStore(db)
+
+    try:
+        db_smp_key = kvs.get_str(SMP_KEY)
+
+        if db_smp_key != SMP_VALUE:
+            logging.fatal(f'Environment variable {SMP_KEY} invalid: please set the correct password!')
+            raise Exception(f'{SMP_KEY} invalid')
+
+    except ValueError:
+        kvs.put_str(SMP_KEY, SMP_VALUE)
+        logging.info(f'Application initialization, Environment variable {SMP_KEY} saved in storage')
+
     PRI_KEY = 'SERVER_KEY_PRIVATE'
     PUB_KEY = 'SERVER_KEY_PUBLIC'
 
-    if SMP_VALUE is None:
-        logging.fatal(f'Environment variable {SMP_KEY} is invalid.')
-        raise ValueError(f'{SMP_KEY} invalid')
-
-    kvs = KeyValueStore(db)
-    private_key = kvs.get_bytes(PRI_KEY)
-    
-    if private_key is not None:
+    try:
+        private_key = kvs.get_bytes(PRI_KEY)
         logging.info('Keys are already available')
         return 
+
+    except ValueError:
+        pass
 
     # generate new keys
     logging.info('Keys generation started')
@@ -49,7 +63,6 @@ def generate_keys(db: Session) -> None:
         format=serialization.PublicFormat.OpenSSH,
     )
 
-    kvs.put_str(SMP_KEY, SMP_VALUE)
     kvs.put_bytes(PRI_KEY, private_key)
     kvs.put_bytes(PUB_KEY, public_key)
 
