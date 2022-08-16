@@ -154,6 +154,6 @@ def decrypt(db: Session, text: str) -> str:
     private_key = kvs.get_bytes(PRIVATE_KEY)
     plain_text: bytes = text.encode('ascii')
 
-    pk: rsa.RSAPrivateKey = load_pem_private_key(private_key, backend=default_backend())
+    pk: rsa.RSAPrivateKey = load_pem_private_key(private_key, None,backend=default_backend())
 
     return pk.decrypt(text, padding.PKCS1v15).decode('ascii')

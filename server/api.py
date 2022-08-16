@@ -13,7 +13,7 @@ from .routes.client import client_router
 def init_api() -> FastAPI:
     api = FastAPI()
     
-    api.add_middleware(SecurityMiddleware, skip_paths=['/client/join'])
+    api.add_middleware(SecurityMiddleware, skip_paths=['/', '/client/join'])
     api.include_router(client_router)
 
     return api
@@ -39,4 +39,4 @@ async def root(db: Session=Depends(get_db)):
 
 
 if __name__ == '__main__':
-    uvicorn.run(api)
+    uvicorn.run(api, host='localhost', port='8080')

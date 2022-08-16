@@ -18,4 +18,6 @@ __pycache__
 *.tar.gz
 *.gz
 
+*.pem
+
 workbench.py

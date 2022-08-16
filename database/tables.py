@@ -18,7 +18,7 @@ class Client(Base):
     """Table used to keep track of current clients."""
     __tablename__ = 'clients'
     client_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    creation_time = Column(DateTime(timezone=True), default_value=now())
+    creation_time = Column(DateTime(timezone=True), server_default=now())
 
     version = Column(String)
     public_key = Column(String)

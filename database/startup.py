@@ -19,4 +19,6 @@ def init_content(db: Session) -> None:
     Client.__table__.create(bind=engine, checkfirst=True)
     Setting.__table__.create(bind=engine, checkfirst=True)
 
+    db.commit()
+
     logging.info('Database creation completed')
