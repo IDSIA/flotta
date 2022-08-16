@@ -9,6 +9,10 @@ from database import get_db, SessionLocal, crud, startup, Session
 from . import security
 from .routes.client import client_router
 
+import logging
+
+LOGGER = logging.getLogger(__name__)
+
 
 def init_api() -> FastAPI:
     api = FastAPI()

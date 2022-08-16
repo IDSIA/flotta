@@ -4,9 +4,11 @@ from .tables import Client
 import os
 import logging
 
+LOGGER = logging.getLogger(__name__)
+
 
 def create_user(db: Session, version: str, public_key: str) -> Client:
-    logging.info(f'creating new user with version={version}')
+    LOGGER.info(f'creating new user with version={version}')
 
     db_client = Client(version=version, public_key=public_key)
 

@@ -3,6 +3,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_ssh_public_key
 
+from base64 import b64encode, b64decode
 from hashlib import sha256
 from sqlalchemy.orm import Session
 from time import time
@@ -14,6 +15,8 @@ from .schemas.client import ClientJoinRequest
 import logging
 import os
 import uuid
+
+LOGGER = logging.getLogger(__name__)
 
 
 MAIN_KEY = 'SERVER_MAIN_PASSWORD'
@@ -32,7 +35,7 @@ def generate_keys(db: Session) -> None:
     SMP_VALUE = os.environ.get(MAIN_KEY, None)
 
     if SMP_VALUE is None:
-        logging.fatal(f'Environment variable {MAIN_KEY} is missing.')
+        LOGGER.fatal(f'Environment variable {MAIN_KEY} is missing.')
         raise ValueError(f'{MAIN_KEY} missing')
 
     kvs = KeyValueStore(db)
@@ -41,23 +44,23 @@ def generate_keys(db: Session) -> None:
         db_smp_key = kvs.get_str(MAIN_KEY)
 
         if db_smp_key != SMP_VALUE:
-            logging.fatal(f'Environment variable {MAIN_KEY} invalid: please set the correct password!')
+            LOGGER.fatal(f'Environment variable {MAIN_KEY} invalid: please set the correct password!')
             raise Exception(f'{MAIN_KEY} invalid')
 
     except ValueError:
         kvs.put_str(MAIN_KEY, SMP_VALUE)
-        logging.info(f'Application initialization, Environment variable {MAIN_KEY} saved in storage')
+        LOGGER.info(f'Application initialization, Environment variable {MAIN_KEY} saved in storage')
 
     try:
         private_key = kvs.get_bytes(PRIVATE_KEY)
-        logging.info('Keys are already available')
+        LOGGER.info('Keys are already available')
         return 
 
     except ValueError:
         pass
 
     # generate new keys
-    logging.info('Keys generation started')
+    LOGGER.info('Keys generation started')
 
     key: rsa.RSAPrivateKey = rsa.generate_private_key(
         public_exponent=65537,
@@ -79,7 +82,7 @@ def generate_keys(db: Session) -> None:
     kvs.put_bytes(PRIVATE_KEY, private_key)
     kvs.put_bytes(PUBLIC_KEY, public_key)
 
-    logging.info('Keys generation completed')
+    LOGGER.info('Keys generation completed')
 
 
 def generate_token(client: ClientJoinRequest) -> tuple[str, str]:
@@ -92,8 +95,8 @@ def generate_token(client: ClientJoinRequest) -> tuple[str, str]:
     ms = round(time() * 1000)
 
     token = f'{client_uuid}~{client.system}${client.mac_address}£{client.node}={ms};'
-    token = sha256().hexdigest().encode('ascii')
-    token = sha256(token).hexdigest().encode('ascii')
+    token = sha256().hexdigest().encode('utf8')
+    token = sha256(token).hexdigest()
 
     return token, client_uuid
 
@@ -125,7 +128,14 @@ def get_server_public_key(db: Session) -> str:
     return kvs.get_str(PUBLIC_KEY)
 
 
-def encrypt(public_key_str: str, text: str) -> str:
+def get_client_public_key(client: Client|ClientJoinRequest) -> bytes:
+    public_key: str = client.public_key
+    plain_text: bytes = public_key.encode('utf8')
+    b64_text: bytes = b64decode(plain_text)
+    return b64_text
+    
+
+def encrypt(public_key: bytes, text: str) -> str:
     """Encrypt a text to be sent outside of the server.
 
     :param public_key_str:
@@ -133,12 +143,13 @@ def encrypt(public_key_str: str, text: str) -> str:
     :param text:
         Content to be encrypted.
     """
-    public_key: bytes = public_key_str.encode('ascii')
-    plain_text: bytes = text.encode('ascii')
-
     pk: rsa.RSAPublicKey = load_ssh_public_key(public_key, backend=default_backend())
 
-    return pk.encrypt(plain_text, padding.PKCS1v15).decode('ascii')
+    plain_text: bytes = text.encode('utf8')
+    enc_text: bytes = pk.encrypt(plain_text, padding.PKCS1v15())
+    b64_text: bytes = b64encode(enc_text)
+    ret_text: str = b64_text.decode('utf8')
+    return ret_text
 
 
 def decrypt(db: Session, text: str) -> str:
@@ -152,8 +163,12 @@ def decrypt(db: Session, text: str) -> str:
     """
     kvs = KeyValueStore(db)
     private_key = kvs.get_bytes(PRIVATE_KEY)
-    plain_text: bytes = text.encode('ascii')
 
     pk: rsa.RSAPrivateKey = load_pem_private_key(private_key, None,backend=default_backend())
 
-    return pk.decrypt(text, padding.PKCS1v15).decode('ascii')
+    b64_text: bytes = text.encode('utf8')
+    enc_text: bytes = b64decode(b64_text)
+    plain_text: bytes = pk.decrypt(enc_text, padding.PKCS1v15())
+    ret_text: str = plain_text.decode('utf8')
+    return ret_text
+

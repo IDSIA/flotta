@@ -3,11 +3,11 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from database import Session, get_db
 from database.tables import Client
 from ..schemas.client import *
-from ..security import generate_token, get_server_public_key, encrypt
+from ..security import generate_token, get_server_public_key, encrypt, get_client_public_key
 
-import uuid
 import logging
 
+LOGGER = logging.getLogger(__name__)
 
 client_router = APIRouter()
 
@@ -19,6 +19,8 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session=D
         ip_address = request.client.host
 
         token, client_uuid = generate_token(client)
+
+        client_public_key: bytes = get_client_public_key(client)
 
         db_client = Client(
             version=client.version,
@@ -35,13 +37,14 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session=D
         db.commit()
 
         return ClientJoinResponse(
-            uuid=encrypt(client_uuid()),
-            token=encrypt(token),
+            uuid=encrypt(client_public_key, client_uuid),
+            token=encrypt(client_public_key, token),
             public_key=get_server_public_key(db)
         )
 
-    except Exception:
-        logging.error('Client already exists')
+    except Exception as e:
+        LOGGER.exception(e)
+        LOGGER.error('Client already exists')
         raise HTTPException(403)
 
 

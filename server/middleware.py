@@ -9,6 +9,8 @@ from database import SessionLocal
 
 import logging
 
+LOGGER = logging.getLogger(__name__)
+
 
 class SecurityMiddleware(BaseHTTPMiddleware):
 
@@ -29,13 +31,13 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         headers = request.headers
 
         if 'Token' not in headers:
-            logging.warning('Token not in header')
+            LOGGER.warning('Token not in header')
             raise HTTPException(403)
 
         db = SessionLocal()
 
         if not check_token(db, headers['Token']):
-            logging.warning('Invalid token received')
+            LOGGER.warning('Invalid token received')
             raise HTTPException(403)
 
         return await call_next(request)

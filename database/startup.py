@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 import logging
 
+LOGGER = logging.getLogger(__name__)
 
 def init_content(db: Session) -> None:
     """Initialize all tables in the database.
@@ -21,4 +22,4 @@ def init_content(db: Session) -> None:
 
     db.commit()
 
-    logging.info('Database creation completed')
+    LOGGER.info('Database creation completed')

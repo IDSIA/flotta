@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 import base64
 import os
-import logging
 
 
 def build_settings_cipher() -> Fernet:
@@ -27,7 +26,7 @@ class KeyValueStore:
     def put_bytes(self, key: str, value: bytes) -> None:
         value = self.cipher.encrypt(value)
         value = base64.b64encode(value)
-        value = value.decode('ascii')
+        value = value.decode('utf8')
 
         # check that entry exists
         db_setting = self.db.query(Setting).filter(Setting.key == key).first()
@@ -42,7 +41,7 @@ class KeyValueStore:
         self.db.refresh(db_setting)
 
     def put_str(self, key: str, value: str) -> None:
-        value = value.encode('ascii')
+        value = value.encode('utf8')
         self.put_bytes(key, value)
 
     def put_int(self, key: str, value: int) -> None:
@@ -60,7 +59,7 @@ class KeyValueStore:
             raise ValueError(f'Nothing found in settings for key={key}')
 
         value = db_setting.value
-        value = value.encode('ascii')
+        value = value.encode('utf8')
         value = base64.b64decode(value)
         value = self.cipher.decrypt(value)
 
@@ -68,7 +67,7 @@ class KeyValueStore:
 
     def get_str(self, key: str) -> str:
         value = self.get_bytes(key)
-        value = value.decode('ascii')
+        value = value.decode('utf8')
 
         return value
 

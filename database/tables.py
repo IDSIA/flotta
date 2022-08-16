@@ -21,14 +21,20 @@ class Client(Base):
     creation_time = Column(DateTime(timezone=True), server_default=now())
 
     version = Column(String)
+    # this is b64+utf8 encoded bytes
     public_key = Column(String)
 
-    uuid = Column(String, nullable=True)  # empty: new machine, filled old machine -> created by the server
+    # empty: new machine, filled old machine -> created by the server
+    uuid = Column(String, nullable=True)
 
-    machine_system = Column(String, nullable=False)       # platform.system()
-    machine_mac_address = Column(String, nullable=False, unique=True)  # from getmac import get_mac_address; get_mac_address()
-    machine_node = Column(String, nullable=False)         # uuid.getnode()
-    token = Column(String, nullable=False, unique=True)                # hash of above values
+    # platform.system()
+    machine_system = Column(String, nullable=False)
+    # from getmac import get_mac_address; get_mac_address()
+    machine_mac_address = Column(String, nullable=False, unique=True)
+    # uuid.getnode()
+    machine_node = Column(String, nullable=False)
+    # hash of above values
+    token = Column(String, nullable=False, unique=True)
 
     blacklisted = Column(Boolean, default=False)
     ip_address = Column(String, nullable=False)

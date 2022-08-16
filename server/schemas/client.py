@@ -6,13 +6,13 @@ class ClientJoinRequest(BaseModel):
     mac_address: str
     node: str
 
-    public_key: str
+    public_key: str  # b64encoded bytes
     version: str
 
 
 class ClientJoinResponse(BaseModel):
-    uuid: str
-    token: str
+    uuid: str        # b64encoded bytes
+    token: str       # b64encoded bytes
     public_key: str
 
 
