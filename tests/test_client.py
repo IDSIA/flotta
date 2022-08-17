@@ -8,7 +8,7 @@ from sqlalchemy.orm import close_all_sessions
 from fastapi.testclient import TestClient
 from base64 import b64encode, b64decode
 
-from ferdelance.database import SessionLocal
+from ferdelance.database import SessionLocal, crud
 from ferdelance.database.settings import KeyValueStore
 from ferdelance.database.startup import init_content
 from ferdelance.database.tables import Client, ClientEvent
@@ -120,23 +120,24 @@ class TestClass():
         """Class teardown. This method will ensure that the database is closed and deleted from the remote dbms.
         Note that all database connections still open will be forced to close by this method.
         """
-        LOGGER.info('tearing down:')
+        LOGGER.info('tearing down')
 
         close_all_sessions()
+        LOGGER.info('database session closed')
 
         # database
         with create_engine(self.db_string_no_db, isolation_level='AUTOCOMMIT').connect() as db:
             db.execute(f"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{DB_NAME}' AND pid <> pg_backend_pid()")
             db.execute(f'DROP DATABASE {DB_NAME}')
 
-        LOGGER.info('\nteardown completed\n')
+        LOGGER.info('teardown completed')
 
     def test_read_home(self):
         """Generic test to check if the home works."""
         response = self.client.get('/')
 
         assert response.status_code == 200
-        assert response.content.decode('utf-8') == '"Hi! 😀"'
+        assert response.content.decode('utf8') == '"Hi! 😀"'
 
     def test_client_connect_successfull(self):
         """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
@@ -148,13 +149,13 @@ class TestClass():
 
         Then the server will answer with:
         - an encrypted token
-        - an encrypted uuid
+        - an encrypted client id
         - a public key in str format
         """
 
         data = {
             'system': 'Linux',
-            'mac_address': 'BE-32-57-6C-04-E2',
+            'mac_address': 'BE:32:57:6C:04:E2',
             'node': 2485378023427,
             'public_key': b64encode(self.public_key).decode('utf8'),
             'version': 'test'
@@ -166,12 +167,12 @@ class TestClass():
 
         json_data = response.json()
 
-        client_uuid = decrypt(self.private_key, json_data['uuid'])
+        client_id = decrypt(self.private_key, json_data['id'])
         client_token = decrypt(self.private_key, json_data['token'])
         server_public_key: bytes = json_data['public_key']
 
         with SessionLocal() as db:
-            db_client: Client = db.query(Client).filter(Client.uuid == client_uuid).first()
+            db_client: Client = crud.get_client_by_token(db, client_token)
 
             assert db_client is not None
             assert db_client.token == client_token
@@ -181,17 +182,17 @@ class TestClass():
 
             assert server_public_key_db == server_public_key
 
-            db_event: ClientEvent = db.query(ClientEvent).filter(ClientEvent.client_id == db_client.client_id).first()
+            db_events: list[ClientEvent] = crud.get_all_client_events(db, db_client)
 
-            assert db_event is not None
-            assert db_event.event == 'creation'
+            assert len(db_events) == 1
+            assert db_events[0].event == 'creation'
 
     def test_client_already_exists(self):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
 
         data = {
             'system': 'Linux',
-            'mac_address': '0D-7F-F4-EC-E1-8C',
+            'mac_address': '0D:7F:F4:EC:E1:8C',
             'node': 1915678177824,
             'public_key': b64encode(self.public_key).decode('utf8'),
             'version': 'test'
@@ -210,3 +211,41 @@ class TestClass():
         """This test will send invalid data to the server."""
         # TODO: what kind of data is invalid? Public key format? MAC address? Version mismatch?
         pass
+
+    def test_client_keep_alive(self):
+        data = {
+            'system': 'Linux',
+            'mac_address': 'F2:D7:02:D1:5C:C1',
+            'node': 1968488023114,
+            'public_key': b64encode(self.public_key).decode('utf8'),
+            'version': 'test'
+        }
+
+        response_join = self.client.post('/client/join', json=data)
+
+        assert response_join.status_code == 200
+        LOGGER.info('sucessfully created new client')
+
+        json_data = response_join.json()
+        client_id = decrypt(self.private_key, json_data['id'])
+        client_token = decrypt(self.private_key, json_data['token'])
+
+        response_update = self.client.get('/client/update', json={}, headers={'Authorization': f'Bearer {client_token}'})
+
+        LOGGER.info(f'response_update={response_update.json()}')
+
+        assert response_update.status_code == 200
+        assert response_update.json()['action'] == 'nothing'
+
+        with SessionLocal() as db:
+            db_client: Client = crud.get_client_by_token(db, client_token)
+
+            assert db_client is not None
+            assert db_client.token == client_token
+
+            db_events: list[str] = [c.event for c in crud.get_all_client_events(db, db_client)]
+
+            assert len(db_events) == 3
+            assert 'creation' in db_events
+            assert 'update' in db_events
+            assert 'action:nothing' in db_events

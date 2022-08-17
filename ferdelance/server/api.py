@@ -1,11 +1,10 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, Depends
 
 import uvicorn
 
 from . import security
-from .middleware import SecurityMiddleware
 from .routes.client import client_router
-from ..database import get_db, SessionLocal, crud, startup, Session
+from ..database import get_db, SessionLocal, startup, Session
 
 import logging
 
@@ -15,7 +14,6 @@ LOGGER = logging.getLogger(__name__)
 def init_api() -> FastAPI:
     api = FastAPI()
     
-    api.add_middleware(SecurityMiddleware, skip_paths=['/', '/client/join'])
     api.include_router(client_router)
 
     return api
@@ -25,7 +23,7 @@ api = init_api()
 
 @api.on_event('startup')
 async def populate_database() -> None:
-    """All operations marked as ``on_event('startup')`` are executed when the API are started."""
+    """All operations marked as `on_event('startup')` are executed when the API are started."""
     try:
         db = SessionLocal()
         startup.init_content(db)

@@ -11,7 +11,7 @@ class ClientJoinRequest(BaseModel):
 
 
 class ClientJoinResponse(BaseModel):
-    uuid: str        # b64encoded bytes
+    id: str          # b64encoded bytes
     token: str       # b64encoded bytes
     public_key: str
 
@@ -29,4 +29,5 @@ class ClientUpdateRequest(BaseModel):
 
 
 class ClientUpdateResponse(BaseModel):
-    pass
+    action: str
+    endpoint: str

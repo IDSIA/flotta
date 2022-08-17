@@ -34,10 +34,9 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             LOGGER.warning('Token not in header')
             raise HTTPException(403)
 
-        db = SessionLocal()
-
-        if not check_token(db, headers['Token']):
-            LOGGER.warning('Invalid token received')
-            raise HTTPException(403)
+        with SessionLocal() as db:
+            if not check_token(db, headers['X-Token']):
+                LOGGER.warning('Invalid token received')
+                raise HTTPException(403)
 
         return await call_next(request)

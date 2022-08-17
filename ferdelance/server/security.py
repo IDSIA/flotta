@@ -3,11 +3,15 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_ssh_public_key
 
+from fastapi.security import HTTPBasicCredentials, HTTPBearer
+from fastapi import Depends, HTTPException
+
 from base64 import b64encode, b64decode
 from hashlib import sha256
 from sqlalchemy.orm import Session
 from time import time
 
+from ..database import SessionLocal, crud
 from ..database.settings import KeyValueStore
 from ..database.tables import Client
 from .schemas.client import ClientJoinRequest
@@ -85,24 +89,26 @@ def generate_keys(db: Session) -> None:
     LOGGER.info('Keys generation completed')
 
 
-def generate_token(client: ClientJoinRequest, client_uuid: str=None) -> tuple[str, str]:
+def generate_token(client: ClientJoinRequest, client_id: str=None) -> tuple[str, str]:
     """Generates a client token with the data received from the client.
 
     :param client:
         Data received from the outside.
     """
-    if client_uuid is None:
-        client_uuid = str(uuid.uuid4())
+    LOGGER.info('generating token for new client')
+
+    if client_id is None:
+        client_id = str(uuid.uuid4())
     ms = round(time() * 1000)
 
-    token: bytes = f'{client_uuid}~{client.system}${client.mac_address}£{client.node}={ms};'.encode('utf8')
+    token: bytes = f'{client_id}~{client.system}${client.mac_address}£{client.node}={ms};'.encode('utf8')
     token: bytes = sha256(token).hexdigest().encode('utf8')
     token: str = sha256(token).hexdigest()
 
-    return token, client_uuid
+    return token, client_id
 
 
-def check_token(db: Session, token: str) -> bool:
+def check_token(credentials: HTTPBasicCredentials=Depends(HTTPBearer())) -> Client:
     """Check if the given token exists in the database.
 
     :param db:
@@ -112,10 +118,19 @@ def check_token(db: Session, token: str) -> bool:
     :return:
         True if the token is valid, otherwise false.
     """
+    token = credentials.credentials
 
-    db_client = db.query(Client).filter(Client.token == token).first()
+    with SessionLocal() as db:
+        db_client = crud.get_client_by_token(db, token)
 
-    return db_client is not None
+        if db_client is None:
+            LOGGER.warning('received invalid token')
+            raise HTTPException(401, 'Invalid access token', headers={
+                'WWW-Authenticate': 'Bearer'
+            })
+        
+        LOGGER.info('received valid token')
+        return db_client
 
 
 def get_server_public_key(db: Session) -> str:
@@ -172,4 +187,3 @@ def decrypt(db: Session, text: str) -> str:
     plain_text: bytes = pk.decrypt(enc_text, padding.PKCS1v15())
     ret_text: str = plain_text.decode('utf8')
     return ret_text
-
