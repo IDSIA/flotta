@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 
-from database import Session, get_db
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from database import get_db, crud
 from database.tables import Client
 from ..schemas.client import *
 from ..security import generate_token, get_server_public_key, encrypt, get_client_public_key
@@ -33,8 +36,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session=D
             ip_address=ip_address
         )
 
-        db.add(db_client)
-        db.commit()
+        db_client = crud.create_user(db, db_client)
 
         return ClientJoinResponse(
             uuid=encrypt(client_public_key, client_uuid),
@@ -42,10 +44,14 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session=D
             public_key=get_server_public_key(db)
         )
 
-    except Exception as e:
+    except SQLAlchemyError as e:
         LOGGER.exception(e)
-        LOGGER.error('Client already exists')
-        raise HTTPException(403)
+        LOGGER.exception('Database error')
+        raise HTTPException(500, detail='Internal error')
+
+    except ValueError as e:
+        LOGGER.exception(e)
+        raise HTTPException(403, detail='Invalid client data')
 
 
 @client_router.post('/client/leave', response_model=ClientLeaveResponse)

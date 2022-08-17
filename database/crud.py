@@ -7,13 +7,22 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def create_user(db: Session, version: str, public_key: str) -> Client:
-    LOGGER.info(f'creating new user with version={version}')
+def create_user(db: Session, client: Client) -> Client:
+    LOGGER.info(f'creating new user with version={client.version}')
 
-    db_client = Client(version=version, public_key=public_key)
+    exists = (
+        db.query(Client.client_id)
+            .filter(
+                (Client.machine_mac_address == client.machine_mac_address) |
+                (Client.machine_node == client.machine_node)
+            )
+            .first() is not None
+    )
+    if exists:
+        raise ValueError('Client already exists')
 
-    db.add(db_client)
+    db.add(client)
     db.commit()
-    db.refresh(db_client)
+    db.refresh(client)
 
-    return db_client
+    return client

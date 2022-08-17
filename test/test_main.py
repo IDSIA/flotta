@@ -153,6 +153,7 @@ class TestClass():
         - an encrypted uuid
         - a public key in str format
         """
+
         data = {
             'system': 'Linux',
             'mac_address': 'BE-32-57-6C-04-E2',
@@ -183,8 +184,26 @@ class TestClass():
             assert server_public_key_db == server_public_key
 
     def test_client_already_exists(self):
-        
-        pass
+        """This test will send twice the access information and expect the second time to receive a 403 error."""
+
+        data = {
+            'system': 'Linux',
+            'mac_address': '0D-7F-F4-EC-E1-8C',
+            'node': 1915678177824,
+            'public_key': b64encode(self.public_key).decode('utf8'),
+            'version': 'test'
+        }
+
+        response = self.client.post('/client/join', json=data)
+
+        assert response.status_code == 200
+
+        response = self.client.post('/client/join', json=data)
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'Invalid client data'
 
     def test_client_invalid_data(self):
+        """This test will send invalid data to the server."""
+        # TODO: what kind of data is invalid? Public key format? MAC address? Version mismatch?
         pass

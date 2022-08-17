@@ -85,18 +85,19 @@ def generate_keys(db: Session) -> None:
     LOGGER.info('Keys generation completed')
 
 
-def generate_token(client: ClientJoinRequest) -> tuple[str, str]:
+def generate_token(client: ClientJoinRequest, client_uuid: str=None) -> tuple[str, str]:
     """Generates a client token with the data received from the client.
 
     :param client:
         Data received from the outside.
     """
-    client_uuid = str(uuid.uuid4())
+    if client_uuid is None:
+        client_uuid = str(uuid.uuid4())
     ms = round(time() * 1000)
 
-    token = f'{client_uuid}~{client.system}${client.mac_address}£{client.node}={ms};'
-    token = sha256().hexdigest().encode('utf8')
-    token = sha256(token).hexdigest()
+    token: bytes = f'{client_uuid}~{client.system}${client.mac_address}£{client.node}={ms};'.encode('utf8')
+    token: bytes = sha256(token).hexdigest().encode('utf8')
+    token: str = sha256(token).hexdigest()
 
     return token, client_uuid
 
