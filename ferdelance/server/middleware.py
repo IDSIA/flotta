@@ -5,7 +5,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from .security import check_token
-from database import SessionLocal
+from ..database import SessionLocal
 
 import logging
 

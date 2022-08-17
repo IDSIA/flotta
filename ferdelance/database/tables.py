@@ -1,5 +1,3 @@
-from datetime import datetime
-from ipaddress import ip_address
 from sqlalchemy import Column, ForeignKey, String, Float, DateTime, Integer, Boolean, Date
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship

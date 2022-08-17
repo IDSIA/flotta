@@ -3,14 +3,15 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from database import get_db, crud
-from database.tables import Client
+from ...database import get_db, crud
+from ...database.tables import Client
 from ..schemas.client import *
 from ..security import generate_token, get_server_public_key, encrypt, get_client_public_key
 
 import logging
 
 LOGGER = logging.getLogger(__name__)
+
 
 client_router = APIRouter()
 

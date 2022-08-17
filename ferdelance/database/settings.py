@@ -1,7 +1,7 @@
-from .tables import Setting
-
 from cryptography.fernet import Fernet
 from sqlalchemy.orm import Session
+
+from .tables import Setting
 
 import base64
 import os

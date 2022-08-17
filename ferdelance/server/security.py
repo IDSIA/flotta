@@ -8,8 +8,8 @@ from hashlib import sha256
 from sqlalchemy.orm import Session
 from time import time
 
-from database.settings import KeyValueStore
-from database.tables import Client
+from ..database.settings import KeyValueStore
+from ..database.tables import Client
 from .schemas.client import ClientJoinRequest
 
 import logging

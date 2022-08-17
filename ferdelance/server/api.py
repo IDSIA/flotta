@@ -2,12 +2,10 @@ from fastapi import FastAPI, HTTPException, Depends
 
 import uvicorn
 
-from server.middleware import SecurityMiddleware
-
-from database import get_db, SessionLocal, crud, startup, Session
-
 from . import security
+from .middleware import SecurityMiddleware
 from .routes.client import client_router
+from ..database import get_db, SessionLocal, crud, startup, Session
 
 import logging
 

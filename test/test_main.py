@@ -8,13 +8,12 @@ from sqlalchemy.orm import close_all_sessions
 from fastapi.testclient import TestClient
 from base64 import b64encode, b64decode
 
-from database import SessionLocal
-from database.settings import KeyValueStore
-from database.startup import init_content
-from database. tables import Client
-
-from server.api import api
-from server.security import PUBLIC_KEY, generate_keys, decrypt
+from ferdelance.database import SessionLocal
+from ferdelance.database.settings import KeyValueStore
+from ferdelance.database.startup import init_content
+from ferdelance.database. tables import Client
+from ferdelance.server.api import api
+from ferdelance.server.security import PUBLIC_KEY, generate_keys, decrypt
 
 import logging
 import pytest
