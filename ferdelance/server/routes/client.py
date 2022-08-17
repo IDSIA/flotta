@@ -39,6 +39,8 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session=D
 
         db_client = crud.create_user(db, db_client)
 
+        crud.create_client_event(db, db_client, 'creation')
+
         return ClientJoinResponse(
             uuid=encrypt(client_public_key, client_uuid),
             token=encrypt(client_public_key, token),

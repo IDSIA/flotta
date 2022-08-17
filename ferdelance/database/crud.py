@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from .tables import Client
+from .tables import Client, ClientEvent
 
 import os
 import logging
@@ -26,3 +26,18 @@ def create_user(db: Session, client: Client) -> Client:
     db.refresh(client)
 
     return client
+
+
+def create_client_event(db: Session, client: Client, event: str) -> ClientEvent:
+    LOGGER.info(f'creating new client_event for client_id={client.client_id} event={event}')
+
+    db_client_event = ClientEvent(
+        client_id=client.client_id,
+        event=event
+    )
+
+    db.add(db_client_event)
+    db.commit()
+    db.refresh(db_client_event)
+
+    return db_client_event

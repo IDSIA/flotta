@@ -36,3 +36,15 @@ class Client(Base):
 
     blacklisted = Column(Boolean, default=False)
     ip_address = Column(String, nullable=False)
+
+
+class ClientEvent(Base):
+    """Table that collect all the event from the clients."""
+    __tablename__ = 'client_events'
+    
+    event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    client_id = Column(Integer, ForeignKey('clients.client_id'))
+    event_time = Column(DateTime(timezone=True), server_default=now())
+    event = Column(String, nullable=False)
+
+    client = relationship('Client')

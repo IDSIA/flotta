@@ -11,7 +11,7 @@ from base64 import b64encode, b64decode
 from ferdelance.database import SessionLocal
 from ferdelance.database.settings import KeyValueStore
 from ferdelance.database.startup import init_content
-from ferdelance.database. tables import Client
+from ferdelance.database.tables import Client, ClientEvent
 from ferdelance.server.api import api
 from ferdelance.server.security import PUBLIC_KEY, generate_keys, decrypt
 
@@ -180,6 +180,11 @@ class TestClass():
             server_public_key_db: str = kvs.get_str(PUBLIC_KEY)
 
             assert server_public_key_db == server_public_key
+
+            db_event: ClientEvent = db.query(ClientEvent).filter(ClientEvent.client_id == db_client.client_id).first()
+
+            assert db_event is not None
+            assert db_event.event == 'creation'
 
     def test_client_already_exists(self):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
