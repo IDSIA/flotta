@@ -16,7 +16,6 @@ from ferdelance.server.api import api
 from ferdelance.server.security import PUBLIC_KEY, generate_keys, decrypt
 
 import logging
-import pytest
 import uuid
 import os
 
@@ -86,7 +85,7 @@ class TestClass():
             generate_keys(db)
 
         # rsa keys
-        PATH_PRIVATE_KEY = os.path.join('test', 'private_key.pem')
+        PATH_PRIVATE_KEY = os.path.join('tests', 'private_key.pem')
 
         if not os.path.exists(PATH_PRIVATE_KEY):
             self.private_key: rsa.RSAPrivateKey = rsa.generate_private_key(
