@@ -23,4 +23,4 @@ WORKDIR /spearhead
 COPY server/ server/
 COPY database/ database/
 
-CMD ["uvicorn", "server.routes:api", "--host", "0.0.0.0", "--port", "1456"]
+CMD ["uvicorn", "server.api:api", "--host", "0.0.0.0", "--port", "1456"]

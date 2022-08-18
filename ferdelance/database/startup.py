@@ -1,9 +1,10 @@
-from .tables import Client, Setting
+from .tables import Client, ClientEvent, ClientToken, Setting
 
 from sqlalchemy.orm import Session
 
 import logging
 
+LOGGER = logging.getLogger(__name__)
 
 def init_content(db: Session) -> None:
     """Initialize all tables in the database.
@@ -18,5 +19,9 @@ def init_content(db: Session) -> None:
 
     Client.__table__.create(bind=engine, checkfirst=True)
     Setting.__table__.create(bind=engine, checkfirst=True)
+    ClientToken.__table__.create(bind=engine, checkfirst=True)
+    ClientEvent.__table__.create(bind=engine, checkfirst=True)
 
-    logging.info('Database creation completed')
+    db.commit()
+
+    LOGGER.info('Database creation completed')
