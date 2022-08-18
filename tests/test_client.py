@@ -15,6 +15,7 @@ from ferdelance.database.tables import Client, ClientEvent
 from ferdelance.server.api import api
 from ferdelance.server.security import PUBLIC_KEY, generate_keys, decrypt
 
+import random
 import logging
 import uuid
 import os
@@ -52,7 +53,7 @@ def decrypt(pk: rsa.RSAPrivateKey, text: str) -> str:
     return ret_text
 
 
-class TestClass():
+class TestClientClass():
 
     def setup_class(self):
         """Class setup. This will be executed once each test. The setup will:
@@ -114,6 +115,8 @@ class TestClass():
             format=serialization.PublicFormat.OpenSSH,
         )
 
+        random.seed(42)
+
         LOGGER.info('setup completed')
 
     def teardown_class(self):
@@ -172,10 +175,14 @@ class TestClass():
         server_public_key: bytes = json_data['public_key']
 
         with SessionLocal() as db:
-            db_client: Client = crud.get_client_by_token(db, client_token)
+            db_client = crud.get_client_by_client_id(db, client_id)
+            db_token = crud.get_client_token_by_client_id(db, client_id)
 
             assert db_client is not None
-            assert db_client.token == client_token
+            assert db_client.active is True
+            assert db_token is not None
+            assert db_token.token == client_token
+            assert db_token.valid is True
 
             kvs = KeyValueStore(db)
             server_public_key_db: str = kvs.get_str(PUBLIC_KEY)
@@ -187,20 +194,50 @@ class TestClass():
             assert len(db_events) == 1
             assert db_events[0].event == 'creation'
 
-    def test_client_already_exists(self):
-        """This test will send twice the access information and expect the second time to receive a 403 error."""
+    def _create_client(self) -> tuple[str, str]:
+        """Creates and register a new client with random mac_address and node.
+        :return:
+            Client id and token for this new client.
+        """
+
+        mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
 
         data = {
             'system': 'Linux',
-            'mac_address': '0D:7F:F4:EC:E1:8C',
-            'node': 1915678177824,
+            'mac_address': mac_address,
+            'node': node,
             'public_key': b64encode(self.public_key).decode('utf8'),
             'version': 'test'
         }
 
-        response = self.client.post('/client/join', json=data)
+        response_join = self.client.post('/client/join', json=data)
 
-        assert response.status_code == 200
+        assert response_join.status_code == 200
+
+        json_data = response_join.json()
+        client_id = decrypt(self.private_key, json_data['id'])
+        client_token = decrypt(self.private_key, json_data['token'])
+
+        LOGGER.info(f'sucessfully created new client with client_id={client_id}')
+        
+        return client_id, client_token
+
+    def test_client_already_exists(self):
+        """This test will send twice the access information and expect the second time to receive a 403 error."""
+
+        client_id, _ = self._create_client()
+
+        with SessionLocal() as db:
+            client = crud.get_client_by_client_id(db, client_id)
+
+            data = {
+                'system': client.machine_system,
+                'mac_address': client.machine_mac_address,
+                'node': client.machine_node,
+                'public_key': b64encode(self.public_key).decode('utf8'),
+                'version': 'test'
+            }
 
         response = self.client.post('/client/join', json=data)
 
@@ -213,22 +250,9 @@ class TestClass():
         pass
 
     def test_client_keep_alive(self):
-        data = {
-            'system': 'Linux',
-            'mac_address': 'F2:D7:02:D1:5C:C1',
-            'node': 1968488023114,
-            'public_key': b64encode(self.public_key).decode('utf8'),
-            'version': 'test'
-        }
+        """This will test the endpoint for updates."""
 
-        response_join = self.client.post('/client/join', json=data)
-
-        assert response_join.status_code == 200
-        LOGGER.info('sucessfully created new client')
-
-        json_data = response_join.json()
-        client_id = decrypt(self.private_key, json_data['id'])
-        client_token = decrypt(self.private_key, json_data['token'])
+        client_id, client_token = self._create_client()
 
         response_update = self.client.get('/client/update', json={}, headers={'Authorization': f'Bearer {client_token}'})
 
@@ -238,10 +262,9 @@ class TestClass():
         assert response_update.json()['action'] == 'nothing'
 
         with SessionLocal() as db:
-            db_client: Client = crud.get_client_by_token(db, client_token)
+            db_client: Client = crud.get_client_by_client_id(db, client_id)
 
             assert db_client is not None
-            assert db_client.token == client_token
 
             db_events: list[str] = [c.event for c in crud.get_all_client_events(db, db_client)]
 

@@ -13,7 +13,7 @@ from time import time
 
 from ..database import SessionLocal, crud
 from ..database.settings import KeyValueStore
-from ..database.tables import Client
+from ..database.tables import Client, ClientToken
 from .schemas.client import ClientJoinRequest
 
 import logging
@@ -89,7 +89,7 @@ def generate_keys(db: Session) -> None:
     LOGGER.info('Keys generation completed')
 
 
-def generate_token(client: ClientJoinRequest, client_id: str=None) -> tuple[str, str]:
+def generate_token(client: ClientJoinRequest, client_id: str=None) -> ClientToken:
     """Generates a client token with the data received from the client.
 
     :param client:
@@ -105,10 +105,14 @@ def generate_token(client: ClientJoinRequest, client_id: str=None) -> tuple[str,
     token: bytes = sha256(token).hexdigest().encode('utf8')
     token: str = sha256(token).hexdigest()
 
-    return token, client_id
+    return ClientToken(
+        token=token,
+        client_id=client_id,
+        expiration_time=None,
+    )
 
 
-def check_token(credentials: HTTPBasicCredentials=Depends(HTTPBearer())) -> Client:
+def check_token(credentials: HTTPBasicCredentials=Depends(HTTPBearer())) -> str:
     """Check if the given token exists in the database.
 
     :param db:
@@ -121,16 +125,23 @@ def check_token(credentials: HTTPBasicCredentials=Depends(HTTPBearer())) -> Clie
     token = credentials.credentials
 
     with SessionLocal() as db:
-        db_client = crud.get_client_by_token(db, token)
+        client_token: ClientToken = crud.get_client_token_by_token(db, token)
 
-        if db_client is None:
+        token_is_none = client_token is None
+        token_is_not_valid = client_token.valid is False
+
+        # TODO: add expiration to token, and also an endpoint to update the token using an expired one
+
+        if any([token_is_none, token_is_not_valid]):
             LOGGER.warning('received invalid token')
             raise HTTPException(401, 'Invalid access token', headers={
                 'WWW-Authenticate': 'Bearer'
             })
         
-        LOGGER.info('received valid token')
-        return db_client
+        client_id = client_token.client_id
+        
+        LOGGER.info(f'received valid token for client_id={client_id}')
+        return client_id
 
 
 def get_server_public_key(db: Session) -> str:

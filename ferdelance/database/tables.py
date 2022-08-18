@@ -29,10 +29,27 @@ class Client(Base):
     # uuid.getnode()
     machine_node = Column(String, nullable=False)
     # hash of above values
-    token = Column(String, nullable=False, index=True, unique=True)
+    # token = Column(String, nullable=False, index=True, unique=True)
 
+    active = Column(Boolean, default= True)
     blacklisted = Column(Boolean, default=False)
     ip_address = Column(String, nullable=False)
+
+
+class ClientToken(Base):
+    """Table that collect all used tokens for the clients.
+    If an invalid token is reused, the client could be blacklisted (or updated).
+    """
+    __tablename__ = 'client_tokens'
+
+    token_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    token = Column(String, nullable=False, index=True, unique=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    expiration_time = Column(DateTime(timezone=True))
+    valid = Column(Boolean, default=True)
+
+    client_id = Column(String, ForeignKey('clients.client_id'))
+    client = relationship('Client')
 
 
 class ClientEvent(Base):
@@ -40,8 +57,8 @@ class ClientEvent(Base):
     __tablename__ = 'client_events'
     
     event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    client_id = Column(String, ForeignKey('clients.client_id'))
     event_time = Column(DateTime(timezone=True), server_default=now())
     event = Column(String, nullable=False)
 
+    client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')

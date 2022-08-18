@@ -1,4 +1,4 @@
-from .tables import Client, ClientEvent, Setting
+from .tables import Client, ClientEvent, ClientToken, Setting
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ def init_content(db: Session) -> None:
 
     Client.__table__.create(bind=engine, checkfirst=True)
     Setting.__table__.create(bind=engine, checkfirst=True)
+    ClientToken.__table__.create(bind=engine, checkfirst=True)
     ClientEvent.__table__.create(bind=engine, checkfirst=True)
 
     db.commit()
