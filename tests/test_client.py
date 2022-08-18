@@ -135,6 +135,38 @@ class TestClientClass():
 
         LOGGER.info('teardown completed')
 
+    def _create_client(self) -> tuple[str, str]:
+        """Creates and register a new client with random mac_address and node.
+        :return:
+            Client id and token for this new client.
+        """
+
+        mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
+
+        data = {
+            'system': 'Linux',
+            'mac_address': mac_address,
+            'node': node,
+            'public_key': b64encode(self.public_key).decode('utf8'),
+            'version': 'test'
+        }
+
+        response_join = self.client.post('/client/join', json=data)
+
+        assert response_join.status_code == 200
+
+        json_data = response_join.json()
+        client_id = decrypt(self.private_key, json_data['id'])
+        client_token = decrypt(self.private_key, json_data['token'])
+
+        LOGGER.info(f'sucessfully created new client with client_id={client_id}')
+        
+        return client_id, client_token
+
+    def _headers(self, token) -> dict[str, str]:
+        return {'Authorization': f'Bearer {token}'}
+
     def test_read_home(self):
         """Generic test to check if the home works."""
         response = self.client.get('/')
@@ -175,7 +207,7 @@ class TestClientClass():
         server_public_key: bytes = json_data['public_key']
 
         with SessionLocal() as db:
-            db_client = crud.get_client_by_client_id(db, client_id)
+            db_client = crud.get_client_by_id(db, client_id)
             db_token = crud.get_client_token_by_client_id(db, client_id)
 
             assert db_client is not None
@@ -194,42 +226,13 @@ class TestClientClass():
             assert len(db_events) == 1
             assert db_events[0].event == 'creation'
 
-    def _create_client(self) -> tuple[str, str]:
-        """Creates and register a new client with random mac_address and node.
-        :return:
-            Client id and token for this new client.
-        """
-
-        mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
-
-        data = {
-            'system': 'Linux',
-            'mac_address': mac_address,
-            'node': node,
-            'public_key': b64encode(self.public_key).decode('utf8'),
-            'version': 'test'
-        }
-
-        response_join = self.client.post('/client/join', json=data)
-
-        assert response_join.status_code == 200
-
-        json_data = response_join.json()
-        client_id = decrypt(self.private_key, json_data['id'])
-        client_token = decrypt(self.private_key, json_data['token'])
-
-        LOGGER.info(f'sucessfully created new client with client_id={client_id}')
-        
-        return client_id, client_token
-
     def test_client_already_exists(self):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
 
         client_id, _ = self._create_client()
 
         with SessionLocal() as db:
-            client = crud.get_client_by_client_id(db, client_id)
+            client = crud.get_client_by_id(db, client_id)
 
             data = {
                 'system': client.machine_system,
@@ -252,9 +255,9 @@ class TestClientClass():
     def test_client_keep_alive(self):
         """This will test the endpoint for updates."""
 
-        client_id, client_token = self._create_client()
+        client_id, token = self._create_client()
 
-        response_update = self.client.get('/client/update', json={}, headers={'Authorization': f'Bearer {client_token}'})
+        response_update = self.client.get('/client/update', json={}, headers=self._headers(token))
 
         LOGGER.info(f'response_update={response_update.json()}')
 
@@ -262,7 +265,7 @@ class TestClientClass():
         assert response_update.json()['action'] == 'nothing'
 
         with SessionLocal() as db:
-            db_client: Client = crud.get_client_by_client_id(db, client_id)
+            db_client: Client = crud.get_client_by_id(db, client_id)
 
             assert db_client is not None
 
@@ -272,3 +275,31 @@ class TestClientClass():
             assert 'creation' in db_events
             assert 'update' in db_events
             assert 'action:nothing' in db_events
+
+    def test_client_leave(self):
+        """This will test the endpoint for leave a client."""
+        client_id, token = self._create_client()
+
+        response_leave = self.client.post('/client/leave', json={}, headers=self._headers(token))
+
+        LOGGER.info(f'response_leave={response_leave}')
+
+        assert response_leave.status_code == 200
+
+        # cannot get other updates
+        response_update = self.client.get('/client/update', json={}, headers=self._headers(token))
+
+        assert response_update.status_code == 403
+
+        with SessionLocal() as db:
+            db_client: Client = crud.get_client_by_id(db, client_id)
+
+            assert db_client is not None
+            assert db_client.active is False
+            assert db_client.left is True
+
+            db_events: list[str] = [c.event for c in crud.get_all_client_events(db, db_client)]
+
+            assert 'creation' in db_events
+            assert 'left' in db_events
+            assert 'update' not in db_events

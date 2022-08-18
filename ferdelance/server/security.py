@@ -127,16 +127,15 @@ def check_token(credentials: HTTPBasicCredentials=Depends(HTTPBearer())) -> str:
     with SessionLocal() as db:
         client_token: ClientToken = crud.get_client_token_by_token(db, token)
 
-        token_is_none = client_token is None
-        token_is_not_valid = client_token.valid is False
-
         # TODO: add expiration to token, and also an endpoint to update the token using an expired one
 
-        if any([token_is_none, token_is_not_valid]):
+        if client_token is None:
+            LOGGER.warning('received token does not exist in database')
+            raise HTTPException(401, 'Invalid access token')
+
+        if not client_token.valid:
             LOGGER.warning('received invalid token')
-            raise HTTPException(401, 'Invalid access token', headers={
-                'WWW-Authenticate': 'Bearer'
-            })
+            raise HTTPException(403, 'Permission denied')
         
         client_id = client_token.client_id
         

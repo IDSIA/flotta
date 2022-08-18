@@ -29,7 +29,17 @@ def create_client(db: Session, client: Client) -> Client:
     return client
 
 
-def get_client_by_client_id(db: Session, client_id: str) -> Client:
+def client_leave(db: Session, client_id: str) -> Client:
+    db.query(Client).filter(Client.client_id == client_id).update({
+        'active': False,
+        'left': True,
+    })
+    db.query(ClientToken).filter(ClientToken.client_id == client_id).update({
+        'valid': False,
+    })
+
+
+def get_client_by_id(db: Session, client_id: str) -> Client:
     return db.query(Client).filter(Client.client_id == client_id).first()
 
 

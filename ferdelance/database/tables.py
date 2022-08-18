@@ -33,6 +33,7 @@ class Client(Base):
 
     active = Column(Boolean, default= True)
     blacklisted = Column(Boolean, default=False)
+    left = Column(Boolean, default=False)
     ip_address = Column(String, nullable=False)
 
 

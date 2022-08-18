@@ -60,14 +60,15 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session=D
 
 
 @client_router.post('/client/leave', response_model=ClientLeaveResponse)
-async def client_leave(client: ClientLeaveRequest, db: Session=Depends(get_db), db_client: Client=Depends(check_token)):
+async def client_leave(client: ClientLeaveRequest, db: Session=Depends(get_db), client_id: Client=Depends(check_token)):
     """API for existing client to be removed"""
 
-    # check that client exists
+    LOGGER.info(f'leave requerst for client_id={client_id}')
 
-    # Delete it
+    crud.client_leave(db, client_id)
+    crud.create_client_event(db, client_id, 'left')
 
-    return
+    return ClientLeaveResponse()
 
 
 @client_router.get('/client/update', response_model=ClientUpdateResponse)
