@@ -9,6 +9,7 @@ from ..schemas.client import *
 from ..security import generate_token, get_server_public_key, encrypt, get_client_public_key, check_token
 
 import logging
+import json
 
 LOGGER = logging.getLogger(__name__)
 
@@ -83,10 +84,16 @@ async def client_update(client: ClientUpdateRequest, db: Session=Depends(get_db)
     LOGGER.info(f'keep alive from client_id={client_id}')
     crud.create_client_event(db, client_id, 'update')
 
-    return action_nothing(db, client_id)
+    client = crud.get_client_by_id(db, client_id)
+    public_key = get_client_public_key(client)
+    payload = action_nothing(db, client_id)
+
+    return ClientUpdateResponse(
+        payload=encrypt(public_key, json.dumps(payload))
+    )
 
 
-def action_nothing(db: Session, client_id: str) -> ClientUpdateResponse:
+def action_nothing(db: Session, client_id: str) -> dict[str, str]:
     """When a client receives this action, he does nothing and waits for the next update request."""
 
     # TODO: move actions in another file!
@@ -94,8 +101,8 @@ def action_nothing(db: Session, client_id: str) -> ClientUpdateResponse:
     LOGGER.info(f'sending action=nothing to client_id={client_id}')
     crud.create_client_event(db, client_id, 'action:nothing')
 
-    return ClientUpdateResponse(
-        action='nothing',
-        endpoint='/client/update',
-    )
+    return{
+        'action': 'nothing',
+        'endpoint': '/client/update',
+    }
 

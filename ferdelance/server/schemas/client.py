@@ -29,5 +29,4 @@ class ClientUpdateRequest(BaseModel):
 
 
 class ClientUpdateResponse(BaseModel):
-    action: str
-    endpoint: str
+    payload: str

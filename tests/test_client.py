@@ -15,6 +15,7 @@ from ferdelance.database.tables import Client, ClientEvent
 from ferdelance.server.api import api
 from ferdelance.server.security import PUBLIC_KEY, generate_keys, decrypt
 
+import json
 import random
 import logging
 import uuid
@@ -135,7 +136,7 @@ class TestClientClass():
 
         LOGGER.info('teardown completed')
 
-    def _create_client(self) -> tuple[str, str]:
+    def _create_client(self, ret_server_key: bool=False) -> tuple[str, str]|tuple[str, str, bytes]:
         """Creates and register a new client with random mac_address and node.
         :return:
             Client id and token for this new client.
@@ -162,6 +163,10 @@ class TestClientClass():
 
         LOGGER.info(f'sucessfully created new client with client_id={client_id}')
         
+        if ret_server_key:
+            server_public_key: bytes = json_data['public_key']
+            return client_id, client_token, server_public_key
+
         return client_id, client_token
 
     def _headers(self, token) -> dict[str, str]:
@@ -188,23 +193,7 @@ class TestClientClass():
         - a public key in str format
         """
 
-        data = {
-            'system': 'Linux',
-            'mac_address': 'BE:32:57:6C:04:E2',
-            'node': 2485378023427,
-            'public_key': b64encode(self.public_key).decode('utf8'),
-            'version': 'test'
-        }
-
-        response = self.client.post('/client/join', json=data)
-
-        assert response.status_code == 200
-
-        json_data = response.json()
-
-        client_id = decrypt(self.private_key, json_data['id'])
-        client_token = decrypt(self.private_key, json_data['token'])
-        server_public_key: bytes = json_data['public_key']
+        client_id, client_token, server_public_key = self._create_client(True)
 
         with SessionLocal() as db:
             db_client = crud.get_client_by_id(db, client_id)
@@ -252,7 +241,7 @@ class TestClientClass():
         # TODO: what kind of data is invalid? Public key format? MAC address? Version mismatch?
         pass
 
-    def test_client_keep_alive(self):
+    def test_client_update(self):
         """This will test the endpoint for updates."""
 
         client_id, token = self._create_client()
@@ -262,7 +251,11 @@ class TestClientClass():
         LOGGER.info(f'response_update={response_update.json()}')
 
         assert response_update.status_code == 200
-        assert response_update.json()['action'] == 'nothing'
+
+        payload = json.loads(decrypt(self.private_key, response_update.json()['payload']))
+
+        assert payload['action'] == 'nothing'
+        assert payload['endpoint'] == '/client/update'
 
         with SessionLocal() as db:
             db_client: Client = crud.get_client_by_id(db, client_id)
