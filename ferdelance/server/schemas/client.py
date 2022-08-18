@@ -25,7 +25,7 @@ class ClientLeaveResponse(BaseModel):
 
 
 class ClientUpdateRequest(BaseModel):
-    pass
+    payload: str
 
 
 class ClientUpdateResponse(BaseModel):

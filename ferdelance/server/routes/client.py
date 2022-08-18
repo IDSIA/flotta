@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from ...database import get_db, crud
 from ...database.tables import Client, ClientToken
+from ..actions import ActionManager
 from ..schemas.client import *
 from ..security import generate_token, get_server_public_key, encrypt, get_client_public_key, check_token
 
@@ -86,23 +87,19 @@ async def client_update(client: ClientUpdateRequest, db: Session=Depends(get_db)
 
     client = crud.get_client_by_id(db, client_id)
     public_key = get_client_public_key(client)
-    payload = action_nothing(db, client_id)
+
+    am = ActionManager()
+
+    action, data = am.next(db, client_id)
+
+    LOGGER.info(f'sending action={action} to client_id={client_id}')
+    crud.create_client_event(db, client_id, f'action:{action}')
+
+    payload = {
+        'action': action,
+        'data': data,
+    }
 
     return ClientUpdateResponse(
         payload=encrypt(public_key, json.dumps(payload))
     )
-
-
-def action_nothing(db: Session, client_id: str) -> dict[str, str]:
-    """When a client receives this action, he does nothing and waits for the next update request."""
-
-    # TODO: move actions in another file!
-
-    LOGGER.info(f'sending action=nothing to client_id={client_id}')
-    crud.create_client_event(db, client_id, 'action:nothing')
-
-    return{
-        'action': 'nothing',
-        'endpoint': '/client/update',
-    }
-

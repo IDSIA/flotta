@@ -246,7 +246,7 @@ class TestClientClass():
 
         client_id, token = self._create_client()
 
-        response_update = self.client.get('/client/update', json={}, headers=self._headers(token))
+        response_update = self.client.get('/client/update', json={'payload': ''}, headers=self._headers(token))
 
         LOGGER.info(f'response_update={response_update.json()}')
 
@@ -255,7 +255,6 @@ class TestClientClass():
         payload = json.loads(decrypt(self.private_key, response_update.json()['payload']))
 
         assert payload['action'] == 'nothing'
-        assert payload['endpoint'] == '/client/update'
 
         with SessionLocal() as db:
             db_client: Client = crud.get_client_by_id(db, client_id)
