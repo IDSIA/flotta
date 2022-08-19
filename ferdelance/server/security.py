@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException
 from base64 import b64encode, b64decode
 from hashlib import sha256
 from sqlalchemy.orm import Session
+from datetime import timedelta
 from time import time
 
 from ..database import SessionLocal, crud
@@ -58,7 +59,7 @@ def generate_keys(db: Session) -> None:
     try:
         private_key = kvs.get_bytes(PRIVATE_KEY)
         LOGGER.info('Keys are already available')
-        return 
+        return
 
     except ValueError:
         pass
@@ -89,7 +90,7 @@ def generate_keys(db: Session) -> None:
     LOGGER.info('Keys generation completed')
 
 
-def generate_token(system: str, mac_address: str, node: str, client_id: str=None) -> ClientToken:
+def generate_token(system: str, mac_address: str, node: str, client_id: str = None, exp_time: int = None) -> ClientToken:
     """Generates a client token with the data received from the client.
 
     :param client:
@@ -108,11 +109,11 @@ def generate_token(system: str, mac_address: str, node: str, client_id: str=None
     return ClientToken(
         token=token,
         client_id=client_id,
-        expiration_time=None,
+        expiration_time=exp_time,
     )
 
 
-def check_token(credentials: HTTPBasicCredentials=Depends(HTTPBearer())) -> str:
+def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer())) -> str:
     """Check if the given token exists in the database.
 
     :param db:
@@ -136,9 +137,13 @@ def check_token(credentials: HTTPBasicCredentials=Depends(HTTPBearer())) -> str:
         if not client_token.valid:
             LOGGER.warning('received invalid token')
             raise HTTPException(403, 'Permission denied')
-        
+
+        if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < time():
+            LOGGER.warning('received expired token: invalidating')
+            db.query(ClientToken).filter(ClientToken.token == client_token).update({'valid': False})
+
         client_id = client_token.client_id
-        
+
         LOGGER.info(f'received valid token for client_id={client_id}')
         return client_id
 
@@ -154,12 +159,12 @@ def get_server_public_key(db: Session) -> str:
     return kvs.get_str(PUBLIC_KEY)
 
 
-def get_client_public_key(client: Client|ClientJoinRequest) -> bytes:
+def get_client_public_key(client: Client | ClientJoinRequest) -> bytes:
     public_key: str = client.public_key
     plain_text: bytes = public_key.encode('utf8')
     b64_text: bytes = b64decode(plain_text)
     return b64_text
-    
+
 
 def encrypt(public_key: bytes, text: str) -> str:
     """Encrypt a text to be sent outside of the server.
@@ -190,7 +195,7 @@ def decrypt(db: Session, text: str) -> str:
     kvs = KeyValueStore(db)
     private_key = kvs.get_bytes(PRIVATE_KEY)
 
-    pk: rsa.RSAPrivateKey = load_pem_private_key(private_key, None,backend=default_backend())
+    pk: rsa.RSAPrivateKey = load_pem_private_key(private_key, None, backend=default_backend())
 
     b64_text: bytes = text.encode('utf8')
     enc_text: bytes = b64decode(b64_text)

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from .tables import Client, ClientEvent, ClientToken
+from .tables import Client, ClientEvent, ClientToken, ClientApp, Artifact
 
 import os
 import logging
@@ -12,11 +12,11 @@ def create_client(db: Session, client: Client) -> Client:
 
     existing_client_id = (
         db.query(Client.client_id)
-            .filter(
+        .filter(
                 (Client.machine_mac_address == client.machine_mac_address) |
                 (Client.machine_node == client.machine_node)
-            )
-            .first()
+        )
+        .first()
     )
     if existing_client_id is not None:
         LOGGER.warning(f'client already exists with id {existing_client_id}')
@@ -34,7 +34,7 @@ def client_leave(db: Session, client_id: str) -> Client:
         'active': False,
         'left': True,
     })
-    invalidate_all_token(db, client_id)
+    invalidate_all_tokens(db, client_id)
 
 
 def get_client_by_id(db: Session, client_id: str) -> Client:
@@ -65,7 +65,7 @@ def create_client_token(db: Session, token: ClientToken) -> ClientToken:
     return token
 
 
-def invalidate_all_token(db: Session, client_id: str) -> None:
+def invalidate_all_tokens(db: Session, client_id: str) -> None:
     db.query(ClientToken).filter(ClientToken.client_id == client_id).update({
         'valid': False,
     })
@@ -102,3 +102,10 @@ def get_all_client_events(db: Session, client: Client) -> list[ClientEvent]:
     LOGGER.info(f'requested all events for client_id={client.client_id}')
 
     return db.query(ClientEvent).filter(ClientEvent.client_id == client.client_id).all()
+
+
+def get_newest_app_version(db: Session) -> str:
+    return db.query(ClientApp.version)\
+        .filter(ClientApp.active is True)\
+        .order_by(ClientApp.creation_time.desc())\
+        .first()
