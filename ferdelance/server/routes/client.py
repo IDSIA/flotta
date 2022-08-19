@@ -24,7 +24,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session=D
     try:
         ip_address = request.client.host
 
-        client_token: ClientToken = generate_token(client)
+        client_token: ClientToken = generate_token(client.system, client.mac_address, client.node)
         client_public_key: bytes = get_client_public_key(client)
 
         token = client_token.token

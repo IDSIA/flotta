@@ -1,4 +1,7 @@
-from ..database import Session
+from ..database.tables import Client, ClientToken
+from ..database import Session, crud
+
+from .security import generate_token
 
 from typing import Any
 import logging 
@@ -14,12 +17,15 @@ class ActionManager:
 
         return False
 
-    def _action_update_token(self) -> tuple[str, str]:
+    def _action_update_token(self, db: Session, client: Client) -> tuple[str, str]:
         """Update the token with the new one"""
 
-        # TODO: generate a new token
+        # generate a new token
+        token: ClientToken = generate_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
+        crud.invalidate_all_token(db, client.client_id)
+        crud.create_client_token(db, token)
 
-        return 'update_token', None
+        return 'update_token', token.token
 
     def _check_client_update(self) -> bool:
 
@@ -54,8 +60,10 @@ class ActionManager:
     def next(self, db: Session, client_id: str) -> tuple[str, str]:
         LOGGER.info(f'sending action=nothing to client_id={client_id}')
 
+        client: Client = crud.get_client_by_id(db, client_id)
+
         if self._check_client_token():
-            return self._action_update_token()
+            return self._action_update_token(db, client)
         
         if self._check_client_update():
             return self._action_update_client()

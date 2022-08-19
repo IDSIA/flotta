@@ -89,7 +89,7 @@ def generate_keys(db: Session) -> None:
     LOGGER.info('Keys generation completed')
 
 
-def generate_token(client: ClientJoinRequest, client_id: str=None) -> ClientToken:
+def generate_token(system: str, mac_address: str, node: str, client_id: str=None) -> ClientToken:
     """Generates a client token with the data received from the client.
 
     :param client:
@@ -101,7 +101,7 @@ def generate_token(client: ClientJoinRequest, client_id: str=None) -> ClientToke
         client_id = str(uuid.uuid4())
     ms = round(time() * 1000)
 
-    token: bytes = f'{client_id}~{client.system}${client.mac_address}£{client.node}={ms};'.encode('utf8')
+    token: bytes = f'{client_id}~{system}${mac_address}£{node}={ms};'.encode('utf8')
     token: bytes = sha256(token).hexdigest().encode('utf8')
     token: str = sha256(token).hexdigest()
 

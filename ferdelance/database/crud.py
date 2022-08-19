@@ -34,9 +34,7 @@ def client_leave(db: Session, client_id: str) -> Client:
         'active': False,
         'left': True,
     })
-    db.query(ClientToken).filter(ClientToken.client_id == client_id).update({
-        'valid': False,
-    })
+    invalidate_all_token(db, client_id)
 
 
 def get_client_by_id(db: Session, client_id: str) -> Client:
@@ -65,6 +63,12 @@ def create_client_token(db: Session, token: ClientToken) -> ClientToken:
     db.refresh(token)
 
     return token
+
+
+def invalidate_all_token(db: Session, client_id: str) -> None:
+    db.query(ClientToken).filter(ClientToken.client_id == client_id).update({
+        'valid': False,
+    })
 
 
 def get_client_id_by_token(db: Session, token: str) -> str:
