@@ -9,7 +9,7 @@ from fastapi import Depends, HTTPException
 from base64 import b64encode, b64decode
 from hashlib import sha256
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 from time import time
 
 from ..database import SessionLocal, crud
@@ -138,7 +138,7 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer())) -> st
             LOGGER.warning('received invalid token')
             raise HTTPException(403, 'Permission denied')
 
-        if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < time():
+        if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < datetime.now(client_token.creation_time.tzinfo):
             LOGGER.warning('received expired token: invalidating')
             db.query(ClientToken).filter(ClientToken.token == client_token).update({'valid': False})
 

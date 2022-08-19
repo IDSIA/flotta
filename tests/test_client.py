@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from base64 import b64encode, b64decode
 
 from ferdelance.database import SessionLocal, crud
-from ferdelance.database.settings import KeyValueStore
+from ferdelance.database.settings import KeyValueStore, setup_settings
 from ferdelance.database.startup import init_content
 from ferdelance.database.tables import Client, ClientEvent
 from ferdelance.server.api import api
@@ -85,6 +85,7 @@ class TestClientClass():
         with SessionLocal() as db:
             init_content(db)
             generate_keys(db)
+            setup_settings(db)
 
         # rsa keys
         PATH_PRIVATE_KEY = os.path.join('tests', 'private_key.pem')

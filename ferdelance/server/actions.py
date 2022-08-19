@@ -16,7 +16,7 @@ class ActionManager:
         # check if the token is still valid or if there is a new version
         n_tokens = db.query(ClientToken).filter(ClientToken.client_id == client.client_id).count()
 
-        return n_tokens > 0
+        return n_tokens == 0
 
     def _action_update_token(self, db: Session, client: Client) -> tuple[str, str]:
         """Update the token with the new one"""
@@ -33,7 +33,7 @@ class ActionManager:
         # compare client version with latest version
         version: str = crud.get_newest_app_version(db)
 
-        return client.version != version
+        return version is not None and client.version != version
 
     def _action_update_app(self) -> tuple[str, str]:
         """Update and restart the client with the new version."""
@@ -64,10 +64,10 @@ class ActionManager:
 
         client: Client = crud.get_client_by_id(db, client_id)
 
-        if self._check_client_token():
+        if self._check_client_token(db, client):
             return self._action_update_token(db, client)
 
-        if self._check_app_update():
+        if self._check_app_update(db, client):
             return self._action_update_app()
 
         if self._check_job_update():

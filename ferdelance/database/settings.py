@@ -13,7 +13,7 @@ KEY_TOKEN_EXPIRATION = 'TOKEN_EXPIRATION'
 
 def setup_settings(db: Session) -> None:
 
-    TOKEN_EXPIRATION = os.environ('TOKEN_EXPIRATION', parse('90 day'))
+    TOKEN_EXPIRATION = os.environ.get('TOKEN_EXPIRATION', str(parse('90 day')))
 
     kvs = KeyValueStore(db)
     kvs.put_str(KEY_TOKEN_EXPIRATION, TOKEN_EXPIRATION)

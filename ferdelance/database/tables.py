@@ -5,30 +5,18 @@ from sqlalchemy.orm import relationship
 from . import Base
 
 
-def IntegerPrimaryKey() -> Column:
-    return Column(Integer, primary_key=True, autoincrement=True, index=True)
-
-
-def StringPrimaryKey() -> Column:
-    Column(String, primary_key=True, index=True)
-
-
-def CreationTime() -> Column:
-    return Column(DateTime(timezone=True), server_default=now())
-
-
 class Setting(Base):
     """Key-value store for settings, parameters, and arguments."""
     __tablename__ = 'settings'
-    key = StringPrimaryKey()
+    key = Column(String, primary_key=True, index=True)
     value = Column(String)
 
 
 class Client(Base):
     """Table used to keep track of current clients."""
     __tablename__ = 'clients'
-    client_id = StringPrimaryKey()
-    creation_time = CreationTime()
+    client_id = Column(String, primary_key=True, index=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
 
     version = Column(String)
     # this is b64+utf8 encoded bytes
@@ -55,10 +43,10 @@ class ClientToken(Base):
     """
     __tablename__ = 'client_tokens'
 
-    token_id = IntegerPrimaryKey()
+    token_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    expiration_time = Column(Integer, nullable=True)
     token = Column(String, nullable=False, index=True, unique=True)
-    creation_time = CreationTime()
-    expiration_time = Column(DateTime(timezone=True))
     valid = Column(Boolean, default=True)
 
     client_id = Column(String, ForeignKey('clients.client_id'))
@@ -69,20 +57,20 @@ class ClientEvent(Base):
     """Table that collect all the event from the clients."""
     __tablename__ = 'client_events'
 
-    event_id = IntegerPrimaryKey()
-    event_time = CreationTime()
+    event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    event_time = Column(DateTime(timezone=True), server_default=now())
     event = Column(String, nullable=False)
 
     client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')
 
 
-class ClientApp:
+class ClientApp(Base):
     """Table that keeps track of the available client app version."""
     __tablename__ = 'client_apps'
 
-    app_id = IntegerPrimaryKey()
-    creation_time = CreationTime()
+    app_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
     version = Column(String, nullable=False)
     active = Column(Boolean, default=False)
     path = Column(String, nullable=False)
@@ -90,24 +78,24 @@ class ClientApp:
     description = Column(String, nullable=False)
 
 
-class Artifact:
+class Artifact(Base):
     """Table that keep tracks of the artifacts available for the clients."""
     __tablename__ = 'artifacts'
 
-    artifact_id = StringPrimaryKey()
-    creation_time = CreationTime()
+    artifact_id = Column(String, primary_key=True, index=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
     version = Column(String, nullable=False)
     path = Column(String, nullable=False)
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
 
 
-class Job:
+class Job(Base):
     """Table that keep track of which artifact has been deployed to which client and the state of the request."""
     __tablename__ = 'jobs'
 
-    job_id = IntegerPrimaryKey()
-    creation_time = CreationTime()
+    job_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
     start_time = Column(DateTime(timezone=True))
     stop_time = Column(DateTime(timezone=True))
 
