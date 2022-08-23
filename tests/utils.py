@@ -1,6 +1,8 @@
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey, generate_private_key
+from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import close_all_sessions
@@ -14,18 +16,12 @@ from ferdelance.database.startup import init_content
 from ferdelance.server.api import api
 from ferdelance.server.security import generate_keys, decrypt
 
-from .utils import decrypt
-
-import json
 import random
+import json
 import logging
 import uuid
 import os
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(name)s %(levelname)5s %(message)s',
-)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -40,9 +36,10 @@ DB_NAME = os.environ.get('DB_SCHEMA', f'test_{DB_ID}')
 PATH_PRIVATE_KEY = os.environ.get('PATH_PRIVATE_KEY', str(os.path.join('tests', 'private_key.pem')))
 
 
-def decrypt(pk: rsa.RSAPrivateKey, text: str) -> str:
-    """Local utility to decript a text using a private key.
+def decrypt(pk: RSAPrivateKey, text: str) -> str:
+    """Local utility to decrypt a text using a private key.
     Consider that the text should be a string encoded in UTF-8 and base64.
+
     :param pk:
         Private key to use.
     :param text:
@@ -57,6 +54,21 @@ def decrypt(pk: rsa.RSAPrivateKey, text: str) -> str:
     return ret_text
 
 
+def encrypt(public_key: RSAPublicKey, text: str) -> str:
+    """Local utility to encrypt a text using a public key.
+
+    :param public_key:
+        Server public key in bytes.
+    :param text:
+        Content to be encrypted.
+    """
+    plain_text: bytes = text.encode('utf8')
+    enc_text: bytes = public_key.encrypt(plain_text, padding.PKCS1v15())
+    b64_text: bytes = b64encode(enc_text)
+    ret_text: str = b64_text.decode('utf8')
+    return ret_text
+
+
 def setup_test_client() -> TestClient:
     """Creates FastAPI mockup for test the server."""
     return TestClient(api)
@@ -66,6 +78,9 @@ def setup_test_database() -> tuple[str, str]:
     """Creates a new database on the remote server specified by `DB_HOST`, `DB_USER`, and `DB_PASS` (all env variables.).
     The name of the database is randomly generated using UUID4, if not supplied via `DB_SCHEMA` env variable.
     The database will be used as the server's database.
+
+    :return:
+        A tuple composed by a connection string to the database and a second connection string to a default database (used for the teardown).
     """
     # database
     db_string_no_db = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/postgres'
@@ -88,13 +103,27 @@ def setup_test_database() -> tuple[str, str]:
     return db_string, db_string_no_db
 
 
-def setup_rsa_keys() -> tuple[bytes, rsa.RSAPrivateKey]:
+def bytes_from_public_key(private_key: RSAPublicKey) -> bytes:
+    return private_key.public_bytes(
+        encoding=serialization.Encoding.OpenSSH,
+        format=serialization.PublicFormat.OpenSSH,
+    )
+
+
+def public_key_from_str(public_key: str) -> RSAPublicKey:
+    return load_ssh_public_key(public_key.encode('utf8'), default_backend())
+
+
+def setup_rsa_keys() -> RSAPrivateKey:
     """Creates a pair of RSA keys for encryption. The private key is saved in the folder specified by 
     the environment variable `PATH_PRIVATE_KEY`.
+
+    :return:
+        A tuple composed by a RSAPublicKey and a RSAPrivateKey object.
     """
     # rsa keys
     if not os.path.exists(PATH_PRIVATE_KEY):
-        private_key: rsa.RSAPrivateKey = rsa.generate_private_key(
+        private_key: RSAPrivateKey = generate_private_key(
             public_exponent=65537,
             key_size=4096,
             backend=default_backend(),
@@ -110,19 +139,14 @@ def setup_rsa_keys() -> tuple[bytes, rsa.RSAPrivateKey]:
     # read keys from disk
     with open(PATH_PRIVATE_KEY, 'rb') as f:
         data: bytes = f.read()
-        private_key: rsa.RSAPrivateKey = serialization.load_pem_private_key(
+        private_key: RSAPrivateKey = serialization.load_pem_private_key(
             data,
             None,
             backend=default_backend())
 
-    public_key: bytes = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.OpenSSH,
-        format=serialization.PublicFormat.OpenSSH,
-    )
-
     LOGGER.info('RSA keys created')
 
-    return public_key, private_key
+    return private_key
 
 
 def teardown_test_database(db_string_no_db: str) -> None:
@@ -139,15 +163,15 @@ def teardown_test_database(db_string_no_db: str) -> None:
     LOGGER.info(f'database {DB_NAME} deleted')
 
 
-def create_client(client: TestClient, public_key: bytes, private_key: rsa.RSAPrivateKey, ret_server_key: bool = False) -> tuple[str, str, bytes]:
+def create_client(client: TestClient, private_key: RSAPrivateKey) -> tuple[str, str, RSAPublicKey]:
     """Creates and register a new client with random mac_address and node.
     :return:
         Client id and token for this new client.
     """
-
     mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
 
+    public_key: bytes = bytes_from_public_key(private_key.public_key())
     data = {
         'system': 'Linux',
         'mac_address': mac_address,
@@ -164,9 +188,10 @@ def create_client(client: TestClient, public_key: bytes, private_key: rsa.RSAPri
     client_id = decrypt(private_key, json_data['id'])
     client_token = decrypt(private_key, json_data['token'])
 
-    LOGGER.info(f'sucessfully created new client with client_id={client_id}')
+    LOGGER.info(f'client_id={client_id}: sucessfully created new client')
 
-    server_public_key: bytes = json_data['public_key']
+    server_public_key: RSAPublicKey = public_key_from_str(json_data['public_key'])
+
     return client_id, client_token, server_public_key
 
 
@@ -177,4 +202,14 @@ def headers(token) -> dict[str, str]:
     """
     return {
         'Authorization': f'Bearer {token}'
+    }
+
+
+def get_payload(private_key: RSAPrivateKey, json_data: dict) -> dict:
+    return json.loads(decrypt(private_key, json_data['payload']))
+
+
+def create_payload(server_public_key: RSAPublicKey, payload: dict) -> dict:
+    return {
+        'payload': encrypt(server_public_key, json.dumps(payload)),
     }

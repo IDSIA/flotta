@@ -96,10 +96,13 @@ def generate_token(system: str, mac_address: str, node: str, client_id: str = No
     :param client:
         Data received from the outside.
     """
-    LOGGER.info('generating token for new client')
 
     if client_id is None:
         client_id = str(uuid.uuid4())
+        LOGGER.info(f'client_id={client_id}: generating new token')
+    else:
+        LOGGER.info('generating token for new client')
+
     ms = round(time() * 1000)
 
     token: bytes = f'{client_id}~{system}${mac_address}£{node}={ms};'.encode('utf8')
@@ -134,17 +137,19 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer())) -> st
             LOGGER.warning('received token does not exist in database')
             raise HTTPException(401, 'Invalid access token')
 
+        client_id = client_token.client_id
+
         if not client_token.valid:
             LOGGER.warning('received invalid token')
             raise HTTPException(403, 'Permission denied')
 
         if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < datetime.now(client_token.creation_time.tzinfo):
-            LOGGER.warning('received expired token: invalidating')
-            db.query(ClientToken).filter(ClientToken.token == client_token).update({'valid': False})
+            LOGGER.warning(f'client_id={client_id}: received expired token: invalidating')
+            db.query(ClientToken).filter(ClientToken.token == client_token.token).update({'valid': False})
+            db.commit()
+            # allow access only for a single time, since the token update has priority
 
-        client_id = client_token.client_id
-
-        LOGGER.info(f'received valid token for client_id={client_id}')
+        LOGGER.info(f'client_id={client_id}: received valid token')
         return client_id
 
 
@@ -169,8 +174,8 @@ def get_client_public_key(client: Client | ClientJoinRequest) -> bytes:
 def encrypt(public_key: bytes, text: str) -> str:
     """Encrypt a text to be sent outside of the server.
 
-    :param public_key_str:
-        Client public key in string format.
+    :param public_key:
+        Client public key in bytes format.
     :param text:
         Content to be encrypted.
     """
