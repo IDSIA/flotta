@@ -5,15 +5,50 @@ from ferdelance.database.settings import KeyValueStore
 from ferdelance.database.tables import Client, ClientEvent
 from ferdelance.server.security import PUBLIC_KEY, decrypt
 
-from .utils import decrypt, BaseTestClass
+from .utils import decrypt, setup_test_client, setup_test_database, setup_rsa_keys, teardown_test_database, create_client, headers
 
+import random
 import json
 import logging
 
 LOGGER = logging.getLogger(__name__)
 
 
-class TestClientClass(BaseTestClass):
+class TestClientClass:
+
+    def setup_class(self):
+        """Class setup. This will be executed once each test. The setup will:
+        - Create the client.
+        - Create a new database on the remote server specified by `DB_HOST`, `DB_USER`, and `DB_PASS` (all env variables.).
+            The name of the database is randomly generated using UUID4, if not supplied via `DB_SCHEMA` env variable.
+            The database will be used as the server's database.
+        - Populate this database with the required tables.
+        - Generate and save to the database the servers' keys using the hardcoded `SERVER_MAIN_PASSWORD`.
+        - Generate the local public/private keys to simulate a client application.
+        """
+        LOGGER.info('setting up')
+
+        self.client = setup_test_client()
+
+        self.db_string, self.db_string_no_db = setup_test_database()
+        self.public_key, self.private_key = setup_rsa_keys()
+
+        random.seed(42)
+
+        LOGGER.info('setup completed')
+
+    def teardown_class(self):
+        """Class teardown. This method will ensure that the database is closed and deleted from the remote dbms.
+        Note that all database connections still open will be forced to close by this method.
+        """
+        LOGGER.info('tearing down')
+
+        teardown_test_database(self.db_string_no_db)
+
+        LOGGER.info('teardown completed')
+
+    def create_client(self) -> tuple[str, str] | tuple[str, str, bytes]:
+        return create_client(self.client, self.public_key, self.private_key, True)
 
     def test_read_home(self):
         """Generic test to check if the home works."""
@@ -36,7 +71,7 @@ class TestClientClass(BaseTestClass):
         - a public key in str format
         """
 
-        client_id, client_token, server_public_key = self._create_client(True)
+        client_id, client_token, server_public_key = self.create_client()
 
         with SessionLocal() as db:
             db_client = crud.get_client_by_id(db, client_id)
@@ -61,7 +96,7 @@ class TestClientClass(BaseTestClass):
     def test_client_already_exists(self):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
 
-        client_id, _ = self._create_client()
+        client_id, _, _ = self.create_client()
 
         with SessionLocal() as db:
             client = crud.get_client_by_id(db, client_id)
@@ -87,9 +122,9 @@ class TestClientClass(BaseTestClass):
     def test_client_update(self):
         """This will test the endpoint for updates."""
 
-        client_id, token = self._create_client()
+        client_id, token, _ = self.create_client()
 
-        response_update = self.client.get('/client/update', json={'payload': ''}, headers=self._headers(token))
+        response_update = self.client.get('/client/update', json={'payload': ''}, headers=headers(token))
 
         LOGGER.info(f'response_update={response_update.json()}')
 
@@ -113,16 +148,16 @@ class TestClientClass(BaseTestClass):
 
     def test_client_leave(self):
         """This will test the endpoint for leave a client."""
-        client_id, token = self._create_client()
+        client_id, token, _ = self.create_client()
 
-        response_leave = self.client.post('/client/leave', json={}, headers=self._headers(token))
+        response_leave = self.client.post('/client/leave', json={}, headers=headers(token))
 
         LOGGER.info(f'response_leave={response_leave}')
 
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        response_update = self.client.get('/client/update', json={}, headers=self._headers(token))
+        response_update = self.client.get('/client/update', json={}, headers=headers(token))
 
         assert response_update.status_code == 403
 

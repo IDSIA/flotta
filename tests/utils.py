@@ -37,6 +37,8 @@ DB_USER = os.environ.get('DB_USER', 'admin')
 DB_PASS = os.environ.get('DB_PASS', 'admin')
 DB_NAME = os.environ.get('DB_SCHEMA', f'test_{DB_ID}')
 
+PATH_PRIVATE_KEY = os.environ.get('PATH_PRIVATE_KEY', str(os.path.join('tests', 'private_key.pem')))
+
 
 def decrypt(pk: rsa.RSAPrivateKey, text: str) -> str:
     """Local utility to decript a text using a private key.
@@ -55,121 +57,124 @@ def decrypt(pk: rsa.RSAPrivateKey, text: str) -> str:
     return ret_text
 
 
-class BaseTestClass:
+def setup_test_client() -> TestClient:
+    """Creates FastAPI mockup for test the server."""
+    return TestClient(api)
 
-    def setup_class(self):
-        """Class setup. This will be executed once each test. The setup will:
-        - Create the client.
-        - Create a new database on the remote server specified by `DB_HOST`, `DB_USER`, and `DB_PASS` (all env variables.).
-          The name of the database is randomly generated using UUID4, if not supplied via `DB_SCHEMA` env variable.
-          The database will be used as the server's database.
-        - Populate this database with the required tables.
-        - Generate and save to the database the servers' keys using the hardcoded `SERVER_MAIN_PASSWORD`.
-        - Generate the local public/private keys to simulate a client application.
-        """
-        LOGGER.info('setting up:')
 
-        # client
-        self.client = TestClient(api)
+def setup_test_database() -> tuple[str, str]:
+    """Creates a new database on the remote server specified by `DB_HOST`, `DB_USER`, and `DB_PASS` (all env variables.).
+    The name of the database is randomly generated using UUID4, if not supplied via `DB_SCHEMA` env variable.
+    The database will be used as the server's database.
+    """
+    # database
+    db_string_no_db = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/postgres'
 
-        # database
-        self.db_string_no_db = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/postgres'
+    with create_engine(db_string_no_db, isolation_level='AUTOCOMMIT').connect() as db:
+        db.execute(f'CREATE DATABASE {DB_NAME}')
+        db.execute(f'GRANT ALL PRIVILEGES ON DATABASE {DB_NAME} to {DB_USER};')
 
-        with create_engine(self.db_string_no_db, isolation_level='AUTOCOMMIT').connect() as db:
-            db.execute(f'CREATE DATABASE {DB_NAME}')
-            db.execute(f'GRANT ALL PRIVILEGES ON DATABASE {DB_NAME} to {DB_USER};')
+    db_string = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
+    os.environ['DATABASE_URL'] = db_string
 
-        self.db_string = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
-        os.environ['DATABASE_URL'] = self.db_string
+    # populate database
+    with SessionLocal() as db:
+        init_content(db)
+        generate_keys(db)
+        setup_settings(db)
 
-        # populate database
-        with SessionLocal() as db:
-            init_content(db)
-            generate_keys(db)
-            setup_settings(db)
+    LOGGER.info(f'created test database {DB_NAME}')
 
-        # rsa keys
-        PATH_PRIVATE_KEY = os.path.join('tests', 'private_key.pem')
+    return db_string, db_string_no_db
 
-        if not os.path.exists(PATH_PRIVATE_KEY):
-            self.private_key: rsa.RSAPrivateKey = rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=4096,
-                backend=default_backend(),
-            )
-            with open(PATH_PRIVATE_KEY, 'wb') as f:
-                data: bytes = self.private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.PKCS8,
-                    encryption_algorithm=serialization.NoEncryption(),
-                )
-                f.write(data)
 
-        # read keys from disk
-        with open(PATH_PRIVATE_KEY, 'rb') as f:
-            data: bytes = f.read()
-            self.private_key: rsa.RSAPrivateKey = serialization.load_pem_private_key(
-                data,
-                None,
-                backend=default_backend())
-
-        self.public_key: bytes = self.private_key.public_key().public_bytes(
-            encoding=serialization.Encoding.OpenSSH,
-            format=serialization.PublicFormat.OpenSSH,
+def setup_rsa_keys() -> tuple[bytes, rsa.RSAPrivateKey]:
+    """Creates a pair of RSA keys for encryption. The private key is saved in the folder specified by 
+    the environment variable `PATH_PRIVATE_KEY`.
+    """
+    # rsa keys
+    if not os.path.exists(PATH_PRIVATE_KEY):
+        private_key: rsa.RSAPrivateKey = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=4096,
+            backend=default_backend(),
         )
+        with open(PATH_PRIVATE_KEY, 'wb') as f:
+            data: bytes = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+            f.write(data)
 
-        random.seed(42)
+    # read keys from disk
+    with open(PATH_PRIVATE_KEY, 'rb') as f:
+        data: bytes = f.read()
+        private_key: rsa.RSAPrivateKey = serialization.load_pem_private_key(
+            data,
+            None,
+            backend=default_backend())
 
-        LOGGER.info('setup completed')
+    public_key: bytes = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.OpenSSH,
+        format=serialization.PublicFormat.OpenSSH,
+    )
 
-    def teardown_class(self):
-        """Class teardown. This method will ensure that the database is closed and deleted from the remote dbms.
-        Note that all database connections still open will be forced to close by this method.
-        """
-        LOGGER.info('tearing down')
+    LOGGER.info('RSA keys created')
 
-        close_all_sessions()
-        LOGGER.info('database session closed')
+    return public_key, private_key
 
-        # database
-        with create_engine(self.db_string_no_db, isolation_level='AUTOCOMMIT').connect() as db:
-            db.execute(f"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{DB_NAME}' AND pid <> pg_backend_pid()")
-            db.execute(f'DROP DATABASE {DB_NAME}')
 
-        LOGGER.info('teardown completed')
+def teardown_test_database(db_string_no_db: str) -> None:
+    """Close all still open connections and delete the database created with the `setup_test_database()` method.
+    """
+    close_all_sessions()
+    LOGGER.info('database sessions closed')
 
-    def _create_client(self, ret_server_key: bool = False) -> tuple[str, str] | tuple[str, str, bytes]:
-        """Creates and register a new client with random mac_address and node.
-        :return:
-            Client id and token for this new client.
-        """
+    # database
+    with create_engine(db_string_no_db, isolation_level='AUTOCOMMIT').connect() as db:
+        db.execute(f"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{DB_NAME}' AND pid <> pg_backend_pid()")
+        db.execute(f'DROP DATABASE {DB_NAME}')
 
-        mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
+    LOGGER.info(f'database {DB_NAME} deleted')
 
-        data = {
-            'system': 'Linux',
-            'mac_address': mac_address,
-            'node': node,
-            'public_key': b64encode(self.public_key).decode('utf8'),
-            'version': 'test'
-        }
 
-        response_join = self.client.post('/client/join', json=data)
+def create_client(client: TestClient, public_key: bytes, private_key: rsa.RSAPrivateKey, ret_server_key: bool = False) -> tuple[str, str, bytes]:
+    """Creates and register a new client with random mac_address and node.
+    :return:
+        Client id and token for this new client.
+    """
 
-        assert response_join.status_code == 200
+    mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
 
-        json_data = response_join.json()
-        client_id = decrypt(self.private_key, json_data['id'])
-        client_token = decrypt(self.private_key, json_data['token'])
+    data = {
+        'system': 'Linux',
+        'mac_address': mac_address,
+        'node': node,
+        'public_key': b64encode(public_key).decode('utf8'),
+        'version': 'test'
+    }
 
-        LOGGER.info(f'sucessfully created new client with client_id={client_id}')
+    response_join = client.post('/client/join', json=data)
 
-        if ret_server_key:
-            server_public_key: bytes = json_data['public_key']
-            return client_id, client_token, server_public_key
+    assert response_join.status_code == 200
 
-        return client_id, client_token
+    json_data = response_join.json()
+    client_id = decrypt(private_key, json_data['id'])
+    client_token = decrypt(private_key, json_data['token'])
 
-    def _headers(self, token) -> dict[str, str]:
-        return {'Authorization': f'Bearer {token}'}
+    LOGGER.info(f'sucessfully created new client with client_id={client_id}')
+
+    server_public_key: bytes = json_data['public_key']
+    return client_id, client_token, server_public_key
+
+
+def headers(token) -> dict[str, str]:
+    """Build a dictionary with the headers required by the server.
+    :param token:
+        Connection token generated by the server.
+    """
+    return {
+        'Authorization': f'Bearer {token}'
+    }
