@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from .tables import Client, ClientEvent, ClientToken, ClientApp, Artifact
+from .tables import Client, ClientEvent, ClientToken, ClientApp, Artifact, Model
 
 import os
 import logging
@@ -109,3 +109,7 @@ def get_newest_app_version(db: Session) -> str:
         .filter(ClientApp.active is True)\
         .order_by(ClientApp.creation_time.desc())\
         .first()
+
+
+def get_model_by_id(db: Session, model_id: int) -> Model | None:
+    return db.query(Model).filter(Model.model_id == model_id).first()

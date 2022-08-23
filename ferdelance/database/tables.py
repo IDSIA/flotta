@@ -106,3 +106,29 @@ class Job(Base):
 
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
     arttifact = relationship('Artifact')
+
+
+class Model(Base):
+    """Table that keep track of all the model created and stored on the server."""
+    __tablename__ = 'models'
+
+    model_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    path = Column(String, nullable=False)
+
+
+class ClientJobEvent(Base):
+    """Table that collect all the jobs that a client did."""
+    __tablename__ = 'client_job_events'
+
+    event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    event_start = Column(DateTime(timezone=True), server_default=now())
+    event_update = Column(DateTime(timezone=True), server_default=now())
+    event = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+
+    client_id = Column(String, ForeignKey('clients.client_id'))
+    client = relationship('Client')
+
+    job_id = Column(Integer, ForeignKey('jobs.job_id'))
+    job = relationship('Job')
