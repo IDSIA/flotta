@@ -43,14 +43,20 @@ class ActionManager:
         """
         version: str = crud.get_newest_app_version(db)
 
+        LOGGER.info(f'client_id={client.client_id}: version={client.version} newest_version={version}')
+
         return version is not None and client.version != version
 
-    def _action_update_app(self) -> tuple[str, str]:
-        """Update and restart the client with the new version."""
+    def _action_update_app(self, db: Session) -> tuple[str, str]:
+        """Update and restart the client with the new version.
 
-        # TODO: check the table for the latest client software update, fetch and return it
+        :return:
+            Fetch and return the version to download.
+        """
 
-        return 'update_client', None
+        version: str = crud.get_newest_app_version(db)
+
+        return 'update_client', version
 
     def _check_job_update(self) -> bool:
 
@@ -75,7 +81,7 @@ class ActionManager:
             return self._action_update_token(db, client)
 
         if self._check_app_update(db, client):
-            return self._action_update_app()
+            return self._action_update_app(db)
 
         if self._check_job_update():
             return self._action_update_code()

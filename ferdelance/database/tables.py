@@ -69,13 +69,13 @@ class ClientApp(Base):
     """Table that keeps track of the available client app version."""
     __tablename__ = 'client_apps'
 
-    app_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    app_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
-    version = Column(String, nullable=False)
+    version = Column(String,)
     active = Column(Boolean, default=False)
     path = Column(String, nullable=False)
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=False)
+    name = Column(String)
+    description = Column(String)
 
 
 class Artifact(Base):

@@ -28,6 +28,20 @@ def create_client(db: Session, client: Client) -> Client:
     return client
 
 
+def update_client(db: Session, client_id: str, version: str = None) -> None:
+    u = dict()
+
+    if version is not None:
+        LOGGER.info(f'client_id={client_id} update version to {version}')
+        u['version'] = version
+
+    if not u:
+        return
+
+    db.query(Client).filter(Client.client_id == client_id).update(u)
+    db.commit()
+
+
 def client_leave(db: Session, client_id: str) -> Client:
     db.query(Client).filter(Client.client_id == client_id).update({
         'active': False,
@@ -105,8 +119,20 @@ def get_all_client_events(db: Session, client: Client) -> list[ClientEvent]:
 
 
 def get_newest_app_version(db: Session) -> str:
-    return db.query(ClientApp.version)\
-        .filter(ClientApp.active is True)\
+    db_client_app: ClientApp = db.query(ClientApp)\
+        .filter(ClientApp.active)\
+        .order_by(ClientApp.creation_time.desc())\
+        .first()
+    
+    if db_client_app is None:
+        return None
+    
+    return db_client_app.version
+
+
+def get_newest_app(db: Session) -> ClientApp:
+    return db.query(ClientApp)\
+        .filter(ClientApp.active)\
         .order_by(ClientApp.creation_time.desc())\
         .first()
 

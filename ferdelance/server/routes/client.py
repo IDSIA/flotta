@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, Request, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.responses import FileResponse
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...database import get_db, crud
-from ...database.tables import Client, ClientToken
+from ...database.tables import Client, ClientApp, ClientToken
 from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
 from ..actions import ActionManager
 from ..schemas.client import *
@@ -118,6 +119,20 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
 @client_router.get('/client/update/files')
 async def client_update_model(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
     payload = json.loads(decrypt(db, request.payload))
+    
+    if 'client_version' in payload:
+        client_version = payload['client_version']
+
+        new_app: ClientApp = crud.get_newest_app(db)
+        
+        if new_app.version != client_version:
+            LOGGER.warning(f'client_id={client_id} requested app version={client_version} while latest version={new_app.version}')
+            return HTTPException(400)
+
+        crud.update_client(db, client_id, version=client_version)
+
+        LOGGER.info(f'client_id={client_id}: requested new client version={client_version}')
+        return FileResponse(new_app.path, filename=new_app.name)
 
     if 'model_id' in payload:
         model_id = payload['model_id']
@@ -125,11 +140,5 @@ async def client_update_model(request: ClientUpdateModelRequest, db: Session = D
         LOGGER.info(f'client_id={client_id}: requested model={model_id}')
         # TODO: send model_id related files
     
-    if 'client_version' in payload:
-        client_version = payload['client_version']
-
-        LOGGER.info(f'client_id={client_id}: requested new client version={client_version}')
-        # TODO: send new client_version related files
-    
-    # TODO:
-    raise ValueError()
+    LOGGER.info(f'client_id={client_id}: requested an invalid file with payload={payload}')
+    raise HTTPException(404)
