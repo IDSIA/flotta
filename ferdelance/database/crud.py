@@ -123,10 +123,10 @@ def get_newest_app_version(db: Session) -> str:
         .filter(ClientApp.active)\
         .order_by(ClientApp.creation_time.desc())\
         .first()
-    
+
     if db_client_app is None:
         return None
-    
+
     return db_client_app.version
 
 

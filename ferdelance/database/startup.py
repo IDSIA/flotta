@@ -6,6 +6,7 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
+
 def init_content(db: Session) -> None:
     """Initialize all tables in the database.
 

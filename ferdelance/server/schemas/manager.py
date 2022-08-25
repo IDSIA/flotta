@@ -9,9 +9,9 @@ class ManagerUploadClientResponse(BaseModel):
 
 class ManagerUploadClientMetadataRequest(BaseModel):
     upload_id: str
-    version: str|None
-    name: str|None
-    desc: str|None
+    version: str | None
+    name: str | None
+    desc: str | None
     active: bool
 
 

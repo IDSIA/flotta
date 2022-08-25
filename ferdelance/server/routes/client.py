@@ -119,12 +119,12 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
 @client_router.get('/client/update/files')
 async def client_update_model(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
     payload = json.loads(decrypt(db, request.payload))
-    
+
     if 'client_version' in payload:
         client_version = payload['client_version']
 
         new_app: ClientApp = crud.get_newest_app(db)
-        
+
         if new_app.version != client_version:
             LOGGER.warning(f'client_id={client_id} requested app version={client_version} while latest version={new_app.version}')
             return HTTPException(400)
@@ -139,6 +139,6 @@ async def client_update_model(request: ClientUpdateModelRequest, db: Session = D
 
         LOGGER.info(f'client_id={client_id}: requested model={model_id}')
         # TODO: send model_id related files
-    
+
     LOGGER.info(f'client_id={client_id}: requested an invalid file with payload={payload}')
     raise HTTPException(404)

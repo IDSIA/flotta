@@ -8,7 +8,7 @@ import os
 Base = declarative_base()
 
 
-def SessionLocal(database_url: str=None) -> Session:
+def SessionLocal(database_url: str = None) -> Session:
     if database_url is None:
         database_url = os.environ.get('DATABASE_URL')
 

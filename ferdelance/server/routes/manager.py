@@ -55,6 +55,7 @@ async def manager_upload_client(file: UploadFile, db: Session = Depends(get_db))
         filename=filename,
     )
 
+
 @manager_router.post('/manager/upload/client/metadata')
 async def manager_upload_client_metadata(metadata: ManagerUploadClientMetadataRequest, db: Session = Depends(get_db)):
     app_id = metadata.upload_id
