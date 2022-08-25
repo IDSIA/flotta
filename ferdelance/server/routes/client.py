@@ -117,7 +117,7 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
 
 
 @client_router.get('/client/update/files')
-def client_update_model(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+def client_update_files(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
     payload = json.loads(decrypt(db, request.payload))
     client = crud.get_client_by_id(db, client_id)
     public_key = get_client_public_key(client)

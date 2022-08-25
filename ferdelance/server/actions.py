@@ -35,7 +35,7 @@ class ActionManager:
 
         return 'update_token', token.token
 
-    def _check_app_update(self, db: Session, client: Client) -> bool:
+    def _check_client_app_update(self, db: Session, client: Client) -> bool:
         """Compares the client current version with the newest version on the database.
 
         :return:
@@ -47,7 +47,7 @@ class ActionManager:
 
         return version is not None and client.version != version
 
-    def _action_update_app(self, db: Session) -> tuple[str, str]:
+    def _action_update_client_app(self, db: Session) -> tuple[str, str]:
         """Update and restart the client with the new version.
 
         :return:
@@ -58,32 +58,20 @@ class ActionManager:
 
         return 'update_client', version
 
-    def _check_job_update(self) -> bool:
-
-        # TODO: check the table for the next code to run
-
-        return False
-
-    def _action_update_code(self) -> tuple[str, str]:
-        """Update and execute the new code."""
-
-        # TODO: fetch the table for the next code to run, and return it
-
-        return 'update_code', None
-
     def _action_nothing(self) -> tuple[str, Any]:
         """Do nothing and waits for the next update request."""
         return 'nothing', None
 
     def next(self, db: Session, client: Client, payload: str) -> tuple[str, str]:
 
+        # TODO: consume client payload
+
         if self._check_client_token(db, client):
             return self._action_update_token(db, client)
 
-        if self._check_app_update(db, client):
-            return self._action_update_app(db)
+        if self._check_client_app_update(db, client):
+            return self._action_update_client_app(db)
 
-        if self._check_job_update():
-            return self._action_update_code()
+        # TODO: check for jobs to do
 
         return self._action_nothing()
