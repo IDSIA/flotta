@@ -1,8 +1,4 @@
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.asymmetric import padding
-
-from base64 import b64encode, b64decode
+from base64 import b64encode
 
 from ferdelance.database import SessionLocal, crud
 from ferdelance.database.settings import KeyValueStore
@@ -161,11 +157,6 @@ class TestClientClass:
 
         assert response.status_code == 403
         assert response.json()['detail'] == 'Invalid client data'
-
-    def test_client_invalid_data(self):
-        """This test will send invalid data to the server."""
-        # TODO: what kind of data is invalid? Public key format? MAC address? Version mismatch?
-        pass
 
     def test_client_update(self):
         """This will test the endpoint for updates."""
