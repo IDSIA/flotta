@@ -79,7 +79,9 @@ class ClientApp(Base):
 
 
 class Artifact(Base):
-    """Table that keep tracks of the artifacts available for the clients."""
+    """Table that keep tracks of the artifacts available for the clients.
+    An Artifact is the code that will be runned in a client, based on the assigned task.
+    """
     __tablename__ = 'artifacts'
 
     artifact_id = Column(String, primary_key=True, index=True)
@@ -90,11 +92,11 @@ class Artifact(Base):
     description = Column(String, nullable=False)
 
 
-class Job(Base):
+class Task(Base):
     """Table that keep track of which artifact has been deployed to which client and the state of the request."""
-    __tablename__ = 'jobs'
+    __tablename__ = 'tasks'
 
-    job_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    task_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
     start_time = Column(DateTime(timezone=True))
     stop_time = Column(DateTime(timezone=True))
@@ -105,7 +107,7 @@ class Job(Base):
     client = relationship('Client')
 
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
-    arttifact = relationship('Artifact')
+    artifact = relationship('Artifact')
 
 
 class Model(Base):
@@ -117,9 +119,9 @@ class Model(Base):
     path = Column(String, nullable=False)
 
 
-class ClientJobEvent(Base):
-    """Table that collect all the jobs that a client did."""
-    __tablename__ = 'client_job_events'
+class ClientTaskEvent(Base):
+    """Table that collect all the events that a client produced during a task."""
+    __tablename__ = 'client_task_events'
 
     event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     event_start = Column(DateTime(timezone=True), server_default=now())
@@ -130,5 +132,5 @@ class ClientJobEvent(Base):
     client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')
 
-    job_id = Column(Integer, ForeignKey('jobs.job_id'))
-    job = relationship('Job')
+    task_id = Column(Integer, ForeignKey('tasks.task_id'))
+    task = relationship('Task')

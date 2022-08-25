@@ -72,6 +72,6 @@ class ActionManager:
         if self._check_client_app_update(db, client):
             return self._action_update_client_app(db)
 
-        # TODO: check for jobs to do
+        # TODO: check for tasks to do
 
         return self._action_nothing()
