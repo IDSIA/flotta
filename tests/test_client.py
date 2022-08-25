@@ -1,4 +1,8 @@
-from base64 import b64encode
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.asymmetric import padding
+
+from base64 import b64encode, b64decode
 
 from ferdelance.database import SessionLocal, crud
 from ferdelance.database.settings import KeyValueStore
@@ -6,6 +10,7 @@ from ferdelance.database.tables import Client, ClientApp, ClientEvent, ClientTok
 from ferdelance.server.security import PUBLIC_KEY
 
 from .utils import (
+    decode_stream,
     setup_test_client,
     setup_test_database,
     setup_rsa_keys,
@@ -49,6 +54,9 @@ class TestClientClass:
 
         random.seed(42)
 
+        self.server_key = None
+        self.token = None
+
         LOGGER.info('setup completed')
 
     def teardown_class(self):
@@ -60,6 +68,31 @@ class TestClientClass:
         teardown_test_database(self.db_string_no_db)
 
         LOGGER.info('teardown completed')
+
+    def get_client(self):
+        client_id, self.token, self.server_key = create_client(self.client, self.private_key)
+        return client_id
+
+    def get_client_update(self, payload, token: str | None = None) -> int | tuple[int, str, str]:
+        payload = create_payload(self.server_key, payload)
+
+        cur_token = token if token else self.token
+
+        response = self.client.get(
+            '/client/update',
+            json=payload,
+            headers=headers(cur_token)
+        )
+
+        if response.status_code != 200:
+            return response.status_code
+
+        response_payload = get_payload(self.private_key, response.json())
+
+        assert 'action' in response_payload
+        assert 'data' in response_payload
+
+        return response.status_code, response_payload['action'], response_payload['data']
 
     def test_read_home(self):
         """Generic test to check if the home works."""
@@ -82,7 +115,7 @@ class TestClientClass:
         - a public key in str format
         """
 
-        client_id, client_token, server_public_key = create_client(self.client, self.private_key)
+        client_id = self.get_client()
 
         with SessionLocal() as db:
             db_client = crud.get_client_by_id(db, client_id)
@@ -91,13 +124,13 @@ class TestClientClass:
             assert db_client is not None
             assert db_client.active
             assert db_token is not None
-            assert db_token.token == client_token
+            assert db_token.token == self.token
             assert db_token.valid
 
             kvs = KeyValueStore(db)
             server_public_key_db: str = kvs.get_str(PUBLIC_KEY)
 
-            assert server_public_key_db == bytes_from_public_key(server_public_key).decode('utf8')
+            assert server_public_key_db == bytes_from_public_key(self.server_key).decode('utf8')
 
             db_events: list[ClientEvent] = crud.get_all_client_events(db, db_client)
 
@@ -107,7 +140,7 @@ class TestClientClass:
     def test_client_already_exists(self):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
 
-        client_id, _, _ = create_client(self.client, self.private_key)
+        client_id = self.get_client()
         public_key = bytes_from_public_key(self.public_key)
 
         with SessionLocal() as db:
@@ -137,22 +170,13 @@ class TestClientClass:
     def test_client_update(self):
         """This will test the endpoint for updates."""
 
-        client_id, token, server_public_key = create_client(self.client, self.private_key)
-        payload = create_payload(server_public_key, {})
+        client_id = self.get_client()
 
-        response_update = self.client.get(
-            '/client/update',
-            json=payload,
-            headers=headers(token)
-        )
+        status_code, action, data = self.get_client_update({})
 
-        LOGGER.info(f'response_update={response_update.json()}')
-
-        assert response_update.status_code == 200
-
-        payload = get_payload(self.private_key, response_update.json())
-
-        assert payload['action'] == 'nothing'
+        assert status_code == 200
+        assert action == 'nothing'
+        assert data is None
 
         with SessionLocal() as db:
             db_client: Client = crud.get_client_by_id(db, client_id)
@@ -168,12 +192,12 @@ class TestClientClass:
 
     def test_client_leave(self):
         """This will test the endpoint for leave a client."""
-        client_id, token, _ = create_client(self.client, self.private_key)
+        client_id = self.get_client()
 
         response_leave = self.client.post(
             '/client/leave',
             json={},
-            headers=headers(token)
+            headers=headers(self.token)
         )
 
         LOGGER.info(f'response_leave={response_leave}')
@@ -181,13 +205,9 @@ class TestClientClass:
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        response_update = self.client.get(
-            '/client/update',
-            json={},
-            headers=headers(token)
-        )
+        status_code = self.get_client_update({})
 
-        assert response_update.status_code == 403
+        assert status_code == 403
 
         with SessionLocal() as db:
             db_client: Client = crud.get_client_by_id(db, client_id)
@@ -205,7 +225,7 @@ class TestClientClass:
     def test_client_update_token(self):
         """This will test the failure and update of a token."""
         with SessionLocal() as db:
-            client_id, token, server_key = create_client(self.client, self.private_key)
+            client_id = self.get_client()
 
             # expire token
             db.query(ClientToken).filter(ClientToken.client_id == client_id).update({'expiration_time': 0})
@@ -213,24 +233,10 @@ class TestClientClass:
 
             LOGGER.info('expiration_time for token set to 0')
 
-            payload = create_payload(server_key, {})
+            status_code, action, new_token = self.get_client_update({})
 
-            response_update = self.client.get(
-                '/client/update',
-                json=payload,
-                headers=headers(token)
-            )
-
-            assert response_update.status_code == 200
-
-            response_payload = get_payload(self.private_key, response_update.json())
-
-            assert 'action' in response_payload
-            assert response_payload['action'] == 'update_token'
-
-            LOGGER.debug(response_payload)
-
-            new_token = response_payload['data']
+            assert status_code == 200
+            assert action == 'update_token'
 
             # extend expire token
             db.query(ClientToken).filter(ClientToken.client_id == client_id).update({'expiration_time': 86400})
@@ -238,29 +244,20 @@ class TestClientClass:
 
             LOGGER.info('expiration_time for token set to 24h')
 
-            response_update = self.client.get(
-                '/client/update',
-                json=payload,
-                headers=headers(token)
-            )
+            status_code = self.get_client_update({})
 
-            assert response_update.status_code == 403
+            assert status_code == 403
 
-            response_update = self.client.get(
-                '/client/update',
-                json=payload,
-                headers=headers(new_token)
-            )
-            response_payload = get_payload(self.private_key, response_update.json())
+            status_code, action, data = self.get_client_update({}, new_token)
 
-            assert response_update.status_code == 200
-            assert 'action' in response_payload
-            assert response_payload['action'] == 'nothing'
+            assert status_code == 200
+            assert action == 'nothing'
+            assert data is None
 
     def test_client_update_app(self):
         """This will test the upload of a new (fake) app, and the update process."""
         with SessionLocal() as db:
-            client_id, token, server_key = create_client(self.client, self.private_key)
+            client_id = self.get_client()
 
             client_version = crud.get_client_by_id(db, client_id).version
 
@@ -301,7 +298,7 @@ class TestClientClass:
 
             assert metadata_response.status_code == 200
 
-            client_app: ClientApp | None = db.query(ClientApp).filter(ClientApp.app_id == upload_id).first()
+            client_app: ClientApp = db.query(ClientApp).filter(ClientApp.app_id == upload_id).first()
 
             assert client_app is not None
             assert client_app.version == version_app
@@ -314,37 +311,29 @@ class TestClientClass:
             assert newest_version == version_app
 
             # update request
-            payload = create_payload(server_key, {})
+            status_code, action, data = self.get_client_update({})
 
-            response_update = self.client.get(
-                '/client/update',
-                json=payload,
-                headers=headers(token)
-            )
+            assert status_code == 200
 
-            assert response_update.status_code == 200
-
-            response_payload = get_payload(self.private_key, response_update.json())
-
-            assert 'action' in response_payload
-            assert response_payload['action'] == 'update_client'
-            assert response_payload['data'] == version_app
+            assert action == 'update_client'
+            assert data == version_app
 
             # download new client
-
-            payload = create_payload(server_key, {'client_version': response_payload['data']})
-            response_download = self.client.get(
+            with self.client.get(
                 '/client/update/files',
-                json=payload,
-                headers=headers(token)
-            )
+                json=create_payload(self.server_key, {'client_version': data}),
+                headers=headers(self.token),
+                stream=True
+            ) as stream:
+                assert stream.status_code == 200
 
-            assert response_download.status_code == 200
+                content = decode_stream(stream, self.private_key)
+
+                assert json.loads(content) == {'version': version_app}
 
             client_version = crud.get_client_by_id(db, client_id).version
 
             assert client_version == version_app
-            assert json.loads(response_download.content) == {'version': version_app}
 
             # delete local fake client app
             if os.path.exists(path_fake_app):

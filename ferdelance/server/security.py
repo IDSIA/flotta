@@ -2,6 +2,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_ssh_public_key
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from fastapi.security import HTTPBasicCredentials, HTTPBearer
 from fastapi import Depends, HTTPException
@@ -17,6 +18,7 @@ from ..database.settings import KeyValueStore
 from ..database.tables import Client, ClientToken
 from .schemas.client import ClientJoinRequest
 
+import json
 import logging
 import os
 import uuid
@@ -207,3 +209,74 @@ def decrypt(db: Session, text: str) -> str:
     plain_text: bytes = pk.decrypt(enc_text, padding.PKCS1v15())
     ret_text: str = plain_text.decode('utf8')
     return ret_text
+
+
+def generate_symmetric_key(key_size: int = 32, iv_size: int = 16) -> tuple[bytes, bytes, Cipher]:
+    """Generates a new random key, initialization vector, and cipher for 
+    a symmetric encryption algorithm.
+
+    :param key_size:
+        Size of the key to generate.
+    :param iv_size:
+        Size of the initialization vector.
+    :return:
+        A tuple composed by the key, the initialization vecotr, and the 
+        cipher initialized with AES algorithm in CTR mode.
+    """
+    key: bytes = os.urandom(key_size)
+    iv: bytes = os.urandom(iv_size)
+    cipher: Cipher = Cipher(algorithms.AES(key), modes.CTR(iv), backend=default_backend())
+
+    return key, iv, cipher
+
+
+def stream_and_encrypt_file(path: str, public_key: bytes, CHUNK_SIZE: int = 4096, SEPARATOR: bytes = b'\n') -> bytes:
+    """Generator function that streams a file from the given path and encrpyt
+    the content using an hybrid-encryption algorithm.
+
+    The streamed file is composed by two parts: the first part contains the 
+    symmetric key encrypted with the client asymmetric key; the second part
+    contains the file encrypted using the asymmetric key.
+
+    The client is expected to decrypt the first part, obtain the symmetric key
+    and start decrypte the content of the file.
+
+    :param path:
+        Path on disk of the file to stream.
+    :param public_key:
+        Client public key.
+    :param CHUNK_SIZE:
+        Size in bytes of each chunk transmitted to the client.
+    :param SEPARATOR:
+        Single or sequence of bytes that separates the first part of the stream
+        from the second part.
+    :return:
+        A stream of bytes
+    """
+
+    # generate session key for hiybrid encrpytion
+    key, iv, cipher = generate_symmetric_key()
+
+    data_str: str = json.dumps({
+        'key': b64encode(key).decode('utf8'),
+        'iv': b64encode(iv).decode('utf8'),
+    })
+
+    # first part: return encrypted session key
+    yield encrypt(public_key, data_str)
+
+    # return separator between first and second part
+    yield SEPARATOR
+
+    # second part: return encrypted file
+    encryptor = cipher.encryptor()
+
+    with open(path, mode='rb') as f:
+        while True:
+            chunk = f.read(CHUNK_SIZE)
+
+            if not chunk:
+                yield encryptor.finalize()
+                break
+
+            yield encryptor.update(chunk)

@@ -2,6 +2,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey, generate_private_key
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 
 from sqlalchemy import create_engine
@@ -9,6 +10,7 @@ from sqlalchemy.orm import close_all_sessions
 
 from fastapi.testclient import TestClient
 from base64 import b64encode, b64decode
+from requests import Response
 
 from ferdelance.database import SessionLocal
 from ferdelance.database.settings import setup_settings
@@ -36,7 +38,7 @@ DB_NAME = os.environ.get('DB_SCHEMA', f'test_{DB_ID}')
 PATH_PRIVATE_KEY = os.environ.get('PATH_PRIVATE_KEY', str(os.path.join('tests', 'private_key.pem')))
 
 
-def decrypt(pk: RSAPrivateKey, text: str) -> str:
+def client_decrypt(pk: RSAPrivateKey, text: str) -> str:
     """Local utility to decrypt a text using a private key.
     Consider that the text should be a string encoded in UTF-8 and base64.
 
@@ -54,7 +56,7 @@ def decrypt(pk: RSAPrivateKey, text: str) -> str:
     return ret_text
 
 
-def encrypt(public_key: RSAPublicKey, text: str) -> str:
+def client_encrypt(public_key: RSAPublicKey, text: str) -> str:
     """Local utility to encrypt a text using a public key.
 
     :param public_key:
@@ -185,8 +187,8 @@ def create_client(client: TestClient, private_key: RSAPrivateKey) -> tuple[str, 
     assert response_join.status_code == 200
 
     json_data = response_join.json()
-    client_id = decrypt(private_key, json_data['id'])
-    client_token = decrypt(private_key, json_data['token'])
+    client_id = client_decrypt(private_key, json_data['id'])
+    client_token = client_decrypt(private_key, json_data['token'])
 
     LOGGER.info(f'client_id={client_id}: sucessfully created new client')
 
@@ -206,10 +208,46 @@ def headers(token) -> dict[str, str]:
 
 
 def get_payload(private_key: RSAPrivateKey, json_data: dict) -> dict:
-    return json.loads(decrypt(private_key, json_data['payload']))
+    return json.loads(client_decrypt(private_key, json_data['payload']))
 
 
 def create_payload(server_public_key: RSAPublicKey, payload: dict) -> dict:
     return {
-        'payload': encrypt(server_public_key, json.dumps(payload)),
+        'payload': client_encrypt(server_public_key, json.dumps(payload)),
     }
+
+
+def decode_stream(stream: Response, private_key: RSAPrivateKey) -> bytes:
+    first_part = []
+    content = []
+    preamble = True
+    decryptor = None
+
+    for chunk in stream.iter_content():
+        if chunk == b'\n':
+            # merge first part and decrypt
+            preamble = False
+
+            preamble_bytes: bytes = b''.join(first_part)
+            preamble_bytes: bytes = b64decode(preamble_bytes)
+            preamble_bytes: bytes = private_key.decrypt(preamble_bytes, padding.PKCS1v15())
+            decoded: dict = json.loads(preamble_bytes.decode('utf8'))
+
+            assert 'key' in decoded
+            assert 'iv' in decoded
+
+            key: bytes = b64decode(decoded['key'].encode('utf8'))
+            iv: bytes = b64decode(decoded['iv'].encode('utf8'))
+
+            cipher: Cipher = Cipher(algorithms.AES(key), modes.CTR(iv), backend=default_backend())
+            decryptor = cipher.decryptor()
+
+        elif preamble:
+            first_part.append(chunk)
+        else:
+            assert decryptor is not None
+            content.append(decryptor.update(chunk))
+
+    content.append(decryptor.finalize())
+
+    return b''.join(content)

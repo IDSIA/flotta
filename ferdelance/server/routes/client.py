@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -9,7 +9,7 @@ from ...database.tables import Client, ClientApp, ClientToken
 from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
 from ..actions import ActionManager
 from ..schemas.client import *
-from ..security import decrypt, generate_token, get_server_public_key, encrypt, get_client_public_key, check_token
+from ..security import decrypt, generate_token, get_server_public_key, encrypt, get_client_public_key, check_token, stream_and_encrypt_file
 
 import logging
 import json
@@ -117,8 +117,10 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
 
 
 @client_router.get('/client/update/files')
-async def client_update_model(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+def client_update_model(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
     payload = json.loads(decrypt(db, request.payload))
+    client = crud.get_client_by_id(db, client_id)
+    public_key = get_client_public_key(client)
 
     if 'client_version' in payload:
         client_version = payload['client_version']
@@ -132,7 +134,8 @@ async def client_update_model(request: ClientUpdateModelRequest, db: Session = D
         crud.update_client(db, client_id, version=client_version)
 
         LOGGER.info(f'client_id={client_id}: requested new client version={client_version}')
-        return FileResponse(new_app.path, filename=new_app.name)
+
+        return StreamingResponse(stream_and_encrypt_file(new_app.path, public_key), media_type='application/octet-stream')
 
     if 'model_id' in payload:
         model_id = payload['model_id']
