@@ -132,5 +132,5 @@ class ClientTaskEvent(Base):
     client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')
 
-    task_id = Column(Integer, ForeignKey('tasks.task_id'))
+    task_id = Column(String, ForeignKey('tasks.task_id'))
     task = relationship('Task')

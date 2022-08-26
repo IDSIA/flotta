@@ -14,7 +14,7 @@ from ..security import (
     check_token,
     server_decrypt,
     server_encrypt,
-    get_server_public_key,
+    get_server_public_key_str,
     server_stream_encrypt,
 )
 
@@ -51,7 +51,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
             ip_address=ip_address,
         )
 
-        client = crud.create_client(db, client)
+        client: Client = crud.create_client(db, client)
         client_token = crud.create_client_token(db, client_token)
 
         crud.create_client_event(db, client_id, 'creation')
@@ -61,7 +61,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
         return ClientJoinResponse(
             id=server_encrypt(client, client_id),
             token=server_encrypt(client, token),
-            public_key=get_server_public_key(db)
+            public_key=get_server_public_key_str(db)
         )
 
     except SQLAlchemyError as e:

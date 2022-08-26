@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from time import time
 
 from ferdelance_shared.generate import (
-    generate_private_key,
+    generate_asymmetric_key,
     bytes_from_private_key,
     bytes_from_public_key,
     public_key_from_bytes,
@@ -17,7 +17,7 @@ from ferdelance_shared.generate import (
     RSAPrivateKey
 )
 from ferdelance_shared.decode import decode_from_transfer, decrypt
-from ferdelance_shared.encode import encrypt, stream_encrypt_file
+from ferdelance_shared.encode import encode_to_transfer, encrypt, stream_encrypt_file
 
 from ..database import SessionLocal, crud
 from ..database.settings import KeyValueStore
@@ -75,8 +75,8 @@ def generate_keys(db: Session) -> None:
     # generate new keys
     LOGGER.info('Keys generation started')
 
-    private_key: RSAPrivateKey = generate_private_key()
-    public_key: RSAPublicKey = RSAPrivateKey.public_key()
+    private_key: RSAPrivateKey = generate_asymmetric_key()
+    public_key: RSAPublicKey = private_key.public_key()
 
     private_bytes: bytes = bytes_from_private_key(private_key)
     public_bytes: bytes = bytes_from_public_key(public_key)
@@ -162,6 +162,12 @@ def get_server_public_key(db: Session) -> RSAPublicKey:
     return public_key_from_bytes(public_bytes)
 
 
+def get_server_public_key_str(db: Session) -> str:
+    kvs = KeyValueStore(db)
+    public_str: bytes = kvs.get_str(PUBLIC_KEY)
+    return encode_to_transfer(public_str)
+
+
 def get_server_private_key(db: Session) -> str:
     """
     :param db:
@@ -175,7 +181,7 @@ def get_server_private_key(db: Session) -> str:
 
 
 def get_client_public_key(client: Client | ClientJoinRequest) -> RSAPublicKey:
-    key_bytes: bytes = decode_from_transfer(client.public_key)
+    key_bytes: bytes = decode_from_transfer(client.public_key).encode('utf8')
     public_key: RSAPublicKey = public_key_from_bytes(key_bytes)
     return public_key
 
