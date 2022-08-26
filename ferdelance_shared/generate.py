@@ -32,6 +32,21 @@ def private_key_from_bytes(data: bytes) -> RSAPrivateKey:
     return load_pem_private_key(data, backend=default_backend())
 
 
+def private_key_from_str(data: str, encoding: str = 'utf8') -> RSAPrivateKey:
+    """Convert a str to a valid private key.
+
+    This is useful when reading the key from an encoded source, like a database.
+
+    :param data:
+        Input data collected from somewhere.
+    :param encoding:
+        Encoding to use for the conversion to bytes.
+    :return:
+        A valid private key.
+    """
+    return private_key_from_bytes(data.encode(encoding))
+
+
 def bytes_from_private_key(private_key: RSAPrivateKey) -> bytes:
     """Get the private bytes from a private key.
 
@@ -53,10 +68,9 @@ def bytes_from_private_key(private_key: RSAPrivateKey) -> bytes:
 
 
 def public_key_from_bytes(data: bytes) -> RSAPublicKey:
-    """Convert the input data in a valid public key:
+    """Convert the input data in a valid public key.
 
-    This is useful when reading the key from a binary source, like a database 
-    or a filesystem.
+    This is useful when reading the key from a binary source, like a filesystem.
 
     :param data:
         Input data collected from somewhere.
@@ -64,6 +78,21 @@ def public_key_from_bytes(data: bytes) -> RSAPublicKey:
         A valid public key.
     """
     return load_ssh_public_key(data, backend=default_backend())
+
+
+def public_key_from_str(data: str, encoding: str = 'utf8') -> RSAPrivateKey:
+    """Convert a str to a valid public key.
+
+    This is useful when reading the key from an encoded source, like a database.
+
+    :param data:
+        Input data collected from somewhere.
+    :param encoding:
+        Encoding to use for the conversion to bytes.
+    :return:
+        A valid public key.
+    """
+    return public_key_from_bytes(data.encode(encoding))
 
 
 def bytes_from_public_key(public_key: RSAPublicKey) -> bytes:

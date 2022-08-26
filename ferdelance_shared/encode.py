@@ -11,6 +11,13 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
+def encode_to_transfer(text: str, encoding: str = 'utf8') -> str:
+    in_bytes: bytes = text.encode(encoding)
+    b64_bytes: bytes = b64encode(in_bytes)
+    out_text: str = b64_bytes.decode(encoding)
+    return out_text
+
+
 def encrypt(public_key: RSAPublicKey, text: str, encoding: str = 'utf8') -> str:
     """Encrypt a text to be sent outside of the server.
 

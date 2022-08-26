@@ -4,7 +4,6 @@ from typing import Iterable
 
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from base64 import b64decode
 
@@ -12,6 +11,21 @@ import json
 import logging
 
 LOGGER = logging.getLogger(__name__)
+
+
+def decode_from_transfer(text: str, encoding: str = 'utf8') -> bytes:
+    """Decode the string received through a transfer between client and server.
+    :param text:
+        Text to decode.
+    :param encoding:
+        Encoding to use.
+    :return:
+        Decoded bytes.
+    """
+    in_bytes: bytes = text.encode(encoding)
+    b64_bytes: bytes = b64decode(in_bytes)
+    out_text: str = b64_bytes.decode(encoding)
+    return out_text
 
 
 def decrypt(private_key: RSAPrivateKey, text: str, encoding: str = 'utf8') -> str:
