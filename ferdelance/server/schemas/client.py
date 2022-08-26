@@ -25,8 +25,12 @@ class ClientLeaveResponse(BaseModel):
 
 
 class ClientUpdateRequest(BaseModel):
-    pass
+    payload: str     # b64encoded bytes
 
 
 class ClientUpdateResponse(BaseModel):
-    payload: str
+    payload: str     # b64encoded bytes
+
+
+class ClientUpdateModelRequest(BaseModel):
+    payload: str     # b64encoded bytes

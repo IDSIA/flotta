@@ -1,10 +1,22 @@
 from cryptography.fernet import Fernet
 from sqlalchemy.orm import Session
+from pytimeparse import parse
 
 from .tables import Setting
 
 import base64
 import os
+
+
+KEY_TOKEN_EXPIRATION = 'TOKEN_EXPIRATION'
+
+
+def setup_settings(db: Session) -> None:
+
+    TOKEN_EXPIRATION = os.environ.get('TOKEN_EXPIRATION', str(parse('90 day')))
+
+    kvs = KeyValueStore(db)
+    kvs.put_str(KEY_TOKEN_EXPIRATION, TOKEN_EXPIRATION)
 
 
 def build_settings_cipher() -> Fernet:

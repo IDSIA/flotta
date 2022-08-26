@@ -14,7 +14,7 @@ LOGGER = logging.getLogger(__name__)
 
 class SecurityMiddleware(BaseHTTPMiddleware):
 
-    def __init__(self, app: ASGIApp, skip_paths: list[str]=list()) -> None:
+    def __init__(self, app: ASGIApp, skip_paths: list[str] = list()) -> None:
         super().__init__(app)
 
         self.skip_paths = skip_paths

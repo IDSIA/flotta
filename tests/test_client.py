@@ -1,122 +1,57 @@
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import close_all_sessions
-
-from fastapi.testclient import TestClient
-from base64 import b64encode, b64decode
+from base64 import b64encode
 
 from ferdelance.database import SessionLocal, crud
 from ferdelance.database.settings import KeyValueStore
-from ferdelance.database.startup import init_content
-from ferdelance.database.tables import Client, ClientEvent
-from ferdelance.server.api import api
-from ferdelance.server.security import PUBLIC_KEY, generate_keys, decrypt
+from ferdelance.database.tables import Client, ClientApp, ClientEvent, ClientToken
+from ferdelance.server.security import PUBLIC_KEY
+
+from .utils import (
+    decode_stream,
+    setup_test_client,
+    setup_test_database,
+    setup_rsa_keys,
+    teardown_test_database,
+    create_client,
+    headers,
+    bytes_from_public_key,
+    get_payload,
+    create_payload,
+)
 
 import json
-import random
 import logging
-import uuid
 import os
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(name)s %(levelname)5s %(message)s',
-)
+import random
 
 LOGGER = logging.getLogger(__name__)
 
-os.environ['SERVER_MAIN_PASSWORD'] = '7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1'
 
-DB_ID = str(uuid.uuid4()).replace('-', '')
-DB_HOST = os.environ.get('DB_HOST', 'postgres')
-DB_USER = os.environ.get('DB_USER', 'admin')
-DB_PASS = os.environ.get('DB_PASS', 'admin')
-DB_NAME = os.environ.get('DB_SCHEMA', f'test_{DB_ID}')
-
-
-def decrypt(pk: rsa.RSAPrivateKey, text: str) -> str:
-    """Local utility to decript a text using a private key.
-    Consider that the text should be a string encoded in UTF-8 and base64.
-    :param pk:
-        Private key to use.
-    :param text:
-        Encripted text to decrypt.
-    :return:
-        The decrypted text in UTF-8 encoding.
-    """
-    b64_text: bytes = text.encode('utf8')
-    enc_text: bytes = b64decode(b64_text)
-    plain_text: bytes = pk.decrypt(enc_text, padding.PKCS1v15())
-    ret_text: str = plain_text.decode('utf8')
-    return ret_text
-
-
-class TestClientClass():
+class TestClientClass:
 
     def setup_class(self):
         """Class setup. This will be executed once each test. The setup will:
         - Create the client.
         - Create a new database on the remote server specified by `DB_HOST`, `DB_USER`, and `DB_PASS` (all env variables.).
-          The name of the database is randomly generated using UUID4, if not supplied via `DB_SCHEMA` env variable.
-          The database will be used as the server's database.
+            The name of the database is randomly generated using UUID4, if not supplied via `DB_SCHEMA` env variable.
+            The database will be used as the server's database.
         - Populate this database with the required tables.
         - Generate and save to the database the servers' keys using the hardcoded `SERVER_MAIN_PASSWORD`.
         - Generate the local public/private keys to simulate a client application.
         """
-        LOGGER.info('setting up:')
+        LOGGER.info('setting up')
 
-        # client
-        self.client = TestClient(api)
+        self.client = setup_test_client()
 
-        # database
-        self.db_string_no_db = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/postgres'
+        self.db_string, self.db_string_no_db = setup_test_database()
 
-        with create_engine(self.db_string_no_db, isolation_level='AUTOCOMMIT').connect() as db:
-            db.execute(f'CREATE DATABASE {DB_NAME}')
-            db.execute(f'GRANT ALL PRIVILEGES ON DATABASE {DB_NAME} to {DB_USER};')
-
-        self.db_string = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
-        os.environ['DATABASE_URL'] = self.db_string
-
-        # populate database
-        with SessionLocal() as db:
-            init_content(db)
-            generate_keys(db)
-
-        # rsa keys
-        PATH_PRIVATE_KEY = os.path.join('tests', 'private_key.pem')
-
-        if not os.path.exists(PATH_PRIVATE_KEY):
-            self.private_key: rsa.RSAPrivateKey = rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=4096,
-                backend=default_backend(),
-            )
-            with open(PATH_PRIVATE_KEY, 'wb') as f:
-                data: bytes = self.private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.PKCS8,
-                    encryption_algorithm=serialization.NoEncryption(),
-                )
-                f.write(data)
-
-        # read keys from disk
-        with open(PATH_PRIVATE_KEY, 'rb') as f:
-            data: bytes = f.read()
-            self.private_key: rsa.RSAPrivateKey = serialization.load_pem_private_key(
-                data,
-                None,
-                backend=default_backend())
-
-        self.public_key: bytes = self.private_key.public_key().public_bytes(
-            encoding=serialization.Encoding.OpenSSH,
-            format=serialization.PublicFormat.OpenSSH,
-        )
+        self.private_key = setup_rsa_keys()
+        self.public_key = self.private_key.public_key()
+        self.public_key_bytes = bytes_from_public_key(self.public_key)
 
         random.seed(42)
+
+        self.server_key = None
+        self.token = None
 
         LOGGER.info('setup completed')
 
@@ -126,51 +61,34 @@ class TestClientClass():
         """
         LOGGER.info('tearing down')
 
-        close_all_sessions()
-        LOGGER.info('database session closed')
-
-        # database
-        with create_engine(self.db_string_no_db, isolation_level='AUTOCOMMIT').connect() as db:
-            db.execute(f"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{DB_NAME}' AND pid <> pg_backend_pid()")
-            db.execute(f'DROP DATABASE {DB_NAME}')
+        teardown_test_database(self.db_string_no_db)
 
         LOGGER.info('teardown completed')
 
-    def _create_client(self, ret_server_key: bool=False) -> tuple[str, str]|tuple[str, str, bytes]:
-        """Creates and register a new client with random mac_address and node.
-        :return:
-            Client id and token for this new client.
-        """
+    def get_client(self):
+        client_id, self.token, self.server_key = create_client(self.client, self.private_key)
+        return client_id
 
-        mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
+    def get_client_update(self, payload, token: str | None = None) -> int | tuple[int, str, str]:
+        payload = create_payload(self.server_key, payload)
 
-        data = {
-            'system': 'Linux',
-            'mac_address': mac_address,
-            'node': node,
-            'public_key': b64encode(self.public_key).decode('utf8'),
-            'version': 'test'
-        }
+        cur_token = token if token else self.token
 
-        response_join = self.client.post('/client/join', json=data)
+        response = self.client.get(
+            '/client/update',
+            json=payload,
+            headers=headers(cur_token)
+        )
 
-        assert response_join.status_code == 200
+        if response.status_code != 200:
+            return response.status_code
 
-        json_data = response_join.json()
-        client_id = decrypt(self.private_key, json_data['id'])
-        client_token = decrypt(self.private_key, json_data['token'])
+        response_payload = get_payload(self.private_key, response.json())
 
-        LOGGER.info(f'sucessfully created new client with client_id={client_id}')
-        
-        if ret_server_key:
-            server_public_key: bytes = json_data['public_key']
-            return client_id, client_token, server_public_key
+        assert 'action' in response_payload
+        assert 'data' in response_payload
 
-        return client_id, client_token
-
-    def _headers(self, token) -> dict[str, str]:
-        return {'Authorization': f'Bearer {token}'}
+        return response.status_code, response_payload['action'], response_payload['data']
 
     def test_read_home(self):
         """Generic test to check if the home works."""
@@ -193,22 +111,22 @@ class TestClientClass():
         - a public key in str format
         """
 
-        client_id, client_token, server_public_key = self._create_client(True)
+        client_id = self.get_client()
 
         with SessionLocal() as db:
             db_client = crud.get_client_by_id(db, client_id)
             db_token = crud.get_client_token_by_client_id(db, client_id)
 
             assert db_client is not None
-            assert db_client.active is True
+            assert db_client.active
             assert db_token is not None
-            assert db_token.token == client_token
-            assert db_token.valid is True
+            assert db_token.token == self.token
+            assert db_token.valid
 
             kvs = KeyValueStore(db)
             server_public_key_db: str = kvs.get_str(PUBLIC_KEY)
 
-            assert server_public_key_db == server_public_key
+            assert server_public_key_db == bytes_from_public_key(self.server_key).decode('utf8')
 
             db_events: list[ClientEvent] = crud.get_all_client_events(db, db_client)
 
@@ -218,7 +136,8 @@ class TestClientClass():
     def test_client_already_exists(self):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
 
-        client_id, _ = self._create_client()
+        client_id = self.get_client()
+        public_key = bytes_from_public_key(self.public_key)
 
         with SessionLocal() as db:
             client = crud.get_client_by_id(db, client_id)
@@ -227,35 +146,28 @@ class TestClientClass():
                 'system': client.machine_system,
                 'mac_address': client.machine_mac_address,
                 'node': client.machine_node,
-                'public_key': b64encode(self.public_key).decode('utf8'),
+                'public_key': b64encode(public_key).decode('utf8'),
                 'version': 'test'
             }
 
-        response = self.client.post('/client/join', json=data)
+        response = self.client.post(
+            '/client/join',
+            json=data
+        )
 
         assert response.status_code == 403
         assert response.json()['detail'] == 'Invalid client data'
 
-    def test_client_invalid_data(self):
-        """This test will send invalid data to the server."""
-        # TODO: what kind of data is invalid? Public key format? MAC address? Version mismatch?
-        pass
-
     def test_client_update(self):
         """This will test the endpoint for updates."""
 
-        client_id, token = self._create_client()
+        client_id = self.get_client()
 
-        response_update = self.client.get('/client/update', json={}, headers=self._headers(token))
+        status_code, action, data = self.get_client_update({})
 
-        LOGGER.info(f'response_update={response_update.json()}')
-
-        assert response_update.status_code == 200
-
-        payload = json.loads(decrypt(self.private_key, response_update.json()['payload']))
-
-        assert payload['action'] == 'nothing'
-        assert payload['endpoint'] == '/client/update'
+        assert status_code == 200
+        assert action == 'nothing'
+        assert data is None
 
         with SessionLocal() as db:
             db_client: Client = crud.get_client_by_id(db, client_id)
@@ -271,28 +183,149 @@ class TestClientClass():
 
     def test_client_leave(self):
         """This will test the endpoint for leave a client."""
-        client_id, token = self._create_client()
+        client_id = self.get_client()
 
-        response_leave = self.client.post('/client/leave', json={}, headers=self._headers(token))
+        response_leave = self.client.post(
+            '/client/leave',
+            json={},
+            headers=headers(self.token)
+        )
 
         LOGGER.info(f'response_leave={response_leave}')
 
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        response_update = self.client.get('/client/update', json={}, headers=self._headers(token))
+        status_code = self.get_client_update({})
 
-        assert response_update.status_code == 403
+        assert status_code == 403
 
         with SessionLocal() as db:
             db_client: Client = crud.get_client_by_id(db, client_id)
 
             assert db_client is not None
             assert db_client.active is False
-            assert db_client.left is True
+            assert db_client.left
 
             db_events: list[str] = [c.event for c in crud.get_all_client_events(db, db_client)]
 
             assert 'creation' in db_events
             assert 'left' in db_events
             assert 'update' not in db_events
+
+    def test_client_update_token(self):
+        """This will test the failure and update of a token."""
+        with SessionLocal() as db:
+            client_id = self.get_client()
+
+            # expire token
+            db.query(ClientToken).filter(ClientToken.client_id == client_id).update({'expiration_time': 0})
+            db.commit()
+
+            LOGGER.info('expiration_time for token set to 0')
+
+            status_code, action, new_token = self.get_client_update({})
+
+            assert status_code == 200
+            assert action == 'update_token'
+
+            # extend expire token
+            db.query(ClientToken).filter(ClientToken.client_id == client_id).update({'expiration_time': 86400})
+            db.commit()
+
+            LOGGER.info('expiration_time for token set to 24h')
+
+            status_code = self.get_client_update({})
+
+            assert status_code == 403
+
+            status_code, action, data = self.get_client_update({}, new_token)
+
+            assert status_code == 200
+            assert action == 'nothing'
+            assert data is None
+
+    def test_client_update_app(self):
+        """This will test the upload of a new (fake) app, and the update process."""
+        with SessionLocal() as db:
+            client_id = self.get_client()
+
+            client_version = crud.get_client_by_id(db, client_id).version
+
+            assert client_version == 'test'
+
+            # create fake app (it's justa a file)
+            version_app = 'test_1.0'
+            filename_app = 'fake_client_app.json'
+            path_fake_app = os.path.join('.', filename_app)
+
+            with open(path_fake_app, 'w') as f:
+                json.dump({'version': version_app}, f)
+
+            LOGGER.info(f'created file={path_fake_app}')
+
+            # upload fake client app
+            upload_response = self.client.post(
+                '/manager/upload/client',
+                files={
+                    "file": (filename_app, open(path_fake_app, "rb"))
+                }
+            )
+
+            assert upload_response.status_code == 200
+
+            upload_id = upload_response.json()['upload_id']
+
+            # update metadata
+            metadata_response = self.client.post(
+                '/manager/upload/client/metadata',
+                json={
+                    'upload_id': upload_id,
+                    'version': version_app,
+                    'name': 'Testing_app',
+                    'active': True,
+                }
+            )
+
+            assert metadata_response.status_code == 200
+
+            client_app: ClientApp = db.query(ClientApp).filter(ClientApp.app_id == upload_id).first()
+
+            assert client_app is not None
+            assert client_app.version == version_app
+            assert client_app.active
+
+            n_apps = db.query(ClientApp).filter(ClientApp.active).count()
+            assert n_apps == 1
+
+            newest_version: str = crud.get_newest_app_version(db)
+            assert newest_version == version_app
+
+            # update request
+            status_code, action, data = self.get_client_update({})
+
+            assert status_code == 200
+
+            assert action == 'update_client'
+            assert data == version_app
+
+            # download new client
+            with self.client.get(
+                '/client/update/files',
+                json=create_payload(self.server_key, {'client_version': data}),
+                headers=headers(self.token),
+                stream=True
+            ) as stream:
+                assert stream.status_code == 200
+
+                content = decode_stream(stream, self.private_key)
+
+                assert json.loads(content) == {'version': version_app}
+
+            client_version = crud.get_client_by_id(db, client_id).version
+
+            assert client_version == version_app
+
+            # delete local fake client app
+            if os.path.exists(path_fake_app):
+                os.remove(path_fake_app)

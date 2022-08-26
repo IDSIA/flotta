@@ -1,3 +1,4 @@
+aiofiles
 cryptography
 fastapi
 fastapi-sqlalchemy
@@ -7,5 +8,6 @@ psycopg2-binary
 pydantic
 python-dotenv
 python-multipart
+pytimeparse
 sqlalchemy
 uvicorn
