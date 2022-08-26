@@ -13,7 +13,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def decode_from_transfer(text: str, encoding: str = 'utf8') -> bytes:
+def decode_from_transfer(text: str, encoding: str = 'utf8') -> str:
     """Decode the string received through a transfer between client and server.
     :param text:
         Text to decode.
@@ -29,14 +29,13 @@ def decode_from_transfer(text: str, encoding: str = 'utf8') -> bytes:
 
 
 def decrypt(private_key: RSAPrivateKey, text: str, encoding: str = 'utf8') -> str:
-    """Decrypt a text using the given private key.
+    """Decrypt a text using a private key.
 
-    :param private_key:
-        Private Key to use.
+    :param public_key:
+        Source private key.
     :param text:
         Content to be decrypted.
     """
-
     b64_text: bytes = text.encode(encoding)
     enc_text: bytes = b64decode(b64_text)
     plain_text: bytes = private_key.decrypt(enc_text, padding.PKCS1v15())
@@ -55,11 +54,16 @@ def decode_stream(chunks: Iterable, private_key: RSAPrivateKey, SEPARATOR: bytes
             preamble = False
 
             preamble_bytes: bytes = b''.join(first_part)
-            decoded: dict[str, str] = json.loads(decrypt(private_key, preamble_bytes))
+            preamble_bytes: bytes = b64decode(preamble_bytes)
+            preamble_bytes: bytes = private_key.decrypt(preamble_bytes, padding.PKCS1v15())
+            preamble_bytes: str = preamble_bytes.decode('utf8')
+            decoded: dict = json.loads(preamble_bytes)
+
+            logging.debug(f'preamble_bytes {preamble_bytes}')
 
             symmetric_key = SymmetricKey(
-                decoded['key'].encode(encoding),
-                decoded['iv'].encode(encoding),
+                b64decode(decoded['key'].encode(encoding)),
+                b64decode(decoded['iv'].encode(encoding)),
             )
 
             decryptor = symmetric_key.decryptor()

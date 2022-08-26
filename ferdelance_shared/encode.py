@@ -12,6 +12,15 @@ LOGGER = logging.getLogger(__name__)
 
 
 def encode_to_transfer(text: str, encoding: str = 'utf8') -> str:
+    """Encode a string that will be sent through a transfer between client and server.
+
+    :param text:
+        Text to decode.
+    :param encoding:
+        Encoding to use.
+    :return:
+        Encoded text.
+    """
     in_bytes: bytes = text.encode(encoding)
     b64_bytes: bytes = b64encode(in_bytes)
     out_text: str = b64_bytes.decode(encoding)
@@ -19,14 +28,13 @@ def encode_to_transfer(text: str, encoding: str = 'utf8') -> str:
 
 
 def encrypt(public_key: RSAPublicKey, text: str, encoding: str = 'utf8') -> str:
-    """Encrypt a text to be sent outside of the server.
+    """Encrypt a text using a public key.
 
     :param public_key:
-        Client public key in bytes format.
+        Target public key.
     :param text:
         Content to be encrypted.
     """
-
     plain_text: bytes = text.encode(encoding)
     enc_text: bytes = public_key.encrypt(plain_text, padding.PKCS1v15())
     b64_text: bytes = b64encode(enc_text)
@@ -65,6 +73,8 @@ def stream_encrypt_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4
         'key': b64encode(symmmetric_key.key).decode(encoding),
         'iv': b64encode(symmmetric_key.iv).decode(encoding),
     })
+
+    LOGGER.debug(f'preamble sent {data_str}')
 
     # first part: return encrypted session key
     yield encrypt(public_key, data_str)

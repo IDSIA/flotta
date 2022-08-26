@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key, l
 import os
 
 
-def generate_private_key() -> RSAPrivateKey:
+def generate_asymmetric_key() -> RSAPrivateKey:
     """Generates a new private key."""
     private_key: RSAPrivateKey = generate_private_key(
         public_exponent=65537,
@@ -29,7 +29,7 @@ def private_key_from_bytes(data: bytes) -> RSAPrivateKey:
     :return:
         A valid private key.
     """
-    return load_pem_private_key(data, backend=default_backend())
+    return load_pem_private_key(data, password=None, backend=default_backend())
 
 
 def private_key_from_str(data: str, encoding: str = 'utf8') -> RSAPrivateKey:
@@ -115,7 +115,7 @@ def bytes_from_public_key(public_key: RSAPublicKey) -> bytes:
 
 
 class SymmetricKey:
-    def __init__(self, key: bytes | None, iv: bytes | None, key_size: int = 32, iv_size: int = 16) -> None:
+    def __init__(self, key: bytes | None = None, iv: bytes | None = None, key_size: int = 32, iv_size: int = 16) -> None:
         """Generates a new random key, initialization vector, and cipher for 
         a symmetric encryption algorithm.
 
