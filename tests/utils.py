@@ -16,7 +16,7 @@ from ferdelance.database import SessionLocal
 from ferdelance.database.settings import setup_settings
 from ferdelance.database.startup import init_content
 from ferdelance.server.api import api
-from ferdelance.server.security import generate_keys, decrypt
+from ferdelance.server.security import generate_keys
 
 import random
 import json
