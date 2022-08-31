@@ -16,12 +16,13 @@ nuke:
 	docker volume rm federated-learning-server_spearhead-db-data
 	docker volume rm federated-learning-server_spearhead-server-data
 
+venv-create:
+	python -m venv Spearhead_env
+
 venv-recreate:
 	rm -rf Spearhead_env
 	python -m venv Spearhead_env
 
-venv-install:
+venv-dev-install:
 	pip install federated-learning-shared/
-	pip install -e .
-	pip install -r requirements.txt
-	pip install -r requirements.test.txt
+	pip install -e ".[test]"
