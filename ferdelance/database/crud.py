@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+
 from .tables import Client, ClientEvent, ClientToken, ClientApp, Model
 
 import logging

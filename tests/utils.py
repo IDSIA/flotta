@@ -11,7 +11,7 @@ from ferdelance.database.startup import init_content
 from ferdelance.server.api import api
 from ferdelance.server.security import generate_keys
 
-from ferdelance_shared.decode import decrypt, decode_stream, decode_from_transfer
+from ferdelance_shared.decode import decrypt, decrypt_stream, decode_from_transfer
 from ferdelance_shared.encode import encrypt
 from ferdelance_shared.generate import (
     bytes_from_public_key,
@@ -169,7 +169,7 @@ def create_payload(server_public_key: RSAPublicKey, payload: dict) -> dict:
     }
 
 
-def decode_stream_response(stream: Response, private_key: RSAPrivateKey) -> bytes:
-    content = [chunk for chunk in decode_stream(stream.iter_content(), private_key)]
+def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> bytes:
+    content = [chunk for chunk in decrypt_stream(stream.iter_content(), private_key)]
 
     return b''.join(content)

@@ -1,4 +1,4 @@
-from ..database.tables import Client, ClientApp, ClientToken
+from ..database.tables import Client, ClientToken
 from ..database import Session, crud
 
 from .security import generate_token
