@@ -17,7 +17,7 @@ def encode_to_transfer(text: str, encoding: str = 'utf8') -> str:
     :param text:
         Text to decode.
     :param encoding:
-        Encoding to use.
+        Encoding to use in the string-byte conversion.
     :return:
         Encoded text.
     """
@@ -34,6 +34,8 @@ def encrypt(public_key: RSAPublicKey, text: str, encoding: str = 'utf8') -> str:
         Target public key.
     :param text:
         Content to be encrypted.
+    :param encoding:
+        Encoding to use in the string-byte conversion.
     """
     plain_text: bytes = text.encode(encoding)
     enc_text: bytes = public_key.encrypt(plain_text, padding.PKCS1v15())
@@ -62,6 +64,8 @@ def stream_encrypt_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4
     :param SEPARATOR:
         Single or sequence of bytes that separates the first part of the stream
         from the second part.
+    :param encoding:
+        Encoding to use in the string-byte conversion.
     :return:
         A stream of bytes
     """
@@ -77,7 +81,7 @@ def stream_encrypt_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4
     LOGGER.debug(f'preamble sent {data_str}')
 
     # first part: return encrypted session key
-    yield encrypt(public_key, data_str)
+    yield encrypt(public_key, data_str).encode(encoding)
 
     # return separator between first and second part
     yield SEPARATOR
