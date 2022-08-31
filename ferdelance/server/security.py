@@ -1,17 +1,23 @@
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_ssh_public_key
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-
-from fastapi.security import HTTPBasicCredentials, HTTPBearer
 from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBasicCredentials, HTTPBearer
+from fastapi.responses import StreamingResponse
 
-from base64 import b64encode, b64decode
+from datetime import timedelta, datetime
 from hashlib import sha256
 from sqlalchemy.orm import Session
-from datetime import timedelta, datetime
 from time import time
+
+from ferdelance_shared.generate import (
+    generate_asymmetric_key,
+    bytes_from_private_key,
+    bytes_from_public_key,
+    public_key_from_bytes,
+    private_key_from_bytes,
+    RSAPublicKey,
+    RSAPrivateKey
+)
+from ferdelance_shared.decode import decode_from_transfer, decrypt
+from ferdelance_shared.encode import encode_to_transfer, encrypt, stream_encrypt_file
 
 from ..database import SessionLocal, crud
 from ..database.settings import KeyValueStore
@@ -69,25 +75,14 @@ def generate_keys(db: Session) -> None:
     # generate new keys
     LOGGER.info('Keys generation started')
 
-    key: rsa.RSAPrivateKey = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=4096,
-        backend=default_backend(),
-    )
+    private_key: RSAPrivateKey = generate_asymmetric_key()
+    public_key: RSAPublicKey = private_key.public_key()
 
-    private_key: bytes = key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
+    private_bytes: bytes = bytes_from_private_key(private_key)
+    public_bytes: bytes = bytes_from_public_key(public_key)
 
-    public_key: bytes = key.public_key().public_bytes(
-        encoding=serialization.Encoding.OpenSSH,
-        format=serialization.PublicFormat.OpenSSH,
-    )
-
-    kvs.put_bytes(PRIVATE_KEY, private_key)
-    kvs.put_bytes(PUBLIC_KEY, public_key)
+    kvs.put_bytes(PRIVATE_KEY, private_bytes)
+    kvs.put_bytes(PUBLIC_KEY, public_bytes)
 
     LOGGER.info('Keys generation completed')
 
@@ -155,7 +150,7 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer())) -> st
         return client_id
 
 
-def get_server_public_key(db: Session) -> str:
+def get_server_public_key(db: Session) -> RSAPublicKey:
     """
     :param db:
         Current session to the database.
@@ -163,120 +158,56 @@ def get_server_public_key(db: Session) -> str:
         The server public key in string format.
     """
     kvs = KeyValueStore(db)
-    return kvs.get_str(PUBLIC_KEY)
+    public_bytes: bytes = kvs.get_bytes(PUBLIC_KEY)
+    return public_key_from_bytes(public_bytes)
 
 
-def get_client_public_key(client: Client | ClientJoinRequest) -> bytes:
-    public_key: str = client.public_key
-    plain_text: bytes = public_key.encode('utf8')
-    b64_text: bytes = b64decode(plain_text)
-    return b64_text
+def get_server_public_key_str(db: Session) -> str:
+    kvs = KeyValueStore(db)
+    public_str: bytes = kvs.get_str(PUBLIC_KEY)
+    return encode_to_transfer(public_str)
 
 
-def encrypt(public_key: bytes, text: str) -> str:
-    """Encrypt a text to be sent outside of the server.
-
-    :param public_key:
-        Client public key in bytes format.
-    :param text:
-        Content to be encrypted.
+def get_server_private_key(db: Session) -> str:
     """
-    pk: rsa.RSAPublicKey = load_ssh_public_key(public_key, backend=default_backend())
-
-    plain_text: bytes = text.encode('utf8')
-    enc_text: bytes = pk.encrypt(plain_text, padding.PKCS1v15())
-    b64_text: bytes = b64encode(enc_text)
-    ret_text: str = b64_text.decode('utf8')
-    return ret_text
-
-
-def decrypt(db: Session, text: str) -> str:
-    """Decrypt a text received from the outside using the private key
-    stored in the server.
-
     :param db:
         Current session to the database.
-    :param text:
-        Content to be decrypted.
+    :return:
+        The server public key in string format.
     """
     kvs = KeyValueStore(db)
-    private_key = kvs.get_bytes(PRIVATE_KEY)
-
-    pk: rsa.RSAPrivateKey = load_pem_private_key(private_key, None, backend=default_backend())
-
-    b64_text: bytes = text.encode('utf8')
-    enc_text: bytes = b64decode(b64_text)
-    plain_text: bytes = pk.decrypt(enc_text, padding.PKCS1v15())
-    ret_text: str = plain_text.decode('utf8')
-    return ret_text
+    private_bytes: bytes = kvs.get_bytes(PRIVATE_KEY)
+    return private_key_from_bytes(private_bytes)
 
 
-def generate_symmetric_key(key_size: int = 32, iv_size: int = 16) -> tuple[bytes, bytes, Cipher]:
-    """Generates a new random key, initialization vector, and cipher for 
-    a symmetric encryption algorithm.
-
-    :param key_size:
-        Size of the key to generate.
-    :param iv_size:
-        Size of the initialization vector.
-    :return:
-        A tuple composed by the key, the initialization vecotr, and the 
-        cipher initialized with AES algorithm in CTR mode.
-    """
-    key: bytes = os.urandom(key_size)
-    iv: bytes = os.urandom(iv_size)
-    cipher: Cipher = Cipher(algorithms.AES(key), modes.CTR(iv), backend=default_backend())
-
-    return key, iv, cipher
+def get_client_public_key(client: Client | ClientJoinRequest) -> RSAPublicKey:
+    key_bytes: bytes = decode_from_transfer(client.public_key).encode('utf8')
+    public_key: RSAPublicKey = public_key_from_bytes(key_bytes)
+    return public_key
 
 
-def stream_and_encrypt_file(path: str, public_key: bytes, CHUNK_SIZE: int = 4096, SEPARATOR: bytes = b'\n') -> bytes:
-    """Generator function that streams a file from the given path and encrpyt
-    the content using an hybrid-encryption algorithm.
+def server_encrypt(client: Client, content: str) -> str:
+    client_public_key: RSAPublicKey = get_client_public_key(client)
+    return encrypt(client_public_key, content)
 
-    The streamed file is composed by two parts: the first part contains the 
-    symmetric key encrypted with the client asymmetric key; the second part
-    contains the file encrypted using the asymmetric key.
 
-    The client is expected to decrypt the first part, obtain the symmetric key
-    and start decrypte the content of the file.
+def server_decrypt(db: Session, content: str) -> str:
+    server_private_key: RSAPrivateKey = get_server_private_key(db)
+    return decrypt(server_private_key, content)
 
-    :param path:
-        Path on disk of the file to stream.
-    :param public_key:
-        Client public key.
-    :param CHUNK_SIZE:
-        Size in bytes of each chunk transmitted to the client.
-    :param SEPARATOR:
-        Single or sequence of bytes that separates the first part of the stream
-        from the second part.
-    :return:
-        A stream of bytes
-    """
 
-    # generate session key for hiybrid encrpytion
-    key, iv, cipher = generate_symmetric_key()
+def server_stream_encrypt(client: Client, path: str) -> StreamingResponse:
+    client_public_key: RSAPublicKey = get_client_public_key(client)
 
-    data_str: str = json.dumps({
-        'key': b64encode(key).decode('utf8'),
-        'iv': b64encode(iv).decode('utf8'),
-    })
+    return StreamingResponse(
+        stream_encrypt_file(path, client_public_key),
+        media_type='application/octet-stream'
+    )
 
-    # first part: return encrypted session key
-    yield encrypt(public_key, data_str)
 
-    # return separator between first and second part
-    yield SEPARATOR
+def server_stream_decrypt_to_file() -> None:
+    raise NotImplemented()
 
-    # second part: return encrypted file
-    encryptor = cipher.encryptor()
 
-    with open(path, mode='rb') as f:
-        while True:
-            chunk = f.read(CHUNK_SIZE)
-
-            if not chunk:
-                yield encryptor.finalize()
-                break
-
-            yield encryptor.update(chunk)
+def server_stream_decrypt_to_dictionary() -> dict:
+    raise NotImplemented()

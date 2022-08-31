@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import StreamingResponse
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -9,7 +8,14 @@ from ...database.tables import Client, ClientApp, ClientToken
 from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
 from ..actions import ActionManager
 from ..schemas.client import *
-from ..security import decrypt, generate_token, get_server_public_key, encrypt, get_client_public_key, check_token, stream_and_encrypt_file
+from ..security import (
+    generate_token,
+    check_token,
+    server_decrypt,
+    server_encrypt,
+    get_server_public_key_str,
+    server_stream_encrypt,
+)
 
 import logging
 import json
@@ -44,19 +50,17 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
             ip_address=ip_address,
         )
 
-        client = crud.create_client(db, client)
+        client: Client = crud.create_client(db, client)
         client_token = crud.create_client_token(db, client_token)
 
         crud.create_client_event(db, client_id, 'creation')
 
-        client_public_key: bytes = get_client_public_key(client)
-
         LOGGER.info(f'client_id={client_id}: joined')
 
         return ClientJoinResponse(
-            id=encrypt(client_public_key, client_id),
-            token=encrypt(client_public_key, token),
-            public_key=get_server_public_key(db)
+            id=server_encrypt(client, client_id),
+            token=server_encrypt(client, token),
+            public_key=get_server_public_key_str(db)
         )
 
     except SQLAlchemyError as e:
@@ -93,12 +97,10 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
     LOGGER.info(f'client_id={client_id}: update request')
     crud.create_client_event(db, client_id, 'update')
 
-    client = crud.get_client_by_id(db, client_id)
-    client_pub_key = get_client_public_key(client)
+    client: Client = crud.get_client_by_id(db, client_id)
 
     # consume current results (if present) and compute next action
-
-    payload = decrypt(db, request.payload)
+    payload: str = server_decrypt(db, request.payload)
 
     action, data = ActionManager().next(db, client, payload)
 
@@ -112,15 +114,14 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
     }
 
     return ClientUpdateResponse(
-        payload=encrypt(client_pub_key, json.dumps(payload))
+        payload=server_encrypt(client, json.dumps(payload))
     )
 
 
 @client_router.get('/client/update/files')
 def client_update_files(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
-    payload = json.loads(decrypt(db, request.payload))
+    payload = json.loads(server_decrypt(db, request.payload))
     client = crud.get_client_by_id(db, client_id)
-    public_key = get_client_public_key(client)
 
     if 'client_version' in payload:
         client_version = payload['client_version']
@@ -135,7 +136,7 @@ def client_update_files(request: ClientUpdateModelRequest, db: Session = Depends
 
         LOGGER.info(f'client_id={client_id}: requested new client version={client_version}')
 
-        return StreamingResponse(stream_and_encrypt_file(new_app.path, public_key), media_type='application/octet-stream')
+        return server_stream_encrypt(client, new_app.path)
 
     if 'model_id' in payload:
         model_id = payload['model_id']

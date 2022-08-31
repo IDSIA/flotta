@@ -1,15 +1,46 @@
 ## Federated Learning (Server)
 
+
 # Fer-De-Lance, a Federated Learning framework
 
-Why the name?
+## Why this name?
+
 * _Fer-De-Lance_ means "Spearhead" in Franch.
 * It is also a kind of snake of the genus *Bothrops*. 
 * Asclepius, the greek divinity of the medicine, had a staff enwined with snakes, which is the symbol of medicine today.
 * Many letters in _Federated Learning_ can also be found in _Fer-De-Lance_.
 * Python _is_ a snake!
 
+
 ## Development
+
+
+### With the make command
+
+Make sure that the `make` command is available.
+
+The `Makefile` is used to group commands commonly used during the development of the application.
+
+To start from zero, create a new virtual environment:
+
+```bash
+make venv-create
+```
+
+In case you need to delete and create from scratch the environment, use this command:
+
+```bash
+make venv-recreate
+```
+
+To install the server in development mode (pip editable mode), with the  dependencies also for the tests, use this command:
+
+```bash
+make venv-dev-install
+```
+
+
+### Classic development
 
 Craete a virtual env:
 
@@ -17,10 +48,18 @@ Craete a virtual env:
 python -m venv SpearHeadServerEnv
 ```
 
-For testing purposes, install the server in editable mode using pip:
+Install the submodule [federated-learning-shared](https://gitlab-core.supsi.ch/dti-idsia/spearhead/federated-learning-shared), since it is a dependency:
+
 ```bash
-pip install -e .
+pip install federated-learning-shared/
 ```
+
+For testing purposes, install the server in editable mode using pip:
+
+```bash
+pip install -e ".[test]"
+```
+
 
 ## Environment variables
 

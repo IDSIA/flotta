@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, Response, HTTPException, Body
+from fastapi import APIRouter, Depends, UploadFile, Response, HTTPException
 from fastapi.responses import FileResponse
 
 from sqlalchemy.orm import Session

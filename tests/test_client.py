@@ -6,7 +6,6 @@ from ferdelance.database.tables import Client, ClientApp, ClientEvent, ClientTok
 from ferdelance.server.security import PUBLIC_KEY
 
 from .utils import (
-    decode_stream,
     setup_test_client,
     setup_test_database,
     setup_rsa_keys,
@@ -16,6 +15,7 @@ from .utils import (
     bytes_from_public_key,
     get_payload,
     create_payload,
+    decrypt_stream_response,
 )
 
 import json
@@ -318,7 +318,7 @@ class TestClientClass:
             ) as stream:
                 assert stream.status_code == 200
 
-                content = decode_stream(stream, self.private_key)
+                content = decrypt_stream_response(stream, self.private_key)
 
                 assert json.loads(content) == {'version': version_app}
 
