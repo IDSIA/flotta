@@ -25,7 +25,7 @@ if [ -d ${PYTHON_ENV} ]; then
 else
     # create new environment
     echo "Environment folder not ${PYTHON_ENV} found. "
-    
+
     ${PYTHON} -m venv ${PYTHON_ENV}
 
     source ./${PYTHON_ENV}/bin/activate
@@ -37,13 +37,13 @@ EXIT_CODE=1
 
 while [ ${EXIT_CODE} -ne 0 ]; do
     # main loop
-    ${PYTHON} ferdelance/client.py
-    
+    ${PYTHON} ferdelance/client.py "$@"
+
     EXIT_CODE=$?
 
     if [ ${EXIT_CODE} -eq 2 ]; then
         # install new requirements and relaunch
-        pip install -r ${REQUIREMENTS}
+        pip install .
     fi
 
 done
