@@ -1,3 +1,4 @@
+from typing import Any
 from ferdelance import __version__
 from ferdelance_shared.generate import (
     generate_asymmetric_key,
@@ -19,24 +20,28 @@ from ferdelance_shared.encode import (
     stream_encrypt_file,
 )
 
-from dotenv import load_dotenv
-from time import sleep
-
 from base64 import b64encode
 from getmac import get_mac_address
+from dotenv import load_dotenv
+from requests import Response
+from time import sleep
+
+import yaml
 
 import argparse
 import json
 import logging
 import requests
-import platform
-import sys
 import os
+import platform
+import shutil
+import sys
 import uuid
 
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(name)s %(levelname)5s %(message)s',
+    level=LOG_LEVEL,
+    format='%(asctime)s %(name)8s %(levelname)6s %(message)s',
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -49,18 +54,158 @@ class Arguments(argparse.ArgumentParser):
         self.exit(0, f"{self.prog}: error: {message}\n")
 
 
-def setup_arguments():
+def setup_arguments() -> dict[str, Any]:
+    arguments: dict[str, Any] = {
+        'server': 'http://localhost/',
+        'workdir': './FDL.client.workdir',
+        'config': None,
+        'heartbeat': 1.0,
+        'leave': False,
+
+        'datasource': [],
+    }
+    LOGGER.debug(f'default arguments: {arguments}')
+
     """Defines the available input parameters"""
-    parser = Arguments(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-s', '--server', help='Set the url for the aggregation server', default='http://localhost/', type=str)
-    parser.add_argument('-w', '--workdir', help='Set the working directory of the client', default='./FDL.client.workdir', type=str)
-    parser.add_argument('-b', '--heartbeat', help='Set the amount of time in seconds to wait after a command execution.', default=1, type=float)
-    return parser.parse_args()
+    parser = Arguments()
+
+    parser.add_argument(
+        '-s', '--server',
+        help=f"""
+        Set the url for the aggregation server.
+        (default: {arguments['server']})
+        """,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        '-w', '--workdir',
+        help=f"""
+        Set the working directory of the client
+        (default: {arguments['workdir']})
+        """,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        '-c', '--config',
+        help=f"""
+        Set a configuration file in YAML format to use
+        Note that command line arguments take the precedence of arguments declared with a config file.
+        (default: {arguments['config']})
+        """,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        '-b', '--heartbeat',
+        help=f"""
+        Set the amount of time in seconds to wait after a command execution.
+        (default: {arguments['heartbeat']})
+        """,
+        default=None,
+        type=float
+    )
+
+    parser.add_argument(
+        '--leave',
+        help=f"""
+        Request to disconnect this client from the server.
+        This command will also remove the given working directory and all its content.
+        (default: {arguments['leave']})
+        """,
+        action='store_true',
+        default=None,
+    )
+    parser.add_argument(
+        '-f', '--file',
+        help="""
+        Add a file as source file.
+        This arguments takes 2 positions: a file type (TYPE) and a file path (PATH).
+        The supported filetypes are: CSV, TSV.
+        This arguments can be repeated.
+        """,
+        default=None,
+        action='append',
+        nargs=2,
+        metavar=('TYPE', 'PATH'),
+        type=str,
+    )
+    parser.add_argument(
+        '-db', '--dbms',
+        help="""
+        Add a database as source file.
+        This arguments takes 2 position: a supported DBMS (TYPE) and the connection string (CONN).
+        The DBMS requires full compatiblity with SQLAlchemy
+        This arguments can be repeated.
+        """,
+        default=None,
+        action='append',
+        nargs=2,
+        metavar=('TYPE', 'CONN'),
+        type=str
+    )
+
+    # parse input arguments as a dict
+    args = parser.parse_args()
+
+    server = args.server
+    workdir = args.workdir
+    config = args.config
+    heartbeat = args.heartbeat
+    leave = args.leave
+    files = args.file
+    dbs = args.dbms
+
+    # parse YAML config file
+    if config is not None:
+        with open(config, 'r') as f:
+            try:
+                config_args = yaml.safe_load(f)['ferdelance']
+                LOGGER.debug(f'config arguments: {config_args}')
+            except yaml.YAMLError as e:
+                LOGGER.error(f'could not read config file {config}')
+                LOGGER.exception(e)
+
+        # assign values from config file
+        arguments['config'] = config
+        arguments['server'] = config_args['client']['server']
+        arguments['workdir'] = config_args['client']['workdir']
+        arguments['heartbeat'] = config_args['client']['heartbeat']
+
+        # assign data sources
+        for item in config_args['datasource']['file']:
+            arguments['datasource'].append(('file', item['type'], item['path']))
+        for item in config_args['datasource']['db']:
+            arguments['datasource'].append(('db', item['type'], item['conn']))
+
+    LOGGER.debug(f'config arguments: {arguments}')
+
+    # assign values from command line
+    if server:
+        arguments['server'] = server
+    if workdir:
+        arguments['workdir'] = workdir
+    if heartbeat:
+        arguments['heartbeat'] = heartbeat
+    if leave:
+        arguments['leave'] = leave
+
+    if files:
+        for t, path in files:
+            arguments['datasource'].append(('file', t, path))
+    if dbs:
+        for t, conn in files:
+            arguments['datasource'].append(('db', t, conn))
+
+    LOGGER.info(f'arguments: {arguments}')
+
+    return arguments
 
 
 class FerdelanceClient:
 
-    def __init__(self, server: str, workdir: str, heartbeat: float) -> None:
+    def __init__(self, server: str, workdir: str, heartbeat: float, datasources: list[tuple[str, str, str]]) -> None:
         # possible states are: work, exit, update, install
         self.status: str = 'work'
         self.server: str = server
@@ -76,13 +221,99 @@ class FerdelanceClient:
 
         self.setup_completed: bool = False
 
+        self.datasources: list[tuple[str, str, str]] = datasources
+
+        # TODO: parse data sources
+
+        # TODO: save config locally (and load if available in workdir)
+
+    def add_data_source(self, type: str, connection: str):
+        # TODO:
+        pass
+
+    def headers(self) -> dict[str, str]:
+        """Utility method to build the headers for secure requests to the server.
+
+        :return:
+            A dictionary with the `Authorization` header.
+        """
+        return {
+            'Authorization': f'Bearer {self.client_token}'
+        }
+
+    def create_payload(self, payload: dict) -> dict:
+        """Encrypt the given payload to send to the server.
+
+        :return:
+            A dictionary with encrypted data to use in the `payload` arguments of a POST request.
+        """
+        return {
+            'payload': encrypt(self.server_public_key, json.dumps(payload))
+        }
+
+    def get_payload(self, json_data: dict) -> dict:
+        """Extract the content of a payload received from the server.
+
+        :return:
+            A decripted json from the `payload` key received from the server.
+        """
+        return json.loads({
+            decrypt(self.private_key, json_data['payload'])
+        })
+
+    def decrypt_stream_response(self, stream: Response, out_path: str) -> None:
+        with open(out_path, 'wb') as f:
+            for chunk in decrypt_stream(stream.iter_content(), self.private_key):
+                f.write(chunk)
+
     def join(self, data: dict) -> tuple[int, dict]:
+        """Send a join request to the server.
+
+        :return:
+            The status code of the response, data from the response.
+        """
         res = requests.post(
             f'{self.server}/client/join',
             json=data
         )
 
         return res.status_code, res.json()
+
+    def leave(self) -> None:
+        res = requests.post(
+            '/client/leave',
+            json={},
+            headers=self.headers(),
+        )
+
+        ret_code = res.status_code
+
+        if ret_code != 200:
+            LOGGER.error(f'Could not leave  server {self.server}')
+            return
+
+        LOGGER.info(f'removing working directory {self.workdir}')
+        shutil.rmtree(self.workdir)
+
+        LOGGER.info(f'client left server {self.server}')
+
+    def update(self, data: dict) -> tuple[int, str, str]:
+        payload = self.create_payload(data)
+
+        res = requests.get(
+            '/client/update',
+            json=payload,
+            headers=self.headers(),
+        )
+
+        ret_code = res.status_code
+
+        if ret_code != 200:
+            raise ValueError(f'server response is {ret_code}')
+
+        ret_data = self.get_payload(res.json())
+
+        return res.status_code, ret_data['action'], ret_data['data']
 
     def setup(self) -> None:
         """Client initliazation (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
@@ -134,7 +365,7 @@ class FerdelanceClient:
             status_code, json_data = self.join(data)
 
             if status_code == 403:
-                LOGGER.warn('client already joined, but no local files!')
+                LOGGER.error('client already joined, but no local files found!?')
 
                 # TODO: what to do in this case?
                 sys.exit(0)
@@ -178,13 +409,21 @@ class FerdelanceClient:
             self.setup()
 
         while self.status != 'exit':
-            if self.status == 'update':
-                LOGGER.info('update application')
-                sys.exit(1)
+            try:
+                status_code, action, data = self.update({})
 
-            if self.status == 'install':
-                LOGGER.info('update and install packages')
-                sys.exit(2)
+                # TODO: setup work loop
+
+                if self.status == 'update':
+                    LOGGER.info('update application')
+                    sys.exit(1)
+
+                if self.status == 'install':
+                    LOGGER.info('update and install packages')
+                    sys.exit(2)
+            except ValueError as e:
+                LOGGER.exception(e)
+                sys.exit(0)
 
             LOGGER.info('waiting')
             sleep(self.heartbeat)
@@ -194,11 +433,12 @@ if __name__ == '__main__':
     load_dotenv()
     args = setup_arguments()
 
-    client = FerdelanceClient(
-        server=args.server,
-        workdir=args.workdir,
-        heartbeat=args.heartbeat,
-    )
+    client = FerdelanceClient(*args)
+
+    if args['client']:
+        client.leave()
+        sys.exit(0)
+
     client.run()
 
     LOGGER.info('terminate application')
