@@ -1,5 +1,5 @@
-from typing import Any
 from ferdelance import __version__
+from ferdelance_shared.actions import *
 from ferdelance_shared.generate import (
     generate_asymmetric_key,
     bytes_from_private_key,
@@ -20,17 +20,15 @@ from ferdelance_shared.encode import (
     stream_encrypt_file,
 )
 
+from .datasources import DataSourceDB, DataSourceFile
+
 from base64 import b64encode
 from getmac import get_mac_address
-from dotenv import load_dotenv
 from requests import Response
 from time import sleep
 
 import yaml
-import pandas as pd
-import numpy as np
 
-import argparse
 import json
 import logging
 import requests
@@ -40,214 +38,15 @@ import shutil
 import sys
 import uuid
 
-load_dotenv()
-
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
-logging.basicConfig(
-    level=LOG_LEVEL,
-    format='%(asctime)s %(name)8s %(levelname)6s %(message)s',
-)
-
 LOGGER = logging.getLogger(__name__)
-
-
-class Arguments(argparse.ArgumentParser):
-
-    def error(self, message: str) -> None:
-        self.print_usage(sys.stderr)
-        self.exit(0, f"{self.prog}: error: {message}\n")
-
-
-def setup_arguments() -> dict[str, Any]:
-    """Defines the available input parameters base on command line arguments."""
-
-    arguments: dict[str, Any] = {
-        'server': 'http://localhost/',
-        'workdir': './FDL.client.workdir',
-        'config': None,
-        'heartbeat': 1.0,
-        'leave': False,
-
-        'datasources': [],
-    }
-    LOGGER.debug(f'default arguments: {arguments}')
-
-    parser = Arguments()
-
-    parser.add_argument(
-        '-s', '--server',
-        help=f"""
-        Set the url for the aggregation server.
-        (default: {arguments['server']})
-        """,
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        '-w', '--workdir',
-        help=f"""
-        Set the working directory of the client
-        (default: {arguments['workdir']})
-        """,
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        '-c', '--config',
-        help=f"""
-        Set a configuration file in YAML format to use
-        Note that command line arguments take the precedence of arguments declared with a config file.
-        (default: {arguments['config']})
-        """,
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        '-b', '--heartbeat',
-        help=f"""
-        Set the amount of time in seconds to wait after a command execution.
-        (default: {arguments['heartbeat']})
-        """,
-        default=None,
-        type=float
-    )
-
-    parser.add_argument(
-        '--leave',
-        help=f"""
-        Request to disconnect this client from the server.
-        This command will also remove the given working directory and all its content.
-        (default: {arguments['leave']})
-        """,
-        action='store_true',
-        default=None,
-    )
-    parser.add_argument(
-        '-f', '--file',
-        help="""
-        Add a file as source file.
-        This arguments takes 3 positions: a unique NAME, a file type (TYPE), and a file path (PATH).
-        The supported filetypes are: CSV, TSV.
-        This arguments can be repeated.
-        """,
-        default=None,
-        action='append',
-        nargs=3,
-        metavar=('NAME', 'TYPE', 'PATH'),
-        type=str,
-    )
-    parser.add_argument(
-        '-db', '--dbms',
-        help="""
-        Add a database as source file.
-        This arguments takes 3 position: a unique NAME, a supported DBMS (TYPE), and the connection string (CONN).
-        The DBMS requires full compatiblity with SQLAlchemy
-        This arguments can be repeated.
-        """,
-        default=None,
-        action='append',
-        nargs=3,
-        metavar=('NAME', 'TYPE', 'CONN'),
-        type=str
-    )
-
-    # parse input arguments as a dict
-    args = parser.parse_args()
-
-    server = args.server
-    workdir = args.workdir
-    config = args.config
-    heartbeat = args.heartbeat
-    leave = args.leave
-    files = args.file
-    dbs = args.dbms
-
-    # parse YAML config file
-    if config is not None:
-        with open(config, 'r') as f:
-            try:
-                config_args = yaml.safe_load(f)['ferdelance']
-                LOGGER.debug(f'config arguments: {config_args}')
-            except yaml.YAMLError as e:
-                LOGGER.error(f'could not read config file {config}')
-                LOGGER.exception(e)
-
-        # assign values from config file
-        arguments['config'] = config
-        arguments['server'] = config_args['client']['server']
-        arguments['workdir'] = config_args['client']['workdir']
-        arguments['heartbeat'] = config_args['client']['heartbeat']
-
-        # assign data sources
-        for item in config_args['datasource']['file']:
-            arguments['datasources'].append(('file', item['name'], item['type'], item['path']))
-        for item in config_args['datasource']['db']:
-            arguments['datasources'].append(('db', item['name'], item['type'], item['conn']))
-
-    LOGGER.debug(f'config arguments: {arguments}')
-
-    # assign values from command line
-    if server:
-        arguments['server'] = server
-    if workdir:
-        arguments['workdir'] = workdir
-    if heartbeat:
-        arguments['heartbeat'] = heartbeat
-    if leave:
-        arguments['leave'] = leave
-
-    if files:
-        for name, type, path in files:
-            arguments['datasources'].append(('file', name, type, path))
-    if dbs:
-        for t, conn in files:
-            arguments['datasources'].append(('db', name, type, conn))
-
-    LOGGER.info(f'arguments: {arguments}')
-
-    return arguments
-
-
-class DataSource:
-    def __init__(self, name: str, kind: str) -> None:
-        self.name = name
-        self.kind: str = kind
-
-    def get(self, label: str = None, filter: str = None) -> pd.DataFrame:
-        raise NotImplemented()
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, type(self)) and self.name == other.name and self.kind == other.kind
-
-    def __hash__(self) -> int:
-        return hash((self.name, self.kind))
-
-
-class DataSourceFile(DataSource):
-    def __init__(self, name: str, kind: str, path: str) -> None:
-        super().__init__(name, kind)
-        self.path: str = path
-
-    def get(self, label: str = None, filter: str = None) -> pd.DataFrame:
-        # TODO open file, read content, filter content, pack as pandas DF
-        raise NotImplemented()
-
-
-class DataSourceDB(DataSource):
-    def __init__(self, name: str, kind: str, connection_string: str) -> None:
-        super().__init__(name, kind)
-        self.connection_string: str = connection_string
-
-    def get(self, label: str = None, filter: str = None) -> pd.DataFrame:
-        # TODO open connection, filter content, pack as pandas DF
-        raise NotImplemented()
 
 
 class FerdelanceClient:
 
-    def __init__(self, server: str, workdir: str, heartbeat: float, datasources: list[tuple[str, str, str, str]]) -> None:
+    def __init__(self, server: str, workdir: str, config: str, heartbeat: float, leave: bool, datasources: list[tuple[str, str, str, str]]) -> None:
         # possible states are: work, exit, update, install
-        self.status: str = 'work'
+        self.status: str = 'init'
+        self.config: str = config
         self.server: str = server
         self.workdir: str = workdir
 
@@ -262,6 +61,12 @@ class FerdelanceClient:
         self.datasources_list: list[tuple[str, str, str, str]] = datasources
         self.datasources: dict[str, DataSourceFile | DataSourceDB] = {}
 
+        self.path_key: str = ''
+        self.path_joined: str = ''
+        self.path_server_key: str = ''
+        self.path_config: str = ''
+
+        self.flag_leave: bool = leave
         self.setup_completed: bool = False
 
     def get_datasource(self, name: str, filter: str = None) -> None:
@@ -355,10 +160,10 @@ class FerdelanceClient:
     def setup(self) -> None:
         """Client initliazation (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
 
-        path_key: str = os.path.join(self.workdir, 'private_key.pem')
-        path_connected: str = os.path.join(self.workdir, '.joined')
-        path_server_key: str = os.path.join(self.workdir, 'server_key.pub')
-        path_config: str = os.path.join(self.workdir, 'config.yaml')
+        self.path_key: str = os.path.join(self.workdir, 'private_key.pem')
+        self.path_joined: str = os.path.join(self.workdir, '.joined')
+        self.path_server_key: str = os.path.join(self.workdir, 'server_key.pub')
+        self.path_config: str = os.path.join(self.workdir, 'config.yaml')
 
         # check for existing working directory
         if not os.path.exists(self.workdir):
@@ -367,24 +172,24 @@ class FerdelanceClient:
             os.chmod(self.workdir, 0o700)
 
         # check for existing private_key.pem file
-        if not os.path.exists(path_key):
+        if not os.path.exists(self.path_key):
             LOGGER.info('private key does not exist: creating a new one')
 
             self.private_key = generate_asymmetric_key()
 
-            with open(path_key, 'wb') as f:
+            with open(self.path_key, 'wb') as f:
                 f.write(bytes_from_private_key(self.private_key))
         else:
             LOGGER.info('reading private key from disk')
 
-            with open(path_key, 'rb') as f:
+            with open(self.path_key, 'rb') as f:
                 self.private_key = private_key_from_bytes(f.read())
 
         # check for existing .joined file
-        if not os.path.exists(path_connected):
+        if not os.path.exists(self.path_joined):
             LOGGER.info('collecting system info')
 
-            public_key_bytes: bytes = bytes_from_public_key(self.private_key.public_key)
+            public_key_bytes: bytes = bytes_from_public_key(self.private_key.public_key())
 
             machine_system: str = platform.system()
             machine_mac_address: str = get_mac_address()
@@ -418,27 +223,23 @@ class FerdelanceClient:
                 self.client_token = decrypt(self.private_key, json_data['token'])
                 self.server_public_key = public_key_from_str(decode_from_transfer(json_data['public_key']))
 
-                with open(path_connected, 'w') as f:
-                    json.dump({
-                        'client_id': self.client_id,
-                        'client_token': self.client_token
-                    }, f)
-
-                with open(path_server_key, 'wb') as f:
+                with open(self.path_server_key, 'wb') as f:
                     f.write(bytes_from_public_key(self.server_public_key))
+
+                open(self.path_joined, 'a').close()
 
         else:
             LOGGER.info('client already joined, reading local files')
 
-            with open(path_connected, 'r') as f:
+            with open(self.path_joined, 'r') as f:
                 json_data = json.load(f)
                 self.client_id = json_data['client_id']
                 self.client_token = json_data['client_token']
 
-            with open(path_server_key, 'rb') as f:
+            with open(self.path_server_key, 'rb') as f:
                 self.server_public_key = public_key_bytes(f.read())
 
-        if not os.path.exists(path_config):
+        if not os.path.exists(self.path_config):
             # setup local data sources
             for t, n, k, p in self.datasources_list:
                 if t == 'file':
@@ -449,26 +250,45 @@ class FerdelanceClient:
                     LOGGER.error(f'Invalid data source: TYPE={t} NAME={n} KIND={k} CONN={p}')
 
             # save config locally (TODO load if available in workdir)
-            with open(path_config, 'w') as f:
+            with open(self.path_config, 'w') as f:
                 yaml.safe_dump({
                     'server': self.server,
                     'workdir': self.workdir,
                     'heartbeat': self.heartbeat,
                     'datasources': self.datasources,
+
+                    'client_id': self.client_id,
+                    'client_token': self.client_token,
                 }, f)
 
         LOGGER.info('setup completed')
         self.setup_completed = True
 
     def send_metadata(self) -> None:
+        LOGGER.info('sending metadata to remote')
         # TODO: send data sources available
         # FIXME: need server endpoint!
         pass
+
+    def perform_action(self, action: str, data: dict) -> str:
+        if action == DO_NOTHING:
+            return DO_NOTHING
+
+        if action == UPDATE_TOKEN:
+            pass
+
+        if action == UPDATE_CLIENT:
+            pass
+
+        return 'update'
 
     def run(self) -> None:
         """Main loop where the client contact the server for updates."""
 
         LOGGER.info('running client')
+
+        if self.flag_leave:
+            self.leave()
 
         if not self.setup_completed:
             self.setup()
@@ -477,7 +297,12 @@ class FerdelanceClient:
 
         while self.status != 'exit':
             try:
+                LOGGER.info('requesting update')
                 status_code, action, data = self.update({})
+
+                LOGGER.info(f'update: status_code={status_code} action={action}')
+
+                self.status = self.perform_action(action, data)
 
                 # TODO setup work loop
 
@@ -494,18 +319,3 @@ class FerdelanceClient:
 
             LOGGER.info('waiting')
             sleep(self.heartbeat)
-
-
-if __name__ == '__main__':
-    args = setup_arguments()
-
-    client = FerdelanceClient(*args)
-
-    if args['client']:
-        client.leave()
-        sys.exit(0)
-
-    client.run()
-
-    LOGGER.info('terminate application')
-    sys.exit(0)
