@@ -27,8 +27,7 @@ from getmac import get_mac_address
 from requests import Response
 from time import sleep
 
-import yaml
-
+import hashlib
 import json
 import logging
 import requests
@@ -37,6 +36,7 @@ import platform
 import shutil
 import sys
 import uuid
+import yaml
 
 LOGGER = logging.getLogger(__name__)
 
@@ -103,10 +103,24 @@ class FerdelanceClient:
             decrypt(self.private_key, json_data['payload'])
         })
 
-    def decrypt_stream_response(self, stream: Response, out_path: str) -> None:
+    def decrypt_stream_response(self, stream: Response, out_path: str) -> str:
+        """Decrypt an incoming stream of data using a local private key and compute the checksum.
+
+        :param setream:
+            Stream to read from.
+        :param out_path:
+            Path on the disk to save the payload to.
+        :return:
+            Checkusm of the received data.
+        """
+        checksum = hashlib.sha256()
+
         with open(out_path, 'wb') as f:
             for chunk in decrypt_stream(stream.iter_content(), self.private_key):
+                checksum.update(chunk)
                 f.write(chunk)
+
+        return checksum.hexdigest()
 
     def join(self, data: dict) -> tuple[int, dict]:
         """Send a join request to the server.
@@ -250,19 +264,25 @@ class FerdelanceClient:
                     LOGGER.error(f'Invalid data source: TYPE={t} NAME={n} KIND={k} CONN={p}')
 
             # save config locally (TODO load if available in workdir)
-            with open(self.path_config, 'w') as f:
-                yaml.safe_dump({
-                    'server': self.server,
-                    'workdir': self.workdir,
-                    'heartbeat': self.heartbeat,
-                    'datasources': self.datasources,
-
-                    'client_id': self.client_id,
-                    'client_token': self.client_token,
-                }, f)
+            self.dump_config()
 
         LOGGER.info('setup completed')
         self.setup_completed = True
+
+    def dump_config(self) -> None:
+        """Save current configuration to a file in the working directory."""
+        with open(self.path_config, 'w') as f:
+            yaml.safe_dump({
+                'version': __version__,
+
+                'server': self.server,
+                'workdir': self.workdir,
+                'heartbeat': self.heartbeat,
+                'datasources': self.datasources,
+
+                'client_id': self.client_id,
+                'client_token': self.client_token,
+            }, f)
 
     def send_metadata(self) -> None:
         LOGGER.info('sending metadata to remote')
@@ -271,16 +291,48 @@ class FerdelanceClient:
         pass
 
     def perform_action(self, action: str, data: dict) -> str:
-        if action == DO_NOTHING:
-            return DO_NOTHING
-
         if action == UPDATE_TOKEN:
-            pass
+            LOGGER.info('updating client token with a new one')
+            self.client_token = data['token']
+            self.dump_config()
 
         if action == UPDATE_CLIENT:
-            pass
+            version_app = data['version']
+            filename = data['name']
+            expected_checksum = data['checksum']
 
-        return 'update'
+            with requests.post(
+                '/client/update/files',
+                json=self.create_payload({'client_version': version_app}),
+                headers=self.headers(),
+                stream=True,
+            ) as stream:
+                if stream.status_code != 200:
+                    LOGGER.error(f'could not download new client version={version_app} from server={self.server}')
+                    return 'update'
+
+                path_file: str = os.path.join(self.workdir, filename)
+                checksum: str = self.decrypt_stream_response(stream, path_file)
+
+                if checksum != expected_checksum:
+                    LOGGER.error('Checksum mismatch: received invalid data!')
+                    return DO_NOTHING
+
+                LOGGER.error(f'Checksum of {path_file} passed')
+
+                with open('.update', 'w') as f:
+                    f.write(path_file)
+
+                # TODO: this is something for the next iteration
+
+                return 'update'
+
+        if action == DO_NOTHING:
+            LOGGER.info('nothing new from the server')
+            return DO_NOTHING
+
+        LOGGER.error(f'cannot complete action={action}')
+        return DO_NOTHING
 
     def run(self) -> None:
         """Main loop where the client contact the server for updates."""
@@ -302,17 +354,13 @@ class FerdelanceClient:
 
                 LOGGER.info(f'update: status_code={status_code} action={action}')
 
+                # work loop
                 self.status = self.perform_action(action, data)
 
-                # TODO setup work loop
-
                 if self.status == 'update':
-                    LOGGER.info('update application')
+                    LOGGER.info('update application and dependencies')
                     sys.exit(1)
 
-                if self.status == 'install':
-                    LOGGER.info('update and install packages')
-                    sys.exit(2)
             except ValueError as e:
                 LOGGER.exception(e)
                 sys.exit(0)
