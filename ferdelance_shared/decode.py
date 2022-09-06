@@ -47,6 +47,31 @@ def decrypt(private_key: RSAPrivateKey, text: str, encoding: str = 'utf8') -> st
     return ret_text
 
 
+def decrypt_hybrid_key(preamble: bytes, private_key: RSAPrivateKey, encoding='utf8') -> SymmetricKey:
+    """Decodes the preamble of a stream, containing the symmetric key for hybrid encryption.
+
+    :param preamble:
+        Content read from the stream.
+    :param private_key:
+        Local private key.
+    :param encoding:
+        Encoding to use in the string-byte conversion.
+    :return:
+        The SymmetricKey to use.
+    """
+
+    preamble_bytes: bytes = private_key.decrypt(preamble, padding.PKCS1v15())
+    preamble_bytes: bytes = b64decode(preamble_bytes)
+    preamble_str: str = preamble_bytes.decode('utf8')
+
+    decoded: dict = json.loads(preamble_str)
+
+    return SymmetricKey(
+        b64decode(decoded['key'].encode(encoding)),
+        b64decode(decoded['iv'].encode(encoding)),
+    )
+
+
 def decrypt_stream(chunks: Iterable, private_key: RSAPrivateKey, SEPARATOR: bytes = b'\n', encoding: str = 'utf8') -> bytes:
     """Generator function that takes an iterable of chunks produced.
 
@@ -72,17 +97,7 @@ def decrypt_stream(chunks: Iterable, private_key: RSAPrivateKey, SEPARATOR: byte
             preamble = False
 
             preamble_bytes: bytes = b''.join(first_part)
-            preamble_bytes: bytes = b64decode(preamble_bytes)
-            preamble_bytes: bytes = private_key.decrypt(preamble_bytes, padding.PKCS1v15())
-            preamble_bytes: str = preamble_bytes.decode('utf8')
-            decoded: dict = json.loads(preamble_bytes)
-
-            LOGGER.debug(f'preamble recv {preamble_bytes}')
-
-            symmetric_key = SymmetricKey(
-                b64decode(decoded['key'].encode(encoding)),
-                b64decode(decoded['iv'].encode(encoding)),
-            )
+            symmetric_key: SymmetricKey = decrypt_hybrid_key(preamble_bytes, private_key, encoding)
 
             decryptor = symmetric_key.decryptor()
 

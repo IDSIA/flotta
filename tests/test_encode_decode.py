@@ -6,11 +6,14 @@ from ferdelance_shared.generate import (
 from ferdelance_shared.encode import (
     encode_to_transfer,
     encrypt,
+    generate_hybrid_encryption_key,
+    stream_encrypt,
     stream_encrypt_file,
 )
 from ferdelance_shared.decode import (
     decode_from_transfer,
     decrypt,
+    decrypt_hybrid_key,
     decrypt_stream,
 )
 
@@ -53,8 +56,35 @@ class TestEncodeDecode:
 
         assert content == content_decrypted
 
-    def test_stream(self):
-        """Test the encrypting and decrypting of a stream of bytes from a file"""
+    def test_symmetric_key_generation(self):
+        """Test the encrypting and decrypting of the symmetric key"""
+        private_key: RSAPrivateKey = generate_asymmetric_key()
+        public_key: RSAPublicKey = private_key.public_key()
+
+        data, key_enc = generate_hybrid_encryption_key(public_key)
+
+        key_dec = decrypt_hybrid_key(data, private_key)
+
+        assert key_enc.iv == key_dec.iv
+        assert key_enc.key == key_dec.key
+
+    def test_stream_from_memory(self):
+        """Test the encrypting and decrypting of a stream of bytes from a content in memory."""
+        private_key: RSAPrivateKey = generate_asymmetric_key()
+        public_key: RSAPublicKey = private_key.public_key()
+
+        content = self._random_string(10000)
+
+        chunks_encrypted: list[bytes] = [chunk for chunk in stream_encrypt(content, public_key)]
+        chunks_decrypted: list[bytes] = [chunk for chunk in decrypt_stream(chunks_encrypted, private_key)]
+
+        assert type(chunks_encrypted[0]) == bytes
+        assert type(chunks_decrypted[0]) == bytes
+
+        assert content == b''.join(chunks_decrypted).decode('utf8')
+
+    def test_stream_from_file(self):
+        """Test the encrypting and decrypting of a stream of bytes from a file."""
         private_key: RSAPrivateKey = generate_asymmetric_key()
         public_key: RSAPublicKey = private_key.public_key()
 
