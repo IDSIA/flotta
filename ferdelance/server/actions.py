@@ -3,6 +3,8 @@ from ..database import Session, crud
 
 from .security import generate_token
 
+from ferdelance_shared.actions import *
+
 from typing import Any
 import logging
 
@@ -33,7 +35,7 @@ class ActionManager:
         crud.invalidate_all_tokens(db, client.client_id)
         crud.create_client_token(db, token)
 
-        return 'update_token', token.token
+        return UPDATE_TOKEN, {'token': token.token}
 
     def _check_client_app_update(self, db: Session, client: Client) -> bool:
         """Compares the client current version with the newest version on the database.
@@ -54,13 +56,17 @@ class ActionManager:
             Fetch and return the version to download.
         """
 
-        version: str = crud.get_newest_app_version(db)
+        new_client: str = crud.get_newest_app_version(db)
 
-        return 'update_client', version
+        return UPDATE_CLIENT, {
+            'checksum': new_client.checksum,
+            'name': new_client.name,
+            'version': new_client.version,
+        }
 
     def _action_nothing(self) -> tuple[str, Any]:
         """Do nothing and waits for the next update request."""
-        return 'nothing', None
+        return DO_NOTHING, {}
 
     def next(self, db: Session, client: Client, payload: str) -> tuple[str, str]:
 
