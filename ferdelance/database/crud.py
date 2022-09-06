@@ -33,7 +33,7 @@ def update_client(db: Session, client_id: str, version: str = None) -> None:
     u = dict()
 
     if version is not None:
-        LOGGER.info(f'client_id={client_id} update version to {version}')
+        LOGGER.info(f'client_id={client_id}: update version to {version}')
         u['version'] = version
 
     if not u:
@@ -119,7 +119,7 @@ def get_all_client_events(db: Session, client: Client) -> list[ClientEvent]:
     return db.query(ClientEvent).filter(ClientEvent.client_id == client.client_id).all()
 
 
-def get_newest_app_version(db: Session) -> str:
+def get_newest_app_version(db: Session) -> ClientApp:
     db_client_app: ClientApp = db.query(ClientApp)\
         .filter(ClientApp.active)\
         .order_by(ClientApp.creation_time.desc())\
@@ -128,7 +128,7 @@ def get_newest_app_version(db: Session) -> str:
     if db_client_app is None:
         return None
 
-    return db_client_app.version
+    return db_client_app
 
 
 def get_newest_app(db: Session) -> ClientApp:

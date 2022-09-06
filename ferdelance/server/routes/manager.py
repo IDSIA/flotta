@@ -1,3 +1,4 @@
+import hashlib
 from fastapi import APIRouter, Depends, UploadFile, Response, HTTPException
 from fastapi.responses import FileResponse
 
@@ -14,9 +15,9 @@ import os
 
 LOGGER = logging.getLogger(__name__)
 
-STORAGE_CLIENTS = str(os.path.join('.', 'storage', 'clients'))
-STORAGE_ARTIFACTS = str(os.path.join('.', 'storage', 'artifacts'))
-STORAGE_MODELS = str(os.path.join('.', 'storage', 'models'))
+STORAGE_CLIENTS: str = str(os.path.join('.', 'storage', 'clients'))
+STORAGE_ARTIFACTS: str = str(os.path.join('.', 'storage', 'artifacts'))
+STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
 
 FILE_CHUNK_SIZE: int = 4096
 
@@ -37,14 +38,18 @@ async def manager_upload_client(file: UploadFile, db: Session = Depends(get_db))
 
     path = os.path.join(STORAGE_CLIENTS, filename)
 
+    checksum = hashlib.sha256()
+
     async with aiofiles.open(path, 'wb') as out_file:
         while content := await file.read(FILE_CHUNK_SIZE):
+            checksum.update(content)
             await out_file.write(content)
 
     client_app: ClientApp = ClientApp(
         app_id=app_id,
         path=path,
         name=filename,
+        checksum=checksum.hexdigest(),
     )
 
     db.add(client_app)

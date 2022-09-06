@@ -76,6 +76,7 @@ class ClientApp(Base):
     path = Column(String, nullable=False)
     name = Column(String)
     description = Column(String)
+    checksum = Column(String)
 
 
 class Artifact(Base):

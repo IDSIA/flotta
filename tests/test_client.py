@@ -69,7 +69,7 @@ class TestClientClass:
         client_id, self.token, self.server_key = create_client(self.client, self.private_key)
         return client_id
 
-    def get_client_update(self, payload, token: str | None = None) -> int | tuple[int, str, str]:
+    def get_client_update(self, payload, token: str | None = None) -> tuple[int, str, str]:
         payload = create_payload(self.server_key, payload)
 
         cur_token = token if token else self.token
@@ -81,7 +81,7 @@ class TestClientClass:
         )
 
         if response.status_code != 200:
-            return response.status_code
+            return response.status_code, None, None
 
         response_payload = get_payload(self.private_key, response.json())
 
@@ -167,7 +167,7 @@ class TestClientClass:
 
         assert status_code == 200
         assert action == 'nothing'
-        assert data is None
+        assert not data
 
         with SessionLocal() as db:
             db_client: Client = crud.get_client_by_id(db, client_id)
@@ -196,7 +196,7 @@ class TestClientClass:
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        status_code = self.get_client_update({})
+        status_code, _, _ = self.get_client_update({})
 
         assert status_code == 403
 
@@ -224,7 +224,8 @@ class TestClientClass:
 
             LOGGER.info('expiration_time for token set to 0')
 
-            status_code, action, new_token = self.get_client_update({})
+            status_code, action, data = self.get_client_update({})
+            new_token = data['token']
 
             assert status_code == 200
             assert action == 'update_token'
@@ -235,7 +236,7 @@ class TestClientClass:
 
             LOGGER.info('expiration_time for token set to 24h')
 
-            status_code = self.get_client_update({})
+            status_code, _, _ = self.get_client_update({})
 
             assert status_code == 403
 
@@ -243,7 +244,7 @@ class TestClientClass:
 
             assert status_code == 200
             assert action == 'nothing'
-            assert data is None
+            assert not data
 
     def test_client_update_app(self):
         """This will test the upload of a new (fake) app, and the update process."""
@@ -298,8 +299,8 @@ class TestClientClass:
             n_apps = db.query(ClientApp).filter(ClientApp.active).count()
             assert n_apps == 1
 
-            newest_version: str = crud.get_newest_app_version(db)
-            assert newest_version == version_app
+            newest_version: ClientApp = crud.get_newest_app_version(db)
+            assert newest_version.version == version_app
 
             # update request
             status_code, action, data = self.get_client_update({})
@@ -307,19 +308,22 @@ class TestClientClass:
             assert status_code == 200
 
             assert action == 'update_client'
-            assert data == version_app
+            assert data['version'] == version_app
 
             # download new client
             with self.client.get(
                 '/client/update/files',
-                json=create_payload(self.server_key, {'client_version': data}),
+                json=create_payload(self.server_key, {'client_version': data['version']}),
                 headers=headers(self.token),
                 stream=True
             ) as stream:
                 assert stream.status_code == 200
 
-                content = decrypt_stream_response(stream, self.private_key)
+                content, checksum = decrypt_stream_response(stream, self.private_key)
 
+                print(content)
+
+                assert data['checksum'] == checksum
                 assert json.loads(content) == {'version': version_app}
 
             client_version = crud.get_client_by_id(db, client_id).version
