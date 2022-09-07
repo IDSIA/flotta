@@ -1,4 +1,5 @@
 from .generate import SymmetricKey
+from .commons import DEFAULT_SEPARATOR
 
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -44,7 +45,7 @@ def encrypt(public_key: RSAPublicKey, text: str, encoding: str = 'utf8') -> str:
     return ret_text
 
 
-def generate_hybrid_encryption_key(public_key: RSAPublicKey, encoding: str = 'utf8') -> tuple[bytes, SymmetricKey]:
+def generate_hybrid_encryption_key(public_key: RSAPublicKey, encoding: str = 'utf8', encode_b65: bool = False) -> tuple[bytes, SymmetricKey]:
     """Generates a one-use Symmetric key for hybrid encryption and returns it both
     in bytes and in object form.
 
@@ -67,13 +68,12 @@ def generate_hybrid_encryption_key(public_key: RSAPublicKey, encoding: str = 'ut
 
     # first part: return encrypted session key
     preamble_bytes: bytes = preamble_str.encode(encoding)
-    preamble_bytes: bytes = b64encode(preamble_bytes)
     preamble: bytes = public_key.encrypt(preamble_bytes, padding.PKCS1v15())
 
     return preamble, symmmetric_key
 
 
-def stream_encrypt(content: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4096, SEPARATOR: bytes = b'\n', encoding: str = 'utf8') -> bytes:
+def encrypt_stream(content: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4096, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> bytes:
     """Generator functio nthat streams the given content and encrypt it using
     an hybrid-encryption algorithm.
 
@@ -129,7 +129,7 @@ def stream_encrypt(content: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 409
         end = min(end + CHUNK_SIZE, n)
 
 
-def stream_encrypt_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4096, SEPARATOR: bytes = b'\n', encoding: str = 'utf8') -> bytes:
+def encrypt_stream_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4096, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> bytes:
     """Generator function that streams a file from the given path and encrpyt
     the content using an hybrid-encryption algorithm.
 
@@ -175,3 +175,42 @@ def stream_encrypt_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4
                 break
 
             yield encryptor.update(chunk)
+
+
+class HybridEncrypter:
+
+    # TODO: document and checksum
+
+    def __init__(self, public_key: RSAPublicKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> None:
+        self.public_key: RSAPublicKey = public_key
+        self.SEPARATOR: bytes = SEPARATOR
+        self.encoding: str = encoding
+
+        self.preamble, self.symmmetric_key = generate_hybrid_encryption_key(public_key, encoding)
+
+        self.encryptor = None
+
+    def encrypt(self, content: str) -> bytes:
+        enc_content: bytearray = bytearray()
+
+        enc_content += self.start()
+        enc_content += self.update(content)
+        enc_content += self.end()
+
+        return bytes(enc_content)
+
+    def start(self) -> bytes:
+        self.encryptor = self.symmmetric_key.encryptor()
+
+        content = bytearray()
+
+        content += self.preamble
+        content += self.SEPARATOR
+
+        return bytes(content)
+
+    def update(self, content: str) -> bytes:
+        return self.encryptor.update(content.encode(self.encoding))
+
+    def end(self) -> bytes:
+        return self.encryptor.finalize()

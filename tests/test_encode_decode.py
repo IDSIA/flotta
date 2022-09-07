@@ -7,14 +7,17 @@ from ferdelance_shared.encode import (
     encode_to_transfer,
     encrypt,
     generate_hybrid_encryption_key,
-    stream_encrypt,
-    stream_encrypt_file,
+    encrypt_stream,
+    encrypt_stream_file,
+    HybridEncrypter,
 )
 from ferdelance_shared.decode import (
     decode_from_transfer,
     decrypt,
     decrypt_hybrid_key,
     decrypt_stream,
+    decrypt_stream_file,
+    HybridDecrypter,
 )
 
 import logging
@@ -75,31 +78,62 @@ class TestEncodeDecode:
 
         content = self._random_string(10000)
 
-        chunks_encrypted: list[bytes] = [chunk for chunk in stream_encrypt(content, public_key)]
-        chunks_decrypted: list[bytes] = [chunk for chunk in decrypt_stream(chunks_encrypted, private_key)]
+        chunks_encrypted = bytearray()
+        for chunk in encrypt_stream(content, public_key):
+            chunks_encrypted.extend(chunk)
 
-        assert type(chunks_encrypted[0]) == bytes
-        assert type(chunks_decrypted[0]) == bytes
+        chunks_decrypted = bytearray()
+        for chunk in decrypt_stream(stream_from_content(chunks_encrypted), private_key):
+            chunks_decrypted.extend(chunk)
 
-        assert content == b''.join(chunks_decrypted).decode('utf8')
+        assert content == chunks_decrypted.decode('utf8')
 
     def test_stream_from_file(self):
         """Test the encrypting and decrypting of a stream of bytes from a file."""
         private_key: RSAPrivateKey = generate_asymmetric_key()
         public_key: RSAPublicKey = private_key.public_key()
 
-        content = self._random_string(7637)
-        path_content = 'file.txt'
+        content_from: str = self._random_string(7637)
+        path_content_from: str = os.path.join('.', 'file_in.txt')
+        path_content_to: str = os.path.join('.', 'file_out.txt')
 
-        with open(path_content, 'w') as f:
-            f.write(content)
+        with open(path_content_from, 'w') as f:
+            f.write(content_from)
 
-        chunks_encrypted: list[bytes] = [chunk for chunk in stream_encrypt_file(path_content, public_key)]
-        chunks_decrypted: list[bytes] = [chunk for chunk in decrypt_stream(chunks_encrypted, private_key)]
+        chunks_encrypted = bytearray()
+        for chunk in encrypt_stream_file(path_content_from, public_key):
+            chunks_encrypted.extend(chunk)
 
-        os.remove(path_content)
+        decrypt_stream_file(stream_from_content(chunks_encrypted), path_content_to, private_key)
 
-        assert type(chunks_encrypted[0]) == bytes
-        assert type(chunks_decrypted[0]) == bytes
+        with open(path_content_to, 'rb') as f:
+            content_to = f.read().decode('utf8')
 
-        assert content == b''.join(chunks_decrypted).decode('utf8')
+        os.remove(path_content_from)
+        os.remove(path_content_to)
+
+        assert content_from == content_to
+
+    def test_hybrid_encryption(self):
+        private_key: RSAPrivateKey = generate_asymmetric_key()
+        public_key: RSAPublicKey = private_key.public_key()
+
+        content: str = self._random_string(1234)
+
+        enc = HybridEncrypter(public_key)
+        dec = HybridDecrypter(private_key)
+
+        secret: bytes = enc.encrypt(content)
+        message: str = dec.decrypt(secret)
+
+        assert content == message
+
+
+def stream_from_content(content: bytes, size: int = 100) -> bytes:
+    s, e = 0, size
+
+    while c := content[s:e]:
+        yield c
+        s, e = e, e+size
+
+    yield
