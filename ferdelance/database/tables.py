@@ -38,7 +38,7 @@ class Client(Base):
 
 
 class ClientToken(Base):
-    """Table that collect all used tokens for the clients.
+    """Table that collects all used tokens for the clients.
     If an invalid token is reused, the client could be blacklisted (or updated).
     """
     __tablename__ = 'client_tokens'
@@ -54,7 +54,7 @@ class ClientToken(Base):
 
 
 class ClientEvent(Base):
-    """Table that collect all the event from the clients."""
+    """Table that collects all the event from the clients."""
     __tablename__ = 'client_events'
 
     event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
@@ -76,6 +76,7 @@ class ClientApp(Base):
     path = Column(String, nullable=False)
     name = Column(String)
     description = Column(String)
+    checksum = Column(String)
 
 
 class Artifact(Base):
@@ -120,7 +121,7 @@ class Model(Base):
 
 
 class ClientTaskEvent(Base):
-    """Table that collect all the events that a client produced during a task."""
+    """Table that collects all the events that a client produced during a task."""
     __tablename__ = 'client_task_events'
 
     event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
@@ -134,3 +135,44 @@ class ClientTaskEvent(Base):
 
     task_id = Column(String, ForeignKey('tasks.task_id'))
     task = relationship('Task')
+
+
+class ClientDataSource(Base):
+    """Table that collectss the data source available on each client."""
+    __tablename__ = 'client_datasources'
+
+    datasource_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+
+    name = Column(String, nullable=False)
+    type = Column(String)
+
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    update_time = Column(DateTime(timezone=True), server_default=now())
+    removed = Column(Boolean, nullable=False, default=False)
+
+    n_records = Column(Integer)
+    n_features = Column(Integer)
+
+    client_id = Column(String, ForeignKey('clients.client_id'))
+    client = relationship('Client')
+
+
+class ClientFeature(Base):
+    """Table that collects all metadata sent by the client."""
+    __tablename__ = 'client_features'
+
+    feature_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+
+    name = Column(String, nullable=False)
+    dtype = Column(String)
+
+    v_min = Column(Float)
+    v_max = Column(Float)
+    v_std = Column(Float)
+
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    update_time = Column(DateTime(timezone=True), server_default=now())
+    removed = Column(Boolean, nullable=False, default=False)
+
+    datasource_id = Column(Integer, ForeignKey('client_datasources.datasource_id'))
+    datasource = relationship('ClientDataSource')

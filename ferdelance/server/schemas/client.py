@@ -34,3 +34,7 @@ class ClientUpdateResponse(BaseModel):
 
 class ClientUpdateModelRequest(BaseModel):
     payload: str     # b64encoded bytes
+
+
+class ClientUpdateMetadataRequest(BaseModel):
+    payload: str     # binary

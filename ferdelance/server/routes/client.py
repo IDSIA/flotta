@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, UploadFile
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...database import get_db, crud
-from ...database.tables import Client, ClientApp, ClientToken
+from ...database.tables import Client, ClientApp, ClientToken, ClientDataSource, ClientFeature
 from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
 from ..actions import ActionManager
 from ..schemas.client import *
@@ -15,6 +15,7 @@ from ..security import (
     server_encrypt,
     get_server_public_key_str,
     server_stream_encrypt,
+    server_stream_decrypt_to_dictionary,
 )
 
 import logging
@@ -119,7 +120,15 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
 
 
 @client_router.get('/client/update/files')
-def client_update_files(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+async def client_update_files(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+    """
+    API request by the client to get updated files. With this endpoint a client can:
+    - update application software
+    - obtain model files
+    """
+    LOGGER.info(f'client_id={client_id}: update files request')
+    crud.create_client_event(db, client_id, 'update files')
+
     payload = json.loads(server_decrypt(db, request.payload))
     client = crud.get_client_by_id(db, client_id)
 
@@ -146,3 +155,36 @@ def client_update_files(request: ClientUpdateModelRequest, db: Session = Depends
 
     LOGGER.info(f'client_id={client_id}: requested an invalid file with payload={payload}')
     raise HTTPException(404)
+
+
+@client_router.post('/client/update/metadata')
+async def client_update_metadata(file: UploadFile, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+    """Endpoint used by a client to send information regarding its metadata. These metadata includes:
+    - data source available
+    - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
+
+    Structure of expected JSON:
+    ```
+    {"datasources": [{
+        "name": <string>,
+        "type": <string>,
+        "removed": <boolean>,
+        "n_records": <integer>,
+        "n_features": <integer>,
+        "features": [{
+            "name": <string>,
+            "dtype": <string>,
+            "v_min": <float or null>,
+            "v_max": <float or null>,
+            "v_std": <float or null>
+        }]
+    }]}
+    ```
+    """
+    LOGGER.info(f'client_id={client_id}: update metadata request')
+    crud.create_client_event(db, client_id, 'update metadata')
+
+    metadata = server_stream_decrypt_to_dictionary(file, db)
+
+    for ds in metadata['datasources']:
+        crud.create_or_update_datasource(db, client_id, ds)

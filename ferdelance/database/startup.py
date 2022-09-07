@@ -1,4 +1,4 @@
-from .tables import Artifact, Client, ClientApp, ClientEvent, ClientToken, Setting, Task, ClientTaskEvent, Model
+from .tables import Artifact, Client, ClientApp, ClientEvent, ClientToken, Setting, Task, ClientTaskEvent, Model, ClientDataSource, ClientFeature
 
 from sqlalchemy.orm import Session
 
@@ -27,6 +27,8 @@ def init_content(db: Session) -> None:
     Task.__table__.create(bind=engine, checkfirst=True)
     ClientTaskEvent.__table__.create(bind=engine, checkfirst=True)
     Model.__table__.create(bind=engine, checkfirst=True)
+    ClientDataSource.__table__.create(bind=engine, checkfirst=True)
+    ClientFeature.__table__.create(bind=engine, checkfirst=True)
 
     db.commit()
 

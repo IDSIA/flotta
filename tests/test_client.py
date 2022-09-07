@@ -2,8 +2,12 @@ from base64 import b64encode
 
 from ferdelance.database import SessionLocal, crud
 from ferdelance.database.settings import KeyValueStore
-from ferdelance.database.tables import Client, ClientApp, ClientEvent, ClientToken
+from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken
 from ferdelance.server.security import PUBLIC_KEY
+
+from ferdelance_shared.encode import HybridEncrypter
+
+from io import BytesIO
 
 from .utils import (
     setup_test_client,
@@ -69,7 +73,7 @@ class TestClientClass:
         client_id, self.token, self.server_key = create_client(self.client, self.private_key)
         return client_id
 
-    def get_client_update(self, payload, token: str | None = None) -> int | tuple[int, str, str]:
+    def get_client_update(self, payload, token: str | None = None) -> tuple[int, str, str]:
         payload = create_payload(self.server_key, payload)
 
         cur_token = token if token else self.token
@@ -81,7 +85,7 @@ class TestClientClass:
         )
 
         if response.status_code != 200:
-            return response.status_code
+            return response.status_code, None, None
 
         response_payload = get_payload(self.private_key, response.json())
 
@@ -167,7 +171,7 @@ class TestClientClass:
 
         assert status_code == 200
         assert action == 'nothing'
-        assert data is None
+        assert not data
 
         with SessionLocal() as db:
             db_client: Client = crud.get_client_by_id(db, client_id)
@@ -196,7 +200,7 @@ class TestClientClass:
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        status_code = self.get_client_update({})
+        status_code, _, _ = self.get_client_update({})
 
         assert status_code == 403
 
@@ -224,7 +228,8 @@ class TestClientClass:
 
             LOGGER.info('expiration_time for token set to 0')
 
-            status_code, action, new_token = self.get_client_update({})
+            status_code, action, data = self.get_client_update({})
+            new_token = data['token']
 
             assert status_code == 200
             assert action == 'update_token'
@@ -235,7 +240,7 @@ class TestClientClass:
 
             LOGGER.info('expiration_time for token set to 24h')
 
-            status_code = self.get_client_update({})
+            status_code, _, _ = self.get_client_update({})
 
             assert status_code == 403
 
@@ -243,7 +248,7 @@ class TestClientClass:
 
             assert status_code == 200
             assert action == 'nothing'
-            assert data is None
+            assert not data
 
     def test_client_update_app(self):
         """This will test the upload of a new (fake) app, and the update process."""
@@ -268,7 +273,7 @@ class TestClientClass:
             upload_response = self.client.post(
                 '/manager/upload/client',
                 files={
-                    "file": (filename_app, open(path_fake_app, "rb"))
+                    "file": (filename_app, open(path_fake_app, 'rb'))
                 }
             )
 
@@ -298,8 +303,8 @@ class TestClientClass:
             n_apps = db.query(ClientApp).filter(ClientApp.active).count()
             assert n_apps == 1
 
-            newest_version: str = crud.get_newest_app_version(db)
-            assert newest_version == version_app
+            newest_version: ClientApp = crud.get_newest_app_version(db)
+            assert newest_version.version == version_app
 
             # update request
             status_code, action, data = self.get_client_update({})
@@ -307,19 +312,20 @@ class TestClientClass:
             assert status_code == 200
 
             assert action == 'update_client'
-            assert data == version_app
+            assert data['version'] == version_app
 
             # download new client
             with self.client.get(
                 '/client/update/files',
-                json=create_payload(self.server_key, {'client_version': data}),
+                json=create_payload(self.server_key, {'client_version': data['version']}),
                 headers=headers(self.token),
-                stream=True
+                stream=True,
             ) as stream:
                 assert stream.status_code == 200
 
-                content = decrypt_stream_response(stream, self.private_key)
+                content, checksum = decrypt_stream_response(stream, self.private_key)
 
+                assert data['checksum'] == checksum
                 assert json.loads(content) == {'version': version_app}
 
             client_version = crud.get_client_by_id(db, client_id).version
@@ -329,3 +335,62 @@ class TestClientClass:
             # delete local fake client app
             if os.path.exists(path_fake_app):
                 os.remove(path_fake_app)
+
+    def test_update_metadata(self):
+        with SessionLocal() as db:
+            client_id = self.get_client()
+
+            ds_content = {
+                'datasources': [{
+                    'name': 'ds1',
+                    'type': 'file',
+                    'removed': False,
+                    'n_records': 1000,
+                    'n_features': 2,
+                    'features': [{
+                        'name': 'feature1',
+                        'dtype': 'float',
+                        'v_min': 0.0,
+                        'v_max': 1.0,
+                        'v_std': 0.5,
+                    }, {
+                        'name': 'label',
+                        'dtype': 'int',
+                        'v_min': 0,
+                        'v_max': 1,
+                        'v_std': 0.7,
+                    }]
+                }]}
+
+            enc = HybridEncrypter(self.server_key)
+            metadata = bytearray()
+            metadata += enc.start()
+            metadata += enc.update(json.dumps(ds_content))
+            metadata += enc.end()
+
+            upload_response = self.client.post(
+                '/client/update/metadata',
+                files={'file': ('metadata.bin', metadata)},
+                headers=headers(self.token),
+            )
+
+            assert upload_response.status_code == 200
+
+            ds_db: ClientDataSource = db.query(ClientDataSource).filter(ClientDataSource.client_id == client_id).first()
+
+            print(ds_content['datasources'])
+
+            assert ds_db is not None
+            assert ds_db.name == ds_content['datasources'][0]['name']
+            assert ds_db.type == ds_content['datasources'][0]['type']
+            assert ds_db.removed == ds_content['datasources'][0]['removed']
+            assert ds_db.n_records == ds_content['datasources'][0]['n_records']
+            assert ds_db.n_features == ds_content['datasources'][0]['n_features']
+
+            ds_features = ds_content['datasources'][0]['features']
+
+            ds_fs: list[ClientFeature] = db.query(ClientFeature).filter(ClientFeature.datasource_id == ds_db.datasource_id).all()
+
+            assert len(ds_fs) == 2
+            assert ds_fs[0].name == ds_features[0]['name']
+            assert ds_fs[1].name == ds_features[1]['name']

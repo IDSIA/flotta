@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 
-from .tables import Client, ClientEvent, ClientToken, ClientApp, Model
+from .tables import Client, ClientEvent, ClientToken, ClientApp, Model, ClientDataSource, ClientFeature
+
+from datetime import datetime
 
 import logging
 
@@ -33,7 +35,7 @@ def update_client(db: Session, client_id: str, version: str = None) -> None:
     u = dict()
 
     if version is not None:
-        LOGGER.info(f'client_id={client_id} update version to {version}')
+        LOGGER.info(f'client_id={client_id}: update version to {version}')
         u['version'] = version
 
     if not u:
@@ -119,7 +121,7 @@ def get_all_client_events(db: Session, client: Client) -> list[ClientEvent]:
     return db.query(ClientEvent).filter(ClientEvent.client_id == client.client_id).all()
 
 
-def get_newest_app_version(db: Session) -> str:
+def get_newest_app_version(db: Session) -> ClientApp:
     db_client_app: ClientApp = db.query(ClientApp)\
         .filter(ClientApp.active)\
         .order_by(ClientApp.creation_time.desc())\
@@ -128,7 +130,7 @@ def get_newest_app_version(db: Session) -> str:
     if db_client_app is None:
         return None
 
-    return db_client_app.version
+    return db_client_app
 
 
 def get_newest_app(db: Session) -> ClientApp:
@@ -140,3 +142,152 @@ def get_newest_app(db: Session) -> ClientApp:
 
 def get_model_by_id(db: Session, model_id: int) -> Model | None:
     return db.query(Model).filter(Model.model_id == model_id).first()
+
+
+def create_or_update_datasource(db: Session, client_id: str, ds: dict) -> ClientDataSource:
+    ds_name = ds['name']
+    ds_removed = ds['removed'] if 'removed' in ds else False
+
+    dt_now = datetime.now()
+
+    query = db.query(ClientDataSource).filter(
+        ClientDataSource.client_id == client_id,
+        ClientDataSource.name == ds_name,
+    )
+
+    # check if ds exists:
+    ds_db: ClientDataSource = query.first()
+
+    if ds_db is None:
+        # create a new data source for this client
+        LOGGER.info(f'creating new data source={ds_name} for client_id={client_id}')
+
+        ds_db = ClientDataSource(
+            name=ds['name'],
+            type=ds['type'],
+            n_records=ds['n_records'],
+            n_features=ds['n_features'],
+            client_id=client_id,
+        )
+
+        db.add(ds_db)
+
+    else:
+        if ds_removed:
+            # remove data source and info
+            LOGGER.info(f'removing data source={ds_name} for client_id={client_id}')
+
+            query.update({
+                'removed': True,
+                'type': None,
+                'n_records': None,
+                'n_features': None,
+                'update_time': dt_now,
+            })
+
+            # remove features assigned with this data source
+            db.query(ClientFeature)\
+                .filter(ClientFeature.datasource_id == ds_db.client_id)\
+                .update({
+                    'removed': True,
+                    'dtype': None,
+                    'v_min': None,
+                    'v_max': None,
+                    'v_std': None,
+                    'update_time': dt_now,
+                })
+
+        else:
+            # update data source info
+            LOGGER.info(f'updating data source={ds_name} for client_id={client_id}')
+            query.update({
+                'type': ds['type'],
+                'n_records': ds['n_records'],
+                'n_features': ds['n_features'],
+                'update_time': dt_now,
+            })
+
+    db.commit()
+    db.refresh(ds_db)
+
+    if not ds_removed:
+        for f in ds['features']:
+            create_or_update_feature(db, ds_db.datasource_id, f, False)
+
+        db.commit()
+
+    return ds_db
+
+
+def create_or_update_feature(db: Session, ds_id: str, f: dict, commit=True) -> ClientFeature:
+    f_name = f['name']
+    f_removed = f['removed'] if 'removed' in f else False
+
+    dt_now = datetime.now()
+
+    query = db.query(ClientFeature).filter(
+        ClientFeature.datasource_id == ds_id,
+        ClientFeature.name == f_name
+    )
+
+    f_db = query.first()
+
+    if f_db is None:
+        LOGGER.info(f'creating new feature={f_name} for client_id={ds_id}')
+
+        f_db = ClientFeature(
+            name=f['name'],
+            dtype=f['dtype'],
+            v_min=f['v_min'],
+            v_max=f['v_max'],
+            v_std=f['v_std'],
+            removed=f_removed,
+            datasource_id=ds_id,
+        )
+
+        db.add(f_db)
+    else:
+        if f_removed:
+            # remove feature and info
+            LOGGER.info(f'removing feature={f_name} for datasource={ds_id}')
+
+            query.update({
+                'removed': True,
+                'dtype': None,
+                'v_min': None,
+                'v_max': None,
+                'v_std': None,
+                'update_time': dt_now,
+            })
+
+            # remove features assigned with this data source
+            db.query(ClientFeature)\
+                .filter(ClientFeature.datasource_id == ds_id)\
+                .update({
+                    'removed': True,
+                    'dtype': None,
+                    'v_min': None,
+                    'v_max': None,
+                    'v_std': None,
+                    'update_time': dt_now,
+                })
+
+        else:
+            # update data source info
+            LOGGER.info(f'updating data source={f_name} for client_id={ds_id}')
+            query.update({
+                'type': f['type'],
+                'dtype': f['dtype'],
+                'v_min': f['v_min'],
+                'v_max': f['v_max'],
+                'v_std': f['v_std'],
+                'update_time': dt_now,
+            })
+
+    if commit:
+        db.commit()
+        db.refresh(f_db)
+
+        return f_db
+
+    return None

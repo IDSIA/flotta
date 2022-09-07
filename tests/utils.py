@@ -23,6 +23,7 @@ from ferdelance_shared.generate import (
     RSAPublicKey
 )
 
+import hashlib
 import random
 import json
 import logging
@@ -169,7 +170,18 @@ def create_payload(server_public_key: RSAPublicKey, payload: dict) -> dict:
     }
 
 
-def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> bytes:
-    content = [chunk for chunk in decrypt_stream(stream.iter_content(), private_key)]
+def stream_content(content):
+    for c in content:
+        yield c
+    yield
 
-    return b''.join(content)
+
+def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> bytes:
+    checksum = hashlib.sha256()
+    content = bytearray()
+
+    for chunk in decrypt_stream(stream_content(stream.iter_content()), private_key):
+        checksum.update(chunk)
+        content.extend(chunk)
+
+    return bytes(content), checksum.hexdigest()
