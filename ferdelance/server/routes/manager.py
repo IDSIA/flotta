@@ -8,6 +8,7 @@ from uuid import uuid4
 from ...database import get_db, crud
 from ...database.tables import ClientApp, Artifact, Model
 from ..schemas.manager import *
+from ..config import FILE_CHUNK_SIZE
 
 import aiofiles
 import logging
@@ -18,8 +19,6 @@ LOGGER = logging.getLogger(__name__)
 STORAGE_CLIENTS: str = str(os.path.join('.', 'storage', 'clients'))
 STORAGE_ARTIFACTS: str = str(os.path.join('.', 'storage', 'artifacts'))
 STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
-
-FILE_CHUNK_SIZE: int = 4096
 
 
 manager_router = APIRouter()

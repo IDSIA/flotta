@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, UploadFile
 from fastapi.security import HTTPBasicCredentials, HTTPBearer
 from fastapi.responses import StreamingResponse
 
@@ -14,15 +14,17 @@ from ferdelance_shared.generate import (
     public_key_from_bytes,
     private_key_from_bytes,
     RSAPublicKey,
-    RSAPrivateKey
+    RSAPrivateKey,
 )
-from ferdelance_shared.decode import decode_from_transfer, decrypt
-from ferdelance_shared.encode import encode_to_transfer, encrypt, stream_encrypt_file
+from ferdelance_shared.decode import decode_from_transfer, decrypt, decrypt_stream, decrypt_stream_file, HybridDecrypter
+from ferdelance_shared.encode import encode_to_transfer, encrypt, encrypt_stream, encrypt_stream_file
 
 from ..database import SessionLocal, crud
 from ..database.settings import KeyValueStore
 from ..database.tables import Client, ClientToken
 from .schemas.client import ClientJoinRequest
+from .config import FILE_CHUNK_SIZE
+
 
 import json
 import logging
@@ -200,14 +202,36 @@ def server_stream_encrypt(client: Client, path: str) -> StreamingResponse:
     client_public_key: RSAPublicKey = get_client_public_key(client)
 
     return StreamingResponse(
-        stream_encrypt_file(path, client_public_key),
+        encrypt_stream_file(path, client_public_key),
         media_type='application/octet-stream'
     )
 
 
-def server_stream_decrypt_to_file() -> None:
-    raise NotImplemented()
+async def stream_file(file: UploadFile) -> bytes:
+    while chunk := file.read(FILE_CHUNK_SIZE):
+        yield chunk
+    yield
 
 
-def server_stream_decrypt_to_dictionary() -> dict:
-    raise NotImplemented()
+def server_stream_decrypt_to_file(file: UploadFile, path: str, db: Session) -> None:
+    private_key: RSAPrivateKey = get_server_private_key(db)
+
+    decrypt_stream_file(stream_file(file), path, private_key)
+
+    # TODO: find a way to add the checksum to the stream
+
+
+def server_stream_decrypt_to_dictionary(file: UploadFile, db: Session) -> dict:
+    private_key: RSAPrivateKey = get_server_private_key(db)
+
+    dec = HybridDecrypter(private_key)
+
+    content: list[str] = []
+    content += dec.start()
+    while chunk := file.file.read():
+        content += dec.update(chunk)
+    content += dec.end()
+
+    return json.loads(''.join(content))
+
+    # TODO: find a way to add the checksum to the stream
