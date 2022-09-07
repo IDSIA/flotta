@@ -2,8 +2,12 @@ from base64 import b64encode
 
 from ferdelance.database import SessionLocal, crud
 from ferdelance.database.settings import KeyValueStore
-from ferdelance.database.tables import Client, ClientApp, ClientEvent, ClientToken
+from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken
 from ferdelance.server.security import PUBLIC_KEY
+
+from ferdelance_shared.encode import HybridEncrypter
+
+from io import BytesIO
 
 from .utils import (
     setup_test_client,
@@ -269,7 +273,7 @@ class TestClientClass:
             upload_response = self.client.post(
                 '/manager/upload/client',
                 files={
-                    "file": (filename_app, open(path_fake_app, "rb"))
+                    "file": (filename_app, open(path_fake_app, 'rb'))
                 }
             )
 
@@ -315,13 +319,11 @@ class TestClientClass:
                 '/client/update/files',
                 json=create_payload(self.server_key, {'client_version': data['version']}),
                 headers=headers(self.token),
-                stream=True
+                stream=True,
             ) as stream:
                 assert stream.status_code == 200
 
                 content, checksum = decrypt_stream_response(stream, self.private_key)
-
-                print(content)
 
                 assert data['checksum'] == checksum
                 assert json.loads(content) == {'version': version_app}
@@ -333,3 +335,62 @@ class TestClientClass:
             # delete local fake client app
             if os.path.exists(path_fake_app):
                 os.remove(path_fake_app)
+
+    def test_update_metadata(self):
+        with SessionLocal() as db:
+            client_id = self.get_client()
+
+            ds_content = {
+                'datasources': [{
+                    'name': 'ds1',
+                    'type': 'file',
+                    'removed': False,
+                    'n_records': 1000,
+                    'n_features': 2,
+                    'features': [{
+                        'name': 'feature1',
+                        'dtype': 'float',
+                        'v_min': 0.0,
+                        'v_max': 1.0,
+                        'v_std': 0.5,
+                    }, {
+                        'name': 'label',
+                        'dtype': 'int',
+                        'v_min': 0,
+                        'v_max': 1,
+                        'v_std': 0.7,
+                    }]
+                }]}
+
+            enc = HybridEncrypter(self.server_key)
+            metadata = bytearray()
+            metadata += enc.start()
+            metadata += enc.update(json.dumps(ds_content))
+            metadata += enc.end()
+
+            upload_response = self.client.post(
+                '/client/update/metadata',
+                files={'file': ('metadata.bin', metadata)},
+                headers=headers(self.token),
+            )
+
+            assert upload_response.status_code == 200
+
+            ds_db: ClientDataSource = db.query(ClientDataSource).filter(ClientDataSource.client_id == client_id).first()
+
+            print(ds_content['datasources'])
+
+            assert ds_db is not None
+            assert ds_db.name == ds_content['datasources'][0]['name']
+            assert ds_db.type == ds_content['datasources'][0]['type']
+            assert ds_db.removed == ds_content['datasources'][0]['removed']
+            assert ds_db.n_records == ds_content['datasources'][0]['n_records']
+            assert ds_db.n_features == ds_content['datasources'][0]['n_features']
+
+            ds_features = ds_content['datasources'][0]['features']
+
+            ds_fs: list[ClientFeature] = db.query(ClientFeature).filter(ClientFeature.datasource_id == ds_db.datasource_id).all()
+
+            assert len(ds_fs) == 2
+            assert ds_fs[0].name == ds_features[0]['name']
+            assert ds_fs[1].name == ds_features[1]['name']

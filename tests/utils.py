@@ -170,12 +170,18 @@ def create_payload(server_public_key: RSAPublicKey, payload: dict) -> dict:
     }
 
 
+def stream_content(content):
+    for c in content:
+        yield c
+    yield
+
+
 def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> bytes:
     checksum = hashlib.sha256()
-    content = []
+    content = bytearray()
 
-    for chunk in decrypt_stream(stream.iter_content(), private_key):
+    for chunk in decrypt_stream(stream_content(stream.iter_content()), private_key):
         checksum.update(chunk)
-        content.append(chunk)
+        content.extend(chunk)
 
-    return b''.join(content), checksum.hexdigest()
+    return bytes(content), checksum.hexdigest()
