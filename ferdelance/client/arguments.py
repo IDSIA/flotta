@@ -20,8 +20,7 @@ def setup_arguments() -> dict[str, Any]:
 
     arguments: dict[str, Any] = {
         'server': 'http://localhost/',
-        'workdir': './FDL.client.workdir',
-        'config': None,
+        'workdir': 'workdir',
         'heartbeat': 1.0,
         'leave': False,
 
@@ -54,7 +53,6 @@ def setup_arguments() -> dict[str, Any]:
         help=f"""
         Set a configuration file in YAML format to use
         Note that command line arguments take the precedence of arguments declared with a config file.
-        (default: {arguments['config']})
         """,
         default=None,
         type=str,
@@ -130,7 +128,6 @@ def setup_arguments() -> dict[str, Any]:
                 LOGGER.exception(e)
 
         # assign values from config file
-        arguments['config'] = config
         arguments['server'] = config_args['client']['server']
         arguments['workdir'] = config_args['client']['workdir']
         arguments['heartbeat'] = config_args['client']['heartbeat']
@@ -157,9 +154,9 @@ def setup_arguments() -> dict[str, Any]:
         for name, type, path in files:
             arguments['datasources'].append(('file', name, type, path))
     if dbs:
-        for t, conn in files:
+        for name, type, conn in files:
             arguments['datasources'].append(('db', name, type, conn))
 
-    LOGGER.info(f'arguments: {arguments}')
+    LOGGER.debug(f'arguments: {arguments}')
 
     return arguments

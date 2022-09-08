@@ -19,6 +19,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
+    """Exit codes:
+    - 0 relaunch
+    - 1 update (relaunch)
+    - 2 error (terminate)
+    """
+
     args = setup_arguments()
 
     client = FerdelanceClient(**args)
