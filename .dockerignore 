@@ -1,15 +1,20 @@
 .git/
+.vscode/
 
+__pycache__
 build
 dist
+tests
+html/*
+storage
+
 *.egg-info
 *.egg/
 *.pyc
 *.swp
 
+.env
 .tox
 .coverage
-html/*
-__pycache__
 
 *env

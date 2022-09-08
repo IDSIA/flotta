@@ -6,10 +6,13 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 
 # Copy list of required packages
-COPY requirements.txt /requirements.txt
+COPY . /ferdelance
 
 # Install packages using pip
-RUN pip install --upgrade pip && pip install --no-cache-dir -r /requirements.txt
+RUN cd /ferdelance && \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir federated-learning-shared/ && \
+	pip install --no-cache-dir .
 
 # Installation stage
 FROM python:3.10-slim-buster AS base
@@ -20,7 +23,4 @@ COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /spearhead
 
-COPY server/ server/
-COPY database/ database/
-
-CMD ["uvicorn", "server.api:api", "--host", "0.0.0.0", "--port", "1456"]
+CMD ["uvicorn", "ferdelance.server.api:api", "--host", "0.0.0.0", "--port", "1456"]
