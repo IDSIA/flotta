@@ -57,6 +57,10 @@ def get_client_by_id(db: Session, client_id: str) -> Client:
     return db.query(Client).filter(Client.client_id == client_id).first()
 
 
+def get_client_list(db: Session) -> list[Client]:
+    return db.query(Client).all()
+
+
 def get_client_by_token(db: Session, token: str) -> Client:
     return db.query(Client)\
         .join(ClientToken, Client.client_id == ClientToken.token_id)\
