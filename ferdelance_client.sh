@@ -7,6 +7,7 @@ VIRTUAL_ENV="Spearhead_env"
 
 # fake virtual env activation
 PATH="$VIRTUAL_ENV/bin:$PATH"
+PYTHON="python"
 
 # python executable
 PYTHON_VERSION=`${PYTHON} --version`
@@ -19,9 +20,9 @@ fi
 
 echo "Python version: ${PYTHON_VERSION}"
 
-EXIT_CODE=1
+EXIT_CODE=0
 
-while [ ${EXIT_CODE} -ne 0 ]; do
+while [ ${EXIT_CODE} -eq 0 ]; do
     echo 'Launching ferdelance client'
 
     # main loop
@@ -29,10 +30,15 @@ while [ ${EXIT_CODE} -ne 0 ]; do
 
     EXIT_CODE=$?
 
+    echo "exit_code=${EXIT_CODE}"
+
     if [ ${EXIT_CODE} -eq 1 ]; then
         # install new environment and relaunch
+        echo "installing new environment"
         rm ${PYTHON_ENV}
         unzip `cat .update`
+        echo "relaunch with exit_code=0"
+        EXIT_CODE=0
     fi
 
 done
