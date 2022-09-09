@@ -17,11 +17,11 @@ from ferdelance_shared.decode import (
 )
 from ferdelance_shared.encode import (
     encrypt,
-    encode_to_transfer,
-    stream_encrypt_file,
+    HybridEncrypter,
 )
 
 from .datasources import DataSourceDB, DataSourceFile
+from .utils import NumpyEncoder
 
 from base64 import b64encode
 from getmac import get_mac_address
@@ -49,7 +49,7 @@ class SetupError(Exception):
 
 class FerdelanceClient:
 
-    def __init__(self, server: str = 'localhost', workdir: str = 'workdir', heartbeat: float = 1.0, leave: bool = False, datasources: list[tuple[str, str, str, str]] = dict()) -> None:
+    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float = 1.0, leave: bool = False, datasources: list[dict[str, str]] = dict()) -> None:
         # possible states are: work, exit, update, install
         self.status: str = 'init'
         self.server: str = server.rstrip('/')
@@ -63,7 +63,7 @@ class FerdelanceClient:
         self.client_token: str = None
         self.server_public_key: RSAPublicKey = None
 
-        self.datasources_list: list[tuple[str, str, str, str]] = datasources
+        self.datasources_list: list[dict[str, str]] = datasources
         self.datasources: dict[str, DataSourceFile | DataSourceDB] = {}
 
         self.path_joined: str = os.path.join(self.workdir, '.joined')
@@ -73,6 +73,7 @@ class FerdelanceClient:
 
         self.flag_leave: bool = leave
         self.setup_completed: bool = False
+        self.stop: bool = False
 
     def get_datasource(self, name: str, filter: str = None) -> None:
         # TODO
@@ -149,12 +150,37 @@ class FerdelanceClient:
 
         if ret_code != 200:
             LOGGER.error(f'Could not leave  server {self.server}')
-            return
+            sys.exit(2)
 
         LOGGER.info(f'removing working directory {self.workdir}')
         shutil.rmtree(self.workdir)
 
         LOGGER.info(f'client left server {self.server}')
+        sys.exit(2)
+
+    def request_metadata(self) -> None:
+        LOGGER.info('sending metadata to remote')
+
+        ds_content = {'datasources': [ds.metadata() for _, ds in self.datasources.items()]}
+
+        print(ds_content)
+
+        enc = HybridEncrypter(self.server_public_key)
+        metadata = bytearray()
+        metadata += enc.start()
+        metadata += enc.update(json.dumps(ds_content, cls=NumpyEncoder))
+        metadata += enc.end()
+
+        upload_response = requests.post(
+            f'{self.server}/client/update/metadata',
+            files={'file': ('metadata.bin', metadata)},
+            headers=self.headers(),
+        )
+
+        if upload_response.status_code == 200:
+            LOGGER.info('metadata uploaded successfull')
+        else:
+            LOGGER.warning(f'could not upload metadata: response code={upload_response.status_code}')
 
     def request_update(self, data: dict) -> tuple[int, str, str]:
         payload = self.create_payload(data)
@@ -198,6 +224,9 @@ class FerdelanceClient:
                     LOGGER.info(f'loading properties file from {self.path_properties}')
                     with open(self.path_properties, 'r') as f:
                         props = yaml.safe_load(f)
+
+                        if not props:
+                            raise SetupError()
 
                         self.client_id = props['client_id']
                         self.client_token = props['client_token']
@@ -311,19 +340,17 @@ class FerdelanceClient:
 
                         open(self.path_joined, 'a').close()
 
-            # setup local data sources
-            for t, n, k, p in self.datasources_list:
-                if t == 'file':
-                    self.datasources[n] = DataSourceFile(n, k, p)
-                elif t == 'db':
-                    self.datasources[n] = DataSourceDB(n, k, p)
-                else:
-                    LOGGER.error(f'Invalid data source: TYPE={t} NAME={n} KIND={k} CONN={p}')
+        # setup local data sources
+        for k, n, t, p in self.datasources_list:
+            if k == 'file':
+                self.datasources[n] = DataSourceFile(n, t, p)
+            elif k == 'db':
+                self.datasources[n] = DataSourceDB(n, t, p)
+            else:
+                LOGGER.error(f'Invalid data source: KIND={k} NAME={n} TYPE={t} CONN={p}')
 
-            # save config locally (TODO load if available in workdir)
-            self.dump_config()
-
-        # TODO: load data sources
+        # save config locally
+        self.dump_config()
 
         LOGGER.info('setup completed')
         self.setup_completed = True
@@ -337,7 +364,8 @@ class FerdelanceClient:
                 'server': self.server,
                 'workdir': self.workdir,
                 'heartbeat': self.heartbeat,
-                'datasources': self.datasources,
+
+                'datasources': self.datasources_list,
 
                 'client_id': self.client_id,
                 'client_token': self.client_token,
@@ -346,12 +374,6 @@ class FerdelanceClient:
                 'path_server_key': self.path_server_key,
                 'path_private_key': self.path_private_key,
             }, f)
-
-    def send_metadata(self) -> None:
-        LOGGER.info('sending metadata to remote')
-        # TODO: send data sources available
-        # FIXME: need server endpoint!
-        pass
 
     def perform_action(self, action: str, data: dict) -> str:
         if action == UPDATE_TOKEN:
@@ -397,20 +419,24 @@ class FerdelanceClient:
         LOGGER.error(f'cannot complete action={action}')
         return DO_NOTHING
 
+    def stop_loop(self):
+        LOGGER.info('stopping application')
+        self.stop = True
+
     def run(self) -> None:
         """Main loop where the client contact the server for updates."""
         try:
             LOGGER.info('running client')
 
-            if self.flag_leave:
-                self.request_leave()
-
             if not self.setup_completed:
                 self.setup()
 
-            self.send_metadata()
+            if self.flag_leave:
+                self.request_leave()
 
-            while self.status != 'exit':
+            self.request_metadata()
+
+            while self.status != 'exit' and not self.stop:
                 try:
                     LOGGER.info('requesting update')
                     status_code, action, data = self.request_update({})
@@ -429,7 +455,7 @@ class FerdelanceClient:
                     LOGGER.exception(e)
                     sys.exit(2)
 
-                LOGGER.info('waiting')
+                LOGGER.info(f'waiting for {self.heartbeat}')
                 sleep(self.heartbeat)
 
         except Exception as e:

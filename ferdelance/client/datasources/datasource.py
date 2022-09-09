@@ -14,3 +14,12 @@ class DataSource:
 
     def __hash__(self) -> int:
         return hash((self.name, self.kind))
+
+    def __str__(self) -> str:
+        return f'({self.kind}) {self.name}'
+
+    def __repr__(self) -> str:
+        return f'({self.kind}) {self.name}'
+
+    def metadata(self) -> dict:
+        NotImplemented()
