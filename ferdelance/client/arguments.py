@@ -2,10 +2,14 @@ from argparse import ArgumentParser
 from typing import Any
 
 import logging
+import os
+import re
 import sys
 import yaml
 
 LOGGER = logging.getLogger(__name__)
+
+VAR_PATTERN = pattern = re.compile('.*?\${(\w+)}.*?')
 
 
 class Arguments(ArgumentParser):
@@ -13,6 +17,26 @@ class Arguments(ArgumentParser):
     def error(self, message: str) -> None:
         self.print_usage(sys.stderr)
         self.exit(0, f"{self.prog}: error: {message}\n")
+
+
+def check_environment_variables(value: str | bool | int | float):
+    """Source: https://dev.to/mkaranasou/python-yaml-configuration-with-environment-variables-parsing-2ha6"""
+    if not isinstance(value, str):
+        return value
+
+    # find all env variables in line
+    match = pattern.findall(value)
+
+    # TODO: testing required
+
+    if match:
+        full_value = value
+        for g in match:
+            full_value = full_value.replace(
+                f'${{{g}}}', os.environ.get(g, g)
+            )
+        return full_value
+    return value
 
 
 def setup_arguments() -> dict[str, Any]:
@@ -31,6 +55,16 @@ def setup_arguments() -> dict[str, Any]:
     parser = Arguments()
 
     parser.add_argument(
+        '-c', '--config',
+        help=f"""
+        Set a configuration file in YAML format to use
+        Note that command line arguments take the precedence of arguments declared with a config file.
+        """,
+        default=None,
+        type=str,
+    )
+
+    parser.add_argument(
         '-s', '--server',
         help=f"""
         Set the url for the aggregation server.
@@ -44,15 +78,6 @@ def setup_arguments() -> dict[str, Any]:
         help=f"""
         Set the working directory of the client
         (default: {arguments['workdir']})
-        """,
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        '-c', '--config',
-        help=f"""
-        Set a configuration file in YAML format to use
-        Note that command line arguments take the precedence of arguments declared with a config file.
         """,
         default=None,
         type=str,
@@ -77,6 +102,7 @@ def setup_arguments() -> dict[str, Any]:
         action='store_true',
         default=None,
     )
+
     parser.add_argument(
         '-f', '--file',
         help="""
@@ -109,54 +135,61 @@ def setup_arguments() -> dict[str, Any]:
     # parse input arguments as a dict
     args = parser.parse_args()
 
-    server = args.server
-    workdir = args.workdir
     config = args.config
-    heartbeat = args.heartbeat
-    leave = args.leave
-    files = args.file
-    dbs = args.dbms
 
     # parse YAML config file
     if config is not None:
         with open(config, 'r') as f:
             try:
                 config_args = yaml.safe_load(f)['ferdelance']
-                LOGGER.debug(f'config arguments: {config_args}')
+                LOGGER.debug(f'config input arguments: {config_args}')
             except yaml.YAMLError as e:
                 LOGGER.error(f'could not read config file {config}')
                 LOGGER.exception(e)
 
         # assign values from config file
-        arguments['server'] = config_args['client']['server']
-        arguments['workdir'] = config_args['client']['workdir']
-        arguments['heartbeat'] = config_args['client']['heartbeat']
+        arguments['server'] = check_environment_variables(config_args['client']['server'])
+        arguments['workdir'] = check_environment_variables(config_args['client']['workdir'])
+        arguments['heartbeat'] = check_environment_variables(config_args['client']['heartbeat'])
 
         # assign data sources
-        for item in config_args['datasource']['file']:
-            arguments['datasources'].append(('file', item['name'], item['type'], item['path']))
-        for item in config_args['datasource']['db']:
-            arguments['datasources'].append(('db', item['name'], item['type'], item['conn']))
+        for item in config_args['datasource']:
+            arguments['datasources'].append((
+                check_environment_variables(item['kind']),
+                check_environment_variables(item['name']),
+                check_environment_variables(item['type']),
+                check_environment_variables(item['conn'] if item['kind'] == 'db' else item['path']),
+            ))
 
-    LOGGER.debug(f'config arguments: {arguments}')
+    LOGGER.debug(f'config output arguments: {arguments}')
 
     # assign values from command line
-    if server:
-        arguments['server'] = server
-    if workdir:
-        arguments['workdir'] = workdir
-    if heartbeat:
-        arguments['heartbeat'] = heartbeat
-    if leave:
-        arguments['leave'] = leave
+    if args.server:
+        arguments['server'] = check_environment_variables(args.server)
+    if args.workdir:
+        arguments['workdir'] = check_environment_variables(args.workdir)
+    if args.heartbeat:
+        arguments['heartbeat'] = check_environment_variables(args.heartbeat)
+    if args.leave:
+        arguments['leave'] = args.leave
 
-    if files:
-        for name, type, path in files:
-            arguments['datasources'].append(('file', name, type, path))
-    if dbs:
-        for name, type, conn in files:
-            arguments['datasources'].append(('db', name, type, conn))
+    if args.file:
+        for name, type, path in args.file:
+            arguments['datasources'].append({
+                'kind': 'file',
+                'name': check_environment_variables(name),
+                'type': check_environment_variables(type),
+                'path': check_environment_variables(path),
+            })
+    if args.dbms:
+        for name, type, conn in args.dbms:
+            arguments['datasources'].append({
+                'kind': 'db',
+                'name': check_environment_variables(name),
+                'type': check_environment_variables(type),
+                'path': check_environment_variables(conn),
+            })
 
-    LOGGER.debug(f'arguments: {arguments}')
+    LOGGER.debug(f'used arguments: {arguments}')
 
     return arguments
