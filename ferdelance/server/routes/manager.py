@@ -1,4 +1,3 @@
-import hashlib
 from fastapi import APIRouter, Depends, UploadFile, Response, HTTPException
 from fastapi.responses import FileResponse
 
@@ -6,11 +5,12 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 
 from ...database import get_db, crud
-from ...database.tables import ClientApp, Artifact, Model
+from ...database.tables import ClientApp, Artifact, Model, Client
 from ..schemas.manager import *
 from ..config import FILE_CHUNK_SIZE
 
 import aiofiles
+import hashlib
 import logging
 import os
 
@@ -121,3 +121,30 @@ async def manager_download_model(model: ManagerDownloadModelRequest, db: Session
         raise HTTPException(status_code=404)
 
     return FileResponse(model.path)
+
+
+@manager_router.get('/manager/client/list')
+async def manager_client_list(db: Session = Depends(get_db)):
+
+    clients: list[Client] = crud.get_client_list(db)
+
+    return [{
+        'client_id': m.client_id,
+        'active': m.active,
+        'ip_address': m.ip_address,
+    } for m in clients]
+
+
+@manager_router.get('/manager/client/remove/{client_id}')
+async def manager_remove_client(client_id: str, db: Session = Depends(get_db)):
+    # TODO: this endpoint need to be made secure!
+
+    LOGGER.info(f'MANAGER: client_id={client_id}: request to leave')
+
+    client: Client = crud.get_client_by_id(db, client_id)
+
+    if client is None:
+        return HTTPException(404)
+
+    crud.client_leave(db, client_id)
+    crud.create_client_event(db, client_id, 'left')

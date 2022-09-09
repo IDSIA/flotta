@@ -7,8 +7,6 @@ from ferdelance.server.security import PUBLIC_KEY
 
 from ferdelance_shared.encode import HybridEncrypter
 
-from io import BytesIO
-
 from .utils import (
     setup_test_client,
     setup_test_database,
@@ -350,15 +348,25 @@ class TestClientClass:
                     'features': [{
                         'name': 'feature1',
                         'dtype': 'float',
-                        'v_min': 0.0,
-                        'v_max': 1.0,
-                        'v_std': 0.5,
+                        'v_mean': .1,
+                        'v_std': .2,
+                        'v_min': .3,
+                        'v_p25': .4,
+                        'v_p50': .5,
+                        'v_p75': .6,
+                        'v_miss': .7,
+                        'v_max': .8,
                     }, {
                         'name': 'label',
                         'dtype': 'int',
-                        'v_min': 0,
-                        'v_max': 1,
-                        'v_std': 0.7,
+                        'v_mean': .8,
+                        'v_std': .7,
+                        'v_min': .6,
+                        'v_p25': .5,
+                        'v_p50': .4,
+                        'v_p75': .3,
+                        'v_miss': .2,
+                        'v_max': .1,
                     }]
                 }]}
 

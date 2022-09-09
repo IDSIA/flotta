@@ -57,6 +57,10 @@ def get_client_by_id(db: Session, client_id: str) -> Client:
     return db.query(Client).filter(Client.client_id == client_id).first()
 
 
+def get_client_list(db: Session) -> list[Client]:
+    return db.query(Client).all()
+
+
 def get_client_by_token(db: Session, token: str) -> Client:
     return db.query(Client)\
         .join(ClientToken, Client.client_id == ClientToken.token_id)\
@@ -191,9 +195,14 @@ def create_or_update_datasource(db: Session, client_id: str, ds: dict) -> Client
                 .update({
                     'removed': True,
                     'dtype': None,
-                    'v_min': None,
-                    'v_max': None,
-                    'v_std': None,
+                    'v_mean': None,
+                    'v_std ': None,
+                    'v_min ': None,
+                    'v_p25 ': None,
+                    'v_p50 ': None,
+                    'v_p75 ': None,
+                    'v_max ': None,
+                    'v_miss': None,
                     'update_time': dt_now,
                 })
 
@@ -238,9 +247,14 @@ def create_or_update_feature(db: Session, ds_id: str, f: dict, commit=True) -> C
         f_db = ClientFeature(
             name=f['name'],
             dtype=f['dtype'],
-            v_min=f['v_min'],
-            v_max=f['v_max'],
+            v_mean=f['v_mean'],
             v_std=f['v_std'],
+            v_min=f['v_min'],
+            v_p25=f['v_p25'],
+            v_p50=f['v_p50'],
+            v_p75=f['v_p75'],
+            v_miss=f['v_miss'],
+            v_max=f['v_max'],
             removed=f_removed,
             datasource_id=ds_id,
         )
@@ -254,33 +268,30 @@ def create_or_update_feature(db: Session, ds_id: str, f: dict, commit=True) -> C
             query.update({
                 'removed': True,
                 'dtype': None,
-                'v_min': None,
-                'v_max': None,
-                'v_std': None,
+                'v_mean': None,
+                'v_std ': None,
+                'v_min ': None,
+                'v_p25 ': None,
+                'v_p50 ': None,
+                'v_p75 ': None,
+                'v_max ': None,
+                'v_miss': None,
                 'update_time': dt_now,
             })
-
-            # remove features assigned with this data source
-            db.query(ClientFeature)\
-                .filter(ClientFeature.datasource_id == ds_id)\
-                .update({
-                    'removed': True,
-                    'dtype': None,
-                    'v_min': None,
-                    'v_max': None,
-                    'v_std': None,
-                    'update_time': dt_now,
-                })
 
         else:
             # update data source info
             LOGGER.info(f'updating data source={f_name} for client_id={ds_id}')
             query.update({
-                'type': f['type'],
                 'dtype': f['dtype'],
-                'v_min': f['v_min'],
-                'v_max': f['v_max'],
-                'v_std': f['v_std'],
+                'v_mean': f['v_mean'],
+                'v_std ': f['v_std'],
+                'v_min ': f['v_min'],
+                'v_p25 ': f['v_p25'],
+                'v_p50 ': f['v_p50'],
+                'v_p75 ': f['v_p75'],
+                'v_max ': f['v_max'],
+                'v_miss': f['v_miss'],
                 'update_time': dt_now,
             })
 
