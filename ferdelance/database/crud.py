@@ -283,7 +283,6 @@ def create_or_update_feature(db: Session, ds_id: str, f: dict, commit=True) -> C
             # update data source info
             LOGGER.info(f'updating data source={f_name} for client_id={ds_id}')
             query.update({
-                'type': f['type'],
                 'dtype': f['dtype'],
                 'v_mean': f['v_mean'],
                 'v_std ': f['v_std'],
