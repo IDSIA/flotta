@@ -6,6 +6,7 @@ from ferdelance_shared.generate import (
     bytes_from_public_key,
     private_key_from_bytes,
     public_key_from_str,
+    public_key_from_bytes,
     RSAPrivateKey,
     RSAPublicKey,
 )
@@ -16,11 +17,11 @@ from ferdelance_shared.decode import (
 )
 from ferdelance_shared.encode import (
     encrypt,
-    encode_to_transfer,
-    stream_encrypt_file,
+    HybridEncrypter,
 )
 
 from .datasources import DataSourceDB, DataSourceFile
+from .utils import NumpyEncoder
 
 from base64 import b64encode
 from getmac import get_mac_address
@@ -34,6 +35,7 @@ import requests
 import os
 import platform
 import shutil
+import stat
 import sys
 import uuid
 import yaml
@@ -41,13 +43,16 @@ import yaml
 LOGGER = logging.getLogger(__name__)
 
 
+class SetupError(Exception):
+    pass
+
+
 class FerdelanceClient:
 
-    def __init__(self, server: str, workdir: str, config: str, heartbeat: float, leave: bool, datasources: list[tuple[str, str, str, str]]) -> None:
+    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float = 1.0, leave: bool = False, datasources: list[dict[str, str]] = dict()) -> None:
         # possible states are: work, exit, update, install
         self.status: str = 'init'
-        self.config: str = config
-        self.server: str = server
+        self.server: str = server.rstrip('/')
         self.workdir: str = workdir
 
         self.heartbeat: float = heartbeat
@@ -58,16 +63,17 @@ class FerdelanceClient:
         self.client_token: str = None
         self.server_public_key: RSAPublicKey = None
 
-        self.datasources_list: list[tuple[str, str, str, str]] = datasources
+        self.datasources_list: list[dict[str, str]] = datasources
         self.datasources: dict[str, DataSourceFile | DataSourceDB] = {}
 
-        self.path_key: str = ''
-        self.path_joined: str = ''
-        self.path_server_key: str = ''
-        self.path_config: str = ''
+        self.path_joined: str = os.path.join(self.workdir, '.joined')
+        self.path_properties: str = os.path.join(self.workdir, 'properties.yaml')
+        self.path_server_key: str = os.path.join(self.workdir, 'server_key.pub')
+        self.path_private_key: str = os.path.join(self.workdir, 'private_key.pem')
 
         self.flag_leave: bool = leave
         self.setup_completed: bool = False
+        self.stop: bool = False
 
     def get_datasource(self, name: str, filter: str = None) -> None:
         # TODO
@@ -99,9 +105,7 @@ class FerdelanceClient:
         :return:
             A decripted json from the `payload` key received from the server.
         """
-        return json.loads({
-            decrypt(self.private_key, json_data['payload'])
-        })
+        return json.loads(decrypt(self.private_key, json_data['payload']))
 
     def decrypt_stream_response(self, stream: Response, out_path: str) -> str:
         """Decrypt an incoming stream of data using a local private key and compute the checksum.
@@ -122,7 +126,7 @@ class FerdelanceClient:
 
         return checksum.hexdigest()
 
-    def join(self, data: dict) -> tuple[int, dict]:
+    def request_join(self, data: dict) -> tuple[int, dict]:
         """Send a join request to the server.
 
         :return:
@@ -135,9 +139,9 @@ class FerdelanceClient:
 
         return res.status_code, res.json()
 
-    def leave(self) -> None:
+    def request_leave(self) -> None:
         res = requests.post(
-            '/client/leave',
+            f'{self.server}/client/leave',
             json={},
             headers=self.headers(),
         )
@@ -146,18 +150,41 @@ class FerdelanceClient:
 
         if ret_code != 200:
             LOGGER.error(f'Could not leave  server {self.server}')
-            return
+            sys.exit(2)
 
         LOGGER.info(f'removing working directory {self.workdir}')
         shutil.rmtree(self.workdir)
 
         LOGGER.info(f'client left server {self.server}')
+        sys.exit(2)
 
-    def update(self, data: dict) -> tuple[int, str, str]:
+    def request_metadata(self) -> None:
+        LOGGER.info('sending metadata to remote')
+
+        ds_content = {'datasources': [ds.metadata() for _, ds in self.datasources.items()]}
+
+        enc = HybridEncrypter(self.server_public_key)
+        metadata = bytearray()
+        metadata += enc.start()
+        metadata += enc.update(json.dumps(ds_content, cls=NumpyEncoder))
+        metadata += enc.end()
+
+        upload_response = requests.post(
+            f'{self.server}/client/update/metadata',
+            files={'file': ('metadata.bin', metadata)},
+            headers=self.headers(),
+        )
+
+        if upload_response.status_code == 200:
+            LOGGER.info('metadata uploaded successfull')
+        else:
+            LOGGER.warning(f'could not upload metadata: response code={upload_response.status_code}')
+
+    def request_update(self, data: dict) -> tuple[int, str, str]:
         payload = self.create_payload(data)
 
         res = requests.get(
-            '/client/update',
+            f'{self.server}/client/update',
             json=payload,
             headers=self.headers(),
         )
@@ -173,122 +200,178 @@ class FerdelanceClient:
 
     def setup(self) -> None:
         """Client initliazation (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
+        LOGGER.info('client initialization')
 
-        self.path_key: str = os.path.join(self.workdir, 'private_key.pem')
-        self.path_joined: str = os.path.join(self.workdir, '.joined')
-        self.path_server_key: str = os.path.join(self.workdir, 'server_key.pub')
-        self.path_config: str = os.path.join(self.workdir, 'config.yaml')
+        what_is_missing = []
 
-        # check for existing working directory
-        if not os.path.exists(self.workdir):
-            LOGGER.info('work directory does not exists: creating folder')
-            os.makedirs(self.workdir, exist_ok=True)
-            os.chmod(self.workdir, 0o700)
+        try:
+            # check for existing working directory
+            if os.path.exists(self.workdir):
+                LOGGER.info(f'loading properties from working directory={self.workdir}')
 
-        # check for existing private_key.pem file
-        if not os.path.exists(self.path_key):
-            LOGGER.info('private key does not exist: creating a new one')
+                status = os.stat(self.workdir)
+                chmod = stat.S_IMODE(status.st_mode & 0o777)
 
-            self.private_key = generate_asymmetric_key()
+                if chmod != 0o700:
+                    LOGGER.error(f'working directory {self.workdir} has wrong permissions!')
+                    LOGGER.error(f'expected {0o700} found {chmod}')
+                    sys.exit(2)
 
-            with open(self.path_key, 'wb') as f:
-                f.write(bytes_from_private_key(self.private_key))
-        else:
-            LOGGER.info('reading private key from disk')
+                if os.path.exists(self.path_properties):
+                    # load properties
+                    LOGGER.info(f'loading properties file from {self.path_properties}')
+                    with open(self.path_properties, 'r') as f:
+                        props = yaml.safe_load(f)
 
-            with open(self.path_key, 'rb') as f:
-                self.private_key = private_key_from_bytes(f.read())
+                        if not props:
+                            raise SetupError()
 
-        # check for existing .joined file
-        if not os.path.exists(self.path_joined):
-            LOGGER.info('collecting system info')
+                        self.client_id = props['client_id']
+                        self.client_token = props['client_token']
+                        self.server = props['server']
 
-            public_key_bytes: bytes = bytes_from_public_key(self.private_key.public_key())
+                        self.heartbeat = props['heartbeat']
 
-            machine_system: str = platform.system()
-            machine_mac_address: str = get_mac_address()
-            machine_node: str = uuid.getnode()
+                        # TODO: load data sources
 
-            LOGGER.info(f'system info: machine_system={machine_system}')
-            LOGGER.info(f'system info: machine_mac_address={machine_mac_address}')
-            LOGGER.info(f'system info: machine_node={machine_node}')
-            LOGGER.info(f'client info: version={__version__}')
+                        self.path_joined = props['path_joined']
+                        self.path_server_key = props['path_server_key']
+                        self.path_private_key = props['path_private_key']
 
-            data = {
-                'system': machine_system,
-                'mac_address': machine_mac_address,
-                'node': machine_node,
-                'public_key': b64encode(public_key_bytes).decode('utf8'),
-                'version': __version__
-            }
-
-            status_code, json_data = self.join(data)
-
-            if status_code == 403:
-                LOGGER.error('client already joined, but no local files found!?')
-
-                # TODO what to do in this case?
-                sys.exit(0)
-
-            elif status_code == 200:
-                LOGGER.info('client join sucessfull')
-
-                self.client_id = decrypt(self.private_key, json_data['id'])
-                self.client_token = decrypt(self.private_key, json_data['token'])
-                self.server_public_key = public_key_from_str(decode_from_transfer(json_data['public_key']))
-
-                with open(self.path_server_key, 'wb') as f:
-                    f.write(bytes_from_public_key(self.server_public_key))
-
-                open(self.path_joined, 'a').close()
-
-        else:
-            LOGGER.info('client already joined, reading local files')
-
-            with open(self.path_joined, 'r') as f:
-                json_data = json.load(f)
-                self.client_id = json_data['client_id']
-                self.client_token = json_data['client_token']
-
-            with open(self.path_server_key, 'rb') as f:
-                self.server_public_key = public_key_bytes(f.read())
-
-        if not os.path.exists(self.path_config):
-            # setup local data sources
-            for t, n, k, p in self.datasources_list:
-                if t == 'file':
-                    self.datasources[n] = DataSourceFile(n, k, p)
-                elif t == 'db':
-                    self.datasources[n] = DataSourceDB(n, k, p)
+                if os.path.exists(self.path_private_key):
+                    with open(self.path_private_key, 'rb') as f:
+                        data = f.read()
+                        self.private_key = private_key_from_bytes(data)
                 else:
-                    LOGGER.error(f'Invalid data source: TYPE={t} NAME={n} KIND={k} CONN={p}')
+                    LOGGER.info(f'private key not found at {self.path_private_key}')
+                    what_is_missing.append('pk')
+                    what_is_missing.append('join')
+                    raise SetupError()
 
-            # save config locally (TODO load if available in workdir)
-            self.dump_config()
+                if os.path.exists(self.path_joined):
+                    # already joined
+
+                    if os.path.exists(self.path_server_key):
+                        LOGGER.info(f'reading server key from {self.path_server_key}')
+                        with open(self.path_server_key, 'rb') as f:
+                            data = f.read()
+                            self.server_public_key = public_key_from_bytes(data)
+                    else:
+                        LOGGER.info(f'reading server key not found at {self.path_server_key}')
+                        what_is_missing.append('join')
+                        raise SetupError()
+
+                    if self.client_id is None or self.client_token is None or not os.path.exists(self.path_joined):
+                        LOGGER.info(f'client not joined')
+                        what_is_missing.append('join')
+                        raise SetupError()
+
+                else:
+                    LOGGER.info(f'client not joined')
+                    what_is_missing.append('join')
+                    raise SetupError()
+
+            else:
+                # empty directory
+                LOGGER.info('working directory does not exists')
+                what_is_missing.append('wd')
+                what_is_missing.append('pk')
+                what_is_missing.append('join')
+                raise SetupError()
+
+        except SetupError as _:
+            LOGGER.info(f'missing setup files: {what_is_missing}')
+
+            for item in what_is_missing:
+
+                if item == 'wd':
+                    LOGGER.info(f'creating working directory={self.workdir}')
+                    os.makedirs(self.workdir, exist_ok=True)
+                    os.chmod(self.workdir, 0o700)
+
+                if item == 'pk':
+                    LOGGER.info('private key does not exist: creating a new one')
+                    self.private_key = generate_asymmetric_key()
+
+                    with open(self.path_private_key, 'wb') as f:
+                        f.write(bytes_from_private_key(self.private_key))
+
+                if item == 'join':
+                    LOGGER.info('collecting system info')
+
+                    public_key_bytes: bytes = bytes_from_public_key(self.private_key.public_key())
+
+                    machine_system: str = platform.system()
+                    machine_mac_address: str = get_mac_address()
+                    machine_node: str = uuid.getnode()
+
+                    LOGGER.info(f'system info: machine_system={machine_system}')
+                    LOGGER.info(f'system info: machine_mac_address={machine_mac_address}')
+                    LOGGER.info(f'system info: machine_node={machine_node}')
+                    LOGGER.info(f'client info: version={__version__}')
+
+                    data = {
+                        'system': machine_system,
+                        'mac_address': machine_mac_address,
+                        'node': machine_node,
+                        'public_key': b64encode(public_key_bytes).decode('utf8'),
+                        'version': __version__
+                    }
+
+                    status_code, json_data = self.request_join(data)
+
+                    if status_code == 403:
+                        LOGGER.error('client already joined, but no local files found!?')
+
+                        # TODO what to do in this case?
+                        sys.exit(2)
+
+                    elif status_code == 200:
+                        LOGGER.info('client join sucessfull')
+
+                        self.client_id = decrypt(self.private_key, json_data['id'])
+                        self.client_token = decrypt(self.private_key, json_data['token'])
+                        self.server_public_key = public_key_from_str(decode_from_transfer(json_data['public_key']))
+
+                        with open(self.path_server_key, 'wb') as f:
+                            f.write(bytes_from_public_key(self.server_public_key))
+
+                        open(self.path_joined, 'a').close()
+
+        # setup local data sources
+        for k, n, t, p in self.datasources_list:
+            if k == 'file':
+                self.datasources[n] = DataSourceFile(n, t, p)
+            elif k == 'db':
+                self.datasources[n] = DataSourceDB(n, t, p)
+            else:
+                LOGGER.error(f'Invalid data source: KIND={k} NAME={n} TYPE={t} CONN={p}')
+
+        # save config locally
+        self.dump_config()
 
         LOGGER.info('setup completed')
         self.setup_completed = True
 
     def dump_config(self) -> None:
         """Save current configuration to a file in the working directory."""
-        with open(self.path_config, 'w') as f:
+        with open(self.path_properties, 'w') as f:
             yaml.safe_dump({
                 'version': __version__,
 
                 'server': self.server,
                 'workdir': self.workdir,
                 'heartbeat': self.heartbeat,
-                'datasources': self.datasources,
+
+                'datasources': self.datasources_list,
 
                 'client_id': self.client_id,
                 'client_token': self.client_token,
-            }, f)
 
-    def send_metadata(self) -> None:
-        LOGGER.info('sending metadata to remote')
-        # TODO: send data sources available
-        # FIXME: need server endpoint!
-        pass
+                'path_joined': self.path_joined,
+                'path_server_key': self.path_server_key,
+                'path_private_key': self.path_private_key,
+            }, f)
 
     def perform_action(self, action: str, data: dict) -> str:
         if action == UPDATE_TOKEN:
@@ -334,36 +417,46 @@ class FerdelanceClient:
         LOGGER.error(f'cannot complete action={action}')
         return DO_NOTHING
 
+    def stop_loop(self):
+        LOGGER.info('stopping application')
+        self.stop = True
+
     def run(self) -> None:
         """Main loop where the client contact the server for updates."""
+        try:
+            LOGGER.info('running client')
 
-        LOGGER.info('running client')
+            if not self.setup_completed:
+                self.setup()
 
-        if self.flag_leave:
-            self.leave()
+            if self.flag_leave:
+                self.request_leave()
 
-        if not self.setup_completed:
-            self.setup()
+            self.request_metadata()
 
-        self.send_metadata()
+            while self.status != 'exit' and not self.stop:
+                try:
+                    LOGGER.info('requesting update')
+                    status_code, action, data = self.request_update({})
 
-        while self.status != 'exit':
-            try:
-                LOGGER.info('requesting update')
-                status_code, action, data = self.update({})
+                    LOGGER.info(f'update: status_code={status_code} action={action}')
 
-                LOGGER.info(f'update: status_code={status_code} action={action}')
+                    # work loop
+                    self.status = self.perform_action(action, data)
 
-                # work loop
-                self.status = self.perform_action(action, data)
+                    if self.status == 'update':
+                        LOGGER.info('update application and dependencies')
+                        sys.exit(1)
 
-                if self.status == 'update':
-                    LOGGER.info('update application and dependencies')
-                    sys.exit(1)
+                except ValueError as e:
+                    # TODO: discriminate between bad and acceptable exceptions
+                    LOGGER.exception(e)
+                    sys.exit(2)
 
-            except ValueError as e:
-                LOGGER.exception(e)
-                sys.exit(0)
+                LOGGER.info(f'waiting for {self.heartbeat}')
+                sleep(self.heartbeat)
 
-            LOGGER.info('waiting')
-            sleep(self.heartbeat)
+        except Exception as e:
+            LOGGER.fatal(e)
+            LOGGER.exception(e)
+            sys.exit(2)
