@@ -166,9 +166,14 @@ class ClientFeature(Base):
     name = Column(String, nullable=False)
     dtype = Column(String)
 
-    v_min = Column(Float)
-    v_max = Column(Float)
+    v_mean = Column(Float)
     v_std = Column(Float)
+    v_min = Column(Float)
+    v_p25 = Column(Float)
+    v_p50 = Column(Float)
+    v_p75 = Column(Float)
+    v_max = Column(Float)
+    v_miss = Column(Float)
 
     creation_time = Column(DateTime(timezone=True), server_default=now())
     update_time = Column(DateTime(timezone=True), server_default=now())
