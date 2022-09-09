@@ -163,8 +163,6 @@ class FerdelanceClient:
 
         ds_content = {'datasources': [ds.metadata() for _, ds in self.datasources.items()]}
 
-        print(ds_content)
-
         enc = HybridEncrypter(self.server_public_key)
         metadata = bytearray()
         metadata += enc.start()
