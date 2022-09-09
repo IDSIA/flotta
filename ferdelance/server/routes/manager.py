@@ -1,5 +1,3 @@
-from codecs import getdecoder
-import hashlib
 from fastapi import APIRouter, Depends, UploadFile, Response, HTTPException
 from fastapi.responses import FileResponse
 
@@ -12,6 +10,7 @@ from ..schemas.manager import *
 from ..config import FILE_CHUNK_SIZE
 
 import aiofiles
+import hashlib
 import logging
 import os
 
