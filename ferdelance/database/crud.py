@@ -302,3 +302,18 @@ def create_or_update_feature(db: Session, ds_id: str, f: dict, commit=True) -> C
         return f_db
 
     return None
+
+
+def get_datasource_list(db: Session) -> list[ClientDataSource]:
+    return db.query(ClientDataSource).all()
+
+
+def get_datasource_by_id(db: Session, ds_id: int) -> tuple[ClientDataSource, list[ClientFeature]]:
+    ds_db = db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).filter()
+
+    if ds_db is None:
+        return None, None
+
+    features = db.query(ClientFeature).filter(ClientFeature.datasource_id == ds_id, ClientFeature.removed == False).all()
+
+    return ds_db, features
