@@ -9,7 +9,12 @@ import yaml
 
 LOGGER = logging.getLogger(__name__)
 
-VAR_PATTERN = pattern = re.compile('.*?\${(\w+)}.*?')
+VAR_PATTERN = re.compile('.*?\${(\w+)}.*?')
+
+LOCAL_CONFIG_FILE = os.path.join('.', 'config.yaml')
+
+FDL_SERVER = 'FDL_SERVER'
+FDL_HEARTBEAT = 'FDL_HEARTBEAT'
 
 
 class Arguments(ArgumentParser):
@@ -19,13 +24,13 @@ class Arguments(ArgumentParser):
         self.exit(0, f"{self.prog}: error: {message}\n")
 
 
-def check_environment_variables(value: str | bool | int | float):
+def check_for_environment_variables(value: str | bool | int | float):
     """Source: https://dev.to/mkaranasou/python-yaml-configuration-with-environment-variables-parsing-2ha6"""
     if not isinstance(value, str):
         return value
 
     # find all env variables in line
-    match = pattern.findall(value)
+    match = VAR_PATTERN.findall(value)
 
     # TODO: testing required
 
@@ -137,6 +142,9 @@ def setup_arguments() -> dict[str, Any]:
 
     config = args.config
 
+    if config is None and os.path.exists(LOCAL_CONFIG_FILE):
+        config = LOCAL_CONFIG_FILE
+
     # parse YAML config file
     if config is not None:
         with open(config, 'r') as f:
@@ -148,28 +156,28 @@ def setup_arguments() -> dict[str, Any]:
                 LOGGER.exception(e)
 
         # assign values from config file
-        arguments['server'] = check_environment_variables(config_args['client']['server'])
-        arguments['workdir'] = check_environment_variables(config_args['client']['workdir'])
-        arguments['heartbeat'] = check_environment_variables(config_args['client']['heartbeat'])
+        arguments['server'] = check_for_environment_variables(config_args['client']['server'])
+        arguments['workdir'] = check_for_environment_variables(config_args['client']['workdir'])
+        arguments['heartbeat'] = check_for_environment_variables(config_args['client']['heartbeat'])
 
         # assign data sources
         for item in config_args['datasource']:
             arguments['datasources'].append((
-                check_environment_variables(item['kind']),
-                check_environment_variables(item['name']),
-                check_environment_variables(item['type']),
-                check_environment_variables(item['conn'] if item['kind'] == 'db' else item['path']),
+                check_for_environment_variables(item['kind']),
+                check_for_environment_variables(item['name']),
+                check_for_environment_variables(item['type']),
+                check_for_environment_variables(item['conn'] if item['kind'] == 'db' else item['path']),
             ))
 
     LOGGER.debug(f'config output arguments: {arguments}')
 
     # assign values from command line
     if args.server:
-        arguments['server'] = check_environment_variables(args.server)
+        arguments['server'] = check_for_environment_variables(args.server)
     if args.workdir:
-        arguments['workdir'] = check_environment_variables(args.workdir)
+        arguments['workdir'] = check_for_environment_variables(args.workdir)
     if args.heartbeat:
-        arguments['heartbeat'] = check_environment_variables(args.heartbeat)
+        arguments['heartbeat'] = check_for_environment_variables(args.heartbeat)
     if args.leave:
         arguments['leave'] = args.leave
 
@@ -177,18 +185,21 @@ def setup_arguments() -> dict[str, Any]:
         for name, type, path in args.file:
             arguments['datasources'].append({
                 'kind': 'file',
-                'name': check_environment_variables(name),
-                'type': check_environment_variables(type),
-                'path': check_environment_variables(path),
+                'name': check_for_environment_variables(name),
+                'type': check_for_environment_variables(type),
+                'path': check_for_environment_variables(path),
             })
     if args.dbms:
         for name, type, conn in args.dbms:
             arguments['datasources'].append({
                 'kind': 'db',
-                'name': check_environment_variables(name),
-                'type': check_environment_variables(type),
-                'path': check_environment_variables(conn),
+                'name': check_for_environment_variables(name),
+                'type': check_for_environment_variables(type),
+                'path': check_for_environment_variables(conn),
             })
+
+    arguments['server'] = os.environ.get(FDL_SERVER, arguments['server'])
+    arguments['heartbeat'] = float(os.environ.get(FDL_HEARTBEAT, arguments['heartbeat']))
 
     LOGGER.debug(f'used arguments: {arguments}')
 

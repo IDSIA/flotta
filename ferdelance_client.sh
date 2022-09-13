@@ -26,7 +26,7 @@ while [ ${EXIT_CODE} -eq 0 ]; do
     echo 'Launching ferdelance client'
 
     # main loop
-    ${PYTHON} ferdelance/client "$@"
+    ${PYTHON} -m ferdelance.client "$@"
 
     EXIT_CODE=$?
 
