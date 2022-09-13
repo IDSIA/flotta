@@ -1,20 +1,27 @@
-.git/
-.vscode/
+**/*.git*
+**/.vscode
 
-__pycache__
-build
-dist
-tests
-html/*
-storage
+**/build
+**/dist
+**/*.egg-info
+**/*.egg
+**/*.pyc
+**/*.swp
 
-*.egg-info
-*.egg/
-*.pyc
-*.swp
-
-.env
 .tox
 .coverage
+html/*
+**/__pycache__
 
-*env
+docs/_build
+
+**/tests
+**/*env
+
+workdir
+storage
+
+*.yaml
+*.md
+*.csv
+*.tsv
