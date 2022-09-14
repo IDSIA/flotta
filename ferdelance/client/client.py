@@ -49,7 +49,7 @@ class SetupError(Exception):
 
 class FerdelanceClient:
 
-    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float = 1.0, leave: bool = False, datasources: list[dict[str, str]] = dict()) -> None:
+    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float | None = None, leave: bool = False, datasources: list[dict[str, str]] = dict()) -> None:
         # possible states are: work, exit, update, install
         self.status: str = 'init'
         self.server: str = server.rstrip('/')
@@ -126,7 +126,7 @@ class FerdelanceClient:
 
         return checksum.hexdigest()
 
-    def request_join(self, data: dict) -> tuple[int, dict]:
+    def request_join(self, data: dict) -> dict:
         """Send a join request to the server.
 
         :return:
@@ -137,7 +137,9 @@ class FerdelanceClient:
             json=data
         )
 
-        return res.status_code, res.json()
+        res.raise_for_status()
+
+        return res.json()
 
     def request_leave(self) -> None:
         res = requests.post(
@@ -146,11 +148,7 @@ class FerdelanceClient:
             headers=self.headers(),
         )
 
-        ret_code = res.status_code
-
-        if ret_code != 200:
-            LOGGER.error(f'Could not leave  server {self.server}')
-            sys.exit(2)
+        res.raise_for_status()
 
         LOGGER.info(f'removing working directory {self.workdir}')
         shutil.rmtree(self.workdir)
@@ -169,18 +167,17 @@ class FerdelanceClient:
         metadata += enc.update(json.dumps(ds_content, cls=NumpyEncoder))
         metadata += enc.end()
 
-        upload_response = requests.post(
+        res = requests.post(
             f'{self.server}/client/update/metadata',
             files={'file': ('metadata.bin', metadata)},
             headers=self.headers(),
         )
 
-        if upload_response.status_code == 200:
-            LOGGER.info('metadata uploaded successfull')
-        else:
-            LOGGER.warning(f'could not upload metadata: response code={upload_response.status_code}')
+        res.raise_for_status()
 
-    def request_update(self, data: dict) -> tuple[int, str, str]:
+        LOGGER.info('metadata uploaded successfull')
+
+    def request_update(self, data: dict) -> tuple[str, str]:
         payload = self.create_payload(data)
 
         res = requests.get(
@@ -189,14 +186,11 @@ class FerdelanceClient:
             headers=self.headers(),
         )
 
-        ret_code = res.status_code
-
-        if ret_code != 200:
-            raise ValueError(f'server response is {ret_code}')
+        res.raise_for_status()
 
         ret_data = self.get_payload(res.json())
 
-        return res.status_code, ret_data['action'], ret_data['data']
+        return ret_data['action'], ret_data['data']
 
     def setup(self) -> None:
         """Client initliazation (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
@@ -209,13 +203,14 @@ class FerdelanceClient:
             if os.path.exists(self.workdir):
                 LOGGER.info(f'loading properties from working directory={self.workdir}')
 
-                status = os.stat(self.workdir)
-                chmod = stat.S_IMODE(status.st_mode & 0o777)
+                # TODO: check how to enable permission check with docker
+                # status = os.stat(self.workdir)
+                # chmod = stat.S_IMODE(status.st_mode & 0o777)
 
-                if chmod != 0o700:
-                    LOGGER.error(f'working directory {self.workdir} has wrong permissions!')
-                    LOGGER.error(f'expected {0o700} found {chmod}')
-                    sys.exit(2)
+                # if chmod != 0o700:
+                #     LOGGER.error(f'working directory {self.workdir} has wrong permissions!')
+                #     LOGGER.error(f'expected {0o700} found {chmod}')
+                #     sys.exit(2)
 
                 if os.path.exists(self.path_properties):
                     # load properties
@@ -230,7 +225,10 @@ class FerdelanceClient:
                         self.client_token = props['client_token']
                         self.server = props['server']
 
-                        self.heartbeat = props['heartbeat']
+                        if self.heartbeat == None:
+                            self.heartbeat = props['heartbeat']
+                        if self.heartbeat == None:
+                            self.heartbeat = 1.0
 
                         # TODO: load data sources
 
@@ -318,15 +316,9 @@ class FerdelanceClient:
                         'version': __version__
                     }
 
-                    status_code, json_data = self.request_join(data)
+                    try:
+                        json_data = self.request_join(data)
 
-                    if status_code == 403:
-                        LOGGER.error('client already joined, but no local files found!?')
-
-                        # TODO what to do in this case?
-                        sys.exit(2)
-
-                    elif status_code == 200:
                         LOGGER.info('client join sucessfull')
 
                         self.client_id = decrypt(self.private_key, json_data['id'])
@@ -337,6 +329,33 @@ class FerdelanceClient:
                             f.write(bytes_from_public_key(self.server_public_key))
 
                         open(self.path_joined, 'a').close()
+                    except requests.HTTPError as e:
+
+                        if e.response.status_code == 404:
+                            LOGGER.error(f'remote server {self.server} not found.')
+                            LOGGER.error(f'Waiting {self.heartbeat} second(s) and retrying')
+                            sleep(self.heartbeat)
+                            sys.exit(0)
+
+                        if e.response.status_code == 403:
+                            LOGGER.error('client already joined, but no local files found!?')
+                            sys.exit(2)
+
+                        if e.response.status_code == 500:
+                            LOGGER.exception(e)
+                            sys.exit(2)
+
+                    except requests.exceptions.RequestException as e:
+                        LOGGER.error('connection refuesd')
+                        LOGGER.exception(e)
+                        LOGGER.error(f'Waiting {self.heartbeat} second(s) and retrying')
+                        sleep(self.heartbeat)
+                        sys.exit(0)
+
+                    except Exception as e:
+                        LOGGER.error('internal error')
+                        LOGGER.exception(e)
+                        sys.exit(0)
 
         # setup local data sources
         for k, n, t, p in self.datasources_list:
@@ -390,7 +409,7 @@ class FerdelanceClient:
                 headers=self.headers(),
                 stream=True,
             ) as stream:
-                if stream.status_code != 200:
+                if not stream.ok:
                     LOGGER.error(f'could not download new client version={version_app} from server={self.server}')
                     return 'update'
 
@@ -437,9 +456,10 @@ class FerdelanceClient:
             while self.status != 'exit' and not self.stop:
                 try:
                     LOGGER.info('requesting update')
-                    status_code, action, data = self.request_update({})
 
-                    LOGGER.info(f'update: status_code={status_code} action={action}')
+                    action, data = self.request_update({})
+
+                    LOGGER.info(f'update: action={action}')
 
                     # work loop
                     self.status = self.perform_action(action, data)
@@ -451,12 +471,35 @@ class FerdelanceClient:
                 except ValueError as e:
                     # TODO: discriminate between bad and acceptable exceptions
                     LOGGER.exception(e)
+
+                except requests.HTTPError as e:
+                    LOGGER.exception(e)
+                    # TODO what to do in this case?
+
+                except requests.exceptions.RequestException as e:
+                    LOGGER.error('connection refuesd')
+                    LOGGER.exception(e)
+                    # TODO what to do in this case?
+
+                except Exception as e:
+                    LOGGER.error('internal error')
+                    LOGGER.exception(e)
+
+                    # TODO what to do in this case?
                     sys.exit(2)
 
                 LOGGER.info(f'waiting for {self.heartbeat}')
                 sleep(self.heartbeat)
 
-        except Exception as e:
-            LOGGER.fatal(e)
+        except SetupError as e:
+            LOGGER.error('could not complete setup')
             LOGGER.exception(e)
+            sys.exit(2)
+
+        except Exception as e:
+            LOGGER.error('Unknown error')
+            LOGGER.exception(e)
+            sys.exit(2)
+
+        if self.stop:
             sys.exit(2)

@@ -1,0 +1,21 @@
+version: '3.3'
+
+networks:
+  spearhead:
+
+volumes:
+  spearhead-client-data:
+
+services:
+  client: 
+    image: idsia.spearhead.client
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - FDL_SERVER=$SERVER
+      - FDL_HEARTBEAT=10.0
+    volumes: 
+      - spearhead-client-data:/spearhead/workdir
+    networks:
+      - spearhead
