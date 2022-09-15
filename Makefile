@@ -11,6 +11,9 @@ reload:
 	docker-compose build
 	docker-compose up -d
 
+logs:
+	docker-compose logs -f server
+
 nuke:
 	docker-compose down
 	docker volume rm federated-learning-server_spearhead-db-data
