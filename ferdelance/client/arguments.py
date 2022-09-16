@@ -143,10 +143,13 @@ def setup_arguments() -> dict[str, Any]:
     config = args.config
 
     if config is None and os.path.exists(LOCAL_CONFIG_FILE):
+        LOGGER.info(f'Using local config file found at {LOCAL_CONFIG_FILE}')
         config = LOCAL_CONFIG_FILE
 
     # parse YAML config file
-    if config is not None:
+    if config is not None and os.path.exists(config):
+        LOGGER.info(f'Reading configuration from {config}')
+
         with open(config, 'r') as f:
             try:
                 config_args = yaml.safe_load(f)['ferdelance']

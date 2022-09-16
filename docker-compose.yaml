@@ -1,14 +1,14 @@
 version: '3.3'
 
 networks:
-  spearhead:
+  ferdelance:
 
 volumes:
-  spearhead-client-data:
+  ferdelance-client-data:
 
 services:
   client: 
-    image: idsia.spearhead.client
+    image: idsia.ferdelance.client
     build:
       context: .
       dockerfile: Dockerfile
@@ -16,6 +16,8 @@ services:
       - FDL_SERVER=$SERVER
       - FDL_HEARTBEAT=10.0
     volumes: 
-      - spearhead-client-data:/spearhead/workdir
+      - ferdelance-client-data:/ferdelance/workdir
+      - ./config.yaml:/ferdelance/config.yaml
+      - ./data:/ferdelance/data
     networks:
-      - spearhead
+      - ferdelance

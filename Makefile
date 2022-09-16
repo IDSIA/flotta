@@ -11,16 +11,19 @@ reload:
 	docker-compose build
 	docker-compose up -d
 
+logs:
+	docker-compose logs -f 
+
 nuke:
 	docker-compose down
-	docker volume rm federated-learning-client_spearhead-client-data
+	docker volume rm federated-learning-client_Ferdelance-client-data
 
 venv-create:
-	python -m venv Spearhead_env
+	python -m venv Ferdelance_env
 
 venv-recreate:
-	rm -rf Spearhead_env
-	python -m venv Spearhead_env
+	rm -rf Ferdelance_env
+	python -m venv Ferdelance_env
 
 venv-dev-install:
 	pip install federated-learning-shared/
