@@ -2,8 +2,9 @@ from typing import Any
 import requests
 import logging
 
-from ferdelance_workbench.artifacts import Artifact
+from ferdelance_workbench.artifacts import Artifact, Query, Model, Strategy
 from ferdelance_workbench.exceptions import ServerError
+from ferdelance_workbench.schema.workbench import *
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class Context:
 
         return res.json()
 
-    def detail_client(self, client_id: str) -> dict[str, Any]:
+    def detail_client(self, client_id: str) -> ClientDetails:
         """List the details of a client.
 
         :param client_id: 
@@ -37,7 +38,7 @@ class Context:
         if res.status_code != 200:
             raise ServerError(f'server status code: {res.status_code}')
 
-        return res.json()
+        return ClientDetails(**res.json())
 
     def list_datasources(self) -> list[dict]:
         """List all data sources available.
@@ -51,7 +52,7 @@ class Context:
 
         return res.json()
 
-    def detail_datasource(self, datasource_id: int) -> dict[str, Any]:
+    def detail_datasource(self, datasource_id: int) -> DataSourceDetails:
         """Returns the detail, like metadata, of the given datasource.
 
         :param datasource_id:
@@ -64,7 +65,7 @@ class Context:
         if res.status_code != 200:
             raise ServerError(f'server status code: {res.status_code}')
 
-        return res.json()
+        return DataSourceDetails(**res.json())
 
     def create_artifact(self) -> Artifact:
         """Initialize a new artifacts.
@@ -74,8 +75,8 @@ class Context:
 
         return Artifact()
 
-    def submit_artifact(self, artifact: Artifact) -> None:
-        pass
+    def submit(self, query: Query, model: Model, strategy: Strategy) -> Artifact:
+        return Artifact()
 
-    def status_artifact(self, artifact: Artifact) -> None:
+    def status(self, artifact: Artifact) -> None:
         pass
