@@ -1,26 +1,36 @@
 # Build stage
 FROM python:3.10 AS builder
 
-# We will install using a virtual env
+# install virtual environment
 RUN python -m venv /opt/venv
+
 ENV PATH="/opt/venv/bin:${PATH}"
 
-# Copy list of required packages
-COPY . /ferdelance
+# copy and install shared library
+COPY federated-learning-shared/ /federated-learning-shared/
 
-# Install packages using pip
-RUN cd /ferdelance && \
-    pip install --upgrade pip && \
-    pip install --no-cache-dir federated-learning-shared/ && \
-	pip install --no-cache-dir .
+RUN pip install --no-cache-dir /federated-learning-shared/
+
+# copy config file and install dependencies
+COPY setup.cfg /
+
+RUN cd / && \
+    python -c "import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['options']['install_requires'])" | xargs pip install
 
 # Installation stage
 FROM python:3.10-slim-buster AS base
-ENV PATH="/opt/venv/bin:${PATH}"
 
-# Copy built environment to base
+# copy built virtual environment to base
 COPY --from=builder /opt/venv /opt/venv
 
-WORKDIR /spearhead
+ENV PATH="/opt/venv/bin:${PATH}"
+
+# create and populate workdir
+WORKDIR /ferdelance
+
+COPY . /ferdelance
+
+# install application
+RUN pip install --no-cache-dir .
 
 CMD ["uvicorn", "ferdelance.server.api:api", "--host", "0.0.0.0", "--port", "1456"]
