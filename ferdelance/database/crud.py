@@ -309,7 +309,7 @@ def get_datasource_list(db: Session) -> list[ClientDataSource]:
 
 
 def get_datasource_by_id(db: Session, ds_id: int) -> tuple[ClientDataSource, list[ClientFeature]]:
-    ds_db = db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).filter()
+    ds_db = db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).first()
 
     if ds_db is None:
         return None, None
