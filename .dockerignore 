@@ -25,3 +25,5 @@ storage
 *.md
 *.csv
 *.tsv
+
+docker-compose.yaml

@@ -1,13 +1,13 @@
 version: '3.3'
 
 networks:
-  spearhead:
+  ferdelance:
   www:
     external: true
 
 volumes:
-  spearhead-server-data:
-  spearhead-db-data:
+  ferdelance-server-data:
+  ferdelance-db-data:
 
 services:
   database:
@@ -17,12 +17,12 @@ services:
       - POSTGRES_PASSWORD=${DATABASE_PASS}
       - POSTGRES_DB=${DATABASE_SCHEMA}
     volumes:
-      - spearhead-db-data:/var/lib/postgresql/data
+      - ferdelance-db-data:/var/lib/postgresql/data
     networks:
-      - spearhead
+      - ferdelance
 
   server: 
-    image: idsia.spearhead.server
+    image: idsia.ferdelance.server
     build:
       context: .
       dockerfile: Dockerfile
@@ -30,14 +30,14 @@ services:
       - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
     volumes: 
-      - spearhead-server-data:/spearhead/data
+      - ferdelance-server-data:/ferdelance/data
     networks:
       - www
-      - spearhead
+      - ferdelance
     depends_on:
       - database
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.spearhead.rule=Host(`spearhead.${DOMAIN}`)"
-      - "traefik.http.routers.spearhead.entrypoints=web"
-      - "traefik.http.services.spearhead.loadbalancer.server.port=1456"
+      - "traefik.http.routers.ferdelance.rule=Host(`ferdelance.${DOMAIN}`)"
+      - "traefik.http.routers.ferdelance.entrypoints=web"
+      - "traefik.http.services.ferdelance.loadbalancer.server.port=1456"
