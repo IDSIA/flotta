@@ -26,7 +26,7 @@ class DataSourceFile(DataSource):
 
             if feature in df_desc:
                 f = {
-                    'name': 'feature',
+                    'name': feature,
                     'dtype': dtype,
                     'v_mean': df_desc[feature]['mean'],
                     'v_std': df_desc[feature]['std'],
@@ -39,7 +39,7 @@ class DataSourceFile(DataSource):
                 }
             else:
                 f = {
-                    'name': 'feature',
+                    'name': feature,
                     'dtype': dtype,
                     'v_mean': None,
                     'v_std': None,
