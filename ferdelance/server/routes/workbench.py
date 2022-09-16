@@ -15,7 +15,7 @@ workbench_router = APIRouter()
 
 
 @workbench_router.get('/workbench/')
-async def wb_home(db: Session = Depends(get_db)):
+async def wb_home():
     return 'Workbench 🔧'
 
 
@@ -48,6 +48,6 @@ async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404)
 
     return {
-        'datasource': ds,
-        'features': features,
+        # 'datasource': ds,
+        # 'features': features,
     }
