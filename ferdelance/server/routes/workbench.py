@@ -54,30 +54,9 @@ async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
     if ds_db is None:
         raise HTTPException(404)
 
-    ds = DataSource(
-        datasource_id=ds_db.datasource_id,
-        name=ds_db.name,
-        type=ds_db.type,
-        created_at=ds_db.creation_time,
-        n_records=ds_db.n_records,
-        n_features=ds_db.n_features,
-        client_id=ds_db.client_id,
-    )
+    ds = DataSource(**ds_db.__dict__, created_at=ds_db.creation_time)
 
-    fs = [Feature(
-        feature_id=f.feature_id,
-        name=f.name,
-        dtype=f.dtype,
-        created_at=f.creation_time,
-        v_mean=f.v_mean,
-        v_std=f.v_std,
-        v_min=f.v_min,
-        v_p25=f.v_p25,
-        v_p50=f.v_p50,
-        v_p75=f.v_p75,
-        v_max=f.v_max,
-        v_miss=f.v_miss,
-    ) for f in f_db]
+    fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db]
 
     return DataSourceDetails(
         datasource=ds,

@@ -22,6 +22,7 @@ class DataSource(BaseModel):
 
 class Feature(BaseModel):
     feature_id: int
+    datasource_id: int
 
     name: str
     dtype: str | None
