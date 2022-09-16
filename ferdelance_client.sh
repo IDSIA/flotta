@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # config
-VIRTUAL_ENV="Spearhead_env"
+VIRTUAL_ENV="Ferdelance_env"
 
 # TODO: include whole environment in application installer instead of searching for a local python and venv
 
