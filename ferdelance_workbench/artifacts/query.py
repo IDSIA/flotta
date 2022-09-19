@@ -8,9 +8,9 @@ class Filter:
 
     def __init__(self, feature: Feature, operation: str, parameter: int | float | str) -> None:
         # TODO: operations should be limited (i.e. <,>,=>,<=,==,!=)
-        self.feature = feature
-        self.operation = operation
-        self.parameter = parameter
+        self.feature: str = feature
+        self.operation: str = operation
+        self.parameter: str = parameter
 
     def json(self) -> dict[str, str]:
         return {
@@ -24,9 +24,9 @@ class Transformer:
 
     def __init__(self, feature: Feature, name: str, parameters: dict[str, str]) -> None:
         # TODO: parameters should be sanitized
-        self.feature = feature
-        self.name = name
-        self.parameters = parameters
+        self.feature: str = feature
+        self.name: str = name
+        self.parameters: str = parameters
 
     def json(self) -> dict[str, str]:
         return {
@@ -78,7 +78,7 @@ class Query:
     def json(self) -> dict[str, Any]:
         return {
             'datasources': self.datasources,
-            'features': [{'id': f.feature_id, 'ds_id': f.datasource_id} for f in self.features],
+            'features': [{'feature_id': f.feature_id, 'datasource_id': f.datasource_id} for f in self.features],
             'filters': [f.json() for f in self.filters],
             'transformers': [t.json() for t in self.transformers],
         }
