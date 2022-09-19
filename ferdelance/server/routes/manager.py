@@ -112,7 +112,7 @@ async def manager_upload_artifact(file: UploadFile, db: Session = Depends(get_db
     return Response()
 
 
-@manager_router.get('/manager/download/model')
+@manager_router.get('/manager/download/model', response_class=FileResponse)
 async def manager_download_model(model: ManagerDownloadModelRequest, db: Session = Depends(get_db)):
 
     model: Model = crud.get_model_by_id(db, model.model_id)

@@ -42,3 +42,47 @@ class Feature(BaseModel):
 class DataSourceDetails(BaseModel):
     datasource: DataSource
     features: list[Feature]
+
+
+class QueryFeature(BaseModel):
+    feature_id: str
+    datasource_id: int
+
+
+class QueryFilter(BaseModel):
+    feature: str
+    operation: str
+    parameter: str
+
+
+class QueryTransformer(BaseModel):
+    feature: str
+    name: str
+    parameters: str
+
+
+class QueryRequest(BaseModel):
+    datasources: set[int]
+    features: list[QueryFeature]
+    filters: list[QueryFilter]
+    transformers: list[QueryTransformer]
+
+
+class ModelRequest(BaseModel):
+    name: str
+    model: str | None
+
+
+class StrategyRequest(BaseModel):
+    strategy: str
+
+
+class ArtifactSubmitRequest(BaseModel):
+    query: QueryRequest
+    model: ModelRequest
+    strategy: StrategyRequest
+
+
+class ArtifactStatus(BaseModel):
+    artifact_id: str
+    status: str

@@ -1,16 +1,23 @@
 from http.client import HTTPException
-from zipapp import create_archive
 from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse
 
 from sqlalchemy.orm import Session
+from uuid import uuid4
 
 from ...database import get_db, crud
-from ...database.tables import Client, ClientDataSource
+from ...database.tables import Client, ClientDataSource, Artifact
 from ..schemas.workbench import *
 
+import json
 import logging
+import os
 
 LOGGER = logging.getLogger(__name__)
+
+STORAGE_ARTIFACTS: str = str(os.path.join('.', 'storage', 'artifacts'))
+STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
+
 
 workbench_router = APIRouter()
 
@@ -62,3 +69,47 @@ async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
         datasource=ds,
         features=fs,
     )
+
+
+@workbench_router.post('/workbench/artifact/submit', response_model=ArtifactStatus)
+async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session = Depends(get_db)):
+    artifact_id = str(uuid4())
+    path = os.path.join(STORAGE_ARTIFACTS, artifact_id)
+
+    try:
+        artifact_db = crud.create_artifact(db, artifact_id, path)
+
+        with open(path) as f:
+            json.dump(artifact, f)
+
+        return ArtifactStatus(
+            artifact_id=artifact_id,
+            status=artifact_db.status,
+        )
+    except ValueError as e:
+        LOGGER.error('Artifact already exists')
+        LOGGER.exception(e)
+        return HTTPException(403)
+
+
+@workbench_router.get('/workbench/artifact/{artifact_id}', response_model=ArtifactStatus)
+async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
+    artifact_db: Artifact = crud.get_artifact(db, artifact_id)
+
+    if artifact_db is None:
+        return HTTPException(403)
+
+    return ArtifactStatus(
+        artifact_id=artifact_id,
+        status=artifact_db.status,
+    )
+
+
+@workbench_router.get('/workbench/download/{artifact_id}', response_class=FileResponse)
+async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
+    artifact_db: Artifact = crud.get_artifact(db, artifact_id)
+
+    if artifact_db is None:
+        return HTTPException(403)
+
+    return FileResponse(artifact_db.path)
