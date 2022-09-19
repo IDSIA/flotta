@@ -13,27 +13,41 @@ for c in ctx.list_clients():
     print(dc.version)
 
 # %% ask the context for available metadata
-for ds in ctx.list_datasources():
+data_sources_id: list[int] = ctx.list_datasources()
+
+for ds in data_sources_id:
     dds = ctx.detail_datasource(ds)
     print(f'{dds.datasource.type:5} {dds.datasource.name}')
     for df in dds.features:
         print(f'{df.feature_id:3} {df.dtype:8} {df.name}')
 
 # %% develop a filter query
+ds_id = data_sources_id[0]
+
+dds = ctx.detail_datasource(ds_id)
 
 q = Query()
+q.add_datasource(dds)
 
 # %% develop a model
 
-m = Model()
+m = Model('example_model')
 
 # %% develop an aggregation strategy
 
-s = Strategy()
+s = Strategy('nothing')
 
 # %% create an artifact and deploy query, model, and strategy to the server
 
 a: Artifact = ctx.submit(q, m, s)
 
+print(a)
+
 # %% monitor learning progress
-ctx.status(a)
+a = ctx.status(a)
+
+print(a)
+
+# %% download trained model:
+
+ctx.download(a, 'model.bin')

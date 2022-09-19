@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 from ..schema.workbench import *
 
@@ -8,8 +9,15 @@ class Filter:
     def __init__(self, feature: Feature, operation: str, parameter: int | float | str) -> None:
         # TODO: operations should be limited (i.e. <,>,=>,<=,==,!=)
         self.feature = feature
-        self.parameter = parameter
         self.operation = operation
+        self.parameter = parameter
+
+    def json(self) -> dict[str, str]:
+        return {
+            'feature': self.feature,
+            'operation': self.operation,
+            'parameter': self.parameter,
+        }
 
 
 class Transformer:
@@ -19,6 +27,13 @@ class Transformer:
         self.feature = feature
         self.name = name
         self.parameters = parameters
+
+    def json(self) -> dict[str, str]:
+        return {
+            'feature': self.feature,
+            'name': self.name,
+            'parameters': self.parameters,
+        }
 
 
 class Query:
@@ -59,3 +74,18 @@ class Query:
         #       - inputation
         self.transformers.append(Transformer(f, transformer, params))
         return self
+
+    def json(self) -> dict[str, Any]:
+        return {
+            'datasources': self.datasources,
+            'features': [{'id': f.feature_id, 'ds_id': f.datasource_id} for f in self.features],
+            'filters': [f.json() for f in self.filters],
+            'transformers': [t.json() for t in self.transformers],
+        }
+
+    def __str__(self) -> str:
+        #TODO: enhance
+        return f'Query'
+
+    def __repr__(self) -> str:
+        return self.__str__()

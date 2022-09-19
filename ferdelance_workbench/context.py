@@ -40,7 +40,7 @@ class Context:
 
         return ClientDetails(**res.json())
 
-    def list_datasources(self) -> list[dict]:
+    def list_datasources(self) -> list[int]:
         """List all data sources available.
 
         :raises HTTPError: if the return code of the server is not 2xx
@@ -67,16 +67,55 @@ class Context:
 
         return DataSourceDetails(**res.json())
 
-    def create_artifact(self) -> Artifact:
-        """Initialize a new artifacts.
-
-        :raises HTTPError: if the return code of the server is not 2xx
-        """
-
-        return Artifact()
-
     def submit(self, query: Query, model: Model, strategy: Strategy) -> Artifact:
-        return Artifact()
+        """Submit the query, model, and strategy and start a training task on the remote server.
 
-    def status(self, artifact: Artifact) -> None:
-        pass
+        :param query:
+            The query to use to get the training data.
+        :param model:
+            The model to use for training.
+        :param strategy:
+            The strategy to use to aggregate the models.
+        """
+        res = requests.post(f'{self.server}/workbench/artifact/submit', json={
+            'query': query.json(),
+            'model': model.json(),
+            'strategy': strategy.json(),
+        })
+
+        res.raise_for_status()
+
+        return Artifact(query=query, model=model, strategy=strategy, **res.json())
+
+    def status(self, artifact: Artifact) -> Artifact:
+        """Poll the server to get an update of the status of the given artifact.
+
+        :param artifact:
+            Artifact to get an update for.
+        """
+        if artifact.artifact_id is None:
+            raise ValueError('submit first the artifact to the server')
+
+        res = requests.get(f'{self.server}/workbench/artifact/{artifact.artifact_id}')
+
+        res.raise_for_status()
+
+        return artifact.update(res.json())
+
+    def download(self, artifact: Artifact, path: str) -> Any:
+        """Get the trained and aggregated model from the artifact and save it to disk.
+
+        :param artifact:
+            Artifact to get the model from.
+        :param path:
+            Destination path on disk.
+        """
+        if artifact.artifact_id is None:
+            raise ValueError('submit first the artifact to the server')
+
+        res = requests.get(f'{self.server}/workbench/download/{artifact.artifact_id}')
+
+        res.raise_for_status()
+
+        with open(path, 'wb') as f:
+            f.write(res.content)
