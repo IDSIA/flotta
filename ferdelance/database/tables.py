@@ -92,7 +92,12 @@ class Artifact(Base):
 
 
 class Task(Base):
-    """Table that keep track of which artifact has been deployed to which client and the state of the request."""
+    """Table that keep track of which artifact has been submitted and the state of the request.
+
+    A task is equal to an artifact and is composed by a filter query, a model to train, and an aggregation strategy.
+
+    Possible status are: CREATED, TRAINING, AGGREGATING, COMPLETED, ERROR
+    """
     __tablename__ = 'tasks'
 
     task_id = Column(String, primary_key=True, index=True)
@@ -101,6 +106,29 @@ class Task(Base):
     stop_time = Column(DateTime(timezone=True))
 
     status = Column(String, nullable=True)
+
+    artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
+    artifact = relationship('Artifact')
+
+
+class ClientTask(Base):
+    """Table that keep track of which task need to be done on which client and the state of it.
+
+    A ClientTask is composed only of the filter query that will build the dataset used for training. Each task is assigned to a single client.
+
+    Possible status are: SCHEDULED, CREATED, FILTERING, TRAINING, COMPLETED, ERROR
+    """
+    __tablename__ = 'client_tasks'
+    client_task_id = Column(String, primary_key=True, index=True)
+
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    start_time = Column(DateTime(timezone=True))
+    stop_time = Column(DateTime(timezone=True))
+
+    status = Column(String, nullable=True)
+
+    task_id = Column(String, ForeignKey('tasks.task_id'))
+    task = relationship('Task')
 
     client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')

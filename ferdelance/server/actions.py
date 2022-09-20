@@ -1,4 +1,4 @@
-from ..database.tables import Client, ClientToken
+from ..database.tables import Client, ClientToken, ClientTask
 from ..database import Session, crud
 
 from .security import generate_token
@@ -25,7 +25,7 @@ class ActionManager:
 
         return n_tokens == 0
 
-    def _action_update_token(self, db: Session, client: Client) -> tuple[str, str]:
+    def _action_update_token(self, db: Session, client: Client) -> tuple[str, dict[str, str]]:
         """Generates a new valid token.
 
         :return:
@@ -49,7 +49,7 @@ class ActionManager:
 
         return version is not None and client.version != version
 
-    def _action_update_client_app(self, db: Session) -> tuple[str, str]:
+    def _action_update_client_app(self, db: Session) -> tuple[str, dict[str, str]]:
         """Update and restart the client with the new version.
 
         :return:
@@ -64,11 +64,17 @@ class ActionManager:
             'version': new_client.version,
         }
 
+    def _check_scheduled_task(self, db: Session, client: Client) -> ClientTask | None:
+        return crud.get_next_task_for_client(db, client)
+
+    def _action_schedule_task(self, task: ClientTask) -> tuple[str, dict[str, str]]:
+        return EXEC, {'task_id': task.task_id}
+
     def _action_nothing(self) -> tuple[str, Any]:
         """Do nothing and waits for the next update request."""
         return DO_NOTHING, {}
 
-    def next(self, db: Session, client: Client, payload: str) -> tuple[str, str]:
+    def next(self, db: Session, client: Client, payload: str) -> tuple[str, dict[str, str]]:
 
         # TODO: consume client payload
 
@@ -78,6 +84,8 @@ class ActionManager:
         if self._check_client_app_update(db, client):
             return self._action_update_client_app(db)
 
-        # TODO: check for tasks to do
+        task = self._check_scheduled_task(db, client)
+        if task is not None:
+            return self._action_schedule_task(db, task)
 
         return self._action_nothing()

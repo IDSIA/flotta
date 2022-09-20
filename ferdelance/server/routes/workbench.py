@@ -10,6 +10,7 @@ from ...database.tables import Client, ClientDataSource, Artifact, Model
 from ..schemas.workbench import *
 from ..folders import STORAGE_ARTIFACTS
 
+import aiofiles
 import json
 import logging
 import os
@@ -89,11 +90,24 @@ async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session =
         with open(path, 'w') as f:
             json.dump(data, f)
 
-        return ArtifactResponse(
+        artifact = ArtifactResponse(
             **data,
             artifact_id=artifact_id,
             status=artifact_db.status,
         )
+
+        # TODO this is there temporally. It will be done inside a celery worker...
+        task_db = crud.create_task(db, artifact)
+
+        for ds_id in artifact.query.datasources:
+            ds: ClientDataSource = crud.get_datasource_by_id(ds_id)[0]
+            client_id = ds.client_id
+
+            crud.create_client_task(db, artifact_db, client_id, task_db.task_id)
+
+        # TODO: ...until there
+
+        return artifact
     except ValueError as e:
         LOGGER.error('Artifact already exists')
         LOGGER.exception(e)
@@ -123,7 +137,7 @@ async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
     if not os.path.exists(artifact_db.path):
         return HTTPException(404)
 
-    with open(artifact_db.path, 'r') as f:
+    async with aiofiles.open(artifact_db.path, 'r') as f:
         data = json.load(f)
 
     return ArtifactResponse(artifact_id=artifact_id, status=artifact_db.status, **data)

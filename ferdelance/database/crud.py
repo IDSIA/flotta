@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from .tables import Client, ClientEvent, ClientToken, ClientApp, Model, ClientDataSource, ClientFeature, Artifact
+from .tables import Client, ClientEvent, ClientToken, ClientApp, Model, ClientDataSource, ClientFeature, Artifact, Task, ClientTask
 
 from datetime import datetime
 from uuid import uuid4
@@ -341,3 +341,40 @@ def get_artifact(db: Session, artifact_id: str) -> Artifact:
 
 def get_model_by_artifact(db: Session, artifact: Artifact) -> list[Model]:
     return db.query(Model).filter(Model.artifact_id == artifact.artifact_id).first()
+
+
+def create_task(db: Session, artifact: Artifact) -> Task:
+    task_id: str = str(uuid4())
+    task = Task(task_id=task_id, status='CREATED', artifact_id=artifact.artifact_id)
+
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    return task
+
+
+def create_client_task(db: Session, artifact_id: str, client_id: str, task_id: str) -> ClientTask:
+    client_task_id: str = str(uuid4())
+
+    client_task = ClientTask(
+        client_task_id=client_task_id,
+        status='SCHEDULED',
+        task_id=task_id,
+        client_id=client_id,
+        artifact_id=artifact_id,
+    )
+
+    db.add(client_task)
+    db.commit()
+    db.refresh(client_task)
+
+    return client_task
+
+
+def get_task_for_client(db: Session, client_task_id: str) -> ClientTask | None:
+    return db.query(ClientTask).filter(ClientTask.client_task_id == client_task_id).first()
+
+
+def get_next_task_for_client(db: Session, client: Client) -> ClientTask | None:
+    return db.query(ClientTask).filter(ClientTask.status == 'SCHEDULED').order_by(ClientTask.creation_time.asc()).first()
