@@ -8,6 +8,7 @@ from ...database import get_db, crud
 from ...database.tables import ClientApp, Artifact, Model, Client
 from ..schemas.manager import *
 from ..config import FILE_CHUNK_SIZE
+from ..folders import STORAGE_CLIENTS, STORAGE_ARTIFACTS, STORAGE_MODELS
 
 import aiofiles
 import hashlib
@@ -15,10 +16,6 @@ import logging
 import os
 
 LOGGER = logging.getLogger(__name__)
-
-STORAGE_CLIENTS: str = str(os.path.join('.', 'storage', 'clients'))
-STORAGE_ARTIFACTS: str = str(os.path.join('.', 'storage', 'artifacts'))
-STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
 
 
 manager_router = APIRouter()

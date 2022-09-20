@@ -8,15 +8,13 @@ from uuid import uuid4
 from ...database import get_db, crud
 from ...database.tables import Client, ClientDataSource, Artifact, Model
 from ..schemas.workbench import *
+from ..folders import STORAGE_ARTIFACTS
 
 import json
 import logging
 import os
 
 LOGGER = logging.getLogger(__name__)
-
-STORAGE_ARTIFACTS: str = str(os.path.join('.', 'storage', 'artifacts'))
-STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
 
 
 workbench_router = APIRouter()
@@ -66,7 +64,7 @@ async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
 
     ds = DataSource(**ds_db.__dict__, created_at=ds_db.creation_time)
 
-    fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db if f.removed]
+    fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db if not f.removed]
 
     return DataSourceDetails(
         datasource=ds,
@@ -74,20 +72,25 @@ async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
     )
 
 
-@workbench_router.post('/workbench/artifact/submit', response_model=ArtifactStatus)
+@workbench_router.post('/workbench/artifact/submit', response_model=ArtifactResponse)
 async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session = Depends(get_db)):
     artifact_id = str(uuid4())
-    path = os.path.join(STORAGE_ARTIFACTS, artifact_id)
+
+    path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
+
+    # TODO: check for valid data sources and features
 
     # TODO: start task
 
     try:
         artifact_db = crud.create_artifact(db, artifact_id, path)
+        data = artifact.dict()
 
-        with open(path) as f:
-            json.dump(artifact, f)
+        with open(path, 'w') as f:
+            json.dump(data, f)
 
-        return ArtifactStatus(
+        return ArtifactResponse(
+            **data,
             artifact_id=artifact_id,
             status=artifact_db.status,
         )
@@ -110,18 +113,24 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
     )
 
 
-@workbench_router.get('/workbench/download/artifact/{artifact_id}', response_class=FileResponse)
-async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
+@workbench_router.get('/workbench/download/artifact/{artifact_id}', response_model=ArtifactResponse)
+async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
     artifact_db: Artifact = crud.get_artifact(db, artifact_id)
 
     if artifact_db is None:
         return HTTPException(404)
 
-    return FileResponse(artifact_db.path)
+    if not os.path.exists(artifact_db.path):
+        return HTTPException(404)
+
+    with open(artifact_db.path, 'r') as f:
+        data = json.load(f)
+
+    return ArtifactResponse(artifact_id=artifact_id, status=artifact_db.status, **data)
 
 
 @workbench_router.get('/workbench/download/model/{artifact_id}', response_class=FileResponse)
-async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
+async def wb_get_model(artifact_id: str, db: Session = Depends(get_db)):
     artifact_db: Artifact = crud.get_artifact(db, artifact_id)
 
     if artifact_db is None:

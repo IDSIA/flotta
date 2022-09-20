@@ -50,19 +50,19 @@ class QueryFeature(BaseModel):
 
 
 class QueryFilter(BaseModel):
-    feature: str
+    feature: QueryFeature
     operation: str
     parameter: str
 
 
 class QueryTransformer(BaseModel):
-    feature: str
+    feature: QueryFeature
     name: str
     parameters: str
 
 
 class QueryRequest(BaseModel):
-    datasources: set[int]
+    datasources: list[int]
     features: list[QueryFeature]
     filters: list[QueryFilter]
     transformers: list[QueryTransformer]
@@ -81,6 +81,11 @@ class ArtifactSubmitRequest(BaseModel):
     query: QueryRequest
     model: ModelRequest
     strategy: StrategyRequest
+
+
+class ArtifactResponse(ArtifactSubmitRequest):
+    artifact_id: str
+    status: str
 
 
 class ArtifactStatus(BaseModel):
