@@ -16,7 +16,7 @@ logs:
 
 nuke:
 	docker-compose down
-	docker volume rm federated-learning-client_Ferdelance-client-data
+	docker volume rm federated-learning-client_ferdelance-client-data
 
 venv-create:
 	python -m venv Ferdelance_env
