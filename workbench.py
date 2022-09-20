@@ -30,15 +30,12 @@ q = Query()
 q.add_datasource(dds)
 
 # %% develop a model
-
-m = Model('example_model')
+m = Model('example_model', None)
 
 # %% develop an aggregation strategy
-
 s = Strategy('nothing')
 
 # %% create an artifact and deploy query, model, and strategy to the server
-
 a: Artifact = ctx.submit(q, m, s)
 
 print(a)
@@ -48,6 +45,12 @@ a = ctx.status(a)
 
 print(a)
 
-# %% download trained model:
+# %% download submitted artifact
+art = ctx.get_artifact(a.artifact_id)
 
-ctx.download(a, 'model.bin')
+print(art)
+
+# %% download trained model:
+ctx.get_model(a, 'model.bin')
+
+# %%

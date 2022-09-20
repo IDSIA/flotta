@@ -16,3 +16,7 @@ class Strategy:
 
     def __repr__(self) -> str:
         return self.__str__()
+
+
+def strategy_from_json(data: dict[str, Any]) -> Strategy:
+    return Strategy(data['strategy'])

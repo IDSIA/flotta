@@ -1,10 +1,12 @@
 from typing import Any
-import requests
-import logging
 
-from ferdelance_workbench.artifacts import Artifact, Query, Model, Strategy
+from ferdelance_workbench.artifacts import Artifact, Query, Model, Strategy, artifact_from_json
 from ferdelance_workbench.exceptions import ServerError
 from ferdelance_workbench.schema.workbench import *
+
+import json
+import logging
+import requests
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,7 +87,9 @@ class Context:
 
         res.raise_for_status()
 
-        return Artifact(query=query, model=model, strategy=strategy, **res.json())
+        data = res.json()
+
+        return Artifact(**data)
 
     def status(self, artifact: Artifact) -> Artifact:
         """Poll the server to get an update of the status of the given artifact.
@@ -100,9 +104,26 @@ class Context:
 
         res.raise_for_status()
 
-        return artifact.update(res.json())
+        data = res.json()
 
-    def download(self, artifact: Artifact, path: str) -> Any:
+        artifact.update(data)
+        return artifact
+
+    def get_artifact(self, artifact_id: str) -> Artifact:
+        """Get the trained and aggregated model from the artifact and save it to disk.
+
+        :param artifact:
+            Artifact to get the model from.
+        """
+        res = requests.get(f'{self.server}/workbench/download/artifact/{artifact_id}')
+
+        res.raise_for_status()
+
+        data = json.loads(res.content)
+
+        return artifact_from_json(artifact_id, data)
+
+    def get_model(self, artifact: Artifact, path: str) -> Any:
         """Get the trained and aggregated model from the artifact and save it to disk.
 
         :param artifact:
@@ -113,7 +134,7 @@ class Context:
         if artifact.artifact_id is None:
             raise ValueError('submit first the artifact to the server')
 
-        res = requests.get(f'{self.server}/workbench/download/{artifact.artifact_id}')
+        res = requests.get(f'{self.server}/workbench/download/model/{artifact.artifact_id}')
 
         res.raise_for_status()
 
