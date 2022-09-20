@@ -30,7 +30,7 @@ services:
       - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
     volumes: 
-      - ferdelance-server-data:/ferdelance/data
+      - ferdelance-server-data:/ferdelance/storage
     networks:
       - www
       - ferdelance

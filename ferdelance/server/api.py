@@ -8,7 +8,10 @@ from .routes.manager import manager_router
 from .routes.workbench import workbench_router
 from ..database import get_db, SessionLocal, startup, Session, settings
 
+from .folders import *
+
 import logging
+import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,6 +22,10 @@ def init_api() -> FastAPI:
     api.include_router(client_router)
     api.include_router(manager_router)
     api.include_router(workbench_router)
+
+    os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
+    os.makedirs(STORAGE_CLIENTS, exist_ok=True)
+    os.makedirs(STORAGE_MODELS, exist_ok=True)
 
     return api
 

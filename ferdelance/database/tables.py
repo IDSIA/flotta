@@ -87,10 +87,8 @@ class Artifact(Base):
 
     artifact_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
-    version = Column(String, nullable=False)
     path = Column(String, nullable=False)
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=False)
+    status = Column(String, default='CREATED')
 
 
 class Task(Base):
@@ -118,6 +116,10 @@ class Model(Base):
     model_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
     path = Column(String, nullable=False)
+
+    # TODO: one model per artifact or one artifact can have multiple models
+    artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
+    artifact = relationship('Artifact')
 
 
 class ClientTaskEvent(Base):

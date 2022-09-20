@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 
-from .tables import Client, ClientEvent, ClientToken, ClientApp, Model, ClientDataSource, ClientFeature
+from .tables import Client, ClientEvent, ClientToken, ClientApp, Model, ClientDataSource, ClientFeature, Artifact
 
 from datetime import datetime
+from uuid import uuid4
 
 import logging
 
@@ -309,7 +310,7 @@ def get_datasource_list(db: Session) -> list[ClientDataSource]:
 
 
 def get_datasource_by_id(db: Session, ds_id: int) -> tuple[ClientDataSource, list[ClientFeature]]:
-    ds_db = db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).filter()
+    ds_db = db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).first()
 
     if ds_db is None:
         return None, None
@@ -317,3 +318,26 @@ def get_datasource_by_id(db: Session, ds_id: int) -> tuple[ClientDataSource, lis
     features = db.query(ClientFeature).filter(ClientFeature.datasource_id == ds_id, ClientFeature.removed == False).all()
 
     return ds_db, features
+
+
+def create_artifact(db: Session, artifact_id: str, path: str) -> Artifact:
+    db_artifact = Artifact(artifact_id=artifact_id, path=path)
+
+    existing = db.query(Artifact).filter(Artifact.artifact_id == artifact_id).first()
+
+    if existing is not None:
+        raise ValueError('artifact already exists!')
+
+    db.add(db_artifact)
+    db.commit()
+    db.refresh(db_artifact)
+
+    return db_artifact
+
+
+def get_artifact(db: Session, artifact_id: str) -> Artifact:
+    return db.query(Artifact).filter(Artifact.artifact_id == artifact_id).first()
+
+
+def get_model_by_artifact(db: Session, artifact: Artifact) -> list[Model]:
+    return db.query(Model).filter(Model.artifact_id == artifact.artifact_id).first()
