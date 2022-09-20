@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 
 from ...database import get_db, crud
-from ...database.tables import Client, ClientDataSource, Artifact
+from ...database.tables import Client, ClientDataSource, Artifact, Model
 from ..schemas.workbench import *
 
 import json
@@ -31,12 +31,15 @@ async def wb_home():
 async def wb_get_client_list(db: Session = Depends(get_db)):
     clients: list[Client] = crud.get_client_list(db)
 
-    return [m.client_id for m in clients]
+    return [m.client_id for m in clients if m.active is True]
 
 
 @workbench_router.get('/workbench/client/{client_id}', response_model=ClientDetails)
 async def wb_get_client_detail(client_id: str, db: Session = Depends(get_db)):
     client: Client = crud.get_client_by_id(db, client_id)
+
+    if client.active is False:
+        return HTTPException(404)
 
     return ClientDetails(
         client_id=client.client_id,
@@ -51,19 +54,19 @@ async def wb_get_datasource_list(db: Session = Depends(get_db)):
 
     LOGGER.info(f'found {len(ds_db)} datasource(s)')
 
-    return [ds.datasource_id for ds in ds_db]
+    return [ds.datasource_id for ds in ds_db if ds.removed is False]
 
 
 @workbench_router.get('/workbench/datasource/{ds_id}', response_model=DataSourceDetails)
 async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
     ds_db, f_db = crud.get_datasource_by_id(db, ds_id)
 
-    if ds_db is None:
+    if ds_db is None or ds_db.removed is True:
         raise HTTPException(404)
 
     ds = DataSource(**ds_db.__dict__, created_at=ds_db.creation_time)
 
-    fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db]
+    fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db if f.removed]
 
     return DataSourceDetails(
         datasource=ds,
@@ -75,6 +78,8 @@ async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
 async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session = Depends(get_db)):
     artifact_id = str(uuid4())
     path = os.path.join(STORAGE_ARTIFACTS, artifact_id)
+
+    # TODO: start task
 
     try:
         artifact_db = crud.create_artifact(db, artifact_id, path)
@@ -97,7 +102,7 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
     artifact_db: Artifact = crud.get_artifact(db, artifact_id)
 
     if artifact_db is None:
-        return HTTPException(403)
+        return HTTPException(404)
 
     return ArtifactStatus(
         artifact_id=artifact_id,
@@ -105,11 +110,29 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
     )
 
 
-@workbench_router.get('/workbench/download/{artifact_id}', response_class=FileResponse)
+@workbench_router.get('/workbench/download/artifact/{artifact_id}', response_class=FileResponse)
 async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
     artifact_db: Artifact = crud.get_artifact(db, artifact_id)
 
     if artifact_db is None:
-        return HTTPException(403)
+        return HTTPException(404)
 
     return FileResponse(artifact_db.path)
+
+
+@workbench_router.get('/workbench/download/model/{artifact_id}', response_class=FileResponse)
+async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
+    artifact_db: Artifact = crud.get_artifact(db, artifact_id)
+
+    if artifact_db is None:
+        return HTTPException(404)
+
+    if artifact_db.status != 'COMPLETED':
+        return HTTPException(404)
+
+    model_db: Model = crud.get_model_by_artifact(db, artifact_db)
+
+    if model_db is None:
+        return HTTPException(404)
+
+    return FileResponse(model_db.path)

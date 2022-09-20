@@ -337,3 +337,7 @@ def create_artifact(db: Session, artifact_id: str, path: str) -> Artifact:
 
 def get_artifact(db: Session, artifact_id: str) -> Artifact:
     return db.query(Artifact).filter(Artifact.artifact_id == artifact_id).first()
+
+
+def get_model_by_artifact(db: Session, artifact: Artifact) -> list[Model]:
+    return db.query(Model).filter(Model.artifact_id == artifact.artifact_id).first()

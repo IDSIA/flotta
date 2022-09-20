@@ -117,6 +117,10 @@ class Model(Base):
     creation_time = Column(DateTime(timezone=True), server_default=now())
     path = Column(String, nullable=False)
 
+    # TODO: one model per artifact or one artifact can have multiple models
+    artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
+    artifact = relationship('Artifact')
+
 
 class ClientTaskEvent(Base):
     """Table that collects all the events that a client produced during a task."""
