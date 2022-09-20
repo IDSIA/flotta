@@ -10,4 +10,4 @@ class DataSourceDB(DataSource):
 
     def get(self, label: str = None, filter: str = None) -> pd.DataFrame:
         # TODO open connection, filter content, pack as pandas DF
-        raise NotImplemented()
+        raise NotImplementedError()
