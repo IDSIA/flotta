@@ -1,9 +1,9 @@
 venv-create:
-	python -m venv Spearhead_env
+	python -m venv Ferdelance_env
 
 venv-recreate:
-	rm -rf Spearhead_env
-	python -m venv Spearhead_env
+	rm -rf Ferdelance_env
+	python -m venv Ferdelance_env
 
 venv-dev-install:
 	pip install -e ".[test]"
