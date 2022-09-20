@@ -392,46 +392,61 @@ class FerdelanceClient:
                 'path_private_key': self.path_private_key,
             }, f)
 
-    def perform_action(self, action: str, data: dict) -> str:
-        if action == UPDATE_TOKEN:
-            LOGGER.info('updating client token with a new one')
-            self.client_token = data['token']
-            self.dump_config()
+    def action_update_token(self, data: dict) -> None:
+        LOGGER.info('updating client token with a new one')
+        self.client_token = data['token']
+        self.dump_config()
 
-        if action == UPDATE_CLIENT:
-            version_app = data['version']
-            filename = data['name']
-            expected_checksum = data['checksum']
+    def action_update_client(self, data: dict) -> str:
+        version_app = data['version']
+        filename = data['name']
+        expected_checksum = data['checksum']
 
-            with requests.post(
-                '/client/update/files',
-                json=self.create_payload({'client_version': version_app}),
-                headers=self.headers(),
-                stream=True,
-            ) as stream:
-                if not stream.ok:
-                    LOGGER.error(f'could not download new client version={version_app} from server={self.server}')
-                    return 'update'
-
-                path_file: str = os.path.join(self.workdir, filename)
-                checksum: str = self.decrypt_stream_response(stream, path_file)
-
-                if checksum != expected_checksum:
-                    LOGGER.error('Checksum mismatch: received invalid data!')
-                    return DO_NOTHING
-
-                LOGGER.error(f'Checksum of {path_file} passed')
-
-                with open('.update', 'w') as f:
-                    f.write(path_file)
-
-                # TODO: this is something for the next iteration
-
+        with requests.post(
+            '/client/update/files',
+            json=self.create_payload({'client_version': version_app}),
+            headers=self.headers(),
+            stream=True,
+        ) as stream:
+            if not stream.ok:
+                LOGGER.error(f'could not download new client version={version_app} from server={self.server}')
                 return 'update'
 
+            path_file: str = os.path.join(self.workdir, filename)
+            checksum: str = self.decrypt_stream_response(stream, path_file)
+
+            if checksum != expected_checksum:
+                LOGGER.error('Checksum mismatch: received invalid data!')
+                return DO_NOTHING
+
+            LOGGER.error(f'Checksum of {path_file} passed')
+
+            with open('.update', 'w') as f:
+                f.write(path_file)
+
+            # TODO: this is something for the next iteration
+
+        return 'update'
+
+    def action_do_nothing(self) -> str:
+        LOGGER.info('nothing new from the server')
+        return DO_NOTHING
+
+    def action_execute_task(self, data: dict) -> str:
+        pass
+
+    def perform_action(self, action: str, data: dict) -> str:
+        if action == UPDATE_TOKEN:
+            self.action_update_token(data)
+
+        if action == EXEC:
+            self.action_execute_task(data)
+
+        if action == UPDATE_CLIENT:
+            return self.action_update_client(data)
+
         if action == DO_NOTHING:
-            LOGGER.info('nothing new from the server')
-            return DO_NOTHING
+            return self.action_do_nothing()
 
         LOGGER.error(f'cannot complete action={action}')
         return DO_NOTHING
@@ -477,7 +492,7 @@ class FerdelanceClient:
                     # TODO what to do in this case?
 
                 except requests.exceptions.RequestException as e:
-                    LOGGER.error('connection refuesd')
+                    LOGGER.error('connection refused')
                     LOGGER.exception(e)
                     # TODO what to do in this case?
 
