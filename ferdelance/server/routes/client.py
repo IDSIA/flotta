@@ -1,13 +1,18 @@
+from typing import Any
 from fastapi import APIRouter, Depends, Request, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...database import get_db, crud
-from ...database.tables import Client, ClientApp, ClientToken, ClientDataSource, ClientFeature
+from ...database.tables import Client, ClientApp, ClientToken
 from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
-from ..actions import ActionManager
+from ..services.actions import ActionService
+from ..services.ctask import ClientTaskService
+from ..services.datasource import DataSourceService
 from ..schemas.client import *
+from ..schemas.workbench import ArtifactSubmitRequest, QueryRequest
 from ..security import (
     generate_token,
     check_token,
@@ -16,10 +21,14 @@ from ..security import (
     get_server_public_key_str,
     server_stream_encrypt,
     server_stream_decrypt_to_dictionary,
+    server_memory_stream_encrypt,
 )
+from ..folders import STORAGE_ARTIFACTS
 
+import aiofiles
 import logging
 import json
+import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -75,7 +84,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
 
 
 @client_router.post('/client/leave', response_model=ClientLeaveResponse)
-async def client_leave(client: ClientLeaveRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+async def client_leave(client: ClientLeaveRequest, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     """API for existing client to be removed"""
 
     LOGGER.info(f'client_id={client_id}: request to leave')
@@ -87,13 +96,14 @@ async def client_leave(client: ClientLeaveRequest, db: Session = Depends(get_db)
 
 
 @client_router.get('/client/update', response_model=ClientUpdateResponse)
-async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
     - new artifact package
     - new client app package
     - nothing (keep alive)
     """
+    acs: ActionService = ActionService(db)
 
     LOGGER.info(f'client_id={client_id}: update request')
     crud.create_client_event(db, client_id, 'update')
@@ -103,7 +113,7 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
     # consume current results (if present) and compute next action
     payload: str = server_decrypt(db, request.payload)
 
-    action, data = ActionManager().next(db, client, payload)
+    action, data = acs.next(client, payload)
 
     LOGGER.info(f'client_id={client_id}: sending action={action}')
 
@@ -120,7 +130,7 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
 
 
 @client_router.get('/client/update/files')
-async def client_update_files(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+async def client_update_files(request: ClientUpdateModelRequest, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     """
     API request by the client to get updated files. With this endpoint a client can:
     - update application software
@@ -158,7 +168,7 @@ async def client_update_files(request: ClientUpdateModelRequest, db: Session = D
 
 
 @client_router.post('/client/update/metadata')
-async def client_update_metadata(file: UploadFile, db: Session = Depends(get_db), client_id: Client = Depends(check_token)):
+async def client_update_metadata(file: UploadFile, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
@@ -181,10 +191,52 @@ async def client_update_metadata(file: UploadFile, db: Session = Depends(get_db)
     }]}
     ```
     """
+    dss: DataSourceService = DataSourceService(db)
+
     LOGGER.info(f'client_id={client_id}: update metadata request')
     crud.create_client_event(db, client_id, 'update metadata')
 
     metadata = server_stream_decrypt_to_dictionary(file, db)
 
     for ds in metadata['datasources']:
-        crud.create_or_update_datasource(db, client_id, ds)
+        dss.create_or_update_datasource(client_id, ds)
+
+
+@client_router.get('/client/task/{client_task_id}', response_class=StreamingResponse)
+async def client_get_task(request: ClientTaskRequest, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    dss: DataSourceService = DataSourceService(db)
+
+    LOGGER.info(f'client_id={client_id}: new task request')
+
+    cts: ClientTaskService = ClientTaskService(db)
+    crud.create_client_event(db, client_id, 'schedule task')
+
+    client: Client = crud.get_client_by_id(db, client_id)
+
+    payload = json.loads(server_decrypt(db, request.payload))
+
+    client_task_id: str = payload['client_task_id']
+
+    task = cts.get_task_for_client(client_task_id)  # TODO: sanitize input?
+
+    artifact_id: str = task.artifact_id
+
+    artifact_path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
+
+    async with aiofiles.open(artifact_path, 'r') as f:
+        artifact = ArtifactSubmitRequest(**json.load(f))
+
+    client_datasource_ids = [ds.datasource_id for ds in dss.get_datasource_by_client_id(db, client)]
+
+    query: QueryRequest = artifact.query
+
+    content: dict[str, Any] = {
+        'artifact_id': artifact_id,
+        'features': [f for f in query.features if f.datasource_id in client_datasource_ids],
+        'filters':  [f for f in query.filters if f.feature.datasource_id in client_datasource_ids],
+        'transformers':  [t for t in query.transformers if t.feature.datasource_id in client_datasource_ids],
+    }
+
+    data_to_send = server_memory_stream_encrypt(json.dumps(content), client)
+
+    return StreamingResponse(data_to_send)

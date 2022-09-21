@@ -1,7 +1,8 @@
-from ..database.tables import Client, ClientToken, ClientTask
-from ..database import Session, crud
-
-from .security import generate_token
+from ...database.tables import Client, ClientToken, ClientTask
+from ...database import crud
+from ..security import generate_token
+from . import DBSessionService, Session
+from .ctask import ClientTaskService
 
 from ferdelance_shared.actions import *
 
@@ -11,52 +12,57 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class ActionManager:
+class ActionService(DBSessionService):
 
-    def _check_client_token(self, db: Session, client: Client) -> bool:
+    def __init__(self, db: Session) -> None:
+        super().__init__(db)
+
+        self.cts: ClientTaskService = ClientTaskService(db)
+
+    def _check_client_token(self, client: Client) -> bool:
         """Checks if the token is still valid or if there is a new version.
 
         :return:
             True if no valid token is found, otherwise False.
         """
-        n_tokens = db.query(ClientToken).filter(ClientToken.client_id == client.client_id, ClientToken.valid).count()
+        n_tokens = self.db.query(ClientToken).filter(ClientToken.client_id == client.client_id, ClientToken.valid).count()
 
         LOGGER.debug(f'client_id={client.client_id}: found {n_tokens} valid token(s)')
 
         return n_tokens == 0
 
-    def _action_update_token(self, db: Session, client: Client) -> tuple[str, dict[str, str]]:
+    def _action_update_token(self, client: Client) -> tuple[str, dict[str, str]]:
         """Generates a new valid token.
 
         :return:
             The 'update_token' action and a string with the new token.
         """
         token: ClientToken = generate_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
-        crud.invalidate_all_tokens(db, client.client_id)
-        crud.create_client_token(db, token)
+        crud.invalidate_all_tokens(self.db, client.client_id)
+        crud.create_client_token(self.db, token)
 
         return UPDATE_TOKEN, {'token': token.token}
 
-    def _check_client_app_update(self, db: Session, client: Client) -> bool:
+    def _check_client_app_update(self, client: Client) -> bool:
         """Compares the client current version with the newest version on the database.
 
         :return:
             True if there is a new version and this version is different from the current client version.
         """
-        version: str = crud.get_newest_app_version(db)
+        version: str = crud.get_newest_app_version(self.db)
 
         LOGGER.info(f'client_id={client.client_id}: version={client.version} newest_version={version}')
 
         return version is not None and client.version != version
 
-    def _action_update_client_app(self, db: Session) -> tuple[str, dict[str, str]]:
+    def _action_update_client_app(self) -> tuple[str, dict[str, str]]:
         """Update and restart the client with the new version.
 
         :return:
             Fetch and return the version to download.
         """
 
-        new_client: str = crud.get_newest_app_version(db)
+        new_client: str = crud.get_newest_app_version(self.db)
 
         return UPDATE_CLIENT, {
             'checksum': new_client.checksum,
@@ -64,8 +70,8 @@ class ActionManager:
             'version': new_client.version,
         }
 
-    def _check_scheduled_task(self, db: Session, client: Client) -> ClientTask | None:
-        return crud.get_next_task_for_client(db, client)
+    def _check_scheduled_task(self, client: Client) -> ClientTask | None:
+        return self.cts.get_next_task_for_client(client)
 
     def _action_schedule_task(self, task: ClientTask) -> tuple[str, dict[str, str]]:
         return EXEC, {'task_id': task.task_id}
@@ -74,18 +80,18 @@ class ActionManager:
         """Do nothing and waits for the next update request."""
         return DO_NOTHING, {}
 
-    def next(self, db: Session, client: Client, payload: str) -> tuple[str, dict[str, str]]:
+    def next(self, client: Client, payload: str) -> tuple[str, dict[str, str]]:
 
         # TODO: consume client payload
 
-        if self._check_client_token(db, client):
-            return self._action_update_token(db, client)
+        if self._check_client_token(client):
+            return self._action_update_token(client)
 
-        if self._check_client_app_update(db, client):
-            return self._action_update_client_app(db)
+        if self._check_client_app_update(client):
+            return self._action_update_client_app()
 
-        task = self._check_scheduled_task(db, client)
+        task = self._check_scheduled_task(client)
         if task is not None:
-            return self._action_schedule_task(db, task)
+            return self._action_schedule_task(task)
 
         return self._action_nothing()

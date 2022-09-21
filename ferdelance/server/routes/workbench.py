@@ -8,6 +8,9 @@ from uuid import uuid4
 from ...database import get_db, crud
 from ...database.tables import Client, ClientDataSource, Artifact, Model
 from ..schemas.workbench import *
+from ..services.ctask import ClientTaskService
+from ..services.artifact import ArtifactService
+from ..services.datasource import DataSourceService
 from ..folders import STORAGE_ARTIFACTS
 
 import aiofiles
@@ -49,7 +52,9 @@ async def wb_get_client_detail(client_id: str, db: Session = Depends(get_db)):
 
 @workbench_router.get('/workbench/datasource/list', response_model=list[int])
 async def wb_get_datasource_list(db: Session = Depends(get_db)):
-    ds_db: list[ClientDataSource] = crud.get_datasource_list(db)
+    dss: DataSourceService = DataSourceService(db)
+
+    ds_db: list[ClientDataSource] = dss.get_datasource_list()
 
     LOGGER.info(f'found {len(ds_db)} datasource(s)')
 
@@ -58,7 +63,9 @@ async def wb_get_datasource_list(db: Session = Depends(get_db)):
 
 @workbench_router.get('/workbench/datasource/{ds_id}', response_model=DataSourceDetails)
 async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
-    ds_db, f_db = crud.get_datasource_by_id(db, ds_id)
+    dss: DataSourceService = DataSourceService(db)
+
+    ds_db, f_db = dss.get_datasource_by_id(ds_id)
 
     if ds_db is None or ds_db.removed is True:
         raise HTTPException(404)
@@ -75,6 +82,10 @@ async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
 
 @workbench_router.post('/workbench/artifact/submit', response_model=ArtifactResponse)
 async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session = Depends(get_db)):
+    cts: ClientTaskService = ClientTaskService(db)
+    ars: ArtifactService = ArtifactService(db)
+    dss: DataSourceService = DataSourceService(db)
+
     artifact_id = str(uuid4())
 
     path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
@@ -84,7 +95,7 @@ async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session =
     # TODO: start task
 
     try:
-        artifact_db = crud.create_artifact(db, artifact_id, path)
+        artifact_db = ars.create_artifact(artifact_id, path)
         data = artifact.dict()
 
         with open(path, 'w') as f:
@@ -97,13 +108,13 @@ async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session =
         )
 
         # TODO this is there temporally. It will be done inside a celery worker...
-        task_db = crud.create_task(db, artifact)
+        task_db = cts.create_task(artifact)
 
         for ds_id in artifact.query.datasources:
-            ds: ClientDataSource = crud.get_datasource_by_id(ds_id)[0]
+            ds: ClientDataSource = dss.get_datasource_by_id(ds_id)[0]
             client_id = ds.client_id
 
-            crud.create_client_task(db, artifact_db, client_id, task_db.task_id)
+            cts.create_client_task(artifact_db, client_id, task_db.task_id)
 
         # TODO: ...until there
 
@@ -116,7 +127,9 @@ async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session =
 
 @workbench_router.get('/workbench/artifact/{artifact_id}', response_model=ArtifactStatus)
 async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
-    artifact_db: Artifact = crud.get_artifact(db, artifact_id)
+    ars: ArtifactService = ArtifactService(db)
+
+    artifact_db: Artifact = ars.get_artifact(artifact_id)
 
     if artifact_db is None:
         return HTTPException(404)
@@ -129,7 +142,9 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
 
 @workbench_router.get('/workbench/download/artifact/{artifact_id}', response_model=ArtifactResponse)
 async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
-    artifact_db: Artifact = crud.get_artifact(db, artifact_id)
+    ars: ArtifactService = ArtifactService(db)
+
+    artifact_db: Artifact = ars.get_artifact(artifact_id)
 
     if artifact_db is None:
         return HTTPException(404)
@@ -145,7 +160,9 @@ async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
 
 @workbench_router.get('/workbench/download/model/{artifact_id}', response_class=FileResponse)
 async def wb_get_model(artifact_id: str, db: Session = Depends(get_db)):
-    artifact_db: Artifact = crud.get_artifact(db, artifact_id)
+    ars: ArtifactService = ArtifactService(db)
+
+    artifact_db: Artifact = ars.get_artifact(artifact_id)
 
     if artifact_db is None:
         return HTTPException(404)
@@ -153,7 +170,7 @@ async def wb_get_model(artifact_id: str, db: Session = Depends(get_db)):
     if artifact_db.status != 'COMPLETED':
         return HTTPException(404)
 
-    model_db: Model = crud.get_model_by_artifact(db, artifact_db)
+    model_db: Model = ars.get_model_by_artifact(artifact_db)
 
     if model_db is None:
         return HTTPException(404)
