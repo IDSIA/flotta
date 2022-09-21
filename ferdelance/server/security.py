@@ -17,7 +17,7 @@ from ferdelance_shared.generate import (
     RSAPrivateKey,
 )
 from ferdelance_shared.decode import decode_from_transfer, decrypt, decrypt_stream, decrypt_stream_file, HybridDecrypter
-from ferdelance_shared.encode import encode_to_transfer, encrypt, encrypt_stream, encrypt_stream_file
+from ferdelance_shared.encode import encode_to_transfer, encrypt, encrypt_stream, encrypt_stream_file, HybridEncrypter
 
 from ..database import SessionLocal, crud
 from ..database.settings import KeyValueStore
@@ -235,3 +235,16 @@ def server_stream_decrypt_to_dictionary(file: UploadFile, db: Session) -> dict:
     return json.loads(''.join(content))
 
     # TODO: find a way to add the checksum to the stream
+
+
+def server_memory_stream_encrypt(content: str, client: Client) -> bytes:
+    public_key = get_client_public_key(client)
+
+    enc = HybridEncrypter(public_key)
+
+    data: list[str] = []
+    data += enc.start()
+    data += enc.update(content)
+    data += enc.end()
+
+    return ''.join(content)
