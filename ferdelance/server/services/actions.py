@@ -1,7 +1,8 @@
 from ...database.tables import Client, ClientToken, ClientTask
-from ...database import crud
 from ..security import generate_token
 from . import DBSessionService, Session
+from .application import ClientAppService
+from .client import ClientService
 from .ctask import ClientTaskService
 
 from ferdelance_shared.actions import *
@@ -18,6 +19,8 @@ class ActionService(DBSessionService):
         super().__init__(db)
 
         self.cts: ClientTaskService = ClientTaskService(db)
+        self.cas: ClientAppService = ClientAppService(db)
+        self.cs: ClientService = ClientService(db)
 
     def _check_client_token(self, client: Client) -> bool:
         """Checks if the token is still valid or if there is a new version.
@@ -38,8 +41,8 @@ class ActionService(DBSessionService):
             The 'update_token' action and a string with the new token.
         """
         token: ClientToken = generate_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
-        crud.invalidate_all_tokens(self.db, client.client_id)
-        crud.create_client_token(self.db, token)
+        self.cs.invalidate_all_tokens(client.client_id)
+        self.cs.create_client_token(token)
 
         return UPDATE_TOKEN, {'token': token.token}
 
@@ -49,7 +52,7 @@ class ActionService(DBSessionService):
         :return:
             True if there is a new version and this version is different from the current client version.
         """
-        version: str = crud.get_newest_app_version(self.db)
+        version: str = self.cas.get_newest_app_version()
 
         LOGGER.info(f'client_id={client.client_id}: version={client.version} newest_version={version}')
 
@@ -62,7 +65,7 @@ class ActionService(DBSessionService):
             Fetch and return the version to download.
         """
 
-        new_client: str = crud.get_newest_app_version(self.db)
+        new_client: str = self.cas.get_newest_app_version()
 
         return UPDATE_CLIENT, {
             'checksum': new_client.checksum,

@@ -19,10 +19,11 @@ from ferdelance_shared.generate import (
 from ferdelance_shared.decode import decode_from_transfer, decrypt, decrypt_stream, decrypt_stream_file, HybridDecrypter
 from ferdelance_shared.encode import encode_to_transfer, encrypt, encrypt_stream, encrypt_stream_file, HybridEncrypter
 
-from ..database import SessionLocal, crud
+from ..database import SessionLocal
 from ..database.settings import KeyValueStore
 from ..database.tables import Client, ClientToken
 from .schemas.client import ClientJoinRequest
+from .services.client import ClientService
 from .config import FILE_CHUNK_SIZE
 
 
@@ -128,7 +129,9 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer())) -> st
     token = credentials.credentials
 
     with SessionLocal() as db:
-        client_token: ClientToken = crud.get_client_token_by_token(db, token)
+        cs: ClientService = ClientService(db)
+
+        client_token: ClientToken = cs.get_client_token_by_token(token)
 
         # TODO: add expiration to token, and also an endpoint to update the token using an expired one
 

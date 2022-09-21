@@ -5,12 +5,13 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from uuid import uuid4
 
-from ...database import get_db, crud
+from ...database import get_db
 from ...database.tables import Client, ClientDataSource, Artifact, Model
 from ..schemas.workbench import *
 from ..services.ctask import ClientTaskService
 from ..services.artifact import ArtifactService
 from ..services.datasource import DataSourceService
+from ..services.client import ClientService
 from ..folders import STORAGE_ARTIFACTS
 
 import aiofiles
@@ -31,14 +32,18 @@ async def wb_home():
 
 @workbench_router.get('/workbench/client/list', response_model=list[str])
 async def wb_get_client_list(db: Session = Depends(get_db)):
-    clients: list[Client] = crud.get_client_list(db)
+    cs: ClientService = ClientService(db)
+
+    clients: list[Client] = cs.get_client_list()
 
     return [m.client_id for m in clients if m.active is True]
 
 
 @workbench_router.get('/workbench/client/{client_id}', response_model=ClientDetails)
 async def wb_get_client_detail(client_id: str, db: Session = Depends(get_db)):
-    client: Client = crud.get_client_by_id(db, client_id)
+    cs: ClientService = ClientService(db)
+
+    client: Client = cs.get_client_by_id(client_id)
 
     if client.active is False:
         return HTTPException(404)

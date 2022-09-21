@@ -4,11 +4,13 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from uuid import uuid4
 
-from ...database import get_db, crud
+from ...database import get_db
 from ...database.tables import ClientApp, Artifact, Model, Client
 from ..schemas.manager import *
+from ..services.model import ModelService
+from ..services.client import ClientService
 from ..config import FILE_CHUNK_SIZE
-from ..folders import STORAGE_CLIENTS, STORAGE_ARTIFACTS, STORAGE_MODELS
+from ..folders import STORAGE_CLIENTS, STORAGE_ARTIFACTS
 
 import aiofiles
 import hashlib
@@ -111,8 +113,9 @@ async def manager_upload_artifact(file: UploadFile, db: Session = Depends(get_db
 
 @manager_router.get('/manager/download/model', response_class=FileResponse)
 async def manager_download_model(model: ManagerDownloadModelRequest, db: Session = Depends(get_db)):
+    ms: ModelService = ModelService(db)
 
-    model: Model = crud.get_model_by_id(db, model.model_id)
+    model: Model = ms.get_model_by_id(model.model_id)
 
     if model is None:
         raise HTTPException(status_code=404)
@@ -122,8 +125,9 @@ async def manager_download_model(model: ManagerDownloadModelRequest, db: Session
 
 @manager_router.get('/manager/client/list')
 async def manager_client_list(db: Session = Depends(get_db)):
+    cs: ClientService = ClientService(db)
 
-    clients: list[Client] = crud.get_client_list(db)
+    clients: list[Client] = cs.get_client_list()
 
     return [{
         'client_id': m.client_id,
@@ -135,13 +139,14 @@ async def manager_client_list(db: Session = Depends(get_db)):
 @manager_router.get('/manager/client/remove/{client_id}')
 async def manager_remove_client(client_id: str, db: Session = Depends(get_db)):
     # TODO: this endpoint need to be made secure!
+    cs: ClientService = ClientService(db)
 
     LOGGER.info(f'MANAGER: client_id={client_id}: request to leave')
 
-    client: Client = crud.get_client_by_id(db, client_id)
+    client: Client = cs.get_client_by_id(client_id)
 
     if client is None:
         return HTTPException(404)
 
-    crud.client_leave(db, client_id)
-    crud.create_client_event(db, client_id, 'left')
+    cs.client_leave(client_id)
+    cs.create_client_event(client_id, 'left')
