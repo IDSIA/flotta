@@ -2,7 +2,7 @@ from base64 import b64encode
 
 from ferdelance.database import SessionLocal
 from ferdelance.database.settings import KeyValueStore
-from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken
+from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, ClientTask
 from ferdelance.server.schemas.workbench import ArtifactSubmitRequest, QueryRequest, ModelRequest, StrategyRequest, QueryFeature, QueryFilter
 from ferdelance.server.security import PUBLIC_KEY
 from ferdelance.server.services.application import ClientAppService
@@ -108,7 +108,7 @@ class TestClientClass:
         assert response.status_code == 200
         assert response.content.decode('utf8') == '"Hi! 😀"'
 
-    def test_client_connect_successfull(self):
+    def test_client_connect_successful(self):
         """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
         - operative system
         - mac address
@@ -277,7 +277,7 @@ class TestClientClass:
 
             assert client_version == 'test'
 
-            # create fake app (it's justa a file)
+            # create fake app (it's just a file)
             version_app = 'test_1.0'
             filename_app = 'fake_client_app.json'
             path_fake_app = os.path.join('.', filename_app)
@@ -354,6 +354,9 @@ class TestClientClass:
             if os.path.exists(path_fake_app):
                 os.remove(path_fake_app)
 
+            db.query(ClientApp).filter(ClientApp.app_id == upload_id).delete()
+            db.commit()
+
     def test_update_metadata(self):
         with SessionLocal() as db:
             client_id = self.get_client()
@@ -364,8 +367,6 @@ class TestClientClass:
             assert upload_response.status_code == 200
 
             ds_db: ClientDataSource = db.query(ClientDataSource).filter(ClientDataSource.client_id == client_id).first()
-
-            print(ds_content['datasources'])
 
             assert ds_db is not None
             assert ds_db.name == ds_content['datasources'][0]['name']
@@ -423,7 +424,10 @@ class TestClientClass:
 
             assert submit_response.status_code == 200
 
-            artifact_id = submit_response.json()['artifact_id']
+            artifact_id: str = submit_response.json()['artifact_id']
+
+            n = db.query(ClientTask).filter(ClientTask.client_id == client_id).count()
+            assert n == 1
 
             # update client
             status_code, action, data = self.get_client_update({})
@@ -445,7 +449,14 @@ class TestClientClass:
 
                 content, _ = decrypt_stream_response(task_response, self.private_key)
 
+                content = json.loads(content)
+
+                assert 'artifact_id' in content
                 assert content['artifact_id'] == artifact_id
                 assert len(content['features']) == 2
 
+            # cleanup
             os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json'))
+
+            db.query(ClientTask).filter(ClientTask.task_id == client_task_id).delete()
+            db.commit()
