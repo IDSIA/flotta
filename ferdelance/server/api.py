@@ -6,6 +6,7 @@ from . import security
 from .routes.client import client_router
 from .routes.manager import manager_router
 from .routes.workbench import workbench_router
+from .routes.tasks import tasks_router
 from ..database import get_db, SessionLocal, startup, Session, settings
 
 import logging
@@ -19,6 +20,7 @@ def init_api() -> FastAPI:
     api.include_router(client_router)
     api.include_router(manager_router)
     api.include_router(workbench_router)
+    api.include_router(tasks_router)
 
     return api
 

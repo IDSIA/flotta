@@ -5,7 +5,7 @@ from .security import generate_token
 
 from ferdelance_shared.actions import *
 
-from typing import Any
+from typing import Any, Tuple
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class ActionManager:
 
         return n_tokens == 0
 
-    def _action_update_token(self, db: Session, client: Client) -> tuple[str, str]:
+    def _action_update_token(self, db: Session, client: Client) -> Tuple[str, str]:
         """Generates a new valid token.
 
         :return:
@@ -49,7 +49,7 @@ class ActionManager:
 
         return version is not None and client.version != version
 
-    def _action_update_client_app(self, db: Session) -> tuple[str, str]:
+    def _action_update_client_app(self, db: Session) -> Tuple[str, str]:
         """Update and restart the client with the new version.
 
         :return:
@@ -64,11 +64,11 @@ class ActionManager:
             'version': new_client.version,
         }
 
-    def _action_nothing(self) -> tuple[str, Any]:
+    def _action_nothing(self) -> Tuple[str, Any]:
         """Do nothing and waits for the next update request."""
         return DO_NOTHING, {}
 
-    def next(self, db: Session, client: Client, payload: str) -> tuple[str, str]:
+    def next(self, db: Session, client: Client, payload: str) -> Tuple[str, str]:
 
         # TODO: consume client payload
 

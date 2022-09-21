@@ -10,6 +10,11 @@ volumes:
   ferdelance-db-data:
 
 services:
+
+  #
+  # FERDELANCE DB
+  #
+
   database:
     image: postgres
     environment:
@@ -21,6 +26,74 @@ services:
     networks:
       - ferdelance
 
+  #
+  # FERDELANCE BACKEND
+  #
+
+  # TASK BROKER - Where server communicates the tasks to the worker
+
+  rabbitmq:
+    image: rabbitmq:3.10-management
+    container_name: rabbitmq-broker
+    networks:
+      - ferdelance
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    command: rabbitmq-server
+
+  # RESULTS - Where worker stores results
+
+  redis:
+    image: redis
+    container_name: redis-backend
+    networks:
+      - ferdelance
+    ports:
+      - "6379:6379"
+    command: redis-server
+
+  # WORKER - The actual worker
+
+  worker: 
+    image: idsia.ferdelance.server
+    container_name: celery-worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
+    volumes: 
+      - ferdelance-server-data:/ferdelance/data
+    networks:
+      - ferdelance
+    command: --target worker
+    depends_on:
+      - redis
+      - rabbitmq
+  
+  # MONITOR - Where worker can be monitored
+
+  flower:
+    image: idsia.ferdelance.server
+    container_name: celery-flower
+    networks:
+      - www
+      - ferdelance
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
+    command: --target flower
+    ports:
+      - "5555:5555" # TODO use traefik labels
+    depends_on:
+      - worker    
+  
+  #
+  # FERDELANCE
+  #
+  
   server: 
     image: idsia.ferdelance.server
     build:
@@ -29,15 +102,19 @@ services:
     environment:
       - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
     volumes: 
       - ferdelance-server-data:/ferdelance/data
     networks:
       - www
       - ferdelance
+    command: --target server
     depends_on:
       - database
+      - worker
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ferdelance.rule=Host(`ferdelance.${DOMAIN}`)"
       - "traefik.http.routers.ferdelance.entrypoints=web"
+      - "traefik.http.routers.ferdelance.rule=Host(`ferdelance.${DOMAIN}`)"
       - "traefik.http.services.ferdelance.loadbalancer.server.port=1456"
