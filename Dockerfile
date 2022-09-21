@@ -33,4 +33,6 @@ COPY . /ferdelance
 # install application
 RUN pip install --no-cache-dir .
 
+EXPOSE 1456
+
 CMD ["uvicorn", "ferdelance.server.api:api", "--host", "0.0.0.0", "--port", "1456"]
