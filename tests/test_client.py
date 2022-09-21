@@ -1,9 +1,12 @@
 from base64 import b64encode
 
-from ferdelance.database import SessionLocal, crud
+from ferdelance.database import SessionLocal
 from ferdelance.database.settings import KeyValueStore
 from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken
 from ferdelance.server.security import PUBLIC_KEY
+
+from ferdelance.server.services.application import ClientAppService
+from ferdelance.server.services.client import ClientService
 
 from ferdelance_shared.encode import HybridEncrypter
 
@@ -116,8 +119,10 @@ class TestClientClass:
         client_id = self.get_client()
 
         with SessionLocal() as db:
-            db_client = crud.get_client_by_id(db, client_id)
-            db_token = crud.get_client_token_by_client_id(db, client_id)
+            cs: ClientService = ClientService(db)
+
+            db_client = cs.get_client_by_id(client_id)
+            db_token = cs.get_client_token_by_client_id(client_id)
 
             assert db_client is not None
             assert db_client.active
@@ -130,7 +135,7 @@ class TestClientClass:
 
             assert server_public_key_db == bytes_from_public_key(self.server_key).decode('utf8')
 
-            db_events: list[ClientEvent] = crud.get_all_client_events(db, db_client)
+            db_events: list[ClientEvent] = cs.get_all_client_events(db_client)
 
             assert len(db_events) == 1
             assert db_events[0].event == 'creation'
@@ -142,7 +147,9 @@ class TestClientClass:
         public_key = bytes_from_public_key(self.public_key)
 
         with SessionLocal() as db:
-            client = crud.get_client_by_id(db, client_id)
+            cs: ClientService = ClientService(db)
+
+            client = cs.get_client_by_id(client_id)
 
             data = {
                 'system': client.machine_system,
@@ -172,11 +179,13 @@ class TestClientClass:
         assert not data
 
         with SessionLocal() as db:
-            db_client: Client = crud.get_client_by_id(db, client_id)
+            cs: ClientService = ClientService(db)
+
+            db_client: Client = cs.get_client_by_id(client_id)
 
             assert db_client is not None
 
-            db_events: list[str] = [c.event for c in crud.get_all_client_events(db, db_client)]
+            db_events: list[str] = [c.event for c in cs.get_all_client_events(db_client)]
 
             assert len(db_events) == 3
             assert 'creation' in db_events
@@ -203,13 +212,15 @@ class TestClientClass:
         assert status_code == 403
 
         with SessionLocal() as db:
-            db_client: Client = crud.get_client_by_id(db, client_id)
+            cs: ClientService = ClientService(db)
+
+            db_client: Client = cs.get_client_by_id(client_id)
 
             assert db_client is not None
             assert db_client.active is False
             assert db_client.left
 
-            db_events: list[str] = [c.event for c in crud.get_all_client_events(db, db_client)]
+            db_events: list[str] = [c.event for c in cs.get_all_client_events(db_client)]
 
             assert 'creation' in db_events
             assert 'left' in db_events
@@ -251,9 +262,12 @@ class TestClientClass:
     def test_client_update_app(self):
         """This will test the upload of a new (fake) app, and the update process."""
         with SessionLocal() as db:
+            cas: ClientAppService = ClientAppService(db)
+            cs: ClientService = ClientService(db)
+
             client_id = self.get_client()
 
-            client_version = crud.get_client_by_id(db, client_id).version
+            client_version = cs.get_client_by_id(client_id).version
 
             assert client_version == 'test'
 
@@ -301,7 +315,7 @@ class TestClientClass:
             n_apps = db.query(ClientApp).filter(ClientApp.active).count()
             assert n_apps == 1
 
-            newest_version: ClientApp = crud.get_newest_app_version(db)
+            newest_version: ClientApp = cas.get_newest_app_version()
             assert newest_version.version == version_app
 
             # update request
@@ -326,7 +340,7 @@ class TestClientClass:
                 assert data['checksum'] == checksum
                 assert json.loads(content) == {'version': version_app}
 
-            client_version = crud.get_client_by_id(db, client_id).version
+            client_version = cs.get_client_by_id(client_id).version
 
             assert client_version == version_app
 
