@@ -17,12 +17,13 @@ from ferdelance_shared.generate import (
     RSAPrivateKey,
 )
 from ferdelance_shared.decode import decode_from_transfer, decrypt, decrypt_stream, decrypt_stream_file, HybridDecrypter
-from ferdelance_shared.encode import encode_to_transfer, encrypt, encrypt_stream, encrypt_stream_file
+from ferdelance_shared.encode import encode_to_transfer, encrypt, encrypt_stream, encrypt_stream_file, HybridEncrypter
 
-from ..database import SessionLocal, crud
+from ..database import SessionLocal
 from ..database.settings import KeyValueStore
 from ..database.tables import Client, ClientToken
 from .schemas.client import ClientJoinRequest
+from .services.client import ClientService
 from .config import FILE_CHUNK_SIZE
 
 
@@ -90,11 +91,7 @@ def generate_keys(db: Session) -> None:
 
 
 def generate_token(system: str, mac_address: str, node: str, client_id: str = None, exp_time: int = None) -> ClientToken:
-    """Generates a client token with the data received from the client.
-
-    :param client:
-        Data received from the outside.
-    """
+    """Generates a client token with the data received from the client."""
 
     if client_id is None:
         client_id = str(uuid.uuid4())
@@ -128,7 +125,9 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer())) -> st
     token = credentials.credentials
 
     with SessionLocal() as db:
-        client_token: ClientToken = crud.get_client_token_by_token(db, token)
+        cs: ClientService = ClientService(db)
+
+        client_token: ClientToken = cs.get_client_token_by_token(token)
 
         # TODO: add expiration to token, and also an endpoint to update the token using an expired one
 
@@ -198,7 +197,8 @@ def server_decrypt(db: Session, content: str) -> str:
     return decrypt(server_private_key, content)
 
 
-def server_stream_encrypt(client: Client, path: str) -> StreamingResponse:
+def server_stream_encrypt_file(client: Client, path: str) -> StreamingResponse:
+    """Used to stream encrypt data from a file, using less memory."""
     client_public_key: RSAPublicKey = get_client_public_key(client)
 
     return StreamingResponse(
@@ -207,31 +207,45 @@ def server_stream_encrypt(client: Client, path: str) -> StreamingResponse:
     )
 
 
-async def stream_file(file: UploadFile) -> bytes:
-    while chunk := file.read(FILE_CHUNK_SIZE):
-        yield chunk
-    yield
-
-
-def server_stream_decrypt_to_file(file: UploadFile, path: str, db: Session) -> None:
+def server_stream_decrypt_file(db: Session, file: UploadFile, path: str) -> None:
+    """Used to stream decrypt data to a file, using less memory."""
     private_key: RSAPrivateKey = get_server_private_key(db)
 
-    decrypt_stream_file(stream_file(file), path, private_key)
+    dec = HybridDecrypter(private_key)
+
+    with open(path, 'w') as f:
+        f.write(dec.start())
+
+        while chunk := file.read(FILE_CHUNK_SIZE):
+            f.write(dec.update(chunk))
+        f.write(dec.end())
 
     # TODO: find a way to add the checksum to the stream
 
 
-def server_stream_decrypt_to_dictionary(file: UploadFile, db: Session) -> dict:
+def server_stream_encrypt(client: Client, content: str) -> bytes:
+    """Used to encrypt small data that can be kept in memory."""
+    public_key = get_client_public_key(client)
+
+    enc = HybridEncrypter(public_key)
+
+    yield enc.start()
+    yield enc.update(content)
+    yield enc.end()
+
+
+def server_stream_decrypt(db: Session, file: UploadFile) -> str:
+    """Used to decrypt small data that can be kept in memory."""
     private_key: RSAPrivateKey = get_server_private_key(db)
 
     dec = HybridDecrypter(private_key)
 
     content: list[str] = []
     content += dec.start()
-    while chunk := file.file.read():
+    while chunk := file.file.read(FILE_CHUNK_SIZE):
         content += dec.update(chunk)
     content += dec.end()
 
-    return json.loads(''.join(content))
+    return ''.join(content)
 
     # TODO: find a way to add the checksum to the stream

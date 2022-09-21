@@ -1,11 +1,16 @@
 from base64 import b64encode
 
-from ferdelance.database import SessionLocal, crud
+from ferdelance.database import SessionLocal
 from ferdelance.database.settings import KeyValueStore
-from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken
+from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, ClientTask
+from ferdelance.server.schemas.workbench import ArtifactSubmitRequest, QueryRequest, ModelRequest, StrategyRequest, QueryFeature, QueryFilter
 from ferdelance.server.security import PUBLIC_KEY
+from ferdelance.server.services.application import ClientAppService
+from ferdelance.server.services.client import ClientService
+from ferdelance.server.services.datasource import DataSourceService
+from ferdelance.server.folders import STORAGE_ARTIFACTS
 
-from ferdelance_shared.encode import HybridEncrypter
+from ferdelance_shared.actions import EXEC
 
 from .utils import (
     setup_test_client,
@@ -18,7 +23,11 @@ from .utils import (
     get_payload,
     create_payload,
     decrypt_stream_response,
+    get_metadata,
+    send_metadata,
 )
+
+from requests import Response
 
 import json
 import logging
@@ -99,7 +108,7 @@ class TestClientClass:
         assert response.status_code == 200
         assert response.content.decode('utf8') == '"Hi! 😀"'
 
-    def test_client_connect_successfull(self):
+    def test_client_connect_successful(self):
         """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
         - operative system
         - mac address
@@ -116,8 +125,10 @@ class TestClientClass:
         client_id = self.get_client()
 
         with SessionLocal() as db:
-            db_client = crud.get_client_by_id(db, client_id)
-            db_token = crud.get_client_token_by_client_id(db, client_id)
+            cs: ClientService = ClientService(db)
+
+            db_client = cs.get_client_by_id(client_id)
+            db_token = cs.get_client_token_by_client_id(client_id)
 
             assert db_client is not None
             assert db_client.active
@@ -130,7 +141,7 @@ class TestClientClass:
 
             assert server_public_key_db == bytes_from_public_key(self.server_key).decode('utf8')
 
-            db_events: list[ClientEvent] = crud.get_all_client_events(db, db_client)
+            db_events: list[ClientEvent] = cs.get_all_client_events(db_client)
 
             assert len(db_events) == 1
             assert db_events[0].event == 'creation'
@@ -142,7 +153,9 @@ class TestClientClass:
         public_key = bytes_from_public_key(self.public_key)
 
         with SessionLocal() as db:
-            client = crud.get_client_by_id(db, client_id)
+            cs: ClientService = ClientService(db)
+
+            client = cs.get_client_by_id(client_id)
 
             data = {
                 'system': client.machine_system,
@@ -172,11 +185,13 @@ class TestClientClass:
         assert not data
 
         with SessionLocal() as db:
-            db_client: Client = crud.get_client_by_id(db, client_id)
+            cs: ClientService = ClientService(db)
+
+            db_client: Client = cs.get_client_by_id(client_id)
 
             assert db_client is not None
 
-            db_events: list[str] = [c.event for c in crud.get_all_client_events(db, db_client)]
+            db_events: list[str] = [c.event for c in cs.get_all_client_events(db_client)]
 
             assert len(db_events) == 3
             assert 'creation' in db_events
@@ -203,13 +218,15 @@ class TestClientClass:
         assert status_code == 403
 
         with SessionLocal() as db:
-            db_client: Client = crud.get_client_by_id(db, client_id)
+            cs: ClientService = ClientService(db)
+
+            db_client: Client = cs.get_client_by_id(client_id)
 
             assert db_client is not None
             assert db_client.active is False
             assert db_client.left
 
-            db_events: list[str] = [c.event for c in crud.get_all_client_events(db, db_client)]
+            db_events: list[str] = [c.event for c in cs.get_all_client_events(db_client)]
 
             assert 'creation' in db_events
             assert 'left' in db_events
@@ -251,13 +268,16 @@ class TestClientClass:
     def test_client_update_app(self):
         """This will test the upload of a new (fake) app, and the update process."""
         with SessionLocal() as db:
+            cas: ClientAppService = ClientAppService(db)
+            cs: ClientService = ClientService(db)
+
             client_id = self.get_client()
 
-            client_version = crud.get_client_by_id(db, client_id).version
+            client_version = cs.get_client_by_id(client_id).version
 
             assert client_version == 'test'
 
-            # create fake app (it's justa a file)
+            # create fake app (it's just a file)
             version_app = 'test_1.0'
             filename_app = 'fake_client_app.json'
             path_fake_app = os.path.join('.', filename_app)
@@ -301,7 +321,7 @@ class TestClientClass:
             n_apps = db.query(ClientApp).filter(ClientApp.active).count()
             assert n_apps == 1
 
-            newest_version: ClientApp = crud.get_newest_app_version(db)
+            newest_version: ClientApp = cas.get_newest_app_version()
             assert newest_version.version == version_app
 
             # update request
@@ -326,7 +346,7 @@ class TestClientClass:
                 assert data['checksum'] == checksum
                 assert json.loads(content) == {'version': version_app}
 
-            client_version = crud.get_client_by_id(db, client_id).version
+            client_version = cs.get_client_by_id(client_id).version
 
             assert client_version == version_app
 
@@ -334,59 +354,19 @@ class TestClientClass:
             if os.path.exists(path_fake_app):
                 os.remove(path_fake_app)
 
+            db.query(ClientApp).filter(ClientApp.app_id == upload_id).delete()
+            db.commit()
+
     def test_update_metadata(self):
         with SessionLocal() as db:
             client_id = self.get_client()
 
-            ds_content = {
-                'datasources': [{
-                    'name': 'ds1',
-                    'type': 'file',
-                    'removed': False,
-                    'n_records': 1000,
-                    'n_features': 2,
-                    'features': [{
-                        'name': 'feature1',
-                        'dtype': 'float',
-                        'v_mean': .1,
-                        'v_std': .2,
-                        'v_min': .3,
-                        'v_p25': .4,
-                        'v_p50': .5,
-                        'v_p75': .6,
-                        'v_miss': .7,
-                        'v_max': .8,
-                    }, {
-                        'name': 'label',
-                        'dtype': 'int',
-                        'v_mean': .8,
-                        'v_std': .7,
-                        'v_min': .6,
-                        'v_p25': .5,
-                        'v_p50': .4,
-                        'v_p75': .3,
-                        'v_miss': .2,
-                        'v_max': .1,
-                    }]
-                }]}
-
-            enc = HybridEncrypter(self.server_key)
-            metadata = bytearray()
-            metadata += enc.start()
-            metadata += enc.update(json.dumps(ds_content))
-            metadata += enc.end()
-
-            upload_response = self.client.post(
-                '/client/update/metadata',
-                files={'file': ('metadata.bin', metadata)},
-                headers=headers(self.token),
-            )
+            ds_content: dict = get_metadata()
+            upload_response: Response = send_metadata(self.client, self.token, self.server_key, ds_content)
 
             assert upload_response.status_code == 200
 
             ds_db: ClientDataSource = db.query(ClientDataSource).filter(ClientDataSource.client_id == client_id).first()
-
-            print(ds_content['datasources'])
 
             assert ds_db is not None
             assert ds_db.name == ds_content['datasources'][0]['name']
@@ -402,3 +382,81 @@ class TestClientClass:
             assert len(ds_fs) == 2
             assert ds_fs[0].name == ds_features[0]['name']
             assert ds_fs[1].name == ds_features[1]['name']
+
+    def test_task_get(self):
+        with SessionLocal() as db:
+            client_id = self.get_client()
+            dss: DataSourceService = DataSourceService(db)
+
+            # setup metadata for client
+            ds_content: dict = get_metadata()
+            ds_name = ds_content['datasources'][0]['name']
+            upload_response: Response = send_metadata(self.client, self.token, self.server_key, ds_content)
+
+            assert upload_response.status_code == 200
+
+            # setup artifact
+            ds_list = dss.get_datasource_list()
+            ds = [ds for ds in ds_list if ds.name == ds_name][0]
+
+            f1, f2 = dss.get_features_by_datasource(ds)
+
+            qf1 = QueryFeature(feature_id=f1.feature_id, datasource_id=f1.datasource_id)
+            qf2 = QueryFeature(feature_id=f2.feature_id, datasource_id=f2.datasource_id)
+
+            artifact = ArtifactSubmitRequest(
+                query=QueryRequest(
+                    datasources=[ds.datasource_id],
+                    features=[qf1, qf2],
+                    filters=[QueryFilter(feature=qf1, operation='', parameter='')],
+                    transformers=[],
+                ),
+                model=ModelRequest(name=''),
+                strategy=StrategyRequest(strategy='')
+            )
+
+            # submit artifact
+            submit_response = self.client.post(
+                '/workbench/artifact/submit',
+                json=artifact.dict(),
+                headers=headers(self.token),
+            )
+
+            assert submit_response.status_code == 200
+
+            artifact_id: str = submit_response.json()['artifact_id']
+
+            n = db.query(ClientTask).filter(ClientTask.client_id == client_id).count()
+            assert n == 1
+
+            # update client
+            status_code, action, data = self.get_client_update({})
+
+            assert status_code == 200
+            assert action == EXEC
+            assert 'client_task_id' in data
+
+            client_task_id: str = data['client_task_id']
+
+            # get task for client
+            with self.client.get(
+                f'/client/task/',
+                json=create_payload(self.server_key, {'client_task_id': client_task_id}),
+                headers=headers(self.token),
+                stream=True,
+            ) as task_response:
+                assert task_response.status_code == 200
+
+                content, _ = decrypt_stream_response(task_response, self.private_key)
+
+                content = json.loads(content)
+
+                assert 'artifact_id' in content
+                assert content['artifact_id'] == artifact_id
+                assert len(content['features']) == 2
+
+            # cleanup
+            os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json'))
+
+            db.query(ClientTask).filter(ClientTask.task_id == client_task_id).delete()
+            db.commit()
