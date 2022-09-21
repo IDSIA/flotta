@@ -23,10 +23,6 @@ def init_api() -> FastAPI:
     api.include_router(manager_router)
     api.include_router(workbench_router)
 
-    os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
-    os.makedirs(STORAGE_CLIENTS, exist_ok=True)
-    os.makedirs(STORAGE_MODELS, exist_ok=True)
-
     return api
 
 
@@ -38,6 +34,11 @@ async def populate_database() -> None:
     """All operations marked as `on_event('startup')` are executed when the API are started."""
     try:
         db = SessionLocal()
+
+        os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
+        os.makedirs(STORAGE_CLIENTS, exist_ok=True)
+        os.makedirs(STORAGE_MODELS, exist_ok=True)
+
         startup.init_content(db)
         settings.setup_settings(db)
         security.generate_keys(db)
@@ -52,4 +53,4 @@ async def root(db: Session = Depends(get_db)):
 
 
 if __name__ == '__main__':
-    uvicorn.run(api, host='localhost', port='8080')
+    uvicorn.run(api, host='localhost', port='1456')
