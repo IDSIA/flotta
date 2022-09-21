@@ -77,7 +77,7 @@ class ActionService(DBSessionService):
         return self.cts.get_next_task_for_client(client)
 
     def _action_schedule_task(self, task: ClientTask) -> tuple[str, dict[str, str]]:
-        return EXEC, {'task_id': task.task_id}
+        return EXEC, {'client_task_id': task.client_task_id}
 
     def _action_nothing(self) -> tuple[str, Any]:
         """Do nothing and waits for the next update request."""

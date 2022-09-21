@@ -174,12 +174,12 @@ class DataSourceService(DBSessionService):
     def get_datasource_by_client_id(self, client: Client) -> list[ClientDataSource]:
         return self.db.query(ClientDataSource).filter(ClientDataSource.client_id == client.client_id).all()
 
-    def get_datasource_by_id(self, ds_id: int) -> tuple[ClientDataSource, list[ClientFeature]]:
+    def get_datasource_by_id(self, ds_id: int) -> ClientDataSource:
         ds_db = self.db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).first()
 
-        if ds_db is None:
-            return None, None
+        return ds_db
 
-        features = self.db.query(ClientFeature).filter(ClientFeature.datasource_id == ds_id, ClientFeature.removed == False).all()
+    def get_features_by_datasource(self, ds: ClientDataSource) -> list[ClientFeature]:
+        features = self.db.query(ClientFeature).filter(ClientFeature.datasource_id == ds.datasource_id, ClientFeature.removed == False).all()
 
-        return ds_db, features
+        return features

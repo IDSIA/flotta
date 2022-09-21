@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...database.tables import Client, ClientApp, ClientToken
+from ...database.tables import Client, ClientApp, ClientToken, ClientTask
 from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
 from ..services.actions import ActionService
 from ..services.application import ClientAppService
@@ -21,9 +21,9 @@ from ..security import (
     server_decrypt,
     server_encrypt,
     get_server_public_key_str,
+    server_stream_encrypt_file,
     server_stream_encrypt,
-    server_stream_decrypt_to_dictionary,
-    server_memory_stream_encrypt,
+    server_stream_decrypt,
 )
 from ..folders import STORAGE_ARTIFACTS
 
@@ -80,11 +80,11 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
     except SQLAlchemyError as e:
         LOGGER.exception(e)
         LOGGER.exception('Database error')
-        raise HTTPException(500, detail='Internal error')
+        raise HTTPException(500, 'Internal error')
 
     except ValueError as e:
         LOGGER.exception(e)
-        raise HTTPException(403, detail='Invalid client data')
+        raise HTTPException(403, 'Invalid client data')
 
 
 @client_router.post('/client/leave', response_model=ClientLeaveResponse)
@@ -158,13 +158,13 @@ async def client_update_files(request: ClientUpdateModelRequest, db: Session = D
 
         if new_app.version != client_version:
             LOGGER.warning(f'client_id={client_id} requested app version={client_version} while latest version={new_app.version}')
-            return HTTPException(400)
+            return HTTPException(400, 'Old versions are not permitted')
 
         cs.update_client(client_id, version=client_version)
 
         LOGGER.info(f'client_id={client_id}: requested new client version={client_version}')
 
-        return server_stream_encrypt(client, new_app.path)
+        return server_stream_encrypt_file(client, new_app.path)
 
     if 'model_id' in payload:
         model_id = payload['model_id']
@@ -173,7 +173,7 @@ async def client_update_files(request: ClientUpdateModelRequest, db: Session = D
         # TODO: send model_id related files
 
     LOGGER.info(f'client_id={client_id}: requested an invalid file with payload={payload}')
-    raise HTTPException(404)
+    raise HTTPException(404, 'data requested not found')
 
 
 @client_router.post('/client/update/metadata')
@@ -206,13 +206,13 @@ async def client_update_metadata(file: UploadFile, db: Session = Depends(get_db)
     LOGGER.info(f'client_id={client_id}: update metadata request')
     cs.create_client_event(client_id, 'update metadata')
 
-    metadata = server_stream_decrypt_to_dictionary(file, db)
+    metadata = json.loads(server_stream_decrypt(db, file))
 
     for ds in metadata['datasources']:
         dss.create_or_update_datasource(client_id, ds)
 
 
-@client_router.get('/client/task/{client_task_id}', response_class=StreamingResponse)
+@client_router.get('/client/task/', response_class=StreamingResponse)
 async def client_get_task(request: ClientTaskRequest, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     cs: ClientService = ClientService(db)
     dss: DataSourceService = DataSourceService(db)
@@ -228,27 +228,35 @@ async def client_get_task(request: ClientTaskRequest, db: Session = Depends(get_
 
     client_task_id: str = payload['client_task_id']
 
-    task = cts.get_task_for_client(client_task_id)  # TODO: sanitize input?
+    task: ClientTask = cts.get_task_for_client(client_task_id)
+
+    if task is None:
+        return HTTPException(404, 'Task does not exists')
 
     artifact_id: str = task.artifact_id
 
     artifact_path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
 
+    if not os.path.exists(artifact_path):
+        return HTTPException(404, 'Artifact does not exits')
+
     async with aiofiles.open(artifact_path, 'r') as f:
-        artifact = ArtifactSubmitRequest(**json.load(f))
+        data = await f.read()
+        artifact = ArtifactSubmitRequest(**json.loads(data))
 
     client_datasource_ids = [ds.datasource_id for ds in dss.get_datasource_by_client_id(client)]
 
     query: QueryRequest = artifact.query
 
     # TODO: this should be an object in a schema
+    # TODO: add datasource name to use
     content: dict[str, Any] = {
         'artifact_id': artifact_id,
-        'features': [f for f in query.features if f.datasource_id in client_datasource_ids],
-        'filters':  [f for f in query.filters if f.feature.datasource_id in client_datasource_ids],
-        'transformers':  [t for t in query.transformers if t.feature.datasource_id in client_datasource_ids],
+        'features': [f.dict() for f in query.features if f.datasource_id in client_datasource_ids],
+        'filters':  [f.dict() for f in query.filters if f.feature.datasource_id in client_datasource_ids],
+        'transformers':  [t.dict() for t in query.transformers if t.feature.datasource_id in client_datasource_ids],
     }
 
-    data_to_send = server_memory_stream_encrypt(json.dumps(content), client)
+    data_to_send = server_stream_encrypt(client, json.dumps(content))
 
     return StreamingResponse(data_to_send)

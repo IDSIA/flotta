@@ -70,12 +70,14 @@ async def wb_get_datasource_list(db: Session = Depends(get_db)):
 async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
     dss: DataSourceService = DataSourceService(db)
 
-    ds_db, f_db = dss.get_datasource_by_id(ds_id)
+    ds_db = dss.get_datasource_by_id(ds_id)
 
     if ds_db is None or ds_db.removed is True:
         raise HTTPException(404)
 
     ds = DataSource(**ds_db.__dict__, created_at=ds_db.creation_time)
+
+    f_db = dss.get_features_by_datasource(ds_db)
 
     fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db if not f.removed]
 
@@ -116,10 +118,10 @@ async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session =
         task_db = cts.create_task(artifact)
 
         for ds_id in artifact.query.datasources:
-            ds: ClientDataSource = dss.get_datasource_by_id(ds_id)[0]
+            ds: ClientDataSource = dss.get_datasource_by_id(ds_id)
             client_id = ds.client_id
 
-            cts.create_client_task(artifact_db, client_id, task_db.task_id)
+            cts.create_client_task(artifact_db.artifact_id, client_id, task_db.task_id)
 
         # TODO: ...until there
 
