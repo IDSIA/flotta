@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 from base64 import b64encode
+from hashlib import sha256
 
 import json
 import logging
@@ -55,26 +56,26 @@ def generate_hybrid_encryption_key(public_key: RSAPublicKey, encoding: str = 'ut
         Encoding to use in the string-byte conversion.
     :return:
         A tuple containing the preamble in bytes to sent to the remote receiver,
-        the SymmetricKey to use to encrypt the remianing of the stream.
+        the SymmetricKey to use to encrypt the remaining of the stream.
     """
 
-    # generate session key for hybrid encrpytion
-    symmmetric_key = SymmetricKey()
+    # generate session key for hybrid encryption
+    symmetric_key = SymmetricKey()
 
     preamble_str: str = json.dumps({
-        'key': b64encode(symmmetric_key.key).decode(encoding),
-        'iv': b64encode(symmmetric_key.iv).decode(encoding),
+        'key': b64encode(symmetric_key.key).decode(encoding),
+        'iv': b64encode(symmetric_key.iv).decode(encoding),
     })
 
     # first part: return encrypted session key
     preamble_bytes: bytes = preamble_str.encode(encoding)
     preamble: bytes = public_key.encrypt(preamble_bytes, padding.PKCS1v15())
 
-    return preamble, symmmetric_key
+    return preamble, symmetric_key
 
 
 def encrypt_stream(content: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4096, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> bytes:
-    """Generator functio nthat streams the given content and encrypt it using
+    """Generator function that streams the given content and encrypt it using
     an hybrid-encryption algorithm.
 
     The streamed file is composed by two parts: the first part contains the 
@@ -82,7 +83,7 @@ def encrypt_stream(content: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 409
     contains the content encrypted using the asymmetric key.
 
     The client is expected to decrypt the first part, obtain the symmetric key
-    and start decrypte the content of the stream.
+    and start decrypt the content of the stream.
 
     :param content:
         Content to stream in string format.
@@ -99,7 +100,7 @@ def encrypt_stream(content: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 409
         A stream of bytes
     """
 
-    preamble, symmmetric_key = generate_hybrid_encryption_key(public_key, encoding)
+    preamble, symmetric_key = generate_hybrid_encryption_key(public_key, encoding)
 
     # first part: return encrypted session key
     yield preamble
@@ -108,7 +109,7 @@ def encrypt_stream(content: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 409
     yield SEPARATOR
 
     # second part: return encrypted file
-    encryptor = symmmetric_key.encryptor()
+    encryptor = symmetric_key.encryptor()
 
     content = content.encode(encoding)
     n = len(content)
@@ -130,7 +131,7 @@ def encrypt_stream(content: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 409
 
 
 def encrypt_stream_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4096, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> bytes:
-    """Generator function that streams a file from the given path and encrpyt
+    """Generator function that streams a file from the given path and encrypt
     the content using an hybrid-encryption algorithm.
 
     The streamed file is composed by two parts: the first part contains the 
@@ -138,7 +139,7 @@ def encrypt_stream_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4
     contains the file encrypted using the asymmetric key.
 
     The client is expected to decrypt the first part, obtain the symmetric key
-    and start decrypte the content of the file.
+    and start decrypt the content of the file.
 
     :param path:
         Path on disk of the file to stream.
@@ -155,7 +156,7 @@ def encrypt_stream_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4
         A stream of bytes
     """
 
-    preamble, symmmetric_key = generate_hybrid_encryption_key(public_key, encoding)
+    preamble, symmetric_key = generate_hybrid_encryption_key(public_key, encoding)
 
     # first part: return encrypted session key
     yield preamble
@@ -164,7 +165,7 @@ def encrypt_stream_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4
     yield SEPARATOR
 
     # second part: return encrypted file
-    encryptor = symmmetric_key.encryptor()
+    encryptor = symmetric_key.encryptor()
 
     with open(path, mode='rb') as f:
         while True:
@@ -179,16 +180,17 @@ def encrypt_stream_file(path: str, public_key: RSAPublicKey, CHUNK_SIZE: int = 4
 
 class HybridEncrypter:
 
-    # TODO: document and checksum
+    # TODO: document
 
     def __init__(self, public_key: RSAPublicKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> None:
         self.public_key: RSAPublicKey = public_key
         self.SEPARATOR: bytes = SEPARATOR
         self.encoding: str = encoding
 
-        self.preamble, self.symmmetric_key = generate_hybrid_encryption_key(public_key, encoding)
+        self.preamble, self.symmetric_key = generate_hybrid_encryption_key(public_key, encoding)
 
         self.encryptor = None
+        self.checksum = None
 
     def encrypt(self, content: str) -> bytes:
         enc_content: bytearray = bytearray()
@@ -200,7 +202,8 @@ class HybridEncrypter:
         return bytes(enc_content)
 
     def start(self) -> bytes:
-        self.encryptor = self.symmmetric_key.encryptor()
+        self.encryptor = self.symmetric_key.encryptor()
+        self.checksum = sha256()
 
         content = bytearray()
 
@@ -210,7 +213,12 @@ class HybridEncrypter:
         return bytes(content)
 
     def update(self, content: str) -> bytes:
-        return self.encryptor.update(content.encode(self.encoding))
+        data = content.encode(self.encoding)
+        self.checksum.update(data)
+        return self.encryptor.update(data)
 
     def end(self) -> bytes:
         return self.encryptor.finalize()
+
+    def get_checksum(self) -> str:
+        return self.checksum.hexdigest()

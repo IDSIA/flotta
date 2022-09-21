@@ -1,12 +1,11 @@
 from .generate import SymmetricKey
 from .commons import DEFAULT_SEPARATOR
 
-from typing import Iterable
-
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from base64 import b64decode
+from hashlib import sha256
 
 import json
 import logging
@@ -80,7 +79,7 @@ def decrypt_stream(reader_func, private_key: RSAPrivateKey, SEPARATOR: bytes = D
     :param private_key:
         Local private key.
     :param SEPARATOR:
-        Separator character or binary sequence used to split the preable with the symmetric key from the content to be decoded.
+        Separator character or binary sequence used to split the preamble with the symmetric key from the content to be decoded.
         Should be the same used in the `stream_encrypt_file()` function.
     :param encoding:
         Encoding to use in the string-byte conversion.
@@ -121,7 +120,7 @@ def decrypt_stream(reader_func, private_key: RSAPrivateKey, SEPARATOR: bytes = D
     yield decryptor.finalize()
 
 
-def decrypt_stream_file(reader_func, path: str, private_key: RSAPrivateKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> None:
+def decrypt_stream_file(reader_func, path: str, private_key: RSAPrivateKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> str:
     """Generator function that takes an iterable of chunks produced.
 
     :param chunks:
@@ -129,14 +128,18 @@ def decrypt_stream_file(reader_func, path: str, private_key: RSAPrivateKey, SEPA
     :param private_key:
         Local private key.
     :param SEPARATOR:
-        Separator character or binary sequence used to split the preable with the symmetric key from the content to be decoded.
+        Separator character or binary sequence used to split the preamble with the symmetric key from the content to be decoded.
         Should be the same used in the `stream_encrypt_file()` function.
     :param encoding:
         Encoding to use in the string-byte conversion.
+    :return:
+        Checksum of decrypted data.
     """
     data_array: bytes = bytearray()
     preamble: bool = True
     decryptor = None
+
+    checksum = sha256()
 
     with open(path, 'wb') as f:
         while chunk := next(reader_func):
@@ -157,21 +160,29 @@ def decrypt_stream_file(reader_func, path: str, private_key: RSAPrivateKey, SEPA
                     decryptor = symmetric_key.decryptor()
 
                     # start decrypt with the rest of the chunk
-                    f.write(decryptor.update(first_part[pos+len(SEPARATOR):]))
+                    data = decryptor.update(first_part[pos+len(SEPARATOR):])
+                    checksum.update(data)
+                    f.write(data)
 
             else:
                 if decryptor is None:
                     LOGGER.error('could not instantiate decryptor')
                     raise ValueError('Preamble decoding failed')
 
-                f.write(decryptor.update(chunk))
+                data = decryptor.update(chunk)
+                checksum.update(data)
+                f.write(data)
 
-        f.write(decryptor.finalize())
+        data = decryptor.finalize()
+        checksum.update(data)
+        f.write(data)
+
+    return checksum.hexdigest()
 
 
 class HybridDecrypter:
 
-    # TODO: document and checksum
+    # TODO: document
 
     def __init__(self, private_key: RSAPrivateKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> None:
         self.private_key: RSAPrivateKey = private_key
@@ -179,6 +190,8 @@ class HybridDecrypter:
         self.encoding: str = encoding
 
         self.decryptor = None
+        self.checksum = None
+
         self.data: bytearray = None
         self.preamble_found: bool = False
 
@@ -193,6 +206,7 @@ class HybridDecrypter:
 
     def start(self) -> str:
         self.data = bytearray()
+        self.checksum = sha256()
         return ''
 
     def update(self, content: bytes) -> str:
@@ -211,10 +225,21 @@ class HybridDecrypter:
 
                 self.decryptor = symmetric_key.decryptor()
 
-                return self.decryptor.update(data[pos+len(self.SEPARATOR):]).decode(self.encoding)
+                data: bytes = self.decryptor.update(data[pos+len(self.SEPARATOR):])
+                self.checksum.update(data)
+                return data.decode(self.encoding)
+
+            return ''
 
         else:
-            return self.decryptor.update(content).decode(self.encoding)
+            data: bytes = self.decryptor.update(content)
+            self.checksum.update(data)
+            return data.decode(self.encoding)
 
     def end(self) -> str:
-        return self.decryptor.finalize().decode(self.encoding)
+        data = self.decryptor.finalize()
+        self.checksum.update(data)
+        return data.decode(self.encoding)
+
+    def get_checksum(self) -> str:
+        return self.checksum.hexdigest()
