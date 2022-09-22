@@ -11,8 +11,8 @@ from ferdelance.database.startup import init_content
 from ferdelance.server.api import api
 from ferdelance.server.security import generate_keys
 
-from ferdelance_shared.decode import decrypt, HybridDecrypter, decrypt_stream, decode_from_transfer
-from ferdelance_shared.encode import encrypt, HybridEncrypter
+from ferdelance_shared.decode import decrypt, HybridDecrypter, decode_from_transfer
+from ferdelance_shared.encode import encrypt, HybridEncrypter, encode_to_transfer
 from ferdelance_shared.generate import (
     bytes_from_public_key,
     bytes_from_private_key,
@@ -23,7 +23,6 @@ from ferdelance_shared.generate import (
     RSAPublicKey
 )
 
-import hashlib
 import random
 import json
 import logging
@@ -141,7 +140,7 @@ def create_client(client: TestClient, private_key: RSAPrivateKey) -> tuple[str, 
     client_id = decrypt(private_key, json_data['id'])
     client_token = decrypt(private_key, json_data['token'])
 
-    LOGGER.info(f'client_id={client_id}: sucessfully created new client')
+    LOGGER.info(f'client_id={client_id}: successfully created new client')
 
     server_public_key: RSAPublicKey = public_key_from_str(decode_from_transfer(json_data['public_key']))
 
@@ -173,17 +172,8 @@ def create_payload(server_public_key: RSAPublicKey, payload: dict) -> dict:
 def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> tuple[str, str]:
     dec = HybridDecrypter(private_key)
 
-    content: list[str] = []
-    data = dec.start()
-    content += data
-    for chunk in stream.iter_content():
-        data = dec.update(chunk)
-        content += data
-
-    data = dec.end()
-    content += data
-
-    return ''.join(content), dec.get_checksum()
+    data = dec.decrypt_stream(stream.iter_content())
+    return data, dec.get_checksum()
 
 
 def get_metadata() -> dict:

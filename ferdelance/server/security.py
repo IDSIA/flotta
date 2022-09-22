@@ -16,8 +16,8 @@ from ferdelance_shared.generate import (
     RSAPublicKey,
     RSAPrivateKey,
 )
-from ferdelance_shared.decode import decode_from_transfer, decrypt, decrypt_stream, decrypt_stream_file, HybridDecrypter
-from ferdelance_shared.encode import encode_to_transfer, encrypt, encrypt_stream, encrypt_stream_file, HybridEncrypter
+from ferdelance_shared.decode import decode_from_transfer, decrypt, HybridDecrypter
+from ferdelance_shared.encode import encode_to_transfer, encrypt, HybridEncrypter
 
 from ..database import SessionLocal
 from ..database.settings import KeyValueStore
@@ -27,7 +27,6 @@ from .services.client import ClientService
 from .config import FILE_CHUNK_SIZE
 
 
-import json
 import logging
 import os
 import uuid
@@ -201,8 +200,10 @@ def server_stream_encrypt_file(client: Client, path: str) -> StreamingResponse:
     """Used to stream encrypt data from a file, using less memory."""
     client_public_key: RSAPublicKey = get_client_public_key(client)
 
+    enc = HybridEncrypter(client_public_key)
+
     return StreamingResponse(
-        encrypt_stream_file(path, client_public_key),
+        enc.encrypt_file_to_stream(path),
         media_type='application/octet-stream'
     )
 
@@ -213,12 +214,7 @@ def server_stream_decrypt_file(db: Session, file: UploadFile, path: str) -> None
 
     dec = HybridDecrypter(private_key)
 
-    with open(path, 'w') as f:
-        f.write(dec.start())
-
-        while chunk := file.read(FILE_CHUNK_SIZE):
-            f.write(dec.update(chunk))
-        f.write(dec.end())
+    dec.decrypt_stream_to_file(iter(file.file), path)
 
     # TODO: find a way to add the checksum to the stream
 
@@ -229,9 +225,7 @@ def server_stream_encrypt(client: Client, content: str) -> bytes:
 
     enc = HybridEncrypter(public_key)
 
-    yield enc.start()
-    yield enc.update(content)
-    yield enc.end()
+    return enc.encrypt(content)
 
 
 def server_stream_decrypt(db: Session, file: UploadFile) -> str:
@@ -239,13 +233,6 @@ def server_stream_decrypt(db: Session, file: UploadFile) -> str:
     private_key: RSAPrivateKey = get_server_private_key(db)
 
     dec = HybridDecrypter(private_key)
-
-    content: list[str] = []
-    content += dec.start()
-    while chunk := file.file.read(FILE_CHUNK_SIZE):
-        content += dec.update(chunk)
-    content += dec.end()
-
-    return ''.join(content)
+    return dec.decrypt_stream(iter(file.file))
 
     # TODO: find a way to add the checksum to the stream
