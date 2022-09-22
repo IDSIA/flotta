@@ -13,17 +13,12 @@ from ..services.application import ClientAppService
 from ..services.client import ClientService
 from ..services.ctask import ClientTaskService
 from ..services.datasource import DataSourceService
+from ..services.security import SecurityService
 from ..schemas.client import *
 from ..schemas.workbench import ArtifactSubmitRequest, QueryRequest
 from ..security import (
     generate_token,
     check_token,
-    server_decrypt,
-    server_encrypt,
-    get_server_public_key_str,
-    server_stream_encrypt_file,
-    server_stream_encrypt,
-    server_stream_decrypt,
 )
 from ..folders import STORAGE_ARTIFACTS
 
@@ -42,6 +37,7 @@ client_router = APIRouter()
 async def client_join(request: Request, client: ClientJoinRequest, db: Session = Depends(get_db)):
     """API for new client joining."""
     cs: ClientService = ClientService(db)
+    ss: SecurityService = SecurityService(db)
 
     try:
         ip_address = request.client.host
@@ -72,9 +68,9 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
         LOGGER.info(f'client_id={client_id}: joined')
 
         return ClientJoinResponse(
-            id=server_encrypt(client, client_id),
-            token=server_encrypt(client, token),
-            public_key=get_server_public_key_str(db)
+            id=ss.server_encrypt(client, client_id),
+            token=ss.server_encrypt(client, token),
+            public_key=ss.get_server_public_key_str()
         )
 
     except SQLAlchemyError as e:
@@ -110,6 +106,7 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
     """
     acs: ActionService = ActionService(db)
     cs: ClientService = ClientService(db)
+    ss: SecurityService = SecurityService(db)
 
     LOGGER.info(f'client_id={client_id}: update request')
     cs.create_client_event(client_id, 'update')
@@ -117,7 +114,7 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
     client: Client = cs.get_client_by_id(client_id)
 
     # consume current results (if present) and compute next action
-    payload: str = server_decrypt(db, request.payload)
+    payload: str = ss.server_decrypt(request.payload)
 
     action, data = acs.next(client, payload)
 
@@ -131,7 +128,7 @@ async def client_update(request: ClientUpdateRequest, db: Session = Depends(get_
     }
 
     return ClientUpdateResponse(
-        payload=server_encrypt(client, json.dumps(payload))
+        payload=ss.server_encrypt(client, json.dumps(payload))
     )
 
 
@@ -144,11 +141,12 @@ async def client_update_files(request: ClientUpdateModelRequest, db: Session = D
     """
     cas: ClientAppService = ClientAppService(db)
     cs: ClientService = ClientService(db)
+    ss: SecurityService = SecurityService(db)
 
     LOGGER.info(f'client_id={client_id}: update files request')
     cs.create_client_event(client_id, 'update files')
 
-    payload = json.loads(server_decrypt(db, request.payload))
+    payload = json.loads(ss.server_decrypt(request.payload))
     client = cs.get_client_by_id(client_id)
 
     if 'client_version' in payload:
@@ -164,7 +162,7 @@ async def client_update_files(request: ClientUpdateModelRequest, db: Session = D
 
         LOGGER.info(f'client_id={client_id}: requested new client version={client_version}')
 
-        return server_stream_encrypt_file(client, new_app.path)
+        return ss.server_stream_encrypt_file(client, new_app.path)
 
     if 'model_id' in payload:
         model_id = payload['model_id']
@@ -202,11 +200,12 @@ async def client_update_metadata(file: UploadFile, db: Session = Depends(get_db)
     """
     cs: ClientService = ClientService(db)
     dss: DataSourceService = DataSourceService(db)
+    ss: SecurityService = SecurityService(db)
 
     LOGGER.info(f'client_id={client_id}: update metadata request')
     cs.create_client_event(client_id, 'update metadata')
 
-    metadata = json.loads(server_stream_decrypt(db, file))
+    metadata = json.loads(ss.server_stream_decrypt(file))
 
     for ds in metadata['datasources']:
         dss.create_or_update_datasource(client_id, ds)
@@ -216,6 +215,7 @@ async def client_update_metadata(file: UploadFile, db: Session = Depends(get_db)
 async def client_get_task(request: ClientTaskRequest, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     cs: ClientService = ClientService(db)
     dss: DataSourceService = DataSourceService(db)
+    ss: SecurityService = SecurityService(db)
 
     LOGGER.info(f'client_id={client_id}: new task request')
 
@@ -224,7 +224,7 @@ async def client_get_task(request: ClientTaskRequest, db: Session = Depends(get_
 
     client: Client = cs.get_client_by_id(client_id)
 
-    payload = json.loads(server_decrypt(db, request.payload))
+    payload = json.loads(ss.server_decrypt(request.payload))
 
     client_task_id: str = payload['client_task_id']
 
@@ -257,6 +257,6 @@ async def client_get_task(request: ClientTaskRequest, db: Session = Depends(get_
         'transformers':  [t.dict() for t in query.transformers if t.feature.datasource_id in client_datasource_ids],
     }
 
-    data_to_send = server_stream_encrypt(client, json.dumps(content))
+    data_to_send = ss.server_stream_encrypt(client, json.dumps(content))
 
     return StreamingResponse(data_to_send)
