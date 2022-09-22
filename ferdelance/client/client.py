@@ -1,3 +1,5 @@
+from typing import Any
+
 from ferdelance import __version__
 from ferdelance_shared.actions import *
 from ferdelance_shared.generate import (
@@ -13,7 +15,7 @@ from ferdelance_shared.generate import (
 from ferdelance_shared.decode import (
     decrypt,
     decode_from_transfer,
-    decrypt_stream,
+    HybridDecrypter,
 )
 from ferdelance_shared.encode import (
     encrypt,
@@ -118,14 +120,11 @@ class FerdelanceClient:
         :return:
             Checksum of the received data.
         """
-        checksum = hashlib.sha256()
+        dec = HybridDecrypter(self.private_key)
 
-        with open(out_path, 'wb') as f:
-            for chunk in decrypt_stream(stream.iter_content(), self.private_key):
-                checksum.update(chunk)
-                f.write(chunk)
+        dec.decrypt_stream_to_file(stream.iter_content(), out_path)
 
-        return checksum.hexdigest()
+        return dec.get_checksum()
 
     def request_join(self, data: dict) -> dict:
         """Send a join request to the server.
@@ -195,7 +194,7 @@ class FerdelanceClient:
 
         return ret_data['action'], ret_data['data']
 
-    def request_client_task(self, data: dict) -> None:
+    def request_client_task(self, data: dict) -> dict[str, Any]:
         LOGGER.info('requesting new client task')
         payload = self.create_payload(data)
 
@@ -205,8 +204,9 @@ class FerdelanceClient:
             headers=self.headers(),
             stream=True,
         ) as task_response:
-            content, _ = self.decrypt_stream_response(task_response, self.private_key)
-            return json.loads(content)
+            dec = HybridDecrypter(self.private_key)
+            data = dec.decrypt_stream(task_response.iter_content())
+            return json.loads(data)
 
     def setup(self) -> None:
         """Client initliazation (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
@@ -217,7 +217,7 @@ class FerdelanceClient:
         try:
             # check for existing working directory
             if os.path.exists(self.workdir):
-                LOGGER.info(f'loading properties from working directory={self.workdir}')
+                LOGGER.info(f'loading properties from working directory {self.workdir}')
 
                 # TODO: check how to enable permission check with docker
                 # status = os.stat(self.workdir)
@@ -253,6 +253,7 @@ class FerdelanceClient:
                         self.path_private_key = props['path_private_key']
 
                 if os.path.exists(self.path_private_key):
+                    LOGGER.info(f'private key found at {self.path_private_key}')
                     with open(self.path_private_key, 'rb') as f:
                         data = f.read()
                         self.private_key = private_key_from_bytes(data)
@@ -387,6 +388,9 @@ class FerdelanceClient:
         # save config locally
         self.dump_config()
 
+        LOGGER.info('creating workdir folders')
+        os.makedirs(self.path_artifact_folder, exist_ok=True)
+
         LOGGER.info('setup completed')
         self.setup_completed = True
 
@@ -459,8 +463,8 @@ class FerdelanceClient:
 
         LOGGER.info(f'received artifact_id={artifact_id}')
 
-        with open(os.path.join(self.workdir, 'artifacts', f'{artifact_id}.json'), 'w') as f:
-            json.dump(f)
+        with open(os.path.join(self.path_artifact_folder, f'{artifact_id}.json'), 'w') as f:
+            json.dump(content, f)
 
     def perform_action(self, action: str, data: dict) -> str:
         LOGGER.info(f'action received={action}')
@@ -470,6 +474,7 @@ class FerdelanceClient:
 
         if action == EXEC:
             self.action_execute_task(data)
+            return DO_NOTHING
 
         if action == UPDATE_CLIENT:
             return self.action_update_client(data)

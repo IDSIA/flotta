@@ -18,7 +18,7 @@ docs/_build
 **/tests
 **/*env
 
-workdir
+*workdir
 
 *.yaml
 *.md
