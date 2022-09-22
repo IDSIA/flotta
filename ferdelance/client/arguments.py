@@ -127,7 +127,7 @@ def setup_arguments() -> dict[str, Any]:
         help="""
         Add a database as source file.
         This arguments takes 3 position: a unique NAME, a supported DBMS (TYPE), and the connection string (CONN).
-        The DBMS requires full compatiblity with SQLAlchemy
+        The DBMS requires full compatibility with SQLAlchemy
         This arguments can be repeated.
         """,
         default=None,

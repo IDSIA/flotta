@@ -1,3 +1,5 @@
+from typing import Any
+
 from ferdelance import __version__
 from ferdelance_shared.actions import *
 from ferdelance_shared.generate import (
@@ -13,7 +15,7 @@ from ferdelance_shared.generate import (
 from ferdelance_shared.decode import (
     decrypt,
     decode_from_transfer,
-    decrypt_stream,
+    HybridDecrypter,
 )
 from ferdelance_shared.encode import (
     encrypt,
@@ -70,6 +72,7 @@ class FerdelanceClient:
         self.path_properties: str = os.path.join(self.workdir, 'properties.yaml')
         self.path_server_key: str = os.path.join(self.workdir, 'server_key.pub')
         self.path_private_key: str = os.path.join(self.workdir, 'private_key.pem')
+        self.path_artifact_folder: str = os.path.join(self.workdir, 'artifacts')
 
         self.flag_leave: bool = leave
         self.setup_completed: bool = False
@@ -110,21 +113,18 @@ class FerdelanceClient:
     def decrypt_stream_response(self, stream: Response, out_path: str) -> str:
         """Decrypt an incoming stream of data using a local private key and compute the checksum.
 
-        :param setream:
+        :param stream:
             Stream to read from.
         :param out_path:
             Path on the disk to save the payload to.
         :return:
-            Checkusm of the received data.
+            Checksum of the received data.
         """
-        checksum = hashlib.sha256()
+        dec = HybridDecrypter(self.private_key)
 
-        with open(out_path, 'wb') as f:
-            for chunk in decrypt_stream(stream.iter_content(), self.private_key):
-                checksum.update(chunk)
-                f.write(chunk)
+        dec.decrypt_stream_to_file(stream.iter_content(), out_path)
 
-        return checksum.hexdigest()
+        return dec.get_checksum()
 
     def request_join(self, data: dict) -> dict:
         """Send a join request to the server.
@@ -178,6 +178,8 @@ class FerdelanceClient:
         LOGGER.info('metadata uploaded successfull')
 
     def request_update(self, data: dict) -> tuple[str, str]:
+        LOGGER.info('requesting update')
+
         payload = self.create_payload(data)
 
         res = requests.get(
@@ -192,6 +194,20 @@ class FerdelanceClient:
 
         return ret_data['action'], ret_data['data']
 
+    def request_client_task(self, data: dict) -> dict[str, Any]:
+        LOGGER.info('requesting new client task')
+        payload = self.create_payload(data)
+
+        with requests.get(
+            f'{self.server}/client/task',
+            json=payload,
+            headers=self.headers(),
+            stream=True,
+        ) as task_response:
+            dec = HybridDecrypter(self.private_key)
+            data = dec.decrypt_stream(task_response.iter_content())
+            return json.loads(data)
+
     def setup(self) -> None:
         """Client initliazation (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
         LOGGER.info('client initialization')
@@ -201,7 +217,7 @@ class FerdelanceClient:
         try:
             # check for existing working directory
             if os.path.exists(self.workdir):
-                LOGGER.info(f'loading properties from working directory={self.workdir}')
+                LOGGER.info(f'loading properties from working directory {self.workdir}')
 
                 # TODO: check how to enable permission check with docker
                 # status = os.stat(self.workdir)
@@ -237,6 +253,7 @@ class FerdelanceClient:
                         self.path_private_key = props['path_private_key']
 
                 if os.path.exists(self.path_private_key):
+                    LOGGER.info(f'private key found at {self.path_private_key}')
                     with open(self.path_private_key, 'rb') as f:
                         data = f.read()
                         self.private_key = private_key_from_bytes(data)
@@ -369,6 +386,9 @@ class FerdelanceClient:
         # save config locally
         self.dump_config()
 
+        LOGGER.info('creating workdir folders')
+        os.makedirs(self.path_artifact_folder, exist_ok=True)
+
         LOGGER.info('setup completed')
         self.setup_completed = True
 
@@ -392,46 +412,73 @@ class FerdelanceClient:
                 'path_private_key': self.path_private_key,
             }, f)
 
-    def perform_action(self, action: str, data: dict) -> str:
-        if action == UPDATE_TOKEN:
-            LOGGER.info('updating client token with a new one')
-            self.client_token = data['token']
-            self.dump_config()
+    def action_update_token(self, data: dict) -> None:
+        LOGGER.info('updating client token with a new one')
+        self.client_token = data['token']
+        self.dump_config()
 
-        if action == UPDATE_CLIENT:
-            version_app = data['version']
-            filename = data['name']
-            expected_checksum = data['checksum']
+    def action_update_client(self, data: dict) -> str:
+        version_app = data['version']
+        filename = data['name']
+        expected_checksum = data['checksum']
 
-            with requests.post(
-                '/client/update/files',
-                json=self.create_payload({'client_version': version_app}),
-                headers=self.headers(),
-                stream=True,
-            ) as stream:
-                if not stream.ok:
-                    LOGGER.error(f'could not download new client version={version_app} from server={self.server}')
-                    return 'update'
-
-                path_file: str = os.path.join(self.workdir, filename)
-                checksum: str = self.decrypt_stream_response(stream, path_file)
-
-                if checksum != expected_checksum:
-                    LOGGER.error('Checksum mismatch: received invalid data!')
-                    return DO_NOTHING
-
-                LOGGER.error(f'Checksum of {path_file} passed')
-
-                with open('.update', 'w') as f:
-                    f.write(path_file)
-
-                # TODO: this is something for the next iteration
-
+        with requests.post(
+            '/client/update/files',
+            json=self.create_payload({'client_version': version_app}),
+            headers=self.headers(),
+            stream=True,
+        ) as stream:
+            if not stream.ok:
+                LOGGER.error(f'could not download new client version={version_app} from server={self.server}')
                 return 'update'
 
-        if action == DO_NOTHING:
-            LOGGER.info('nothing new from the server')
+            path_file: str = os.path.join(self.workdir, filename)
+            checksum: str = self.decrypt_stream_response(stream, path_file)
+
+            if checksum != expected_checksum:
+                LOGGER.error('Checksum mismatch: received invalid data!')
+                return DO_NOTHING
+
+            LOGGER.error(f'Checksum of {path_file} passed')
+
+            with open('.update', 'w') as f:
+                f.write(path_file)
+
+            # TODO: this is something for the next iteration
+
+        return 'update'
+
+    def action_do_nothing(self) -> str:
+        LOGGER.info('nothing new from the server')
+        return DO_NOTHING
+
+    def action_execute_task(self, data: dict) -> str:
+        LOGGER.info('executing new task')
+        content = self.request_client_task(data)
+
+        # TODO: this is an example, execute required task when implemented
+        artifact_id: str = content['artifact_id']
+
+        LOGGER.info(f'received artifact_id={artifact_id}')
+
+        with open(os.path.join(self.path_artifact_folder, f'{artifact_id}.json'), 'w') as f:
+            json.dump(content, f)
+
+    def perform_action(self, action: str, data: dict) -> str:
+        LOGGER.info(f'action received={action}')
+
+        if action == UPDATE_TOKEN:
+            self.action_update_token(data)
+
+        if action == EXEC:
+            self.action_execute_task(data)
             return DO_NOTHING
+
+        if action == UPDATE_CLIENT:
+            return self.action_update_client(data)
+
+        if action == DO_NOTHING:
+            return self.action_do_nothing()
 
         LOGGER.error(f'cannot complete action={action}')
         return DO_NOTHING
@@ -477,7 +524,7 @@ class FerdelanceClient:
                     # TODO what to do in this case?
 
                 except requests.exceptions.RequestException as e:
-                    LOGGER.error('connection refuesd')
+                    LOGGER.error('connection refused')
                     LOGGER.exception(e)
                     # TODO what to do in this case?
 

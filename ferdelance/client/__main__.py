@@ -32,7 +32,7 @@ if __name__ == '__main__':
     client = FerdelanceClient(**args)
 
     def main_signal_handler(signum, frame):
-        """This handler is used to gracefully stop when ctrl-c is hitted in the terminal."""
+        """This handler is used to gracefully stop when ctrl-c is hit in the terminal."""
         client.stop_loop()
 
     signal.signal(signal.SIGINT, main_signal_handler)
