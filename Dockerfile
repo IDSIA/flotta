@@ -14,6 +14,8 @@ RUN pip install --no-cache-dir /federated-learning-shared/
 # copy config file and install dependencies
 COPY setup.cfg /
 
+RUN python -m pip install --upgrade pip
+
 RUN cd / && \
     python -c "import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['options']['install_requires'])" | xargs pip install
 
