@@ -70,6 +70,7 @@ class FerdelanceClient:
         self.path_properties: str = os.path.join(self.workdir, 'properties.yaml')
         self.path_server_key: str = os.path.join(self.workdir, 'server_key.pub')
         self.path_private_key: str = os.path.join(self.workdir, 'private_key.pem')
+        self.path_artifact_folder: str = os.path.join(self.workdir, 'artifacts')
 
         self.flag_leave: bool = leave
         self.setup_completed: bool = False
@@ -110,12 +111,12 @@ class FerdelanceClient:
     def decrypt_stream_response(self, stream: Response, out_path: str) -> str:
         """Decrypt an incoming stream of data using a local private key and compute the checksum.
 
-        :param setream:
+        :param stream:
             Stream to read from.
         :param out_path:
             Path on the disk to save the payload to.
         :return:
-            Checkusm of the received data.
+            Checksum of the received data.
         """
         checksum = hashlib.sha256()
 
@@ -178,6 +179,8 @@ class FerdelanceClient:
         LOGGER.info('metadata uploaded successfull')
 
     def request_update(self, data: dict) -> tuple[str, str]:
+        LOGGER.info('requesting update')
+
         payload = self.create_payload(data)
 
         res = requests.get(
@@ -191,6 +194,19 @@ class FerdelanceClient:
         ret_data = self.get_payload(res.json())
 
         return ret_data['action'], ret_data['data']
+
+    def request_client_task(self, data: dict) -> None:
+        LOGGER.info('requesting new client task')
+        payload = self.create_payload(data)
+
+        with requests.get(
+            f'{self.server}/client/task',
+            json=payload,
+            headers=self.headers(),
+            stream=True,
+        ) as task_response:
+            content, _ = self.decrypt_stream_response(task_response, self.private_key)
+            return json.loads(content)
 
     def setup(self) -> None:
         """Client initliazation (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
@@ -286,6 +302,8 @@ class FerdelanceClient:
                     LOGGER.info(f'creating working directory={self.workdir}')
                     os.makedirs(self.workdir, exist_ok=True)
                     os.chmod(self.workdir, 0o700)
+
+                    os.makedirs(self.path_artifact_folder, exist_ok=True)
 
                 if item == 'pk':
                     LOGGER.info('private key does not exist: creating a new one')
@@ -433,9 +451,20 @@ class FerdelanceClient:
         return DO_NOTHING
 
     def action_execute_task(self, data: dict) -> str:
-        pass
+        LOGGER.info('executing new task')
+        content = self.request_client_task(data)
+
+        # TODO: this is an example, execute required task when implemented
+        artifact_id: str = content['artifact_id']
+
+        LOGGER.info(f'received artifact_id={artifact_id}')
+
+        with open(os.path.join(self.workdir, 'artifacts', f'{artifact_id}.json'), 'w') as f:
+            json.dump(f)
 
     def perform_action(self, action: str, data: dict) -> str:
+        LOGGER.info(f'action received={action}')
+
         if action == UPDATE_TOKEN:
             self.action_update_token(data)
 
