@@ -13,7 +13,7 @@ from ..services.datasource import DataSourceService
 from ..services.client import ClientService
 from ..folders import STORAGE_ARTIFACTS
 
-from ferdelance_shared.schemas import ClientDetails, DataSourceDetails, Feature, ArtifactStatus, Artifact
+from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact
 
 import aiofiles
 import json
@@ -67,7 +67,7 @@ async def wb_get_datasource_list(db: Session = Depends(get_db)):
     return [ds.datasource_id for ds in ds_db if ds.removed is False]
 
 
-@workbench_router.get('/workbench/datasource/{ds_id}', response_model=DataSourceDetails)
+@workbench_router.get('/workbench/datasource/{ds_id}', response_model=DataSource)
 async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
     dss: DataSourceService = DataSourceService(db)
 
@@ -80,7 +80,7 @@ async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
 
     fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db if not f.removed]
 
-    return DataSourceDetails(
+    return DataSource(
         **ds_db.__dict__,
         created_at=ds_db.creation_time,
         features=fs,
@@ -110,8 +110,12 @@ async def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_
         # TODO this is there temporally. It will be done inside a celery worker...
         task_db = cts.create_task(artifact)
 
+        client_ids = set()
         for query in artifact.queries:
             client_id: str = dss.get_client_id_by_datasource_id(query.datasources_id)
+            client_ids.update(client_id)
+
+        for client_id in list(client_ids):
             cts.create_client_task(artifact_db.artifact_id, client_id, task_db.task_id)
 
         # TODO: ...until there

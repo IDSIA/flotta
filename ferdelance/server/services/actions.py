@@ -1,9 +1,9 @@
 from ...database.tables import Client, ClientToken, ClientTask
-from ..security import generate_token
 from . import DBSessionService, Session
 from .application import ClientAppService
 from .client import ClientService
 from .ctask import ClientTaskService
+from .security import SecurityService
 
 from ferdelance_shared.actions import *
 from ferdelance_shared.schemas import UpdateClientApp, UpdateExecute, UpdateNothing, UpdateToken
@@ -41,7 +41,9 @@ class ActionService(DBSessionService):
         :return:
             The 'update_token' action and a string with the new token.
         """
-        token: ClientToken = generate_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
+        ss: SecurityService = SecurityService(self.db, None)
+        ss.client = client
+        token: ClientToken = ss.generate_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
         self.cs.invalidate_all_tokens(client.client_id)
         self.cs.create_client_token(token)
 
@@ -93,7 +95,7 @@ class ActionService(DBSessionService):
             action=DO_NOTHING
         )
 
-    def next(self, client: Client, payload: str) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
+    def next(self, client: Client, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
 
         # TODO: consume client payload
 

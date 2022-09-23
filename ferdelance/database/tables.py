@@ -141,7 +141,7 @@ class Model(Base):
     """Table that keep track of all the model created and stored on the server."""
     __tablename__ = 'models'
 
-    model_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    model_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
     path = Column(String, nullable=False)
 
@@ -174,7 +174,6 @@ class ClientDataSource(Base):
     datasource_id = Column(String, primary_key=True, index=True)
 
     name = Column(String, nullable=False)
-    type = Column(String)
 
     creation_time = Column(DateTime(timezone=True), server_default=now())
     update_time = Column(DateTime(timezone=True), server_default=now())
@@ -209,5 +208,5 @@ class ClientFeature(Base):
     update_time = Column(DateTime(timezone=True), server_default=now())
     removed = Column(Boolean, nullable=False, default=False)
 
-    datasource_id = Column(Integer, ForeignKey('client_datasources.datasource_id'))
+    datasource_id = Column(String, ForeignKey('client_datasources.datasource_id'))
     datasource = relationship('ClientDataSource')

@@ -1,7 +1,6 @@
-from pyexpat import model
 from typing import Any
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import Response
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -30,7 +29,7 @@ LOGGER = logging.getLogger(__name__)
 client_router = APIRouter()
 
 
-@client_router.post('/client/join', response_model=Response)
+@client_router.post('/client/join', response_class=Response)
 async def client_join(request: Request, client: ClientJoinRequest, db: Session = Depends(get_db)):
     """API for new client joining."""
     cs: ClientService = ClientService(db)
@@ -67,7 +66,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
             public_key=ss.get_server_public_key_str(),
         )
 
-        return Response(ss.server_encrypt_content(client, json.dumps(cjd.dict())))
+        return Response(ss.server_encrypt_content(json.dumps(cjd.dict())))
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
@@ -92,7 +91,7 @@ async def client_leave(db: Session = Depends(get_db), client_id: str = Depends(c
     return {}
 
 
-@client_router.get('/client/update', response_model=Response)
+@client_router.get('/client/update', response_class=Response)
 async def client_update(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
@@ -108,7 +107,8 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
     cs.create_client_event(client_id, 'update')
 
     # consume current results (if present) and compute next action
-    payload: str = ss.server_decrypt_content(request.body())
+    data = await request.body()
+    payload: dict[str, Any] = json.loads(ss.server_decrypt_content(data))
 
     action = acs.next(ss.client, payload)
 
@@ -116,10 +116,10 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
 
     cs.create_client_event(client_id, f'action:{action}')
 
-    return Response(ss.server_encrypt(json.dumps(action.dict())))
+    return Response(ss.server_encrypt_content(json.dumps(action.dict())))
 
 
-@client_router.get('/client/download/application', response_model=StreamingResponse)
+@client_router.get('/client/download/application', response_class=Response)
 async def client_update_files(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     """
     API request by the client to get updated files. With this endpoint a client can:
@@ -133,19 +133,18 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
     LOGGER.info(f'client_id={client_id}: update files request')
     cs.create_client_event(client_id, 'update files')
 
-    payload = DownloadApp(**json.loads(ss.server_decrypt(request.body())))
-
-    client_version = payload.version
+    body = await request.body()
+    payload = DownloadApp(**json.loads(ss.server_decrypt_content(body)))
 
     new_app: ClientApp = cas.get_newest_app()
 
-    if new_app.version != client_version:
-        LOGGER.warning(f'client_id={client_id} requested app version={client_version} while latest version={new_app.version}')
+    if new_app.version != payload.version:
+        LOGGER.warning(f'client_id={client_id} requested app version={payload.version} while latest version={new_app.version}')
         return HTTPException(400, 'Old versions are not permitted')
 
-    cs.update_client(client_id, version=client_version)
+    cs.update_client(client_id, version=payload.version)
 
-    LOGGER.info(f'client_id={client_id}: requested new client version={client_version}')
+    LOGGER.info(f'client_id={client_id}: requested new client version={payload.version}')
 
     return ss.server_stream_encrypt_file(new_app.path)
 
@@ -183,10 +182,10 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
     LOGGER.info(f'client_id={client_id}: update metadata request')
     cs.create_client_event(client_id, 'update metadata')
 
-    metadata = Metadata(**json.loads(ss.server_decrypt_content(request.body())))
+    body = await request.body()
+    metadata = Metadata(**json.loads(ss.server_decrypt_content(body)))
 
-    for ds in metadata.datasources:
-        dss.create_or_update_datasource(client_id, ds)
+    dss.create_or_update_metadata(client_id, metadata)
 
 
 @client_router.get('/client/task/', response_class=Response)
@@ -200,7 +199,8 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
 
     cs.create_client_event(client_id, 'schedule task')
 
-    payload = UpdateExecute(**json.loads(ss.server_decrypt(request.body())))
+    body = await request.body()
+    payload = UpdateExecute(**json.loads(ss.server_decrypt_content(body)))
 
     task: ClientTask = cts.get_task_for_client(payload.client_task_id)
 
