@@ -19,14 +19,35 @@ class ClientJoinData(BaseModel):
     public_key: str
 
 
+class ClientDetails(BaseModel):
+    client_id: str
+    created_at: datetime
+    version: str
+
+
+class ClientUpdate(BaseModel):
+    action: str
+
+
+class ClientUpdateTaskCompleted(ClientUpdate):
+    client_task_id: str
+    # TODO: consider return errors to workbench
+
+
 class UpdateData(BaseModel):
     """Basic update response from the server with the next action to do."""
     action: str
+
+    def __str__(self) -> str:
+        return f'action={self.action}'
 
 
 class UpdateToken(UpdateData):
     """The client has a new token to use."""
     token: str
+
+    def __str__(self) -> str:
+        return super().__str__()
 
 
 class UpdateClientApp(UpdateData):
@@ -34,6 +55,9 @@ class UpdateClientApp(UpdateData):
     checksum: str
     name: str
     version: str
+
+    def __str__(self) -> str:
+        return f'{super().__str__()}, name={self.name}, version={self.version}'
 
 
 class UpdateExecute(UpdateData):
@@ -52,15 +76,10 @@ class DownloadApp(BaseModel):
     version: str
 
 
-class Feature(BaseModel):
-    """Description of a feature for the server."""
-    feature_id: str
-    datasource_id: str
-
+class BaseFeature(BaseModel):
+    """Common information to all features."""
     name: str
     dtype: str | None
-
-    created_at: datetime
 
     v_mean: float | None
     v_std: float | None
@@ -72,32 +91,42 @@ class Feature(BaseModel):
     v_miss: float | None
 
 
-class DataSourceDetails(BaseModel):
-    """Basic information on a data source on the client. This can be sent to the workbench."""
+class Feature(BaseFeature):
+    """Information for the workbench."""
+    feature_id: str
     datasource_id: str
 
-    name: str | None
 
-    created_at: datetime
+class MetaFeature(BaseFeature):
+    """Information on features stored in the client."""
+    removed: bool = False
 
+
+class BaseDataSource(BaseModel):
+    """Common information to all data sources."""
     n_records: int | None
     n_features: int | None
+
+
+class DataSource(BaseDataSource):
+    """Information for the workbench."""
+    client_id: str
+    datasource_id: str
 
     features: list[Feature]
 
 
-class DataSource(DataSourceDetails):
-    """Extra information from the client for the metadata"""
-    client_id: str
-
+class MetaDataSource(BaseDataSource):
+    """Information on data source stored in the client."""
+    name: str | None
     removed: bool = False
 
-    type: str | None
+    features: list[MetaFeature]
 
 
 class Metadata(BaseModel):
-    """Update information from the client for the server."""
-    datasources: list[DataSource]
+    """Information on data stored in the client."""
+    datasources: list[MetaDataSource]
 
 
 class QueryFeature(BaseModel):
@@ -123,9 +152,9 @@ class QueryTransformer(BaseModel):
 class Query(BaseModel):
     """Query to apply to the selected data from the workbench."""
     datasources_id: str
-    features: list[QueryFeature]
-    filters: list[QueryFilter]
-    transformers: list[QueryTransformer]
+    features: list[QueryFeature] = list()
+    filters: list[QueryFilter] = list()
+    transformers: list[QueryTransformer] = list()
 
 
 class Model(BaseModel):
@@ -161,9 +190,3 @@ class ArtifactTask(BaseArtifact):
     client_task_id: str
     queries: list[Query]
     model: Model
-
-
-class ClientDetails(BaseModel):
-    client_id: str
-    created_at: datetime
-    version: str
