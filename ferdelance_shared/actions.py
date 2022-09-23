@@ -1,7 +1,5 @@
-"""Execute a new command."""
-EXEC: str = 'execute'
-"""Train the given model."""
-TRAIN: str = 'train'
+"""Execute a new train query."""
+EXECUTE: str = 'execute'
 
 """Token is expied, update with a new one."""
 UPDATE_TOKEN: str = 'update_token'
