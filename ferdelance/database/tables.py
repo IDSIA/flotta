@@ -171,7 +171,7 @@ class ClientDataSource(Base):
     """Table that collectss the data source available on each client."""
     __tablename__ = 'client_datasources'
 
-    datasource_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    datasource_id = Column(String, primary_key=True, index=True)
 
     name = Column(String, nullable=False)
     type = Column(String)
@@ -191,7 +191,7 @@ class ClientFeature(Base):
     """Table that collects all metadata sent by the client."""
     __tablename__ = 'client_features'
 
-    feature_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    feature_id = Column(String, primary_key=True, index=True)
 
     name = Column(String, nullable=False)
     dtype = Column(String)
