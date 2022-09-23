@@ -72,9 +72,9 @@ class Feature(BaseModel):
     v_miss: float | None
 
 
-class DataSourceDetail(BaseModel):
+class DataSourceDetails(BaseModel):
     """Basic information on a data source on the client. This can be sent to the workbench."""
-    datasource_id: int
+    datasource_id: str
 
     name: str | None
 
@@ -86,11 +86,11 @@ class DataSourceDetail(BaseModel):
     features: list[Feature]
 
 
-class DataSource(DataSourceDetail):
+class DataSource(DataSourceDetails):
     """Extra information from the client for the metadata"""
     client_id: str
 
-    removed: bool
+    removed: bool = False
 
     type: str | None
 
@@ -122,7 +122,7 @@ class QueryTransformer(BaseModel):
 
 class Query(BaseModel):
     """Query to apply to the selected data from the workbench."""
-    datasources: list[int]
+    datasources_id: str
     features: list[QueryFeature]
     filters: list[QueryFilter]
     transformers: list[QueryTransformer]
@@ -139,14 +139,31 @@ class Strategy(BaseModel):
     strategy: str
 
 
-class ArtifactStatus(BaseModel):
-    """Details on the artifact."""
+class BaseArtifact(BaseModel):
+    """Basic structure for artifact"""
     artifact_id: str | None
+
+
+class Artifact(BaseArtifact):
+    """Artifact created in the workbench."""
+    queries: list[Query]
+    model: Model
+    strategy: Strategy
+
+
+class ArtifactStatus(BaseArtifact):
+    """Details on the artifact."""
     status: str | None
 
 
-class Artifact(ArtifactStatus):
-    """Artifact created in the workbench."""
-    query: Query
+class ArtifactTask(BaseArtifact):
+    """Task sent to the client for dataset preparation."""
+    client_task_id: str
+    queries: list[Query]
     model: Model
-    strategy: Strategy
+
+
+class ClientDetails(BaseModel):
+    client_id: str
+    created_at: datetime
+    version: str
