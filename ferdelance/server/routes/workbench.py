@@ -7,12 +7,13 @@ from uuid import uuid4
 
 from ...database import get_db
 from ...database.tables import Client, ClientDataSource, Artifact, Model
-from ..schemas.workbench import *
 from ..services.ctask import ClientTaskService
 from ..services.artifact import ArtifactService
 from ..services.datasource import DataSourceService
 from ..services.client import ClientService
 from ..folders import STORAGE_ARTIFACTS
+
+from ferdelance_shared.schemas import ClientDetails, DataSourceDetails, Feature, ArtifactStatus, Artifact
 
 import aiofiles
 import json
@@ -55,7 +56,7 @@ async def wb_get_client_detail(client_id: str, db: Session = Depends(get_db)):
     )
 
 
-@workbench_router.get('/workbench/datasource/list', response_model=list[int])
+@workbench_router.get('/workbench/datasource/list', response_model=list[str])
 async def wb_get_datasource_list(db: Session = Depends(get_db)):
     dss: DataSourceService = DataSourceService(db)
 
@@ -70,25 +71,24 @@ async def wb_get_datasource_list(db: Session = Depends(get_db)):
 async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
     dss: DataSourceService = DataSourceService(db)
 
-    ds_db = dss.get_datasource_by_id(ds_id)
+    ds_db: ClientDataSource = dss.get_datasource_by_id(ds_id)
 
     if ds_db is None or ds_db.removed is True:
         raise HTTPException(404)
-
-    ds = DataSource(**ds_db.__dict__, created_at=ds_db.creation_time)
 
     f_db = dss.get_features_by_datasource(ds_db)
 
     fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db if not f.removed]
 
     return DataSourceDetails(
-        datasource=ds,
+        **ds_db.__dict__,
+        created_at=ds_db.creation_time,
         features=fs,
     )
 
 
-@workbench_router.post('/workbench/artifact/submit', response_model=ArtifactResponse)
-async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session = Depends(get_db)):
+@workbench_router.post('/workbench/artifact/submit', response_model=ArtifactStatus)
+async def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
     cts: ClientTaskService = ClientTaskService(db)
     ars: ArtifactService = ArtifactService(db)
     dss: DataSourceService = DataSourceService(db)
@@ -103,29 +103,23 @@ async def wb_post_artifact_submit(artifact: ArtifactSubmitRequest, db: Session =
 
     try:
         artifact_db = ars.create_artifact(artifact_id, path)
-        data = artifact.dict()
 
         with open(path, 'w') as f:
-            json.dump(data, f)
-
-        artifact = ArtifactResponse(
-            **data,
-            artifact_id=artifact_id,
-            status=artifact_db.status,
-        )
+            json.dump(artifact.dict(), f)
 
         # TODO this is there temporally. It will be done inside a celery worker...
         task_db = cts.create_task(artifact)
 
-        for ds_id in artifact.query.datasources:
-            ds: ClientDataSource = dss.get_datasource_by_id(ds_id)
-            client_id = ds.client_id
-
+        for query in artifact.queries:
+            client_id: str = dss.get_client_id_by_datasource_id(query.datasources_id)
             cts.create_client_task(artifact_db.artifact_id, client_id, task_db.task_id)
 
         # TODO: ...until there
 
-        return artifact
+        return ArtifactStatus(
+            artifact_id=artifact_id,
+            status=artifact_db.status,
+        )
     except ValueError as e:
         LOGGER.error('Artifact already exists')
         LOGGER.exception(e)
@@ -147,7 +141,7 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
     )
 
 
-@workbench_router.get('/workbench/download/artifact/{artifact_id}', response_model=ArtifactResponse)
+@workbench_router.get('/workbench/download/artifact/{artifact_id}', response_model=Artifact)
 async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
     ars: ArtifactService = ArtifactService(db)
 
@@ -162,7 +156,7 @@ async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
     async with aiofiles.open(artifact_db.path, 'r') as f:
         data = json.load(f)
 
-    return ArtifactResponse(artifact_id=artifact_id, status=artifact_db.status, **data)
+    return Artifact(artifact_id=artifact_id, **data)
 
 
 @workbench_router.get('/workbench/download/model/{artifact_id}', response_class=FileResponse)

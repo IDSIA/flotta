@@ -6,6 +6,7 @@ from .client import ClientService
 from .ctask import ClientTaskService
 
 from ferdelance_shared.actions import *
+from ferdelance_shared.schemas import UpdateClientApp, UpdateExecute, UpdateNothing, UpdateToken
 
 from typing import Any
 import logging
@@ -34,7 +35,7 @@ class ActionService(DBSessionService):
 
         return n_tokens == 0
 
-    def _action_update_token(self, client: Client) -> tuple[str, dict[str, str]]:
+    def _action_update_token(self, client: Client) -> UpdateToken:
         """Generates a new valid token.
 
         :return:
@@ -44,7 +45,10 @@ class ActionService(DBSessionService):
         self.cs.invalidate_all_tokens(client.client_id)
         self.cs.create_client_token(token)
 
-        return UPDATE_TOKEN, {'token': token.token}
+        return UpdateToken(
+            action=UPDATE_TOKEN,
+            token=token.token
+        )
 
     def _check_client_app_update(self, client: Client) -> bool:
         """Compares the client current version with the newest version on the database.
@@ -58,7 +62,7 @@ class ActionService(DBSessionService):
 
         return version is not None and client.version != version
 
-    def _action_update_client_app(self) -> tuple[str, dict[str, str]]:
+    def _action_update_client_app(self) -> UpdateClientApp:
         """Update and restart the client with the new version.
 
         :return:
@@ -67,23 +71,29 @@ class ActionService(DBSessionService):
 
         new_client: str = self.cas.get_newest_app_version()
 
-        return UPDATE_CLIENT, {
-            'checksum': new_client.checksum,
-            'name': new_client.name,
-            'version': new_client.version,
-        }
+        return UpdateClientApp(
+            action=UPDATE_CLIENT,
+            checksum=new_client.checksum,
+            name=new_client.name,
+            version=new_client.version,
+        )
 
     def _check_scheduled_task(self, client: Client) -> ClientTask | None:
         return self.cts.get_next_task_for_client(client)
 
-    def _action_schedule_task(self, task: ClientTask) -> tuple[str, dict[str, str]]:
-        return EXEC, {'client_task_id': task.client_task_id}
+    def _action_schedule_task(self, task: ClientTask) -> UpdateNothing:
+        return UpdateExecute(
+            action=EXECUTE,
+            client_task_id=task.client_task_id,
+        )
 
     def _action_nothing(self) -> tuple[str, Any]:
         """Do nothing and waits for the next update request."""
-        return DO_NOTHING, {}
+        return UpdateNothing(
+            action=DO_NOTHING
+        )
 
-    def next(self, client: Client, payload: str) -> tuple[str, dict[str, str]]:
+    def next(self, client: Client, payload: str) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
 
         # TODO: consume client payload
 
