@@ -116,9 +116,9 @@ class HybridDecrypter:
         """
         output: list[str] = []
 
-        output += self.start()
-        output += self.update(content)
-        output += self.end()
+        output.append(self.start())
+        output.append(self.update(content))
+        output.append(self.end())
 
         return ''.join(output)
 
@@ -156,12 +156,12 @@ class HybridDecrypter:
         """
         data: list[str] = []
 
-        data += self.start()
+        data.append(self.start())
 
         for chunk in stream_func:
-            data += self.update(chunk)
+            data.append(self.update(chunk))
 
-        data += self.end()
+        data.append(self.end())
 
         return ''.join(data)
 
