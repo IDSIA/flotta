@@ -22,4 +22,4 @@ class DataSource:
         return f'({self.kind}) {self.name}'
 
     def metadata(self) -> dict:
-        NotImplemented()
+        NotImplementedError()
