@@ -5,12 +5,17 @@ class Action(Enum):
     """Execute a new train query."""
     EXECUTE = auto()
 
-    """Token is expired, update with a new one."""
+    """Server send that the token is expired, update with a new one."""
     UPDATE_TOKEN = auto()
-    """There is a new client version, update it."""
+    """Server send that there is a new client version, update it."""
     UPDATE_CLIENT = auto()
-    """Server changed key, update it."""
+    """Server send that it changed key, update it."""
     UPDATE_SERVER_KEY = auto()
 
     """No action required."""
     DO_NOTHING = auto()
+
+    """Client self-update."""
+    CLIENT_UPDATE = auto()
+    """Client can terminate application."""
+    CLIENT_EXIT = auto()
