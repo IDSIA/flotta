@@ -1,5 +1,3 @@
-from typing import Any
-
 from ferdelance import __version__
 from ferdelance_shared.actions import *
 from ferdelance_shared.generate import (
@@ -7,37 +5,29 @@ from ferdelance_shared.generate import (
     bytes_from_private_key,
     bytes_from_public_key,
     private_key_from_bytes,
-    public_key_from_str,
     public_key_from_bytes,
     RSAPrivateKey,
     RSAPublicKey,
 )
-from ferdelance_shared.decode import (
-    decrypt,
-    decode_from_transfer,
-    HybridDecrypter,
-)
-from ferdelance_shared.encode import (
-    encrypt,
-    HybridEncrypter,
-)
+from ferdelance_shared.decode import HybridDecrypter
+from ferdelance_shared.encode import HybridEncrypter
+
+from ferdelance_shared.actions import Action
+from ferdelance_shared.schemas import *
 
 from .datasources import DataSourceDB, DataSourceFile
-from .utils import NumpyEncoder
 
 from base64 import b64encode
 from getmac import get_mac_address
 from requests import Response
 from time import sleep
 
-import hashlib
 import json
 import logging
 import requests
 import os
 import platform
 import shutil
-import stat
 import sys
 import uuid
 import yaml
@@ -92,26 +82,24 @@ class FerdelanceClient:
             'Authorization': f'Bearer {self.client_token}'
         }
 
-    def create_payload(self, payload: dict) -> dict:
+    def create_payload(self, content: dict) -> bytes:
         """Encrypt the given payload to send to the server.
 
         :return:
             A dictionary with encrypted data to use in the `payload` arguments of a POST request.
         """
-        return {
-            'payload': encrypt(self.server_public_key, json.dumps(payload))
-        }
+        return HybridEncrypter(self.server_public_key, json.dumps(content))
 
-    def get_payload(self, json_data: dict) -> dict:
+    def get_payload(self, content: str) -> dict:
         """Extract the content of a payload received from the server.
 
         :return:
-            A decripted json from the `payload` key received from the server.
+            A decrypted json from the `payload` key received from the server.
         """
-        return json.loads(decrypt(self.private_key, json_data['payload']))
+        return json.loads(HybridDecrypter(self.private_key).decrypt(content))
 
-    def decrypt_stream_response(self, stream: Response, out_path: str) -> str:
-        """Decrypt an incoming stream of data using a local private key and compute the checksum.
+    def decrypt_stream_to_file(self, stream: Response, out_path: str) -> str:
+        """Decrypt an incoming stream of data using a local private key, computes the checksum and save the content to disk.
 
         :param stream:
             Stream to read from.
@@ -126,7 +114,19 @@ class FerdelanceClient:
 
         return dec.get_checksum()
 
-    def request_join(self, data: dict) -> dict:
+    def decrypt_stream_response(self, stream: Response) -> tuple[str, str]:
+        """Decrypt an incoming stream of data using a local private key and computes the checksum.
+
+        :param stream:
+            Stream to read from.
+        :return:
+            A tuple containing the decrypted data and a checksum of the received data.
+        """
+        dec = HybridDecrypter(self.private_key)
+        data = dec.decrypt_stream(stream.iter_content())
+        return data, dec.get_checksum()
+
+    def request_join(self, data: ClientJoinRequest) -> ClientJoinData:
         """Send a join request to the server.
 
         :return:
@@ -134,12 +134,12 @@ class FerdelanceClient:
         """
         res = requests.post(
             f'{self.server}/client/join',
-            json=data
+            json=json.dumps(data.dict())
         )
 
         res.raise_for_status()
 
-        return res.json()
+        return ClientJoinData(**self.get_payload(res.content))
 
     def request_leave(self) -> None:
         res = requests.post(
@@ -159,57 +159,48 @@ class FerdelanceClient:
     def request_metadata(self) -> None:
         LOGGER.info('sending metadata to remote')
 
-        ds_content = {'datasources': [ds.metadata() for _, ds in self.datasources.items()]}
-
-        enc = HybridEncrypter(self.server_public_key)
-        metadata = bytearray()
-        metadata += enc.start()
-        metadata += enc.update(json.dumps(ds_content, cls=NumpyEncoder))
-        metadata += enc.end()
+        metadata = Metadata(datasources=[ds.metadata() for _, ds in self.datasources.items()])
 
         res = requests.post(
             f'{self.server}/client/update/metadata',
-            files={'file': ('metadata.bin', metadata)},
+            data=self.create_payload(json.dumps(metadata.dict())),
             headers=self.headers(),
         )
 
         res.raise_for_status()
 
-        LOGGER.info('metadata uploaded successfull')
+        LOGGER.info('metadata uploaded successful')
 
-    def request_update(self, data: dict) -> tuple[str, str]:
+    def request_update(self, content: dict) -> tuple[Action, dict]:
         LOGGER.info('requesting update')
-
-        payload = self.create_payload(data)
 
         res = requests.get(
             f'{self.server}/client/update',
-            json=payload,
+            data=self.create_payload(content),
             headers=self.headers(),
         )
 
         res.raise_for_status()
 
-        ret_data = self.get_payload(res.json())
+        data = self.get_payload(res.content)
 
-        return ret_data['action'], ret_data['data']
+        return Action[data['action']], data
 
-    def request_client_task(self, data: dict) -> dict[str, Any]:
+    def request_client_task(self, task: UpdateExecute) -> ArtifactTask:
         LOGGER.info('requesting new client task')
-        payload = self.create_payload(data)
 
-        with requests.get(
+        res = requests.get(
             f'{self.server}/client/task',
-            json=payload,
+            json=self.create_payload(task.dict()),
             headers=self.headers(),
-            stream=True,
-        ) as task_response:
-            dec = HybridDecrypter(self.private_key)
-            data = dec.decrypt_stream(task_response.iter_content())
-            return json.loads(data)
+        )
+
+        res.raise_for_status()
+
+        return ArtifactTask(**self.get_payload(res.content))
 
     def setup(self) -> None:
-        """Client initliazation (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
+        """Client initialization (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
         LOGGER.info('client initialization')
 
         what_is_missing = []
@@ -327,22 +318,22 @@ class FerdelanceClient:
                     LOGGER.info(f'system info: machine_node={machine_node}')
                     LOGGER.info(f'client info: version={__version__}')
 
-                    data = {
-                        'system': machine_system,
-                        'mac_address': machine_mac_address,
-                        'node': machine_node,
-                        'public_key': b64encode(public_key_bytes).decode('utf8'),
-                        'version': __version__
-                    }
-
                     try:
-                        json_data = self.request_join(data)
+                        join_data = ClientJoinRequest(
+                            system=machine_system,
+                            mac_address=machine_mac_address,
+                            node=machine_node,
+                            public_key=b64encode(public_key_bytes).decode('utf8'),
+                            version=__version__
+                        )
 
-                        LOGGER.info('client join sucessfull')
+                        data: ClientJoinData = self.request_join(join_data)
 
-                        self.client_id = decrypt(self.private_key, json_data['id'])
-                        self.client_token = decrypt(self.private_key, json_data['token'])
-                        self.server_public_key = public_key_from_str(decode_from_transfer(json_data['public_key']))
+                        LOGGER.info('client join successful')
+
+                        self.client_id = data.id
+                        self.client_token = data.token
+                        self.server_public_key = data.public_key
 
                         with open(self.path_server_key, 'wb') as f:
                             f.write(bytes_from_public_key(self.server_public_key))
@@ -365,7 +356,7 @@ class FerdelanceClient:
                             sys.exit(2)
 
                     except requests.exceptions.RequestException as e:
-                        LOGGER.error('connection refuesd')
+                        LOGGER.error('connection refused')
                         LOGGER.exception(e)
                         LOGGER.error(f'Waiting {self.heartbeat} second(s) and retrying')
                         sleep(self.heartbeat)
@@ -414,32 +405,32 @@ class FerdelanceClient:
                 'path_private_key': self.path_private_key,
             }, f)
 
-    def action_update_token(self, data: dict) -> None:
+    def action_update_token(self, data: UpdateToken) -> None:
         LOGGER.info('updating client token with a new one')
-        self.client_token = data['token']
+        self.client_token = data.token
         self.dump_config()
 
-    def action_update_client(self, data: dict) -> str:
-        version_app = data['version']
-        filename = data['name']
-        expected_checksum = data['checksum']
+    def action_update_client(self, data: UpdateClientApp) -> str:
+        expected_checksum = data.checksum
+
+        download_app = DownloadApp(name=data.name, version=data.version)
 
         with requests.post(
             '/client/update/files',
-            json=self.create_payload({'client_version': version_app}),
+            json=self.create_payload(download_app.dict()),
             headers=self.headers(),
             stream=True,
         ) as stream:
             if not stream.ok:
-                LOGGER.error(f'could not download new client version={version_app} from server={self.server}')
+                LOGGER.error(f'could not download new client version={data.version} from server={self.server}')
                 return 'update'
 
-            path_file: str = os.path.join(self.workdir, filename)
-            checksum: str = self.decrypt_stream_response(stream, path_file)
+            path_file: str = os.path.join(self.workdir, data.name)
+            checksum: str = self.decrypt_stream_to_file(stream, path_file)
 
             if checksum != expected_checksum:
                 LOGGER.error('Checksum mismatch: received invalid data!')
-                return DO_NOTHING
+                return Action.DO_NOTHING
 
             LOGGER.error(f'Checksum of {path_file} passed')
 
@@ -448,42 +439,41 @@ class FerdelanceClient:
 
             # TODO: this is something for the next iteration
 
-        return 'update'
+        return Action.CLIENT_UPDATE
 
     def action_do_nothing(self) -> str:
         LOGGER.info('nothing new from the server')
-        return DO_NOTHING
+        return Action.DO_NOTHING
 
-    def action_execute_task(self, data: dict) -> str:
+    def action_execute_task(self, task: UpdateExecute) -> str:
         LOGGER.info('executing new task')
-        content = self.request_client_task(data)
+        content: ArtifactTask = self.request_client_task(task)
 
         # TODO: this is an example, execute required task when implemented
-        artifact_id: str = content['artifact_id']
 
-        LOGGER.info(f'received artifact_id={artifact_id}')
+        LOGGER.info(f'received artifact_id={content.artifact_id}')
 
-        with open(os.path.join(self.path_artifact_folder, f'{artifact_id}.json'), 'w') as f:
-            json.dump(content, f)
+        with open(os.path.join(self.path_artifact_folder, f'{content.artifact_id}.json'), 'w') as f:
+            json.dump(content.dict(), f)
 
-    def perform_action(self, action: str, data: dict) -> str:
+    def perform_action(self, action: Action, data: dict) -> Action:
         LOGGER.info(f'action received={action}')
 
-        if action == UPDATE_TOKEN:
-            self.action_update_token(data)
+        if action == Action.UPDATE_TOKEN:
+            self.action_update_token(UpdateToken(**data))
 
-        if action == EXEC:
-            self.action_execute_task(data)
-            return DO_NOTHING
+        if action == Action.EXECUTE:
+            self.action_execute_task(UpdateExecute(**data))
+            return Action.DO_NOTHING
 
-        if action == UPDATE_CLIENT:
-            return self.action_update_client(data)
+        if action == Action.UPDATE_CLIENT:
+            return self.action_update_client(UpdateClientApp(**data))
 
-        if action == DO_NOTHING:
+        if action == Action.DO_NOTHING:
             return self.action_do_nothing()
 
         LOGGER.error(f'cannot complete action={action}')
-        return DO_NOTHING
+        return Action.DO_NOTHING
 
     def stop_loop(self):
         LOGGER.info('stopping application')
@@ -502,7 +492,7 @@ class FerdelanceClient:
 
             self.request_metadata()
 
-            while self.status != 'exit' and not self.stop:
+            while self.status != Action.CLIENT_EXIT and not self.stop:
                 try:
                     LOGGER.info('requesting update')
 
@@ -513,7 +503,7 @@ class FerdelanceClient:
                     # work loop
                     self.status = self.perform_action(action, data)
 
-                    if self.status == 'update':
+                    if self.status == Action.CLIENT_UPDATE:
                         LOGGER.info('update application and dependencies')
                         sys.exit(1)
 
