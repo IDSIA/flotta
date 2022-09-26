@@ -2,15 +2,15 @@ from base64 import b64encode
 
 from ferdelance.database import SessionLocal
 from ferdelance.database.settings import KeyValueStore
-from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, ClientTask
-from ferdelance.server.schemas.workbench import ArtifactSubmitRequest, QueryRequest, ModelRequest, StrategyRequest, QueryFeature, QueryFilter
+from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, ClientTask, Task
 from ferdelance.server.security import PUBLIC_KEY
 from ferdelance.server.services.application import ClientAppService
 from ferdelance.server.services.client import ClientService
 from ferdelance.server.services.datasource import DataSourceService
 from ferdelance.server.folders import STORAGE_ARTIFACTS
 
-from ferdelance_shared.actions import EXEC
+from ferdelance_shared.actions import Action
+from ferdelance_shared.schemas import *
 
 from .utils import (
     setup_test_client,
@@ -80,26 +80,26 @@ class TestClientClass:
         client_id, self.token, self.server_key = create_client(self.client, self.private_key)
         return client_id
 
-    def get_client_update(self, payload, token: str | None = None) -> tuple[int, str, str]:
-        payload = create_payload(self.server_key, payload)
-
+    def get_client_update(self, payload: str | None = None, token: str | None = None) -> tuple[int, str, str]:
         cur_token = token if token else self.token
+
+        if payload is None:
+            payload = json.dumps(ClientUpdate(action=Action.DO_NOTHING.name).dict())
 
         response = self.client.get(
             '/client/update',
-            json=payload,
+            data=create_payload(self.server_key, payload),
             headers=headers(cur_token)
         )
 
         if response.status_code != 200:
             return response.status_code, None, None
 
-        response_payload = get_payload(self.private_key, response.json())
+        response_payload = get_payload(self.private_key, response.content)
 
         assert 'action' in response_payload
-        assert 'data' in response_payload
 
-        return response.status_code, response_payload['action'], response_payload['data']
+        return response.status_code, response_payload['action'], response_payload
 
     def test_read_home(self):
         """Generic test to check if the home works."""
@@ -125,7 +125,8 @@ class TestClientClass:
         client_id = self.get_client()
 
         with SessionLocal() as db:
-            cs: ClientService = ClientService(db)
+            cs = ClientService(db)
+            kvs = KeyValueStore(db)
 
             db_client = cs.get_client_by_id(client_id)
             db_token = cs.get_client_token_by_client_id(client_id)
@@ -136,7 +137,6 @@ class TestClientClass:
             assert db_token.token == self.token
             assert db_token.valid
 
-            kvs = KeyValueStore(db)
             server_public_key_db: str = kvs.get_str(PUBLIC_KEY)
 
             assert server_public_key_db == bytes_from_public_key(self.server_key).decode('utf8')
@@ -157,17 +157,17 @@ class TestClientClass:
 
             client = cs.get_client_by_id(client_id)
 
-            data = {
-                'system': client.machine_system,
-                'mac_address': client.machine_mac_address,
-                'node': client.machine_node,
-                'public_key': b64encode(public_key).decode('utf8'),
-                'version': 'test'
-            }
+            data = ClientJoinRequest(
+                system=client.machine_system,
+                mac_address=client.machine_mac_address,
+                node=client.machine_node,
+                public_key=b64encode(public_key).decode('utf8'),
+                version='test',
+            )
 
         response = self.client.post(
             '/client/join',
-            json=data
+            json=data.dict()
         )
 
         assert response.status_code == 403
@@ -178,11 +178,10 @@ class TestClientClass:
 
         client_id = self.get_client()
 
-        status_code, action, data = self.get_client_update({})
+        status_code, action, data = self.get_client_update()
 
         assert status_code == 200
-        assert action == 'nothing'
-        assert not data
+        assert Action[action] == Action.DO_NOTHING
 
         with SessionLocal() as db:
             cs: ClientService = ClientService(db)
@@ -196,7 +195,7 @@ class TestClientClass:
             assert len(db_events) == 3
             assert 'creation' in db_events
             assert 'update' in db_events
-            assert 'action:nothing' in db_events
+            assert f'action:{Action.DO_NOTHING.name}' in db_events
 
     def test_client_leave(self):
         """This will test the endpoint for leave a client."""
@@ -204,7 +203,6 @@ class TestClientClass:
 
         response_leave = self.client.post(
             '/client/leave',
-            json={},
             headers=headers(self.token)
         )
 
@@ -213,7 +211,7 @@ class TestClientClass:
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        status_code, _, _ = self.get_client_update({})
+        status_code, _, _ = self.get_client_update()
 
         assert status_code == 403
 
@@ -243,11 +241,17 @@ class TestClientClass:
 
             LOGGER.info('expiration_time for token set to 0')
 
-            status_code, action, data = self.get_client_update({})
-            new_token = data['token']
+            status_code, action, data = self.get_client_update()
+
+            assert 'action' in data
+            assert Action[action] == Action.UPDATE_TOKEN
+
+            update_token = UpdateToken(**data)
+
+            new_token = update_token.token
 
             assert status_code == 200
-            assert action == 'update_token'
+            assert Action[action] == Action.UPDATE_TOKEN
 
             # extend expire token
             db.query(ClientToken).filter(ClientToken.client_id == client_id).update({'expiration_time': 86400})
@@ -255,15 +259,16 @@ class TestClientClass:
 
             LOGGER.info('expiration_time for token set to 24h')
 
-            status_code, _, _ = self.get_client_update({})
+            status_code, _, _ = self.get_client_update()
 
             assert status_code == 403
 
-            status_code, action, data = self.get_client_update({}, new_token)
+            status_code, action, data = self.get_client_update(token=new_token)
 
             assert status_code == 200
-            assert action == 'nothing'
-            assert not data
+            assert 'action' in data
+            assert Action[action] == Action.DO_NOTHING
+            assert len(data) == 1
 
     def test_client_update_app(self):
         """This will test the upload of a new (fake) app, and the update process."""
@@ -325,17 +330,21 @@ class TestClientClass:
             assert newest_version.version == version_app
 
             # update request
-            status_code, action, data = self.get_client_update({})
+            status_code, action, data = self.get_client_update()
 
             assert status_code == 200
+            assert Action[action] == Action.UPDATE_CLIENT
 
-            assert action == 'update_client'
-            assert data['version'] == version_app
+            update_client_app = UpdateClientApp(**data)
+
+            assert update_client_app.version == version_app
+
+            download_app = DownloadApp(name=update_client_app.name, version=update_client_app.version)
 
             # download new client
             with self.client.get(
-                '/client/update/files',
-                json=create_payload(self.server_key, {'client_version': data['version']}),
+                '/client/download/application',
+                data=create_payload(self.server_key, json.dumps(download_app.dict())),
                 headers=headers(self.token),
                 stream=True,
             ) as stream:
@@ -343,7 +352,7 @@ class TestClientClass:
 
                 content, checksum = decrypt_stream_response(stream, self.private_key)
 
-                assert data['checksum'] == checksum
+                assert update_client_app.checksum == checksum
                 assert json.loads(content) == {'version': version_app}
 
             client_version = cs.get_client_by_id(client_id).version
@@ -361,27 +370,26 @@ class TestClientClass:
         with SessionLocal() as db:
             client_id = self.get_client()
 
-            ds_content: dict = get_metadata()
-            upload_response: Response = send_metadata(self.client, self.token, self.server_key, ds_content)
+            metadata: Metadata = get_metadata()
+            upload_response: Response = send_metadata(self.client, self.token, self.server_key, metadata)
 
             assert upload_response.status_code == 200
 
             ds_db: ClientDataSource = db.query(ClientDataSource).filter(ClientDataSource.client_id == client_id).first()
 
             assert ds_db is not None
-            assert ds_db.name == ds_content['datasources'][0]['name']
-            assert ds_db.type == ds_content['datasources'][0]['type']
-            assert ds_db.removed == ds_content['datasources'][0]['removed']
-            assert ds_db.n_records == ds_content['datasources'][0]['n_records']
-            assert ds_db.n_features == ds_content['datasources'][0]['n_features']
+            assert ds_db.name == metadata.datasources[0].name
+            assert ds_db.removed == metadata.datasources[0].removed
+            assert ds_db.n_records == metadata.datasources[0].n_records
+            assert ds_db.n_features == metadata.datasources[0].n_features
 
-            ds_features = ds_content['datasources'][0]['features']
+            ds_features = metadata.datasources[0].features
 
             ds_fs: list[ClientFeature] = db.query(ClientFeature).filter(ClientFeature.datasource_id == ds_db.datasource_id).all()
 
             assert len(ds_fs) == 2
-            assert ds_fs[0].name == ds_features[0]['name']
-            assert ds_fs[1].name == ds_features[1]['name']
+            assert ds_fs[0].name == ds_features[0].name
+            assert ds_fs[1].name == ds_features[1].name
 
     def test_task_get(self):
         with SessionLocal() as db:
@@ -389,9 +397,9 @@ class TestClientClass:
             dss: DataSourceService = DataSourceService(db)
 
             # setup metadata for client
-            ds_content: dict = get_metadata()
-            ds_name = ds_content['datasources'][0]['name']
-            upload_response: Response = send_metadata(self.client, self.token, self.server_key, ds_content)
+            metadata: Metadata = get_metadata()
+            ds_name = metadata.datasources[0].name
+            upload_response: Response = send_metadata(self.client, self.token, self.server_key, metadata)
 
             assert upload_response.status_code == 200
 
@@ -404,15 +412,16 @@ class TestClientClass:
             qf1 = QueryFeature(feature_id=f1.feature_id, datasource_id=f1.datasource_id)
             qf2 = QueryFeature(feature_id=f2.feature_id, datasource_id=f2.datasource_id)
 
-            artifact = ArtifactSubmitRequest(
-                query=QueryRequest(
-                    datasources=[ds.datasource_id],
+            artifact = Artifact(
+                artifact_id=None,
+                queries=[Query(
+                    datasources_id=ds.datasource_id,
                     features=[qf1, qf2],
                     filters=[QueryFilter(feature=qf1, operation='', parameter='')],
                     transformers=[],
-                ),
-                model=ModelRequest(name=''),
-                strategy=StrategyRequest(strategy='')
+                )],
+                model=Model(name=''),
+                strategy=Strategy(strategy='')
             )
 
             # submit artifact
@@ -424,39 +433,47 @@ class TestClientClass:
 
             assert submit_response.status_code == 200
 
-            artifact_id: str = submit_response.json()['artifact_id']
+            artifact_status = ArtifactStatus(**submit_response.json())
+
+            n = db.query(Task).count()
+            assert n == 1
 
             n = db.query(ClientTask).filter(ClientTask.client_id == client_id).count()
             assert n == 1
 
             # update client
-            status_code, action, data = self.get_client_update({})
+            status_code, action, data = self.get_client_update()
 
             assert status_code == 200
-            assert action == EXEC
-            assert 'client_task_id' in data
+            assert Action[action] == Action.EXECUTE
 
-            client_task_id: str = data['client_task_id']
+            update_execute = UpdateExecute(**data)
 
             # get task for client
             with self.client.get(
                 f'/client/task/',
-                json=create_payload(self.server_key, {'client_task_id': client_task_id}),
+                data=create_payload(self.server_key, json.dumps(update_execute.dict())),
                 headers=headers(self.token),
                 stream=True,
             ) as task_response:
                 assert task_response.status_code == 200
 
-                content, _ = decrypt_stream_response(task_response, self.private_key)
-
-                content = json.loads(content)
+                content = get_payload(self.private_key, task_response.content)
 
                 assert 'artifact_id' in content
-                assert content['artifact_id'] == artifact_id
-                assert len(content['features']) == 2
+                assert 'client_task_id' in content
+                assert 'model' in content
+                assert 'queries' in content
+
+                task = ArtifactTask(**content)
+
+                assert task.artifact_id == artifact_status.artifact_id
+                assert len(task.queries) == 1
+                assert len(task.queries[0].features) == 2
 
             # cleanup
-            os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json'))
+            os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_status.artifact_id}.json'))
 
-            db.query(ClientTask).filter(ClientTask.task_id == client_task_id).delete()
+            db.query(ClientTask).delete()
+            db.query(Task).delete()
             db.commit()

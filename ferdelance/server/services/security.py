@@ -10,10 +10,14 @@ from ferdelance_shared.generate import (
 from ferdelance_shared.decode import decode_from_transfer, decrypt, HybridDecrypter
 from ferdelance_shared.encode import encode_to_transfer, encrypt, HybridEncrypter
 
-from ...database.settings import KeyValueStore
-from ...database.tables import Client
-from ..schemas.client import ClientJoinRequest
+from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
+from ...database.tables import Client, ClientToken
+from .client import ClientService
 from . import DBSessionService, Session
+
+from hashlib import sha256
+from time import time
+from uuid import uuid4
 
 import logging
 
@@ -26,10 +30,36 @@ PRIVATE_KEY = 'SERVER_KEY_PRIVATE'
 
 
 class SecurityService(DBSessionService):
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, client_id: str | None) -> None:
         super().__init__(db)
 
         self.kvs: KeyValueStore = KeyValueStore(db)
+
+        if client_id is not None:
+            cs: ClientService = ClientService(db)
+            self.client: Client = cs.get_client_by_id(client_id)
+
+    def generate_token(self, system: str, mac_address: str, node: str, client_id: str = None) -> ClientToken:
+        """Generates a client token with the data received from the client."""
+        if client_id is None:
+            client_id = str(uuid4())
+            LOGGER.info(f'client_id={client_id}: generating new token')
+        else:
+            LOGGER.info('generating token for new client')
+
+        ms = round(time() * 1000)
+
+        token: bytes = f'{client_id}~{system}${mac_address}£{node}={ms};'.encode('utf8')
+        token: bytes = sha256(token).hexdigest().encode('utf8')
+        token: str = sha256(token).hexdigest()
+
+        exp_time: int = self.kvs.get_int(KEY_TOKEN_EXPIRATION)
+
+        return ClientToken(
+            token=token,
+            client_id=client_id,
+            expiration_time=exp_time,
+        )
 
     def get_server_public_key(self) -> RSAPublicKey:
         """
@@ -53,22 +83,32 @@ class SecurityService(DBSessionService):
         private_bytes: bytes = self.kvs.get_bytes(PRIVATE_KEY)
         return private_key_from_bytes(private_bytes)
 
-    def get_client_public_key(self, client: Client | ClientJoinRequest) -> RSAPublicKey:
-        key_bytes: bytes = decode_from_transfer(client.public_key).encode('utf8')
+    def get_client_public_key(self) -> RSAPublicKey:
+        key_bytes: bytes = decode_from_transfer(self.client.public_key).encode('utf8')
         public_key: RSAPublicKey = public_key_from_bytes(key_bytes)
         return public_key
 
-    def server_encrypt(self, client: Client, content: str) -> str:
-        client_public_key: RSAPublicKey = self.get_client_public_key(client)
+    def server_encrypt(self, content: str) -> str:
+        client_public_key: RSAPublicKey = self.get_client_public_key()
         return encrypt(client_public_key, content)
 
     def server_decrypt(self, content: str) -> str:
         server_private_key: RSAPrivateKey = self.get_server_private_key()
         return decrypt(server_private_key, content)
 
-    def server_stream_encrypt_file(self, client: Client, path: str) -> StreamingResponse:
+    def server_encrypt_content(self, content: str) -> bytes:
+        client_public_key: RSAPublicKey = self.get_client_public_key()
+        enc = HybridEncrypter(client_public_key)
+        return enc.encrypt(content)
+
+    def server_decrypt_content(self, content: str) -> str:
+        server_private_key: RSAPrivateKey = self.get_server_private_key()
+        enc = HybridDecrypter(server_private_key)
+        return enc.decrypt(content)
+
+    def server_stream_encrypt_file(self, path: str) -> StreamingResponse:
         """Used to stream encrypt data from a file, using less memory."""
-        client_public_key: RSAPublicKey = self.get_client_public_key(client)
+        client_public_key: RSAPublicKey = self.get_client_public_key()
 
         enc = HybridEncrypter(client_public_key)
 
@@ -87,9 +127,9 @@ class SecurityService(DBSessionService):
 
         # TODO: find a way to add the checksum to the stream
 
-    def server_stream_encrypt(self, client: Client, content: str) -> bytes:
+    def server_stream_encrypt(self, content: str) -> bytes:
         """Used to encrypt small data that can be kept in memory."""
-        public_key = self.get_client_public_key(client)
+        public_key = self.get_client_public_key()
 
         enc = HybridEncrypter(public_key)
 
