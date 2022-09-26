@@ -9,7 +9,7 @@ from ferdelance.server.services.client import ClientService
 from ferdelance.server.services.datasource import DataSourceService
 from ferdelance.server.folders import STORAGE_ARTIFACTS
 
-from ferdelance_shared.actions import *
+from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import *
 
 from .utils import (
@@ -84,7 +84,7 @@ class TestClientClass:
         cur_token = token if token else self.token
 
         if payload is None:
-            payload = json.dumps(ClientUpdate(action=DO_NOTHING).dict())
+            payload = json.dumps(ClientUpdate(action=Action.DO_NOTHING.name).dict())
 
         response = self.client.get(
             '/client/update',
@@ -181,7 +181,7 @@ class TestClientClass:
         status_code, action, data = self.get_client_update()
 
         assert status_code == 200
-        assert action == 'nothing'
+        assert Action[action] == Action.DO_NOTHING
 
         with SessionLocal() as db:
             cs: ClientService = ClientService(db)
@@ -195,7 +195,7 @@ class TestClientClass:
             assert len(db_events) == 3
             assert 'creation' in db_events
             assert 'update' in db_events
-            assert 'action:action=nothing' in db_events
+            assert f'action:{Action.DO_NOTHING.name}' in db_events
 
     def test_client_leave(self):
         """This will test the endpoint for leave a client."""
@@ -244,14 +244,14 @@ class TestClientClass:
             status_code, action, data = self.get_client_update()
 
             assert 'action' in data
-            assert action == UPDATE_TOKEN
+            assert Action[action] == Action.UPDATE_TOKEN
 
             update_token = UpdateToken(**data)
 
             new_token = update_token.token
 
             assert status_code == 200
-            assert action == 'update_token'
+            assert Action[action] == Action.UPDATE_TOKEN
 
             # extend expire token
             db.query(ClientToken).filter(ClientToken.client_id == client_id).update({'expiration_time': 86400})
@@ -267,7 +267,7 @@ class TestClientClass:
 
             assert status_code == 200
             assert 'action' in data
-            assert action == DO_NOTHING
+            assert Action[action] == Action.DO_NOTHING
             assert len(data) == 1
 
     def test_client_update_app(self):
@@ -333,7 +333,7 @@ class TestClientClass:
             status_code, action, data = self.get_client_update()
 
             assert status_code == 200
-            assert action == UPDATE_CLIENT
+            assert Action[action] == Action.UPDATE_CLIENT
 
             update_client_app = UpdateClientApp(**data)
 
@@ -445,7 +445,7 @@ class TestClientClass:
             status_code, action, data = self.get_client_update()
 
             assert status_code == 200
-            assert action == EXECUTE
+            assert Action[action] == Action.EXECUTE
 
             update_execute = UpdateExecute(**data)
 

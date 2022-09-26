@@ -5,7 +5,7 @@ from .client import ClientService
 from .ctask import ClientTaskService
 from .security import SecurityService
 
-from ferdelance_shared.actions import *
+from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import UpdateClientApp, UpdateExecute, UpdateNothing, UpdateToken
 
 from typing import Any
@@ -48,7 +48,7 @@ class ActionService(DBSessionService):
         self.cs.create_client_token(token)
 
         return UpdateToken(
-            action=UPDATE_TOKEN,
+            action=Action.UPDATE_TOKEN.name,
             token=token.token
         )
 
@@ -74,7 +74,7 @@ class ActionService(DBSessionService):
         new_client: str = self.cas.get_newest_app_version()
 
         return UpdateClientApp(
-            action=UPDATE_CLIENT,
+            action=Action.UPDATE_CLIENT.name,
             checksum=new_client.checksum,
             name=new_client.name,
             version=new_client.version,
@@ -85,14 +85,14 @@ class ActionService(DBSessionService):
 
     def _action_schedule_task(self, task: ClientTask) -> UpdateNothing:
         return UpdateExecute(
-            action=EXECUTE,
+            action=Action.EXECUTE.name,
             client_task_id=task.client_task_id,
         )
 
     def _action_nothing(self) -> tuple[str, Any]:
         """Do nothing and waits for the next update request."""
         return UpdateNothing(
-            action=DO_NOTHING
+            action=Action.DO_NOTHING.name
         )
 
     def next(self, client: Client, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:

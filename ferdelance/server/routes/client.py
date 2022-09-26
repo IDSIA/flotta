@@ -110,13 +110,13 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
     data = await request.body()
     payload: dict[str, Any] = json.loads(ss.server_decrypt_content(data))
 
-    action = acs.next(ss.client, payload)
+    payload = acs.next(ss.client, payload)
 
-    LOGGER.info(f'client_id={client_id}: sending action={action}')
+    LOGGER.info(f'client_id={client_id}: sending action={payload.action}')
 
-    cs.create_client_event(client_id, f'action:{action}')
+    cs.create_client_event(client_id, f'action:{payload.action}')
 
-    return Response(ss.server_encrypt_content(json.dumps(action.dict())))
+    return Response(ss.server_encrypt_content(json.dumps(payload.dict())))
 
 
 @client_router.get('/client/download/application', response_class=Response)
