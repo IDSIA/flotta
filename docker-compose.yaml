@@ -37,9 +37,6 @@ services:
     container_name: rabbitmq-broker
     networks:
       - ferdelance
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     command: rabbitmq-server
 
   # RESULTS - Where worker stores results
@@ -49,8 +46,6 @@ services:
     container_name: redis-backend
     networks:
       - ferdelance
-    ports:
-      - "6379:6379"
     command: redis-server
 
   # WORKER - The actual worker
@@ -85,8 +80,15 @@ services:
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
     command: --target flower
-    ports:
-      - "5555:5555" # TODO use traefik labels
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.flower.entrypoints=web"
+      - "traefik.http.routers.flower.rule=Host(`flower-ferdelance.${DOMAIN}`)"
+      # - "traefik.http.routers.flower.rule=(Host(`ferdelance.${DOMAIN}`) && PathPrefix(`/flower`))"
+      - "traefik.http.services.flower.loadbalancer.server.port=5555"
+      # - "traefik.http.routers.flower.middlewares=flower-stripprefix,flower-addprefix"
+      # - "traefik.http.middlewares.flower-stripprefix.stripprefix.prefixes=/flower"
+      # - "traefik.http.middlewares.flower-addprefix.addprefix.prefix=/flower"
     depends_on:
       - worker    
   
