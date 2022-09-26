@@ -80,7 +80,6 @@ class DataSourceService(DBSessionService):
                 # update data source info
                 LOGGER.info(f'updating data source={ds.name} for client_id={client_id}')
                 query.update({
-                    'type': ds.type,
                     'n_records': ds.n_records,
                     'n_features': ds.n_features,
                     'update_time': dt_now,
