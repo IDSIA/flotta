@@ -1,14 +1,21 @@
-"""Execute a new command."""
-EXEC: str = 'execute'
-"""Train the given model."""
-TRAIN: str = 'train'
+from enum import Enum, auto
 
-"""Token is expied, update with a new one."""
-UPDATE_TOKEN: str = 'update_token'
-"""There is a new client version, update it."""
-UPDATE_CLIENT: str = 'update_client'
-"""Server changed key, update it."""
-UPDATE_SERVER_KEY: str = 'update_server_key'
 
-"""No action required."""
-DO_NOTHING: str = 'nothing'
+class Action(Enum):
+    """Execute a new train query."""
+    EXECUTE = auto()
+
+    """Server send that the token is expired, update with a new one."""
+    UPDATE_TOKEN = auto()
+    """Server send that there is a new client version, update it."""
+    UPDATE_CLIENT = auto()
+    """Server send that it changed key, update it."""
+    UPDATE_SERVER_KEY = auto()
+
+    """No action required."""
+    DO_NOTHING = auto()
+
+    """Client self-update."""
+    CLIENT_UPDATE = auto()
+    """Client can terminate application."""
+    CLIENT_EXIT = auto()
