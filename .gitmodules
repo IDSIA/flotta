@@ -1,0 +1,3 @@
+[submodule "federated-learning-shared"]
+	path = federated-learning-shared
+	url = git@gitlab-core.supsi.ch:dti-idsia/spearhead/federated-learning-shared.git
