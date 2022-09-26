@@ -38,9 +38,6 @@ class UpdateData(BaseModel):
     """Basic update response from the server with the next action to do."""
     action: str
 
-    def __str__(self) -> str:
-        return f'action={self.action}'
-
 
 class UpdateToken(UpdateData):
     """The client has a new token to use."""
