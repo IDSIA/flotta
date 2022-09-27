@@ -1,5 +1,3 @@
-from base64 import b64encode
-
 from ferdelance.database import SessionLocal
 from ferdelance.database.settings import KeyValueStore
 from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, ClientTask, Task
@@ -27,6 +25,7 @@ from .utils import (
     send_metadata,
 )
 
+from base64 import b64encode
 from requests import Response
 
 import json
