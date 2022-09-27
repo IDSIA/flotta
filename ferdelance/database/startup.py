@@ -1,4 +1,4 @@
-from .tables import Artifact, Client, ClientApp, ClientEvent, ClientToken, Setting, Task, ClientTaskEvent, Model, ClientDataSource, ClientFeature
+from .tables import Artifact, Client, ClientApp, ClientEvent, ClientToken, Setting, Task, ClientTaskEvent, Model, ClientDataSource, ClientFeature, ClientTask
 
 from sqlalchemy.orm import Session
 
@@ -25,11 +25,27 @@ def init_content(db: Session) -> None:
     ClientApp.__table__.create(bind=engine, checkfirst=True)
     Artifact.__table__.create(bind=engine, checkfirst=True)
     Task.__table__.create(bind=engine, checkfirst=True)
+    ClientTask.__table__.create(bind=engine, checkfirst=True)
     ClientTaskEvent.__table__.create(bind=engine, checkfirst=True)
     Model.__table__.create(bind=engine, checkfirst=True)
     ClientDataSource.__table__.create(bind=engine, checkfirst=True)
     ClientFeature.__table__.create(bind=engine, checkfirst=True)
 
     db.commit()
+
+    server_exists_query = db.query(Client).filter(Client.client_id=="SERVER").first()
+
+    if server_exists_query is None:
+        
+        server_client: Client = Client(
+            client_id="SERVER",
+            machine_system="SERVER",
+            machine_mac_address="SERVER",
+            machine_node="SERVER",
+            ip_address="localhost"
+        )
+
+        db.add(server_client)
+        db.commit()
 
     LOGGER.info('Database creation completed')

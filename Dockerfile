@@ -6,6 +6,8 @@ RUN python -m venv /opt/venv
 
 ENV PATH="/opt/venv/bin:${PATH}"
 
+RUN python -m pip install --upgrade pip
+
 # copy and install shared library
 COPY federated-learning-shared/ /federated-learning-shared/
 

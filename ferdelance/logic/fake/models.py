@@ -2,6 +2,7 @@ from pydantic import BaseModel
 
 class ModelInput(BaseModel):
     """Model features as input for prediction"""
+    artifact_id: str
     x: float
 
 class TaskTicket(BaseModel):

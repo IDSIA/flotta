@@ -1,6 +1,5 @@
-from fastapi import Depends, HTTPException, UploadFile
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBasicCredentials, HTTPBearer
-from fastapi.responses import StreamingResponse
 
 from datetime import timedelta, datetime
 from hashlib import sha256
@@ -11,22 +10,15 @@ from ferdelance_shared.generate import (
     generate_asymmetric_key,
     bytes_from_private_key,
     bytes_from_public_key,
-    public_key_from_bytes,
-    private_key_from_bytes,
     RSAPublicKey,
     RSAPrivateKey,
 )
-from ferdelance_shared.decode import decode_from_transfer, decrypt, decrypt_stream, decrypt_stream_file, HybridDecrypter
-from ferdelance_shared.encode import encode_to_transfer, encrypt, encrypt_stream, encrypt_stream_file
 
-from ..database import SessionLocal, crud
+from ..database import get_db
 from ..database.settings import KeyValueStore
-from ..database.tables import Client, ClientToken
-from .schemas.client import ClientJoinRequest
-from .config import FILE_CHUNK_SIZE
+from ..database.tables import ClientToken
+from .services.client import ClientService
 
-
-import json
 import logging
 import os
 import uuid
@@ -90,11 +82,7 @@ def generate_keys(db: Session) -> None:
 
 
 def generate_token(system: str, mac_address: str, node: str, client_id: str = None, exp_time: int = None) -> ClientToken:
-    """Generates a client token with the data received from the client.
-
-    :param client:
-        Data received from the outside.
-    """
+    """Generates a client token with the data received from the client."""
 
     if client_id is None:
         client_id = str(uuid.uuid4())
@@ -115,7 +103,7 @@ def generate_token(system: str, mac_address: str, node: str, client_id: str = No
     )
 
 
-def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer())) -> str:
+def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: Session = Depends(get_db)) -> str:
     """Check if the given token exists in the database.
 
     :param db:
@@ -127,111 +115,27 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer())) -> st
     """
     token = credentials.credentials
 
-    with SessionLocal() as db:
-        client_token: ClientToken = crud.get_client_token_by_token(db, token)
+    cs: ClientService = ClientService(db)
 
-        # TODO: add expiration to token, and also an endpoint to update the token using an expired one
+    client_token: ClientToken = cs.get_client_token_by_token(token)
 
-        if client_token is None:
-            LOGGER.warning('received token does not exist in database')
-            raise HTTPException(401, 'Invalid access token')
+    # TODO: add expiration to token, and also an endpoint to update the token using an expired one
 
-        client_id = client_token.client_id
+    if client_token is None:
+        LOGGER.warning('received token does not exist in database')
+        raise HTTPException(401, 'Invalid access token')
 
-        if not client_token.valid:
-            LOGGER.warning('received invalid token')
-            raise HTTPException(403, 'Permission denied')
+    client_id = client_token.client_id
 
-        if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < datetime.now(client_token.creation_time.tzinfo):
-            LOGGER.warning(f'client_id={client_id}: received expired token: invalidating')
-            db.query(ClientToken).filter(ClientToken.token == client_token.token).update({'valid': False})
-            db.commit()
-            # allow access only for a single time, since the token update has priority
+    if not client_token.valid:
+        LOGGER.warning('received invalid token')
+        raise HTTPException(403, 'Permission denied')
 
-        LOGGER.info(f'client_id={client_id}: received valid token')
-        return client_id
+    if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < datetime.now(client_token.creation_time.tzinfo):
+        LOGGER.warning(f'client_id={client_id}: received expired token: invalidating')
+        db.query(ClientToken).filter(ClientToken.token == client_token.token).update({'valid': False})
+        db.commit()
+        # allow access only for a single time, since the token update has priority
 
-
-def get_server_public_key(db: Session) -> RSAPublicKey:
-    """
-    :param db:
-        Current session to the database.
-    :return:
-        The server public key in string format.
-    """
-    kvs = KeyValueStore(db)
-    public_bytes: bytes = kvs.get_bytes(PUBLIC_KEY)
-    return public_key_from_bytes(public_bytes)
-
-
-def get_server_public_key_str(db: Session) -> str:
-    kvs = KeyValueStore(db)
-    public_str: bytes = kvs.get_str(PUBLIC_KEY)
-    return encode_to_transfer(public_str)
-
-
-def get_server_private_key(db: Session) -> str:
-    """
-    :param db:
-        Current session to the database.
-    :return:
-        The server public key in string format.
-    """
-    kvs = KeyValueStore(db)
-    private_bytes: bytes = kvs.get_bytes(PRIVATE_KEY)
-    return private_key_from_bytes(private_bytes)
-
-
-def get_client_public_key(client: Client | ClientJoinRequest) -> RSAPublicKey:
-    key_bytes: bytes = decode_from_transfer(client.public_key).encode('utf8')
-    public_key: RSAPublicKey = public_key_from_bytes(key_bytes)
-    return public_key
-
-
-def server_encrypt(client: Client, content: str) -> str:
-    client_public_key: RSAPublicKey = get_client_public_key(client)
-    return encrypt(client_public_key, content)
-
-
-def server_decrypt(db: Session, content: str) -> str:
-    server_private_key: RSAPrivateKey = get_server_private_key(db)
-    return decrypt(server_private_key, content)
-
-
-def server_stream_encrypt(client: Client, path: str) -> StreamingResponse:
-    client_public_key: RSAPublicKey = get_client_public_key(client)
-
-    return StreamingResponse(
-        encrypt_stream_file(path, client_public_key),
-        media_type='application/octet-stream'
-    )
-
-
-async def stream_file(file: UploadFile) -> bytes:
-    while chunk := file.read(FILE_CHUNK_SIZE):
-        yield chunk
-    yield
-
-
-def server_stream_decrypt_to_file(file: UploadFile, path: str, db: Session) -> None:
-    private_key: RSAPrivateKey = get_server_private_key(db)
-
-    decrypt_stream_file(stream_file(file), path, private_key)
-
-    # TODO: find a way to add the checksum to the stream
-
-
-def server_stream_decrypt_to_dictionary(file: UploadFile, db: Session) -> dict:
-    private_key: RSAPrivateKey = get_server_private_key(db)
-
-    dec = HybridDecrypter(private_key)
-
-    content: list[str] = []
-    content += dec.start()
-    while chunk := file.file.read():
-        content += dec.update(chunk)
-    content += dec.end()
-
-    return json.loads(''.join(content))
-
-    # TODO: find a way to add the checksum to the stream
+    LOGGER.info(f'client_id={client_id}: received valid token')
+    return client_id

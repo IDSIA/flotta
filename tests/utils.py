@@ -11,8 +11,8 @@ from ferdelance.database.startup import init_content
 from ferdelance.server.api import api
 from ferdelance.server.security import generate_keys
 
-from ferdelance_shared.decode import decrypt, decrypt_stream, decode_from_transfer
-from ferdelance_shared.encode import encrypt
+from ferdelance_shared.decode import decrypt, HybridDecrypter, decode_from_transfer
+from ferdelance_shared.encode import encrypt, HybridEncrypter, encode_to_transfer
 from ferdelance_shared.generate import (
     bytes_from_public_key,
     bytes_from_private_key,
@@ -23,7 +23,6 @@ from ferdelance_shared.generate import (
     RSAPublicKey
 )
 
-import hashlib
 import random
 import json
 import logging
@@ -141,7 +140,7 @@ def create_client(client: TestClient, private_key: RSAPrivateKey) -> tuple[str, 
     client_id = decrypt(private_key, json_data['id'])
     client_token = decrypt(private_key, json_data['token'])
 
-    LOGGER.info(f'client_id={client_id}: sucessfully created new client')
+    LOGGER.info(f'client_id={client_id}: successfully created new client')
 
     server_public_key: RSAPublicKey = public_key_from_str(decode_from_transfer(json_data['public_key']))
 
@@ -170,18 +169,56 @@ def create_payload(server_public_key: RSAPublicKey, payload: dict) -> dict:
     }
 
 
-def stream_content(content):
-    for c in content:
-        yield c
-    yield
+def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> tuple[str, str]:
+    dec = HybridDecrypter(private_key)
+
+    data = dec.decrypt_stream(stream.iter_content())
+    return data, dec.get_checksum()
 
 
-def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> bytes:
-    checksum = hashlib.sha256()
-    content = bytearray()
+def get_metadata() -> dict:
+    return {
+        'datasources': [{
+            'name': 'ds1',
+            'type': 'file',
+            'removed': False,
+            'n_records': 1000,
+            'n_features': 2,
+            'features': [{
+                    'name': 'feature1',
+                    'dtype': 'float',
+                    'v_mean': .1,
+                    'v_std': .2,
+                    'v_min': .3,
+                    'v_p25': .4,
+                    'v_p50': .5,
+                    'v_p75': .6,
+                    'v_miss': .7,
+                    'v_max': .8,
+            }, {
+                'name': 'label',
+                'dtype': 'int',
+                'v_mean': .8,
+                'v_std': .7,
+                'v_min': .6,
+                'v_p25': .5,
+                'v_p50': .4,
+                'v_p75': .3,
+                'v_miss': .2,
+                'v_max': .1,
+            }]
+        }]}
 
-    for chunk in decrypt_stream(stream_content(stream.iter_content()), private_key):
-        checksum.update(chunk)
-        content.extend(chunk)
 
-    return bytes(content), checksum.hexdigest()
+def send_metadata(client: TestClient, token: str, server_public_key: RSAPublicKey, ds_content: dict) -> Response:
+
+    enc = HybridEncrypter(server_public_key)
+    metadata = enc.encrypt(json.dumps(ds_content))
+
+    upload_response = client.post(
+        '/client/update/metadata',
+        files={'file': ('metadata.bin', metadata)},
+        headers=headers(token),
+    )
+
+    return upload_response

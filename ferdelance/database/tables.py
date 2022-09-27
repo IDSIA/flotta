@@ -87,14 +87,17 @@ class Artifact(Base):
 
     artifact_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
-    version = Column(String, nullable=False)
     path = Column(String, nullable=False)
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=False)
+    status = Column(String, default='CREATED')
 
 
 class Task(Base):
-    """Table that keep track of which artifact has been deployed to which client and the state of the request."""
+    """Table that keep track of which artifact has been submitted and the state of the request.
+
+    A task is equal to an artifact and is composed by a filter query, a model to train, and an aggregation strategy.
+
+    Possible status are: CREATED, TRAINING, AGGREGATING, COMPLETED, ERROR
+    """
     __tablename__ = 'tasks'
 
     task_id = Column(String, primary_key=True, index=True)
@@ -103,6 +106,29 @@ class Task(Base):
     stop_time = Column(DateTime(timezone=True))
 
     status = Column(String, nullable=True)
+
+    artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
+    artifact = relationship('Artifact')
+
+
+class ClientTask(Base):
+    """Table that keep track of which task need to be done on which client and the state of it.
+
+    A ClientTask is composed only of the filter query that will build the dataset used for training. Each task is assigned to a single client.
+
+    Possible status are: SCHEDULED, CREATED, FILTERING, TRAINING, COMPLETED, ERROR
+    """
+    __tablename__ = 'client_tasks'
+    client_task_id = Column(String, primary_key=True, index=True)
+
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    start_time = Column(DateTime(timezone=True))
+    stop_time = Column(DateTime(timezone=True))
+
+    status = Column(String, nullable=True)
+
+    task_id = Column(String, ForeignKey('tasks.task_id'))
+    task = relationship('Task')
 
     client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')
@@ -119,22 +145,21 @@ class Model(Base):
     creation_time = Column(DateTime(timezone=True), server_default=now())
     path = Column(String, nullable=False)
 
+    # TODO: one model per artifact or one artifact can have multiple models
+    artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
+    artifact = relationship('Artifact')
+
 
 class ClientTaskEvent(Base):
     """Table that collects all the events that a client produced during a task."""
     __tablename__ = 'client_task_events'
-
     event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    event_start = Column(DateTime(timezone=True), server_default=now())
-    event_update = Column(DateTime(timezone=True), server_default=now())
-    event = Column(String, nullable=False)
+    event_time = Column(DateTime(timezone=True), server_default=now())
     status = Column(String, nullable=False)
-
     client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')
-
-    task_id = Column(String, ForeignKey('tasks.task_id'))
-    task = relationship('Task')
+    celery_task_id = Column(String, nullable=False)
+    artifact_id = Column(String, ForeignKey('tasks.task_id'))
 
 
 class ClientDataSource(Base):

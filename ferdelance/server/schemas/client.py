@@ -38,3 +38,11 @@ class ClientUpdateModelRequest(BaseModel):
 
 class ClientUpdateMetadataRequest(BaseModel):
     payload: str     # binary
+
+
+class ClientTaskRequest(BaseModel):
+    payload: str
+
+
+class ClientTaskResponse(BaseModel):
+    payload: str

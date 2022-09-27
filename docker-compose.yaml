@@ -21,6 +21,8 @@ services:
       - POSTGRES_USER=${DATABASE_USER}
       - POSTGRES_PASSWORD=${DATABASE_PASS}
       - POSTGRES_DB=${DATABASE_SCHEMA}
+    ports:
+      - 5432:5432
     volumes:
       - ferdelance-db-data:/var/lib/postgresql/data
     networks:
@@ -57,6 +59,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
+      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
     volumes: 
@@ -107,7 +110,7 @@ services:
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
     volumes: 
-      - ferdelance-server-data:/ferdelance/data
+      - ferdelance-server-data:/ferdelance/storage
     networks:
       - www
       - ferdelance

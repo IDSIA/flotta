@@ -4,6 +4,8 @@ import logging
 from celery import Task
 
 from .celery import worker
+from ferdelance.database.tables import ClientTaskEvent
+from ferdelance.database import SessionLocal
 
 
 class PredictTask(Task):
@@ -32,6 +34,7 @@ class PredictTask(Task):
         return self.run(*args, **kwargs)
 
 
+
 @worker.task(
     ignore_result=False,
     bind=True,
@@ -39,5 +42,30 @@ class PredictTask(Task):
     path=("ferdelance.logic.fake", "FakeModel"),
     name="{}.{}".format(__name__, "Fake"),
 )
-def predict(self, x):
-    return self.model.predict(x)
+def predict(self, artifact_id: str, x: float):
+
+    # celery_task_id: str = str(self.request.id)
+
+    # with SessionLocal() as session:
+    #     logging.info(f"Task {celery_task_id} STARTED")
+    #     session.add(ClientTaskEvent(
+    #         status = "START",
+    #         celery_task_id = celery_task_id,
+    #         client_id = "SERVER",
+    #         artifact_id = artifact_id,
+    #     ))
+    #     session.commit()
+
+    prediction = self.model.predict(x)
+
+    # with SessionLocal() as session:
+    #     logging.info(f"Task {celery_task_id} ENDED")
+    #     session.add(ClientTaskEvent(
+    #     status = "END",
+    #     celery_task_id = celery_task_id,
+    #     client_id = "SERVER",
+    #     artifact_id = artifact_id,
+    # ))
+    #     session.commit()
+
+    return prediction

@@ -16,7 +16,7 @@ tasks_router = APIRouter()
 @tasks_router.post('/tasks/fakemodel/predict', response_model=TaskTicket, status_code=202)
 async def schedule_prediction(model_input: ModelInput):
     """Create celery prediction task. Return task_id to client in order to retrieve result"""
-    task_id = predict.delay(dict(model_input).get("x"))
+    task_id = predict.delay(**dict(model_input))
     return {'task_id': str(task_id), 'status': 'Processing'}
 
 
