@@ -161,7 +161,7 @@ class RouteService:
         LOGGER.info('requesting new client task')
 
         res = get(
-            f'{self.server}/client/task',
+            f'{self.config.server}/client/task',
             data=self.create_payload(task.dict()),
             headers=self.headers(),
         )
