@@ -6,4 +6,5 @@ venv-recreate:
 	python -m venv Ferdelance_env
 
 venv-dev-install:
+	pip install federated-learning-shared/
 	pip install -e ".[test]"
