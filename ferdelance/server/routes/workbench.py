@@ -68,7 +68,7 @@ async def wb_get_datasource_list(db: Session = Depends(get_db)):
 
 
 @workbench_router.get('/workbench/datasource/{ds_id}', response_model=DataSource)
-async def wb_get_client_datasource(ds_id: int, db: Session = Depends(get_db)):
+async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db)):
     dss: DataSourceService = DataSourceService(db)
 
     ds_db: ClientDataSource = dss.get_datasource_by_id(ds_id)
@@ -94,6 +94,7 @@ async def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_
     dss: DataSourceService = DataSourceService(db)
 
     artifact_id = str(uuid4())
+    artifact.artifact_id = artifact_id
 
     path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
 
@@ -158,9 +159,10 @@ async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
         return HTTPException(404)
 
     async with aiofiles.open(artifact_db.path, 'r') as f:
-        data = json.load(f)
+        content = await f.read()
+        data = json.loads(content)
 
-    return Artifact(artifact_id=artifact_id, **data)
+    return Artifact(**data)
 
 
 @workbench_router.get('/workbench/download/model/{artifact_id}', response_class=FileResponse)
