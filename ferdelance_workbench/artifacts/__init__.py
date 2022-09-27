@@ -1,9 +1,27 @@
 __all__ = [
     'Artifact',
+    'ArtifactStatus',
+    'ClientDetails',
+    'DataSource',
+    'Feature',
     'Query',
+    'QueryFeature',
+    'QueryFilter',
+    'QueryTransformer',
     'Model',
     'Strategy',
-    'artifact_from_json',
 ]
 
-from ferdelance_workbench.artifacts.artifact import Artifact, Query, Model, Strategy, artifact_from_json
+from ferdelance_shared.schemas import (
+    Artifact,
+    ArtifactStatus,
+    ClientDetails,
+    DataSource,
+    Feature,
+    Query,
+    QueryFeature,
+    QueryFilter,
+    QueryTransformer,
+    Model,
+    Strategy,
+)
