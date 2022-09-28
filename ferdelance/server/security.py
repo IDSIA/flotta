@@ -2,9 +2,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBasicCredentials, HTTPBearer
 
 from datetime import timedelta, datetime
-from hashlib import sha256
 from sqlalchemy.orm import Session
-from time import time
 
 from ferdelance_shared.generate import (
     generate_asymmetric_key,
@@ -21,7 +19,6 @@ from .services.client import ClientService
 
 import logging
 import os
-import uuid
 
 LOGGER = logging.getLogger(__name__)
 
@@ -79,28 +76,6 @@ def generate_keys(db: Session) -> None:
     kvs.put_bytes(PUBLIC_KEY, public_bytes)
 
     LOGGER.info('Keys generation completed')
-
-
-def generate_token(system: str, mac_address: str, node: str, client_id: str = None, exp_time: int = None) -> ClientToken:
-    """Generates a client token with the data received from the client."""
-
-    if client_id is None:
-        client_id = str(uuid.uuid4())
-        LOGGER.info(f'client_id={client_id}: generating new token')
-    else:
-        LOGGER.info('generating token for new client')
-
-    ms = round(time() * 1000)
-
-    token: bytes = f'{client_id}~{system}${mac_address}£{node}={ms};'.encode('utf8')
-    token: bytes = sha256(token).hexdigest().encode('utf8')
-    token: str = sha256(token).hexdigest()
-
-    return ClientToken(
-        token=token,
-        client_id=client_id,
-        expiration_time=exp_time,
-    )
 
 
 def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: Session = Depends(get_db)) -> str:

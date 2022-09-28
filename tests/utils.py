@@ -11,8 +11,8 @@ from ferdelance.database.startup import init_content
 from ferdelance.server.api import api
 from ferdelance.server.security import generate_keys
 
-from ferdelance_shared.decode import decrypt, HybridDecrypter, decode_from_transfer
-from ferdelance_shared.encode import encrypt, HybridEncrypter, encode_to_transfer
+from ferdelance_shared.decode import HybridDecrypter, decode_from_transfer
+from ferdelance_shared.encode import HybridEncrypter
 from ferdelance_shared.generate import (
     bytes_from_public_key,
     bytes_from_private_key,
@@ -22,6 +22,7 @@ from ferdelance_shared.generate import (
     RSAPrivateKey,
     RSAPublicKey
 )
+from ferdelance_shared.schemas import ClientJoinRequest, ClientJoinData, Metadata, MetaDataSource, MetaFeature, DataSource, Feature
 
 import random
 import json
@@ -124,27 +125,26 @@ def create_client(client: TestClient, private_key: RSAPrivateKey) -> tuple[str, 
     node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
 
     public_key: bytes = bytes_from_public_key(private_key.public_key())
-    data = {
-        'system': 'Linux',
-        'mac_address': mac_address,
-        'node': node,
-        'public_key': b64encode(public_key).decode('utf8'),
-        'version': 'test'
-    }
 
-    response_join = client.post('/client/join', json=data)
+    cjr = ClientJoinRequest(
+        system='Linux',
+        mac_address=mac_address,
+        node=node,
+        public_key=b64encode(public_key).decode('utf8'),
+        version='test',
+    )
+
+    response_join = client.post('/client/join', data=json.dumps(cjr.dict()))
 
     assert response_join.status_code == 200
 
-    json_data = response_join.json()
-    client_id = decrypt(private_key, json_data['id'])
-    client_token = decrypt(private_key, json_data['token'])
+    cjd = ClientJoinData(**get_payload(private_key, response_join.content))
 
-    LOGGER.info(f'client_id={client_id}: successfully created new client')
+    LOGGER.info(f'client_id={cjd.id}: successfully created new client')
 
-    server_public_key: RSAPublicKey = public_key_from_str(decode_from_transfer(json_data['public_key']))
+    server_public_key: RSAPublicKey = public_key_from_str(decode_from_transfer(cjd.public_key))
 
-    return client_id, client_token, server_public_key
+    return cjd.id, cjd.token, server_public_key
 
 
 def headers(token) -> dict[str, str]:
@@ -157,16 +157,14 @@ def headers(token) -> dict[str, str]:
     }
 
 
-def get_payload(private_key: RSAPrivateKey, json_data: dict) -> dict:
+def get_payload(client_private_key: RSAPrivateKey, content: str) -> dict:
     return json.loads(
-        decrypt(private_key, json_data['payload'])
+        HybridDecrypter(client_private_key).decrypt(content)
     )
 
 
-def create_payload(server_public_key: RSAPublicKey, payload: dict) -> dict:
-    return {
-        'payload': encrypt(server_public_key, json.dumps(payload)),
-    }
+def create_payload(server_public_key: RSAPublicKey, payload: str) -> bytes:
+    return HybridEncrypter(server_public_key).encrypt(payload)
 
 
 def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> tuple[str, str]:
@@ -176,48 +174,47 @@ def decrypt_stream_response(stream: Response, private_key: RSAPrivateKey) -> tup
     return data, dec.get_checksum()
 
 
-def get_metadata() -> dict:
-    return {
-        'datasources': [{
-            'name': 'ds1',
-            'type': 'file',
-            'removed': False,
-            'n_records': 1000,
-            'n_features': 2,
-            'features': [{
-                    'name': 'feature1',
-                    'dtype': 'float',
-                    'v_mean': .1,
-                    'v_std': .2,
-                    'v_min': .3,
-                    'v_p25': .4,
-                    'v_p50': .5,
-                    'v_p75': .6,
-                    'v_miss': .7,
-                    'v_max': .8,
-            }, {
-                'name': 'label',
-                'dtype': 'int',
-                'v_mean': .8,
-                'v_std': .7,
-                'v_min': .6,
-                'v_p25': .5,
-                'v_p50': .4,
-                'v_p75': .3,
-                'v_miss': .2,
-                'v_max': .1,
-            }]
-        }]}
+def get_metadata() -> Metadata:
+    return Metadata(datasources=[
+        MetaDataSource(
+            n_records=1000,
+            n_features=2,
+            name='ds1',
+            removed=False,
+            features=[
+                MetaFeature(
+                    name='feature1',
+                    dtype='float',
+                    v_mean=.1,
+                    v_std=.2,
+                    v_min=.3,
+                    v_p25=.4,
+                    v_p50=.5,
+                    v_p75=.6,
+                    v_miss=.7,
+                    v_max=.8,
+                ),
+                MetaFeature(
+                    name='label',
+                    dtype='int',
+                    v_mean=.8,
+                    v_std=.7,
+                    v_min=.6,
+                    v_p25=.5,
+                    v_p50=.4,
+                    v_p75=.3,
+                    v_miss=.2,
+                    v_max=.1,
+                ),
+            ]
+        )
+    ])
 
 
-def send_metadata(client: TestClient, token: str, server_public_key: RSAPublicKey, ds_content: dict) -> Response:
-
-    enc = HybridEncrypter(server_public_key)
-    metadata = enc.encrypt(json.dumps(ds_content))
-
+def send_metadata(client: TestClient, token: str, server_public_key: RSAPublicKey, metadata: Metadata) -> Response:
     upload_response = client.post(
         '/client/update/metadata',
-        files={'file': ('metadata.bin', metadata)},
+        data=create_payload(server_public_key, json.dumps(metadata.dict())),
         headers=headers(token),
     )
 
