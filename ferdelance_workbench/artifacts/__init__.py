@@ -20,6 +20,5 @@ from ferdelance_shared.schemas import (
     Strategy,
 )
 
-from .features import Feature
-from .queries import QueryFeature, QueryFilter, Query, QueryTransformer
+from .queries import QueryFeature, QueryFilter, Query, QueryTransformer, Feature
 from .datasource import DataSource
