@@ -15,21 +15,26 @@ for c in ctx.list_clients():
 # %% ask the context for available metadata
 data_sources_id: list[str] = ctx.list_datasources()
 
+ds: DataSource = None
+
 for ds in data_sources_id:
     dds: DataSource = ctx.detail_datasource(ds)
-    print(f'{dds.datasource_id}')
-    for df in dds.features:
-        print(f'- {df.dtype:8} {df.name:4} {df.v_mean}')
+
+    if dds.name == 'earthquakes':
+        ds = dds
+
+print(ds.info())
+
+# %% feature analysis
+
+for k in ds.features_dict().keys():
+    print(k)
 
 # %% develop a filter query
-ds_id = data_sources_id[0]
-
-dds = ctx.detail_datasource(ds_id)
-
-q = Query(
-    datasources_id=dds.datasource_id,
-    features=[QueryFeature(feature_id=f.feature_id, datasource_id=f.datasource_id) for f in dds.features]
-)
+q = ds.all_features()
+q -= ds['ID']
+q -= ds['Latitude']
+q -= ds['Longitude']
 
 # %% develop a model
 m = Model(name='example_model', model=None)
