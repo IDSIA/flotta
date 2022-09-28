@@ -13,7 +13,6 @@ __all__ = [
 ]
 
 from ferdelance_shared.schemas import (
-    Artifact,
     ArtifactStatus,
     ClientDetails,
     Model,
@@ -22,3 +21,4 @@ from ferdelance_shared.schemas import (
 
 from .queries import QueryFeature, QueryFilter, Query, QueryTransformer, Feature
 from .datasource import DataSource
+from .artifact import Artifact
