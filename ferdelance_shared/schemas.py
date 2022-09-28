@@ -109,6 +109,7 @@ class DataSource(BaseDataSource):
     """Information for the workbench."""
     client_id: str
     datasource_id: str
+    name: str
 
     features: list[Feature]
 
