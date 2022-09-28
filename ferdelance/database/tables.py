@@ -153,18 +153,13 @@ class Model(Base):
 class ClientTaskEvent(Base):
     """Table that collects all the events that a client produced during a task."""
     __tablename__ = 'client_task_events'
-
     event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    event_start = Column(DateTime(timezone=True), server_default=now())
-    event_update = Column(DateTime(timezone=True), server_default=now())
-    event = Column(String, nullable=False)
+    event_time = Column(DateTime(timezone=True), server_default=now())
     status = Column(String, nullable=False)
-
     client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')
-
-    task_id = Column(String, ForeignKey('tasks.task_id'))
-    task = relationship('Task')
+    celery_task_id = Column(String, nullable=False)
+    artifact_id = Column(String, ForeignKey('tasks.task_id'))
 
 
 class ClientDataSource(Base):

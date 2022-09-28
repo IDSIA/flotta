@@ -35,6 +35,7 @@ COPY . /ferdelance
 # install application
 RUN pip install --no-cache-dir .
 
-EXPOSE 1456
+ENTRYPOINT ["/bin/bash", "./starter.sh"]
 
-CMD ["uvicorn", "ferdelance.server.api:api", "--host", "0.0.0.0", "--port", "1456"]
+# This image is used for 3 different containers with 3 different commands, they will be provided at compose level.
+# CMD ["uvicorn", "ferdelance.server.api:api", "--host", "0.0.0.0", "--port", "1456"]
