@@ -76,7 +76,7 @@ class Feature(BaseFeature):
     def __lt__(self, other) -> QueryFilter:
         if self.dtype == 'int' and self.dtype == 'float':
 
-            if isinstance(other, int) or isinstance(other, float):
+            if isinstance(other, int | float):
                 return self._filter(NumericOperations.LESS_THAN, other)
 
             if isinstance(other, datetime):
@@ -85,13 +85,13 @@ class Feature(BaseFeature):
         raise ValueError('operator less than "<" can be used only for int, float, or time values')
 
     def __le__(self, other) -> QueryFilter:
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, int | float):
             return self._filter(NumericOperations.LESS_EQUAL, other)
 
         raise ValueError('operator less equal "<=" can be used only for int or float values')
 
     def __gt__(self, other) -> QueryFilter:
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, int | float):
             return self._filter(NumericOperations.GREATER_THAN, other)
 
         if isinstance(other, datetime):
@@ -100,7 +100,7 @@ class Feature(BaseFeature):
         raise ValueError('operator greater than ">" can be used only for int, float, or time values')
 
     def __ge__(self, other) -> QueryFilter:
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, int | float):
             return self._filter(NumericOperations.GREATER_EQUAL, other)
 
         raise ValueError('operator greater equal ">=" can be used only for int or float values')
@@ -114,7 +114,7 @@ class Feature(BaseFeature):
                 self.dtype == other.dtype
             )
 
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, int | float):
             return self._filter(NumericOperations.EQUALS, other)
 
         if isinstance(other, str):
@@ -126,7 +126,7 @@ class Feature(BaseFeature):
         raise ValueError('operator equals "==" can be used only for int, float, str, or time values')
 
     def __ne__(self, other) -> QueryFilter:
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, int | float):
             return self._filter(NumericOperations.NOT_EQUALS, other)
 
         if isinstance(other, str):
