@@ -161,7 +161,7 @@ class Dataset(BaseModel):
     test_percentage: float = 0.0
     val_percentage: float = 0.0
     random_seed: float | None = None
-    label: QueryFeature | None = None
+    label: str | None = None
 
 
 class Model(BaseModel):
