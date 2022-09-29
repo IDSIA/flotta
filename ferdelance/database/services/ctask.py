@@ -1,6 +1,6 @@
-from . import DBSessionService, Session
+from .core import DBSessionService, Session
 
-from ...database.tables import Artifact, ClientTask, Client, Task
+from ..tables import Artifact, ClientTask, Client, Task
 
 from uuid import uuid4
 

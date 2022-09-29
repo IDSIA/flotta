@@ -1,11 +1,9 @@
 from ferdelance.database import SessionLocal
+from ferdelance.database.services import ClientAppService, ClientService, DataSourceService
 from ferdelance.database.settings import KeyValueStore
 from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, ClientTask, Task
 from ferdelance.server.security import PUBLIC_KEY
-from ferdelance.server.services.application import ClientAppService
-from ferdelance.server.services.client import ClientService
-from ferdelance.server.services.datasource import DataSourceService
-from ferdelance.server.folders import STORAGE_ARTIFACTS
+from ferdelance.server.config import STORAGE_ARTIFACTS
 
 from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import *

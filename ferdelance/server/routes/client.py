@@ -6,17 +6,26 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...database import get_db
+from ...database.services import (
+    ClientAppService,
+    ClientService,
+    ClientTaskService,
+    DataSourceService
+)
 from ...database.tables import Client, ClientApp, ClientToken, ClientTask
-from ..services.actions import ActionService
-from ..services.application import ClientAppService
-from ..services.client import ClientService
-from ..services.ctask import ClientTaskService
-from ..services.datasource import DataSourceService
-from ..services.security import SecurityService
+from ..services import ActionService, SecurityService
 from ..security import check_token
-from ..folders import STORAGE_ARTIFACTS
+from ..config import STORAGE_ARTIFACTS
 
-from ferdelance_shared.schemas import ClientJoinRequest, ClientJoinData, DownloadApp, Metadata, UpdateExecute, Artifact, ArtifactTask
+from ferdelance_shared.schemas import (
+    ClientJoinRequest,
+    ClientJoinData,
+    DownloadApp,
+    Metadata,
+    UpdateExecute,
+    Artifact,
+    ArtifactTask,
+)
 
 import aiofiles
 import logging

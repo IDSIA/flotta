@@ -1,8 +1,13 @@
 from ...database.tables import Client, ClientToken, ClientTask
-from . import DBSessionService, Session
-from .application import ClientAppService
-from .client import ClientService
-from .ctask import ClientTaskService
+
+from ...database.services import (
+    DBSessionService,
+    Session,
+    ClientAppService,
+    ClientService,
+    ClientTaskService,
+)
+
 from .security import SecurityService
 
 from ferdelance_shared.actions import Action

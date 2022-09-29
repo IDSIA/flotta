@@ -1,6 +1,6 @@
-from . import DBSessionService, Session
+from .core import DBSessionService, Session
 
-from ...database.tables import ClientDataSource, ClientFeature
+from ..tables import ClientDataSource, ClientFeature
 
 from ferdelance_shared.schemas import Metadata, MetaDataSource, MetaFeature
 

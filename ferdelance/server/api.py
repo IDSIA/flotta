@@ -9,7 +9,7 @@ from .routes.workbench import workbench_router
 from .routes.tasks import tasks_router
 from ..database import get_db, SessionLocal, startup, Session, settings
 
-from .folders import *
+from .config import STORAGE_ARTIFACTS, STORAGE_CLIENTS, STORAGE_MODELS
 
 import logging
 import os

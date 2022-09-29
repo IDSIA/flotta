@@ -1,6 +1,6 @@
-from . import DBSessionService, Session
+from .core import DBSessionService, Session
 
-from ...database.tables import Artifact, Model
+from ..tables import Artifact, Model
 
 
 class ArtifactService(DBSessionService):
