@@ -4,7 +4,7 @@ __all__ = [
     'ClientAppService',
     'ArtifactService',
     'ClientService',
-    'ClientTaskService',
+    'JobService',
     'DataSourceService',
     'ModelService',
 ]
@@ -13,6 +13,6 @@ from .core import DBSessionService, Session
 from .application import ClientAppService
 from .artifact import ArtifactService
 from .client import ClientService
-from .ctask import ClientTaskService
+from .jobs import JobService
 from .datasource import DataSourceService
 from .model import ModelService
