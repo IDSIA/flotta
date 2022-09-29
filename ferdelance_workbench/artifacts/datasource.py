@@ -46,6 +46,9 @@ class DataSource(BaseDataSource):
         return {f.name: f.qf() for f in self.features}
 
     def __getitem__(self, key: str | QueryFeature) -> Feature:
+
+        # TODO: add support for list of keys in / list of features out
+
         if isinstance(key, str):
             f = self.features_by_id.get(key, None) or self.features_by_name.get(key, None)
             if f:

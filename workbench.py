@@ -31,10 +31,15 @@ for k in ds.features_dict().keys():
     print(k)
 
 # %% develop a filter query
-q = ds.all_features()
+q: Query = ds.all_features()
+# remove features
 q -= ds['ID']
 q -= ds['Latitude']
 q -= ds['Longitude']
+
+# add filters
+q = q[ds['Depth'] > 5.0]
+q += ds['Magnitude'] <= 3.0
 
 # %% develop a model
 m = Model(name='example_model', model=None)
@@ -42,13 +47,14 @@ m = Model(name='example_model', model=None)
 # %% develop an aggregation strategy
 s = Strategy(strategy='nothing')
 
-# %% create an artifact and deploy query, model, and strategy to the server
+# %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
     queries=[q],
     model=m,
     strategy=s,
 )
 
+# %% submit artifact to the server
 a, status = ctx.submit(a, True)
 
 print(status)

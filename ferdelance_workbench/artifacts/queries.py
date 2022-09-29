@@ -177,7 +177,7 @@ class Query(BaseQuery):
 
         if isinstance(other, QueryFilter):
             q = self.copy()
-            q.add_filter(filter)
+            q.add_filter(other)
             return q
 
         raise ValueError('only Feature or QueryFeature objects can be added to Query objects')
@@ -247,3 +247,9 @@ class Query(BaseQuery):
 
     def __hash__(self) -> int:
         return hash((self.datasources_id, self.features, self.filters, self.transformers))
+
+    def __getitem__(self, key: QueryFilter) -> Query:
+        if isinstance(key, QueryFilter):
+            return self + key
+
+        return ValueError('unsupported key type')
