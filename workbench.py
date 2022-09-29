@@ -1,6 +1,6 @@
 # %%
 from ferdelance_workbench.context import Context
-from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Query, QueryFeature, Model, Strategy, DataSource
+from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Dataset, Query, Model, Strategy, DataSource
 
 # %% create the context
 ctx = Context('http://ferdelance.artemis.idsia.ch')
@@ -41,6 +41,14 @@ q -= ds['Longitude']
 q = q[ds['Depth'] > 5.0]
 q += ds['Magnitude'] <= 3.0
 
+# %% create dataset
+d = Dataset(
+    test_percentage=0.2,
+    val_percentage=0.1,
+    label='Magnitude'
+)
+d.add_query(q)
+
 # %% develop a model
 m = Model(name='example_model', model=None)
 
@@ -49,7 +57,7 @@ s = Strategy(strategy='nothing')
 
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
-    queries=[q],
+    dataset=d,
     model=m,
     strategy=s,
 )

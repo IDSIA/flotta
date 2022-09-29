@@ -1,6 +1,6 @@
 from ferdelance_shared.schemas import Artifact as BaseArtifact
-from .queries import Query
+from .dataset import Dataset
 
 
 class Artifact(BaseArtifact):
-    queries: list[Query]
+    dataset: Dataset
