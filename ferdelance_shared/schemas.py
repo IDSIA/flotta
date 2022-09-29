@@ -109,6 +109,7 @@ class DataSource(BaseDataSource):
     """Information for the workbench."""
     client_id: str
     datasource_id: str
+    name: str
 
     features: list[Feature]
 
@@ -154,10 +155,19 @@ class Query(BaseModel):
     transformers: list[QueryTransformer] = list()
 
 
+class Dataset(BaseModel):
+    """Query split the data in train/test/validation."""
+    queries: list[Query]
+    test_percentage: float = 0.0
+    val_percentage: float = 0.0
+    random_seed: float | None = None
+    label: QueryFeature | None = None
+
+
 class Model(BaseModel):
     """Model selected int the workbench."""
     name: str
-    model: str | None
+    model: str | None = None
 
 
 class Strategy(BaseModel):
@@ -172,7 +182,7 @@ class BaseArtifact(BaseModel):
 
 class Artifact(BaseArtifact):
     """Artifact created in the workbench."""
-    queries: list[Query]
+    dataset: Dataset
     model: Model
     strategy: Strategy
 
