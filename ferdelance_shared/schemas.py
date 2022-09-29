@@ -59,7 +59,7 @@ class UpdateClientApp(UpdateData):
 
 class UpdateExecute(UpdateData):
     """Task that the client has to execute next."""
-    client_task_id: str
+    job_id: str
 
 
 class UpdateNothing(UpdateData):
