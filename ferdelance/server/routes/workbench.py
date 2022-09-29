@@ -1,16 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
-from celery.result import AsyncResult
-
 from sqlalchemy.orm import Session
-from uuid import uuid4
 
 from ...database import get_db
 from ...database.services import ArtifactService, ClientService, DataSourceService
 from ...database.tables import Client, ClientDataSource, Artifact, Model
-from ...worker.tasks.scheduling import schedule
-from ..config import STORAGE_ARTIFACTS
+from ..services import JobManagementService
 
 from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact
 
@@ -87,26 +83,12 @@ async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db)):
 
 
 @workbench_router.post('/workbench/artifact/submit', response_model=ArtifactStatus)
-async def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
-    ars: ArtifactService = ArtifactService(db)
-
-    artifact_id = str(uuid4())
-    artifact.artifact_id = artifact_id
-
-    path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
-
+def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
     try:
-        artifact_db = ars.create_artifact(artifact_id, path)
+        jms: JobManagementService = JobManagementService(db)
 
-        with open(path, 'w') as f:
-            json.dump(artifact.dict(), f)
+        return jms.submit_artifact(artifact)
 
-        task: AsyncResult = schedule.delay(artifact.dict())
-
-        return ArtifactStatus(
-            artifact_id=artifact_id,
-            status=artifact_db.status,
-        )
     except ValueError as e:
         LOGGER.error('Artifact already exists')
         LOGGER.exception(e)
