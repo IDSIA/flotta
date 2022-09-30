@@ -1,16 +1,7 @@
-from base64 import b64encode
+from ferdelance.server.config import STORAGE_ARTIFACTS
 
-from ferdelance.database import SessionLocal
-from ferdelance.database.settings import KeyValueStore
-from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, ClientTask, Task
-from ferdelance.server.security import PUBLIC_KEY
-from ferdelance.server.services.application import ClientAppService
-from ferdelance.server.services.client import ClientService
-from ferdelance.server.services.datasource import DataSourceService
-from ferdelance.server.folders import STORAGE_ARTIFACTS
-
-from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import *
+from ferdelance_shared.status import ArtifactJobStatus, JobStatus
 
 from .utils import (
     setup_test_client,
@@ -18,11 +9,7 @@ from .utils import (
     setup_rsa_keys,
     teardown_test_database,
     create_client,
-    headers,
     bytes_from_public_key,
-    get_payload,
-    create_payload,
-    decrypt_stream_response,
     get_metadata,
     send_metadata,
 )
@@ -96,7 +83,8 @@ class TestWorkbenchClass:
 
         client_list = json.loads(res.content)
 
-        assert len(client_list) == 1
+        assert len(client_list) == 2
+        assert 'SERVER' in client_list
 
     def test_client_detail(self):
         client_id = self.client_id
@@ -110,7 +98,7 @@ class TestWorkbenchClass:
         assert cd.client_id == client_id
         assert cd.version == 'test'
 
-    def test_workflow_to_submit(self):
+    def test_workflow_submit(self):
         res = self.client.get('/workbench/datasource/list')
 
         assert res.status_code == 200
@@ -139,15 +127,17 @@ class TestWorkbenchClass:
         assert 'int' in dtypes
 
         artifact = Artifact(
-            queries=[
-                Query(
-                    datasources_id=datasource_id,
-                    features=[QueryFeature(
-                        datasource_id=f.datasource_id,
-                        feature_id=f.feature_id
-                    ) for f in datasource.features]
-                )
-            ],
+            dataset=Dataset(
+                queries=[
+                    Query(
+                        datasources_id=datasource_id,
+                        features=[QueryFeature(
+                            datasource_id=f.datasource_id,
+                            feature_id=f.feature_id
+                        ) for f in datasource.features]
+                    )
+                ]
+            ),
             model=Model(name='model', model=None),
             strategy=Strategy(strategy='strategy'),
         )
@@ -164,14 +154,14 @@ class TestWorkbenchClass:
         artifact_id = status.artifact_id
 
         assert artifact_id is not None
-        assert status.status == 'CREATED'
+        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
         res = self.client.get(f'/workbench/artifact/{artifact_id}')
 
         assert res.status_code == 200
 
         status = ArtifactStatus(**json.loads(res.content))
-        assert status.status == 'CREATED'
+        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
         res = self.client.get(f'/workbench/download/artifact/{artifact_id}')
 
@@ -179,8 +169,8 @@ class TestWorkbenchClass:
 
         downloaded_artifact = Artifact(**json.loads(res.content))
 
-        assert len(downloaded_artifact.queries) == 1
-        assert downloaded_artifact.queries[0].datasources_id == datasource_id
-        assert len(downloaded_artifact.queries[0].features) == 2
+        assert len(downloaded_artifact.dataset.queries) == 1
+        assert downloaded_artifact.dataset.queries[0].datasources_id == datasource_id
+        assert len(downloaded_artifact.dataset.queries[0].features) == 2
 
         os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json'))

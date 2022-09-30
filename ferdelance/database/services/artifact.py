@@ -1,6 +1,6 @@
-from . import DBSessionService, Session
+from .core import DBSessionService, Session
 
-from ...database.tables import Artifact, Model
+from ..tables import Artifact, Model
 
 
 class ArtifactService(DBSessionService):
@@ -8,8 +8,8 @@ class ArtifactService(DBSessionService):
     def __init__(self, db: Session) -> None:
         super().__init__(db)
 
-    def create_artifact(self, artifact_id: str, path: str) -> Artifact:
-        db_artifact = Artifact(artifact_id=artifact_id, path=path)
+    def create_artifact(self, artifact_id: str, path: str, status: str) -> Artifact:
+        db_artifact = Artifact(artifact_id=artifact_id, path=path, status=status)
 
         existing = self.db.query(Artifact).filter(Artifact.artifact_id == artifact_id).first()
 
@@ -27,3 +27,8 @@ class ArtifactService(DBSessionService):
 
     def get_model_by_artifact(self, artifact: Artifact) -> list[Model]:
         return self.db.query(Model).filter(Model.artifact_id == artifact.artifact_id).first()
+
+    def update_status(self, artifact_id: str, new_status: str) -> Artifact:
+        self.db.query(Artifact).filter(Artifact.artifact_id == artifact_id).update({
+            'status': new_status,
+        })

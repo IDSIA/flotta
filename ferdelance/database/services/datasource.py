@@ -1,6 +1,6 @@
-from . import DBSessionService, Session
+from .core import DBSessionService, Session
 
-from ...database.tables import ClientDataSource, ClientFeature
+from ..tables import ClientDataSource, ClientFeature
 
 from ferdelance_shared.schemas import Metadata, MetaDataSource, MetaFeature
 
@@ -181,7 +181,7 @@ class DataSourceService(DBSessionService):
         return self.db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).first()
 
     def get_client_id_by_datasource_id(self, ds_id: str) -> str:
-        return self.db.query(ClientDataSource.client_id).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).first()
+        return self.db.query(ClientDataSource.client_id).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).first()[0]
 
     def get_features_by_datasource(self, ds: ClientDataSource) -> list[ClientFeature]:
         return self.db.query(ClientFeature).filter(ClientFeature.datasource_id == ds.datasource_id, ClientFeature.removed == False).all()

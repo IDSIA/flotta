@@ -1,6 +1,6 @@
-from . import DBSessionService, Session
+from .core import DBSessionService, Session
 
-from ...database.tables import ClientApp
+from ..tables import ClientApp
 
 
 class ClientAppService(DBSessionService):

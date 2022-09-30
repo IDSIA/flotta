@@ -1,24 +1,25 @@
+from typing import Any
 from fastapi import UploadFile
 from fastapi.responses import StreamingResponse
 
+from ferdelance_shared.decode import decode_from_transfer, decrypt, HybridDecrypter
+from ferdelance_shared.encode import encode_to_transfer, encrypt, HybridEncrypter
 from ferdelance_shared.generate import (
     public_key_from_bytes,
     private_key_from_bytes,
     RSAPublicKey,
     RSAPrivateKey,
 )
-from ferdelance_shared.decode import decode_from_transfer, decrypt, HybridDecrypter
-from ferdelance_shared.encode import encode_to_transfer, encrypt, HybridEncrypter
 
+from ...database.services import DBSessionService, Session, ClientService
 from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
 from ...database.tables import Client, ClientToken
-from .client import ClientService
-from . import DBSessionService, Session
 
 from hashlib import sha256
 from time import time
 from uuid import uuid4
 
+import json
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -101,10 +102,16 @@ class SecurityService(DBSessionService):
         enc = HybridEncrypter(client_public_key)
         return enc.encrypt(content)
 
+    def server_encrypt_json_content(self, content: dict[str, Any]) -> bytes:
+        return self.server_encrypt_content(json.dumps(content))
+
     def server_decrypt_content(self, content: str) -> str:
         server_private_key: RSAPrivateKey = self.get_server_private_key()
         enc = HybridDecrypter(server_private_key)
         return enc.decrypt(content)
+
+    def server_decrypt_json_content(self, content: str) -> dict[str, Any]:
+        return json.loads(self.server_decrypt_content(content))
 
     def server_stream_encrypt_file(self, path: str) -> StreamingResponse:
         """Used to stream encrypt data from a file, using less memory."""

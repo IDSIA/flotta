@@ -1,8 +1,13 @@
-from ...database.tables import Client, ClientToken, ClientTask
-from . import DBSessionService, Session
-from .application import ClientAppService
-from .client import ClientService
-from .ctask import ClientTaskService
+from ...database.tables import Client, ClientToken, Job
+
+from ...database.services import (
+    DBSessionService,
+    Session,
+    ClientAppService,
+    ClientService,
+    JobService,
+)
+
 from .security import SecurityService
 
 from ferdelance_shared.actions import Action
@@ -19,7 +24,7 @@ class ActionService(DBSessionService):
     def __init__(self, db: Session) -> None:
         super().__init__(db)
 
-        self.cts: ClientTaskService = ClientTaskService(db)
+        self.js: JobService = JobService(db)
         self.cas: ClientAppService = ClientAppService(db)
         self.cs: ClientService = ClientService(db)
 
@@ -80,13 +85,13 @@ class ActionService(DBSessionService):
             version=new_client.version,
         )
 
-    def _check_scheduled_task(self, client: Client) -> ClientTask | None:
-        return self.cts.get_next_task_for_client(client)
+    def _check_scheduled_job(self, client: Client) -> Job | None:
+        return self.js.get_job_for_client(client.client_id)
 
-    def _action_schedule_task(self, task: ClientTask) -> UpdateNothing:
+    def _action_schedule_job(self, job: Job) -> UpdateNothing:
         return UpdateExecute(
             action=Action.EXECUTE.name,
-            client_task_id=task.client_task_id,
+            job_id=job.job_id,
         )
 
     def _action_nothing(self) -> tuple[str, Any]:
@@ -105,8 +110,8 @@ class ActionService(DBSessionService):
         if self._check_client_app_update(client):
             return self._action_update_client_app()
 
-        task = self._check_scheduled_task(client)
+        task = self._check_scheduled_job(client)
         if task is not None:
-            return self._action_schedule_task(task)
+            return self._action_schedule_job(task)
 
         return self._action_nothing()
