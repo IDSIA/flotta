@@ -1,12 +1,13 @@
 from ferdelance.database import SessionLocal
 from ferdelance.database.services import ClientAppService, ClientService, DataSourceService
 from ferdelance.database.settings import KeyValueStore
-from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, ClientTask, Task
+from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, Job
 from ferdelance.server.security import PUBLIC_KEY
 from ferdelance.server.config import STORAGE_ARTIFACTS
 
 from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import *
+from ferdelance_shared.operations import NumericOperations
 
 from .utils import (
     setup_test_client,
@@ -30,6 +31,7 @@ import json
 import logging
 import os
 import random
+import time
 
 LOGGER = logging.getLogger(__name__)
 
@@ -393,15 +395,20 @@ class TestClientClass:
             client_id = self.get_client()
             dss: DataSourceService = DataSourceService(db)
 
-            # setup metadata for client
+            LOGGER.info('setup metadata for client')
+
             metadata: Metadata = get_metadata()
             ds_name = metadata.datasources[0].name
             upload_response: Response = send_metadata(self.client, self.token, self.server_key, metadata)
 
             assert upload_response.status_code == 200
 
-            # setup artifact
+            LOGGER.info('setup artifact')
+
             ds_list = dss.get_datasource_list()
+
+            assert client_id in [ds.client_id for ds in ds_list]
+
             ds = [ds for ds in ds_list if ds.name == ds_name][0]
 
             f1, f2 = dss.get_features_by_datasource(ds)
@@ -411,17 +418,20 @@ class TestClientClass:
 
             artifact = Artifact(
                 artifact_id=None,
-                queries=[Query(
-                    datasources_id=ds.datasource_id,
-                    features=[qf1, qf2],
-                    filters=[QueryFilter(feature=qf1, operation='', parameter='')],
-                    transformers=[],
-                )],
+                dataset=Dataset(
+                    queries=[Query(
+                        datasources_id=ds.datasource_id,
+                        features=[qf1, qf2],
+                        filters=[QueryFilter(feature=qf1, operation=NumericOperations.LESS_THAN.name, parameter='1.0')],
+                        transformers=[],
+                    )],
+                ),
                 model=Model(name=''),
                 strategy=Strategy(strategy='')
             )
 
-            # submit artifact
+            LOGGER.info('submit artifact')
+
             submit_response = self.client.post(
                 '/workbench/artifact/submit',
                 json=artifact.dict(),
@@ -432,13 +442,16 @@ class TestClientClass:
 
             artifact_status = ArtifactStatus(**submit_response.json())
 
-            n = db.query(Task).count()
+            n = db.query(Job).count()
             assert n == 1
 
-            n = db.query(ClientTask).filter(ClientTask.client_id == client_id).count()
+            n = db.query(Job).filter(Job.client_id == client_id).count()
             assert n == 1
 
-            # update client
+            job: Job = db.query(Job).all()[0]
+
+            LOGGER.info('update client')
+
             status_code, action, data = self.get_client_update()
 
             assert status_code == 200
@@ -446,9 +459,12 @@ class TestClientClass:
 
             update_execute = UpdateExecute(**data)
 
-            # get task for client
+            assert update_execute.job_id == job.job_id
+
+            LOGGER.info('get task for client')
+
             with self.client.get(
-                f'/client/task/',
+                '/client/task/',
                 data=create_payload(self.server_key, json.dumps(update_execute.dict())),
                 headers=headers(self.token),
                 stream=True,
@@ -458,19 +474,21 @@ class TestClientClass:
                 content = get_payload(self.private_key, task_response.content)
 
                 assert 'artifact_id' in content
-                assert 'client_task_id' in content
+                assert 'job_id' in content
                 assert 'model' in content
-                assert 'queries' in content
+                assert 'dataset' in content
 
                 task = ArtifactTask(**content)
 
+                assert task.artifact_id == job.artifact_id
                 assert task.artifact_id == artifact_status.artifact_id
-                assert len(task.queries) == 1
-                assert len(task.queries[0].features) == 2
+                assert task.job_id == job.job_id
+                assert len(task.dataset.queries) == 1
+                assert len(task.dataset.queries[0].features) == 2
 
             # cleanup
+            LOGGER.info('cleaning up')
             os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_status.artifact_id}.json'))
 
-            db.query(ClientTask).delete()
-            db.query(Task).delete()
+            db.query(Job).delete()
             db.commit()
