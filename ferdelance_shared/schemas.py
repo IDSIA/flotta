@@ -194,6 +194,6 @@ class ArtifactStatus(BaseArtifact):
 
 class ArtifactTask(BaseArtifact):
     """Task sent to the client for dataset preparation."""
-    client_task_id: str
-    queries: list[Query]
+    job_id: str
+    dataset: Dataset
     model: Model
