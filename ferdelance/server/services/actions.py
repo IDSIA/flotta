@@ -86,7 +86,7 @@ class ActionService(DBSessionService):
         )
 
     def _check_scheduled_job(self, client: Client) -> Job | None:
-        return self.js.get_next_job_for_client(client)
+        return self.js.get_job_for_client(client.client_id)
 
     def _action_schedule_job(self, job: Job) -> UpdateNothing:
         return UpdateExecute(
@@ -110,8 +110,8 @@ class ActionService(DBSessionService):
         if self._check_client_app_update(client):
             return self._action_update_client_app()
 
-        task = self._check_scheduled_task(client)
+        task = self._check_scheduled_job(client)
         if task is not None:
-            return self._action_schedule_task(task)
+            return self._action_schedule_job(task)
 
         return self._action_nothing()

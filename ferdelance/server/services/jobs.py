@@ -62,7 +62,7 @@ class JobManagementService(DBSessionService):
 
     def aggregate(self, artifact: Artifact) -> ArtifactStatus:
 
-        jobs = self.js.get_tasks_for_artifact(artifact.artifact_id)
+        jobs = self.js.get_jobs_for_artifact(artifact.artifact_id)
 
         total = len(jobs)
         completed = len(j for j in jobs if JobStatus[j.status] == JobStatus.COMPLETED)

@@ -15,7 +15,7 @@ from ferdelance_shared.generate import (
 from ..database import get_db
 from ..database.settings import KeyValueStore
 from ..database.tables import ClientToken
-from ..services.client import ClientService
+from ..database.services.client import ClientService
 
 import logging
 import os
