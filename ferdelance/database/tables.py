@@ -104,8 +104,6 @@ class Job(Base):
 
     job_id = Column(String, primary_key=True, index=True)
 
-    task_id = Column(String, nullable=True)
-
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
     artifact = relationship('Artifact')
 
