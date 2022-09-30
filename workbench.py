@@ -1,6 +1,6 @@
 # %%
 from ferdelance_workbench.context import Context
-from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Query, QueryFeature, Model, Strategy, DataSource
+from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Dataset, Query, Model, Strategy, DataSource
 
 # %% create the context
 ctx = Context('http://ferdelance.artemis.idsia.ch')
@@ -15,21 +15,39 @@ for c in ctx.list_clients():
 # %% ask the context for available metadata
 data_sources_id: list[str] = ctx.list_datasources()
 
+ds: DataSource = None
+
 for ds in data_sources_id:
     dds: DataSource = ctx.detail_datasource(ds)
-    print(f'{dds.datasource_id}')
-    for df in dds.features:
-        print(f'- {df.dtype:8} {df.name:4} {df.v_mean}')
+
+    if dds.name == 'earthquakes':
+        ds = dds
+
+print(ds.info())
+
+# %% feature analysis
+
+for k in ds.features_dict().keys():
+    print(k)
 
 # %% develop a filter query
-ds_id = data_sources_id[0]
+q: Query = ds.all_features()
+# remove features
+q -= ds['ID']
+q -= ds['Latitude']
+q -= ds['Longitude']
 
-dds = ctx.detail_datasource(ds_id)
+# add filters
+q = q[ds['Depth'] > 5.0]
+q += ds['Magnitude'] <= 3.0
 
-q = Query(
-    datasources_id=dds.datasource_id,
-    features=[QueryFeature(feature_id=f.feature_id, datasource_id=f.datasource_id) for f in dds.features]
+# %% create dataset
+d = Dataset(
+    test_percentage=0.2,
+    val_percentage=0.1,
+    label='Magnitude'
 )
+d.add_query(q)
 
 # %% develop a model
 m = Model(name='example_model', model=None)
@@ -37,13 +55,14 @@ m = Model(name='example_model', model=None)
 # %% develop an aggregation strategy
 s = Strategy(strategy='nothing')
 
-# %% create an artifact and deploy query, model, and strategy to the server
+# %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
-    queries=[q],
+    dataset=d,
     model=m,
     strategy=s,
 )
 
+# %% submit artifact to the server
 a, status = ctx.submit(a, True)
 
 print(status)
