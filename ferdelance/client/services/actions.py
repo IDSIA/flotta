@@ -1,3 +1,8 @@
+from ferdelance.client.services.actions.do_nothing import DoNothingAction
+from ferdelance.client.services.actions.execute import ExecuteAction
+from ferdelance.client.services.actions.update_client import UpdateClientAction
+from ferdelance.client.services.actions.update_token import UpdateTokenAction
+from ferdelance.client.services.actions.controller import ClientActionController
 from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import *
 
@@ -16,11 +21,7 @@ class ActionService:
     def __init__(self, config: Config) -> None:
         self.config: Config = config
         self.routes_service: RouteService = RouteService(config)
-
-    def action_update_token(self, data: UpdateToken) -> None:
-        LOGGER.info('updating client token with a new one')
-        self.client_token = data.token
-        self.config.dump()
+        self.controller: ClientActionController = ClientActionController()
 
     def action_update_client(self, data: UpdateClientApp) -> str:
         # TODO: this is something for the next iteration
@@ -48,17 +49,20 @@ class ActionService:
         LOGGER.info(f'action received={action}')
 
         if action == Action.UPDATE_TOKEN:
-            self.action_update_token(UpdateToken(**data))
+            update_token_action = UpdateTokenAction(self.config, UpdateToken(**data))
+            self.controller.execute(update_token_action)
 
         if action == Action.EXECUTE:
-            self.action_execute_task(UpdateExecute(**data))
+            execute_action = ExecuteAction(self.routes_service,  UpdateExecute(**data))
+            self.controller.execute(execute_action)
             return Action.DO_NOTHING
 
         if action == Action.UPDATE_CLIENT:
-            return self.action_update_client(UpdateClientApp(**data))
+            update_client_action = UpdateClientAction(self.routes_service, UpdateClientApp(**data))
+            self.controller.execute(update_client_action)
 
         if action == Action.DO_NOTHING:
-            return self.action_do_nothing()
+            self.controller.execute(DoNothingAction())
 
         LOGGER.error(f'cannot complete action={action}')
         return Action.DO_NOTHING
