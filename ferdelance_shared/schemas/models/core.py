@@ -1,17 +1,23 @@
+from enum import Enum
 from pydantic import BaseModel
 
 import numpy as np
 
 
-class Strategy(BaseModel):
+class Strategy(str, Enum):
     """Aggregation strategy selected int the workbench."""
-    strategy: str
+    pass
 
 
 class Model(BaseModel):
     """Model selected int the workbench."""
     name: str
-    strategy: Strategy
+    strategy: Strategy | None = None
+
+    class Config:
+        fields = {
+            'model': {'exclude': True},
+        }
 
     def load(self, path) -> None:
         raise NotImplementedError()
