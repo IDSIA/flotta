@@ -12,8 +12,6 @@ __all__ = [
     'UpdateNothing',
     'DownloadApp',
 
-    'Model',
-
     'BaseFeature',
     'Feature',
     'MetaFeature',
@@ -46,9 +44,6 @@ from .updates import (
     UpdateExecute,
     UpdateNothing,
     DownloadApp,
-)
-from .models import (
-    Model,
 )
 from .artifacts import (
     BaseFeature,
