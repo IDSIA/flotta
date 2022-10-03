@@ -1,7 +1,8 @@
-from typing import Any
-
 from ferdelance_workbench.exceptions import ServerError
 from ferdelance_workbench.artifacts import *
+from ferdelance_workbench.models import *
+
+from uuid import uuid4
 
 import json
 import logging
@@ -138,13 +139,13 @@ class Context:
 
         return Artifact(**json.loads(res.content))
 
-    def get_model_to_disk(self, artifact: Artifact | ArtifactStatus, path: str) -> None:
+    def get_model(self, artifact: Artifact, path: str = None) -> Model:
         """Get the trained and aggregated model from the artifact and save it to disk.
 
         :param artifact:
             Artifact to get the model from.
         :param path:
-            Destination path on disk.
+            Optional, destination path on disk. If none, a UUID will be used to store the downloaded model.
         :raises HTTPError:
             If the return code of the response is not a 2xx type.
         """
@@ -155,5 +156,12 @@ class Context:
 
         res.raise_for_status()
 
+        if path is None:
+            path = f'{uuid4()}.model.bin'
+
         with open(path, 'wb') as f:
             f.write(res.content)
+
+        m = artifact.model
+        m.load(path)
+        return m

@@ -1,6 +1,9 @@
 # %%
 from ferdelance_workbench.context import Context
-from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Dataset, Query, Model, Strategy, DataSource
+from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Dataset, Query, DataSource
+from ferdelance_workbench.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+
+import json
 
 # %% create the context
 ctx = Context('http://ferdelance.artemis.idsia.ch')
@@ -50,17 +53,19 @@ d = Dataset(
 d.add_query(q)
 
 # %% develop a model
-m = Model(name='example_model', model=None)
 
-# %% develop an aggregation strategy
-s = Strategy(strategy='nothing')
+m = FederatedRandomForestClassifier(
+    strategy=StrategyRandomForestClassifier.ENSEMBLE,
+    n_estimators=10,
+)
 
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
     dataset=d,
     model=m,
-    strategy=s,
 )
+
+print(json.dumps(a.dict(), indent=True))
 
 # %% submit artifact to the server
 a, status = ctx.submit(a, True)
@@ -78,6 +83,6 @@ art = ctx.get_artifact(a.artifact_id)
 print(art)
 
 # %% download trained model:
-ctx.get_model_to_disk(a, 'model.bin')
+m = ctx.get_model(a)
 
 # %%
