@@ -1,8 +1,8 @@
-from ...database.services import DBSessionService, Session, ArtifactService, DataSourceService, JobService
+from ...database.services import DBSessionService, Session, ArtifactService, DataSourceService, JobService, ModelService
 
 from ...worker.tasks import aggregation
 
-from ..config import STORAGE_ARTIFACTS
+from ...config import STORAGE_ARTIFACTS
 
 from ferdelance_shared.schemas import Artifact, ArtifactStatus
 from ferdelance_shared.status import JobStatus, ArtifactJobStatus
@@ -23,8 +23,9 @@ class JobManagementService(DBSessionService):
         self.ars: ArtifactService = ArtifactService(db)
         self.dss: DataSourceService = DataSourceService(db)
         self.js: JobService = JobService(db)
+        self.ms: ModelService = ModelService(db)
 
-    def write_to_disk(self, artifact: Artifact) -> str:
+    def dump(self, artifact: Artifact) -> str:
         path = os.path.join(STORAGE_ARTIFACTS, f'{artifact.artifact_id}.json')
 
         with open(path, 'w') as f:
@@ -32,12 +33,21 @@ class JobManagementService(DBSessionService):
 
         return path
 
+    def load(self, artifact_id: str) -> Artifact:
+        path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
+
+        if not os.path.exists(path):
+            raise ValueError(f'artifact_d={artifact_id} not found')
+
+        with open(path, 'r') as f:
+            return Artifact(**json.loads(f))
+
     def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         artifact_id = str(uuid4())
         artifact.artifact_id = artifact_id
 
         try:
-            path = self.write_to_disk(artifact)
+            path = self.dump(artifact)
 
             artifact_db = self.ars.create_artifact(artifact_id, path, ArtifactJobStatus.SCHEDULED.name)
 
@@ -60,28 +70,34 @@ class JobManagementService(DBSessionService):
         except ValueError as e:
             raise e
 
-    def aggregate(self, artifact: Artifact) -> ArtifactStatus:
+    def get_artifact(self, artifact_id: str) -> Artifact:
+        return self.load(artifact_id)
 
-        jobs = self.js.get_jobs_for_artifact(artifact.artifact_id)
+    def aggregate(self, artifact_id: str, client_id) -> None:
 
-        total = len(jobs)
-        completed = len(j for j in jobs if JobStatus[j.status] == JobStatus.COMPLETED)
+        self.js.create_job(artifact_id, client_id, JobStatus.COMPLETED)
+
+        artifact: Artifact = self.ars.get_artifact(artifact_id)
+
+        total = self.js.count_jobs_by_status(artifact_id, JobStatus.SCHEDULED)
+        completed = self.js.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
+        error = self.js.count_jobs_by_status(artifact_id, JobStatus.ERROR)
 
         if completed < total:
-            LOGGER.info(f'Cannot aggregate: completed={completed} / {total} job(s)')
+            LOGGER.info(f'Cannot aggregate: {completed} / {total} completed job(s)')
+            return
+
+        if error > 0:
+            LOGGER.error(f'Cannot aggregate: {error} jobs have error')
             return
 
         LOGGER.info(f'All {total} job(s) completed, starting aggregation')
 
-        new_status = ArtifactJobStatus.AGGREGATING.name
-        self.ars.update_status(artifact.artifact_id, new_status)
+        model_ids: list[str] = [m.model_id for m in self.ms.get_models_by_artifact_id(artifact_id)]
 
-        aggregation.delay(artifact.dict())
+        self.ars.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
 
-        return ArtifactStatus(
-            artifact_id=artifact.artifact_id,
-            status=new_status,
-        )
+        aggregation.delay(artifact_id, model_ids)
 
     def evaluate(self, artifact: Artifact) -> ArtifactStatus:
         # TODO

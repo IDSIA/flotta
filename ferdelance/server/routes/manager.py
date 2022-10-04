@@ -8,7 +8,7 @@ from ...database import get_db
 from ...database.services import ModelService, ClientService
 from ...database.tables import ClientApp, Artifact, Model, Client
 from ..schemas.manager import *
-from ..config import FILE_CHUNK_SIZE, STORAGE_CLIENTS, STORAGE_ARTIFACTS
+from ...config import FILE_CHUNK_SIZE, STORAGE_CLIENTS, STORAGE_ARTIFACTS
 
 import aiofiles
 import hashlib

@@ -8,7 +8,7 @@ from .routes.manager import manager_router
 from .routes.workbench import workbench_router
 from ..database import get_db, SessionLocal, startup, Session, settings
 
-from .config import STORAGE_ARTIFACTS, STORAGE_CLIENTS, STORAGE_MODELS
+from ..config import STORAGE_ARTIFACTS, STORAGE_CLIENTS, STORAGE_MODELS
 
 import logging
 import os
