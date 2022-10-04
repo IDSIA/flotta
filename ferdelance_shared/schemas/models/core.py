@@ -9,12 +9,19 @@ class Strategy(str, Enum):
     pass
 
 
+class Parameters(BaseModel):
+    """Class defining all the parameters accepted in training by the model."""
+    pass
+
+
 class Model(BaseModel):
-    """Model selected int the workbench."""
+    """Model defined in the workbench and trained in the clients."""
     name: str
     strategy: Strategy | None = None
+    parameters: Parameters = Parameters()
 
     class Config:
+        arbitrary_types_allowed = True
         fields = {
             'model': {'exclude': True},
         }
