@@ -1,3 +1,4 @@
+from email.policy import default
 from sqlalchemy import Column, ForeignKey, String, Float, DateTime, Integer, Boolean, Date
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship
@@ -102,7 +103,7 @@ class Job(Base):
     """
     __tablename__ = 'jobs'
 
-    job_id = Column(String, primary_key=True, index=True)
+    job_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
 
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
     artifact = relationship('Artifact')
@@ -122,10 +123,14 @@ class Model(Base):
     model_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
     path = Column(String, nullable=False)
+    aggregated = Boolean(default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
     artifact = relationship('Artifact')
+
+    job_id = Column(String, ForeignKey('jobs.job_id'))
+    job = relationship('Job')
 
 
 class ClientDataSource(Base):

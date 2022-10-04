@@ -4,7 +4,7 @@ from ..tables import Job
 
 from ferdelance_shared.status import JobStatus
 
-from uuid import uuid4
+import sqlalchemy.sql.functions as f
 
 
 class JobService(DBSessionService):
@@ -15,7 +15,6 @@ class JobService(DBSessionService):
     def create_job(self, artifact_id: str, client_id: str, status: JobStatus) -> Job:
 
         job = Job(
-            job_id=str(uuid4()),
             artifact_id=artifact_id,
             client_id=client_id,
             status=status.name
@@ -29,6 +28,9 @@ class JobService(DBSessionService):
 
     def get_jobs_for_client(self, client_id: str) -> list[Job]:
         return self.db.query(Job).filter(Job.client_id == client_id).all()
+
+    def count_jobs_by_status(self, artifact_id: str, status: JobStatus) -> int:
+        return self.db.query(Job).filter(Job.artifact_id == artifact_id, Job.status == status.name).count()
 
     def get_jobs_for_artifact(self, artifact_id: str) -> list[Job]:
         return self.db.query(Job).filter(Job.artifact_id == artifact_id).all()

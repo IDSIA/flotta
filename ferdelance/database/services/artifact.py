@@ -2,6 +2,8 @@ from .core import DBSessionService, Session
 
 from ..tables import Artifact, Model
 
+from ferdelance_shared.status import ArtifactJobStatus
+
 
 class ArtifactService(DBSessionService):
 
@@ -28,7 +30,7 @@ class ArtifactService(DBSessionService):
     def get_model_by_artifact(self, artifact: Artifact) -> list[Model]:
         return self.db.query(Model).filter(Model.artifact_id == artifact.artifact_id).first()
 
-    def update_status(self, artifact_id: str, new_status: str) -> Artifact:
+    def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> Artifact:
         self.db.query(Artifact).filter(Artifact.artifact_id == artifact_id).update({
-            'status': new_status,
+            'status': new_status.name,
         })
