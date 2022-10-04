@@ -10,7 +10,7 @@ class DataSourceFile(DataSource):
         super().__init__(name, kind)
         self.path: str = path
 
-    def get(self, label: str = None, filter: str = None) -> pd.DataFrame:
+    def get(self, ) -> pd.DataFrame:
         # TODO open file, read content, filter content, pack as pandas DF
         raise NotImplemented()
 

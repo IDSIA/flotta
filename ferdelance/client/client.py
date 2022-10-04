@@ -71,7 +71,6 @@ class FerdelanceClient:
                     LOGGER.info(f'creating working directory={self.config.workdir}')
                     os.makedirs(self.config.workdir, exist_ok=True)
                     os.chmod(self.config.workdir, 0o700)
-
                     os.makedirs(self.config.path_artifact_folder, exist_ok=True)
 
                 if item == 'pk':

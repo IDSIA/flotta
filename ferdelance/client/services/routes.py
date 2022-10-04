@@ -140,6 +140,8 @@ class RouteService:
 
         res.raise_for_status()
 
+        LOGGER.info(f"-------\n{self.get_payload(res.content)}\n-------")
+
         LOGGER.info('metadata uploaded successful')
 
     def get_update(self, content: dict) -> tuple[Action, dict]:
