@@ -1,7 +1,8 @@
-from ferdelance.server.config import STORAGE_ARTIFACTS
+from ferdelance.config import STORAGE_ARTIFACTS
 
 from ferdelance_shared.schemas import *
-from ferdelance_shared.status import ArtifactJobStatus, JobStatus
+from ferdelance_shared.schemas.models import *
+from ferdelance_shared.status import ArtifactJobStatus
 
 from .utils import (
     setup_test_client,
@@ -138,8 +139,7 @@ class TestWorkbenchClass:
                     )
                 ]
             ),
-            model=Model(name='model', model=None),
-            strategy=Strategy(strategy='strategy'),
+            model=Model(name='model', strategy=None, parameters=None),
         )
 
         res = self.client.post(

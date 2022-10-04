@@ -3,10 +3,11 @@ from ferdelance.database.services import ClientAppService, ClientService, DataSo
 from ferdelance.database.settings import KeyValueStore
 from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, Job
 from ferdelance.server.security import PUBLIC_KEY
-from ferdelance.server.config import STORAGE_ARTIFACTS
+from ferdelance.config import STORAGE_ARTIFACTS
 
 from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import *
+from ferdelance_shared.schemas.models import *
 from ferdelance_shared.operations import NumericOperations
 
 from .utils import (
@@ -426,8 +427,7 @@ class TestClientClass:
                         transformers=[],
                     )],
                 ),
-                model=Model(name=''),
-                strategy=Strategy(strategy='')
+                model=Model(name='', strategy=None),
             )
 
             LOGGER.info('submit artifact')
