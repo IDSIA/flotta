@@ -1,12 +1,12 @@
-from typing import Any
-
-from ferdelance.database import SessionLocal
-
 from ferdelance_shared.schemas import Artifact
+
+from ..models import AggregatorRandomForestClassifier
 
 from ..celery import worker
 
 import logging
+import pickle
+import requests
 
 LOGGER = logging.getLogger(__name__)
 
@@ -15,16 +15,33 @@ LOGGER = logging.getLogger(__name__)
     ignore_result=False,
     bind=True,
 )
-def aggregation(self, raw_artifact: dict[str, Any]) -> str:
+def aggregation(self, artifact_id: str, model_ids: list[str]) -> str:
 
-    # task_id = str(self.request.id)
+    task_id = str(self.request.id)
 
-    artifact = Artifact(**raw_artifact)
+    LOGGER.info(f'beginning aggregation task={task_id} for artifact_id={artifact_id}')
 
-    with SessionLocal() as db:
+    content = requests.get(f'http://server/worker/artifact/{artifact_id}')
+    artifact = Artifact(**content.json())
 
-        LOGGER.info(f'SCHEDULING AGGREGATION {artifact.artifact_id}')
+    models = []
+    for model_id in model_ids:
+        LOGGER.info(f'requesting {model_id}')
+        res = requests.get(f'http://server/worker/model/{model_id}')
+        model = pickle.loads(res.content)
+        models.append(model)
 
-        # TODO
+    LOGGER.info(f'fetched {len(models)} model(s)')
 
-        raise NotImplementedError()
+    model_name = artifact.model.name
+
+    if model_name == 'FederatedRandomForestClassifier':
+        agg = AggregatorRandomForestClassifier()
+        aggregated_model = agg.aggregate(artifact.model.strategy, models)
+
+    else:
+        raise ValueError(f'Unsupported model: {model_name}')
+
+    requests.post('http://server/worker/model/aggregated/{artifact_id}', files={
+        'aggregated_model': pickle.dumps(aggregated_model)
+    })
