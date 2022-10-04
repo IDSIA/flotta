@@ -157,7 +157,7 @@ class Context:
         res.raise_for_status()
 
         if path is None:
-            path = f'{uuid4()}.model.bin'
+            path = f'{artifact.model.name}.{uuid4()}.model.bin'
 
         with open(path, 'wb') as f:
             f.write(res.content)

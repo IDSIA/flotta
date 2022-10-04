@@ -55,7 +55,7 @@ d.add_query(q)
 # %% develop a model
 
 m = FederatedRandomForestClassifier(
-    strategy=StrategyRandomForestClassifier.ENSEMBLE,
+    strategy=StrategyRandomForestClassifier.MERGE,
     n_estimators=10,
 )
 
