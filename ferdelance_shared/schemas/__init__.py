@@ -27,7 +27,6 @@ __all__ = [
     'BaseArtifact',
     'Artifact',
     'ArtifactStatus',
-    'ArtifactTask',
 
     'WorkbenchJoinData',
 ]
@@ -63,7 +62,6 @@ from .artifacts import (
     BaseArtifact,
     Artifact,
     ArtifactStatus,
-    ArtifactTask,
 )
 
 from .workbench import (

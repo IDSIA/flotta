@@ -107,10 +107,3 @@ class Artifact(BaseArtifact):
 class ArtifactStatus(BaseArtifact):
     """Details on the artifact."""
     status: str | None
-
-
-class ArtifactTask(BaseArtifact):
-    """Task sent to the client for dataset preparation."""
-    job_id: str
-    dataset: Dataset
-    model: Model

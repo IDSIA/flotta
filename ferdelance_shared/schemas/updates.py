@@ -26,7 +26,7 @@ class UpdateClientApp(UpdateData):
 
 class UpdateExecute(UpdateData):
     """Task that the client has to execute next."""
-    job_id: str
+    artifact_id: str
 
 
 class UpdateNothing(UpdateData):
