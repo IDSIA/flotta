@@ -1,4 +1,4 @@
-from ...database.services import DBSessionService, Session, ArtifactService, DataSourceService, JobService, ModelService
+from ...database.services import DBSessionService, Session, ArtifactService, DataSourceService, JobService, ModelService, ClientService
 
 from ...worker.tasks import aggregation
 
@@ -20,6 +20,7 @@ class JobManagementService(DBSessionService):
     def __init__(self, db: Session) -> None:
         super().__init__(db)
 
+        self.cs: ClientService = ClientService(db)
         self.ars: ArtifactService = ArtifactService(db)
         self.dss: DataSourceService = DataSourceService(db)
         self.js: JobService = JobService(db)
@@ -93,11 +94,13 @@ class JobManagementService(DBSessionService):
 
         LOGGER.info(f'All {total} job(s) completed, starting aggregation')
 
+        token: str = self.cs.get_token_for_client_id('WORKBENCH')
+
         model_ids: list[str] = [m.model_id for m in self.ms.get_models_by_artifact_id(artifact_id)]
 
         self.ars.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
 
-        aggregation.delay(artifact_id, model_ids)
+        aggregation.delay(token, artifact_id, model_ids)
 
     def evaluate(self, artifact: Artifact) -> ArtifactStatus:
         # TODO

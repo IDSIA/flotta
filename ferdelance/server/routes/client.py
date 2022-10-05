@@ -17,9 +17,6 @@ from ...database.services import (
 from ...database.tables import Client, ClientApp, ClientToken, Job, Model
 from ..services import ActionService, SecurityService, JobManagementService
 from ..security import check_token
-from ...config import STORAGE_MODELS
-
-from ...worker.tasks.aggregation import aggregation
 
 from ferdelance_shared.schemas import (
     ClientJoinRequest,
@@ -64,6 +61,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
             machine_mac_address=client.mac_address,
             machine_node=client.node,
             ip_address=ip_address,
+            type='CLIENT',
         )
 
         ss.client = cs.create_client(client)

@@ -8,7 +8,7 @@ from ...database.services import ArtifactService, ClientService, DataSourceServi
 from ...database.tables import Client, ClientDataSource, Artifact, Model
 from ..services import JobManagementService
 
-from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact
+from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact, WorkbenchJoinData
 
 import aiofiles
 import json
@@ -24,6 +24,17 @@ workbench_router = APIRouter()
 @workbench_router.get('/workbench/')
 async def wb_home():
     return 'Workbench 🔧'
+
+
+@workbench_router.get('/workbench/connect', response_model=WorkbenchJoinData)
+async def wb_get_client_list(db: Session = Depends(get_db)):
+    cs: ClientService = ClientService(db)
+
+    token: str = cs.get_token_for_client_id('WORKBENCH')
+
+    return WorkbenchJoinData(
+        token=token,
+    )
 
 
 @workbench_router.get('/workbench/client/list', response_model=list[str])

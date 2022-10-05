@@ -15,13 +15,16 @@ LOGGER = logging.getLogger(__name__)
     ignore_result=False,
     bind=True,
 )
-def aggregation(self, artifact_id: str, model_ids: list[str]) -> str:
+def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> str:
 
     task_id = str(self.request.id)
 
     LOGGER.info(f'beginning aggregation task={task_id} for artifact_id={artifact_id}')
 
-    content = requests.get(f'http://server/worker/artifact/{artifact_id}')
+    content = requests.get(
+        f'http://server/worker/artifact/{artifact_id}',
+        headers={'Authorization': f'Bearer {token}'},
+    )
     artifact = Artifact(**content.json())
 
     models = []
@@ -42,6 +45,8 @@ def aggregation(self, artifact_id: str, model_ids: list[str]) -> str:
     else:
         raise ValueError(f'Unsupported model: {model_name}')
 
-    requests.post('http://server/worker/model/aggregated/{artifact_id}', files={
-        'aggregated_model': pickle.dumps(aggregated_model)
-    })
+    requests.post(
+        'http://server/worker/model/aggregated/{artifact_id}',
+        headers={'Authorization': f'Bearer {token}'},
+        files={'aggregated_model': pickle.dumps(aggregated_model)}
+    )
