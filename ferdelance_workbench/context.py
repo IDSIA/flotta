@@ -1,6 +1,7 @@
 from ferdelance_workbench.exceptions import ServerError
 from ferdelance_workbench.artifacts import *
 from ferdelance_workbench.models import *
+from ferdelance_shared.schemas import WorkbenchJoinData
 
 from uuid import uuid4
 
@@ -16,6 +17,19 @@ class Context:
     def __init__(self, server: str) -> None:
         self.server = server.rstrip('/')
 
+        res = requests.get(
+            f'{self.server}/workbench/connect'
+        )
+
+        res.raise_for_status()
+
+        self.token = WorkbenchJoinData(**res.json()).token
+
+    def headers(self) -> dict[str, str]:
+        return {
+            'Authorization': f'Bearer {self.token}'
+        }
+
     def list_clients(self) -> list[str]:
         """List all clients available on the server.
 
@@ -24,7 +38,10 @@ class Context:
         :returns:
             A list of client ids.
         """
-        res = requests.get(f'{self.server}/workbench/client/list')
+        res = requests.get(
+            f'{self.server}/workbench/client/list',
+            headers=self.headers(),
+        )
 
         res.raise_for_status()
 
@@ -40,7 +57,10 @@ class Context:
         :returns:
             The details for the given client.
         """
-        res = requests.get(f'{self.server}/workbench/client/{client_id}')
+        res = requests.get(
+            f'{self.server}/workbench/client/{client_id}',
+            headers=self.headers(),
+        )
 
         if res.status_code != 200:
             raise ServerError(f'server status code: {res.status_code}')
@@ -55,7 +75,10 @@ class Context:
         :returns:
             A list of all datasources available.
         """
-        res = requests.get(f'{self.server}/workbench/datasource/list/')
+        res = requests.get(
+            f'{self.server}/workbench/datasource/list/',
+            headers=self.headers(),
+        )
 
         if res.status_code != 200:
             raise ServerError(f'server status code: {res.status_code}')
@@ -72,7 +95,10 @@ class Context:
         :returns:
             The details for the given datasource, with also features.
         """
-        res = requests.get(f'{self.server}/workbench/datasource/{datasource_id}')
+        res = requests.get(
+            f'{self.server}/workbench/datasource/{datasource_id}',
+            headers=self.headers(),
+        )
 
         if res.status_code != 200:
             raise ServerError(f'server status code: {res.status_code}')
@@ -92,7 +118,11 @@ class Context:
             The same input artifact with an assigned artifact_id.
             If the `ret_status` flag is true, the status of the artifact is also returned.
         """
-        res = requests.post(f'{self.server}/workbench/artifact/submit', json=artifact.dict())
+        res = requests.post(
+            f'{self.server}/workbench/artifact/submit',
+            headers=self.headers(),
+            json=artifact.dict(),
+        )
 
         res.raise_for_status()
 
@@ -117,7 +147,10 @@ class Context:
         if artifact.artifact_id is None:
             raise ValueError('submit first the artifact to the server')
 
-        res = requests.get(f'{self.server}/workbench/artifact/{artifact.artifact_id}')
+        res = requests.get(
+            f'{self.server}/workbench/artifact/{artifact.artifact_id}',
+            headers=self.headers(),
+        )
 
         res.raise_for_status()
 
@@ -133,7 +166,10 @@ class Context:
         :returns:
             The artifact saved on the server and associated with the given artifact_id.
         """
-        res = requests.get(f'{self.server}/workbench/download/artifact/{artifact_id}')
+        res = requests.get(
+            f'{self.server}/workbench/download/artifact/{artifact_id}',
+            headers=self.headers(),
+        )
 
         res.raise_for_status()
 
@@ -152,7 +188,10 @@ class Context:
         if artifact.artifact_id is None:
             raise ValueError('submit first the artifact to the server')
 
-        res = requests.get(f'{self.server}/workbench/download/model/{artifact.artifact_id}')
+        res = requests.get(
+            f'{self.server}/workbench/download/model/{artifact.artifact_id}',
+            headers=self.headers(),
+        )
 
         res.raise_for_status()
 
