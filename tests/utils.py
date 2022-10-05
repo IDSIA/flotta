@@ -7,7 +7,7 @@ from requests import Response
 
 from ferdelance.database import SessionLocal
 from ferdelance.database.settings import setup_settings
-from ferdelance.database.startup import init_content
+from ferdelance.database.startup import init_database
 from ferdelance.server.api import api
 from ferdelance.server.security import generate_keys
 
@@ -69,7 +69,7 @@ def setup_test_database() -> tuple[str, str]:
 
     # populate database
     with SessionLocal() as db:
-        init_content(db)
+        init_database(db)
         generate_keys(db)
         setup_settings(db)
 

@@ -84,8 +84,10 @@ class TestWorkbenchClass:
 
         client_list = json.loads(res.content)
 
-        assert len(client_list) == 2
-        assert 'SERVER' in client_list
+        assert len(client_list) == 1
+        assert 'SERVER' not in client_list
+        assert 'WORKER' not in client_list
+        assert 'WORKBENCH' not in client_list
 
     def test_client_detail(self):
         client_id = self.client_id
@@ -139,7 +141,7 @@ class TestWorkbenchClass:
                     )
                 ]
             ),
-            model=Model(name='model', strategy=None, parameters=None),
+            model=Model(name='model', strategy=None),
         )
 
         res = self.client.post(
