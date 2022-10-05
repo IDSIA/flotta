@@ -57,7 +57,7 @@ class ClientService(DBSessionService):
         return self.db.query(Client).filter(Client.client_id == client_id).first()
 
     def get_client_list(self) -> list[Client]:
-        return self.db.query(Client).all()
+        return self.db.query(Client).filter(Client.type == 'CLIENT').all()
 
     def get_client_by_token(self, token: str) -> Client:
         return self.db.query(Client)\

@@ -25,7 +25,6 @@ from ferdelance_shared.schemas import (
     Metadata,
     UpdateExecute,
     Artifact,
-    ArtifactTask,
 )
 
 import aiofiles
@@ -216,7 +215,7 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
     body = await request.body()
     payload = UpdateExecute(**ss.server_decrypt_json_content(body))
 
-    job: Job = js.get_job_by_id(payload.job_id)
+    job: Job = js.get_job(client_id, payload.artifact_id)
 
     if job is None:
         return HTTPException(404, 'Task does not exists')
@@ -234,9 +233,8 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
 
     artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasources_id in client_datasource_ids]
 
-    content = ArtifactTask(
+    content = Artifact(
         artifact_id=job.artifact_id,
-        job_id=job.job_id,
         dataset=artifact.dataset,
         model=artifact.model,
     )

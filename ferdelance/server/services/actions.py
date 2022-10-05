@@ -86,12 +86,12 @@ class ActionService(DBSessionService):
         )
 
     def _check_scheduled_job(self, client: Client) -> Job | None:
-        return self.js.get_job_for_client(client.client_id)
+        return self.js.next_for_client(client.client_id)
 
     def _action_schedule_job(self, job: Job) -> UpdateNothing:
         return UpdateExecute(
             action=Action.EXECUTE.name,
-            job_id=job.job_id,
+            artifact_id=job.artifact_id
         )
 
     def _action_nothing(self) -> tuple[str, Any]:

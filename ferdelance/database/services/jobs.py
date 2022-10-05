@@ -35,8 +35,12 @@ class JobService(DBSessionService):
     def get_jobs_for_artifact(self, artifact_id: str) -> list[Job]:
         return self.db.query(Job).filter(Job.artifact_id == artifact_id).all()
 
-    def get_job_by_id(self, job_id: str) -> Job | None:
-        return self.db.query(Job).filter(Job.job_id == job_id).order_by(Job.time.asc()).first()
+    def next_for_client(self, client_id: str) -> Job | None:
+        return self.db.query(Job).filter(Job.client_id == client_id).order_by(Job.time.asc()).first()
 
-    def get_job_for_client(self, client_id: str) -> Job | None:
-        return self.db.query(Job).filter(Job.status == JobStatus.SCHEDULED.name, Job.client_id == client_id).order_by(Job.time.asc()).first()
+    def get_job(self, client_id: str, artifact_id: str) -> Job | None:
+        return self.db.query(Job).filter(
+            Job.status == JobStatus.SCHEDULED.name,
+            Job.client_id == client_id,
+            Job.artifact_id == artifact_id,
+        ).order_by(Job.time.asc()).first()

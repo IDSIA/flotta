@@ -124,7 +124,7 @@ class Model(Base):
     model_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
     path = Column(String, nullable=False)
-    aggregated = Boolean(default=False)
+    aggregated = Column(Boolean, nullable=False, default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
