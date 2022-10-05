@@ -29,8 +29,9 @@ class Client(Base):
     machine_mac_address = Column(String, nullable=False, unique=True)
     # uuid.getnode()
     machine_node = Column(String, nullable=False)
-    # hash of above values
-    # token = Column(String, nullable=False, index=True, unique=True)
+
+    # valid values: SERVER, CLIENT, WORKER, WORKBENCH
+    type = Column(String, nullable=False)
 
     active = Column(Boolean, default=True)
     blacklisted = Column(Boolean, default=False)
@@ -129,8 +130,8 @@ class Model(Base):
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
     artifact = relationship('Artifact')
 
-    job_id = Column(String, ForeignKey('jobs.job_id'))
-    job = relationship('Job')
+    client_id = Column(String, ForeignKey('clients.client_id'))
+    client = relationship('Client')
 
 
 class ClientDataSource(Base):

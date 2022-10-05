@@ -114,3 +114,6 @@ class ClientService(DBSessionService):
         LOGGER.info(f'client_id={client.client_id}: requested all events')
 
         return self.db.query(ClientEvent).filter(ClientEvent.client_id == client.client_id).all()
+
+    def get_token_for_client_id(self, client_id: str) -> str:
+        return self.db.query(ClientToken.token).filter(ClientToken.client_id == client_id, ClientToken.valid == True).first()

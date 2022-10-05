@@ -2,16 +2,14 @@ from fastapi import FastAPI, Depends
 
 import uvicorn
 
-from . import security
 from .routes.client import client_router
 from .routes.manager import manager_router
 from .routes.workbench import workbench_router
-from ..database import get_db, SessionLocal, startup, Session, settings
-
-from ..config import STORAGE_ARTIFACTS, STORAGE_CLIENTS, STORAGE_MODELS
+from .routes.files import files_router
+from .startup import ServerStartup
+from ..database import get_db, SessionLocal, Session
 
 import logging
-import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -22,6 +20,7 @@ def init_api() -> FastAPI:
     api.include_router(client_router)
     api.include_router(manager_router)
     api.include_router(workbench_router)
+    api.include_router(files_router)
 
     return api
 
@@ -32,18 +31,9 @@ api = init_api()
 @api.on_event('startup')
 async def populate_database() -> None:
     """All operations marked as `on_event('startup')` are executed when the API are started."""
-    try:
-        db = SessionLocal()
-
-        os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
-        os.makedirs(STORAGE_CLIENTS, exist_ok=True)
-        os.makedirs(STORAGE_MODELS, exist_ok=True)
-
-        startup.init_content(db)
-        settings.setup_settings(db)
-        security.generate_keys(db)
-    finally:
-        db.close()
+    with SessionLocal() as db:
+        ss = ServerStartup(db)
+        ss.startup()
 
 
 @api.get("/")
