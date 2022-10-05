@@ -17,7 +17,7 @@ class ModelService(DBSessionService):
         os.makedirs(out_dir, exist_ok=True)
         return out_dir
 
-    def create_model(self, artifact_id: str, aggregated: bool = False) -> Model:
+    def create_model(self, artifact_id: str, client_id: str, aggregated: bool = False) -> Model:
         model_id: str = str(uuid4())
 
         filename = f'{model_id}.AGGREGATED.model' if aggregated else f'{model_id}.model'
@@ -27,6 +27,7 @@ class ModelService(DBSessionService):
             model_id=model_id,
             path=out_path,
             artifact_id=artifact_id,
+            client_id=client_id,
             aggregated=aggregated,
         )
 
