@@ -27,7 +27,7 @@ def init_database(db: Session) -> None:
         Session with the connection to the database.
     """
 
-    logging.info('Database creation started')
+    LOGGER.info('database creation started')
 
     engine = db.get_bind()
 
@@ -44,4 +44,4 @@ def init_database(db: Session) -> None:
 
     db.commit()
 
-    LOGGER.info('Database creation completed')
+    LOGGER.info('database creation completed')
