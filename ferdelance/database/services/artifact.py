@@ -27,8 +27,8 @@ class ArtifactService(DBSessionService):
     def get_artifact(self, artifact_id: str) -> Artifact:
         return self.db.query(Artifact).filter(Artifact.artifact_id == artifact_id).first()
 
-    def get_model_by_artifact(self, artifact: Artifact) -> list[Model]:
-        return self.db.query(Model).filter(Model.artifact_id == artifact.artifact_id).first()
+    def get_models_by_artifact_id(self, artifact_id: str) -> list[Model]:
+        return self.db.query(Model).filter(Model.artifact_id == artifact_id, Model.aggregated).all()
 
     def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> Artifact:
         self.db.query(Artifact).filter(Artifact.artifact_id == artifact_id).update({

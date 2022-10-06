@@ -33,7 +33,7 @@ class ServerStartup:
     def create_client(self, type: str, ip_address: str = '', system: str = '', node: int | None = None) -> None:
         LOGGER.info(f'creating client {type}')
 
-        entry_exists = self.db.query(Client).filter(Client.client_id == type).first()
+        entry_exists = self.db.query(Client).filter(Client.type == type).first()
 
         if entry_exists is not None:
             LOGGER.warn(f'client already exists for type={type} ip_address={ip_address} system={system}')

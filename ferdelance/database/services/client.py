@@ -21,7 +21,7 @@ class ClientService(DBSessionService):
                 (Client.machine_mac_address == client.machine_mac_address) |
                 (Client.machine_node == client.machine_node)
             )
-            .first()
+            .first()[0]
         )
         if existing_client_id is not None:
             LOGGER.warning(f'client_id={existing_client_id}: client already exists')

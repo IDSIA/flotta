@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...database.services import ArtifactService, ClientService, DataSourceService
+from ...database.services import ArtifactService, ClientService, DataSourceService, ModelService
 from ...database.tables import Client, ClientDataSource, Artifact, Model
 from ..services import JobManagementService
 
@@ -97,7 +97,6 @@ async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db)):
 def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
     try:
         jms: JobManagementService = JobManagementService(db)
-
         return jms.submit_artifact(artifact)
 
     except ValueError as e:
@@ -106,7 +105,7 @@ def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
         raise HTTPException(403)
 
 
-@workbench_router.get('/workbench/artifact/{artifact_id}', response_model=ArtifactStatus)
+@workbench_router.get('/workbench/artifact/status/{artifact_id}', response_model=ArtifactStatus)
 async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
     ars: ArtifactService = ArtifactService(db)
 
@@ -123,40 +122,30 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
     )
 
 
-@workbench_router.get('/workbench/download/artifact/{artifact_id}', response_model=Artifact)
+@workbench_router.get('/workbench/artifact/{artifact_id}', response_model=Artifact)
 async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
-    ars: ArtifactService = ArtifactService(db)
+    try:
+        jms: JobManagementService = JobManagementService(db)
+        return jms.get_artifact(artifact_id)
 
-    artifact_db: Artifact = ars.get_artifact(artifact_id)
-
-    if artifact_db is None:
+    except ValueError as e:
+        LOGGER.error(f'{e}')
         raise HTTPException(404)
 
-    if not os.path.exists(artifact_db.path):
-        raise HTTPException(404)
 
-    async with aiofiles.open(artifact_db.path, 'r') as f:
-        content = await f.read()
-        data = json.loads(content)
-
-    return Artifact(**data)
-
-
-@workbench_router.get('/workbench/download/model/{artifact_id}', response_class=FileResponse)
+@workbench_router.get('/workbench/model/{artifact_id}', response_class=FileResponse)
 async def wb_get_model(artifact_id: str, db: Session = Depends(get_db)):
     ars: ArtifactService = ArtifactService(db)
+    ms: ModelService = ModelService(db)
 
-    artifact_db: Artifact = ars.get_artifact(artifact_id)
+    model_dbs: list[Model] = ars.get_models_by_artifact_id(artifact_id, True)
 
-    if artifact_db is None:
+    if not model_dbs:
         raise HTTPException(404)
 
-    if artifact_db.status != 'COMPLETED':
-        raise HTTPException(404)
+    model_db = [m for m in model_dbs if m.aggregated][0]
 
-    model_db: Model = ars.get_model_by_artifact(artifact_db)
-
-    if model_db is None:
+    if not os.path.exists(model_db.path):
         raise HTTPException(404)
 
     return FileResponse(model_db.path)
