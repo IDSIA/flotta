@@ -30,7 +30,7 @@ async def wb_home():
 async def wb_get_client_list(db: Session = Depends(get_db)):
     cs: ClientService = ClientService(db)
 
-    token: str = cs.get_token_for_client_id('WORKBENCH')
+    token: str = cs.get_token_by_client_type('WORKBENCH')
 
     return WorkbenchJoinData(
         token=token,
@@ -53,7 +53,7 @@ async def wb_get_client_detail(client_id: str, db: Session = Depends(get_db)):
     client: Client = cs.get_client_by_id(client_id)
 
     if client.active is False:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     return ClientDetails(
         client_id=client.client_id,
@@ -103,7 +103,7 @@ def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
     except ValueError as e:
         LOGGER.error('Artifact already exists')
         LOGGER.exception(e)
-        return HTTPException(403)
+        raise HTTPException(403)
 
 
 @workbench_router.get('/workbench/artifact/{artifact_id}', response_model=ArtifactStatus)
@@ -115,7 +115,7 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
     # TODO: get status from celery
 
     if artifact_db is None:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     return ArtifactStatus(
         artifact_id=artifact_id,
@@ -130,10 +130,10 @@ async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
     artifact_db: Artifact = ars.get_artifact(artifact_id)
 
     if artifact_db is None:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     if not os.path.exists(artifact_db.path):
-        return HTTPException(404)
+        raise HTTPException(404)
 
     async with aiofiles.open(artifact_db.path, 'r') as f:
         content = await f.read()
@@ -149,14 +149,14 @@ async def wb_get_model(artifact_id: str, db: Session = Depends(get_db)):
     artifact_db: Artifact = ars.get_artifact(artifact_id)
 
     if artifact_db is None:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     if artifact_db.status != 'COMPLETED':
-        return HTTPException(404)
+        raise HTTPException(404)
 
     model_db: Model = ars.get_model_by_artifact(artifact_db)
 
     if model_db is None:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     return FileResponse(model_db.path)

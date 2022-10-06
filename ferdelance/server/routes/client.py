@@ -150,7 +150,7 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
 
     if new_app.version != payload.version:
         LOGGER.warning(f'client_id={client_id} requested app version={payload.version} while latest version={new_app.version}')
-        return HTTPException(400, 'Old versions are not permitted')
+        raise HTTPException(400, 'Old versions are not permitted')
 
     cs.update_client(client_id, version=payload.version)
 
@@ -218,12 +218,12 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
     job: Job = js.get_job(client_id, payload.artifact_id)
 
     if job is None:
-        return HTTPException(404, 'Task does not exists')
+        raise HTTPException(404, 'Task does not exists')
 
     artifact_db = ars.get_artifact(job.artifact_id)
 
     if not os.path.exists(artifact_db.path):
-        return HTTPException(404, 'Artifact does not exits')
+        raise HTTPException(404, 'Artifact does not exits')
 
     async with aiofiles.open(artifact_db.path, 'r') as f:
         data = await f.read()

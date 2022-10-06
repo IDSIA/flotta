@@ -22,8 +22,9 @@ LOGGER = logging.getLogger(__name__)
 files_router = APIRouter()
 
 
-@files_router.post('/files/artifact/', response_model=ArtifactStatus)
+@files_router.post('/files/artifact', response_model=ArtifactStatus)
 def post_artifact(artifact: Artifact, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    LOGGER.info(f'client_id={client_id}: sent new artifact')
     try:
         jms: JobManagementService = JobManagementService(db)
         return jms.submit_artifact(artifact)
@@ -31,22 +32,24 @@ def post_artifact(artifact: Artifact, db: Session = Depends(get_db), client_id: 
     except ValueError as e:
         LOGGER.error('Artifact already exists')
         LOGGER.exception(e)
-        return HTTPException(403)
+        raise HTTPException(403)
 
 
-@files_router.get('/files/artifact/{artifact_id}', response_class=Artifact)
+@files_router.get('/files/artifact/{artifact_id}', response_model=Artifact)
 async def get_artifact(artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    LOGGER.info(f'client_id={client_id}: requested artifact_id={artifact_id}')
     try:
         jms: JobManagementService = JobManagementService(db)
         return jms.get_artifact(artifact_id)
 
     except ValueError as e:
-        LOGGER.exception(e)
-        return HTTPException(404)
+        LOGGER.error(f'{e}')
+        raise HTTPException(404)
 
 
 @files_router.post('/files/model/{artifact_id}')
 async def post_model(file: UploadFile, artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    LOGGER.info(f'client_id={client_id}: send model for artifact_id={artifact_id}')
     try:
         ms: ModelService = ModelService(db)
         model_db = ms.create_model(artifact_id, client_id, client_id == 'WORKER')
@@ -57,18 +60,19 @@ async def post_model(file: UploadFile, artifact_id: str, db: Session = Depends(g
 
     except Exception as e:
         LOGGER.exception(e)
-        return HTTPException(500)
+        raise HTTPException(500)
 
 
 @files_router.get('/files/model/{model_id}', response_class=FileResponse)
 async def get_model(model_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    LOGGER.info(f'client_id={client_id}: request model_id={model_id}')
     ms: ModelService = ModelService(db)
     model_db: Model = ms.get_model_by_id(model_id)
 
     if model_db is None:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     if not os.path.exists(model_db.path):
-        return HTTPException(404)
+        raise HTTPException(404)
 
     return FileResponse(model_db.path)
