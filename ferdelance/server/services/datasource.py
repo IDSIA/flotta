@@ -1,3 +1,4 @@
+from typing import List
 from . import DBSessionService, Session
 
 from ...database.tables import ClientDataSource, ClientFeature

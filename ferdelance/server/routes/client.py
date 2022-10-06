@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...database.tables import Client, ClientApp, ClientToken, ClientTask
+from ...database.tables import Client, ClientApp, ClientDataSource, ClientToken, ClientTask
 from ..services.actions import ActionService
 from ..services.application import ClientAppService
 from ..services.client import ClientService
@@ -16,7 +16,7 @@ from ..services.security import SecurityService
 from ..security import check_token
 from ..folders import STORAGE_ARTIFACTS
 
-from ferdelance_shared.schemas import ClientJoinRequest, ClientJoinData, DownloadApp, Metadata, UpdateExecute, Artifact, ArtifactTask
+from ferdelance_shared.schemas import Feature, DataSource, ClientJoinRequest, ClientJoinData, DownloadApp, Metadata, UpdateExecute, Artifact, ArtifactTask
 
 import aiofiles
 import logging
@@ -186,6 +186,19 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
     metadata = Metadata(**json.loads(ss.server_decrypt_content(body)))
 
     dss.create_or_update_metadata(client_id, metadata)
+
+    client_data_source_list: list[ClientDataSource] = dss.get_datasource_by_client_id(client_id)
+
+    ds_list = [
+        DataSource(**cds.__dict__, created_at=cds.creation_time, features=[
+            Feature(**f.__dict__) for f in dss.get_features_by_datasource(cds)
+        ]
+        )
+        for cds in client_data_source_list
+    ]
+
+    return Response(ss.server_encrypt_content(json.dumps(Metadata(datasources=ds_list).dict())))
+
 
 
 @client_router.get('/client/task/', response_class=Response)
