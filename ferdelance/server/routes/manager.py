@@ -5,12 +5,10 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 
 from ...database import get_db
+from ...database.services import ModelService, ClientService
 from ...database.tables import ClientApp, Artifact, Model, Client
 from ..schemas.manager import *
-from ..services.model import ModelService
-from ..services.client import ClientService
-from ..config import FILE_CHUNK_SIZE
-from ..folders import STORAGE_CLIENTS, STORAGE_ARTIFACTS
+from ..config import FILE_CHUNK_SIZE, STORAGE_CLIENTS, STORAGE_ARTIFACTS
 
 import aiofiles
 import hashlib

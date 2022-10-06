@@ -1,6 +1,6 @@
-from . import DBSessionService, Session
+from .core import DBSessionService, Session
 
-from ...database.tables import Model
+from ..tables import Model
 
 
 class ModelService(DBSessionService):

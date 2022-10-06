@@ -1,17 +1,12 @@
-from http.client import HTTPException
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from sqlalchemy.orm import Session
-from uuid import uuid4
 
 from ...database import get_db
+from ...database.services import ArtifactService, ClientService, DataSourceService
 from ...database.tables import Client, ClientDataSource, Artifact, Model
-from ..services.ctask import ClientTaskService
-from ..services.artifact import ArtifactService
-from ..services.datasource import DataSourceService
-from ..services.client import ClientService
-from ..folders import STORAGE_ARTIFACTS
+from ..services import JobManagementService
 
 from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact
 
@@ -88,43 +83,12 @@ async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db)):
 
 
 @workbench_router.post('/workbench/artifact/submit', response_model=ArtifactStatus)
-async def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
-    cts: ClientTaskService = ClientTaskService(db)
-    ars: ArtifactService = ArtifactService(db)
-    dss: DataSourceService = DataSourceService(db)
-
-    artifact_id = str(uuid4())
-    artifact.artifact_id = artifact_id
-
-    path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
-
-    # TODO: check for valid data sources and features
-
-    # TODO: start task
-
+def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
     try:
-        artifact_db = ars.create_artifact(artifact_id, path)
+        jms: JobManagementService = JobManagementService(db)
 
-        with open(path, 'w') as f:
-            json.dump(artifact.dict(), f)
+        return jms.submit_artifact(artifact)
 
-        # TODO this is there temporally. It will be done inside a celery worker...
-        task_db = cts.create_task(artifact)
-
-        client_ids = set()
-        for query in artifact.queries:
-            client_id: str = dss.get_client_id_by_datasource_id(query.datasources_id)
-            client_ids.update(client_id)
-
-        for client_id in list(client_ids):
-            cts.create_client_task(artifact_db.artifact_id, client_id, task_db.task_id)
-
-        # TODO: ...until there
-
-        return ArtifactStatus(
-            artifact_id=artifact_id,
-            status=artifact_db.status,
-        )
     except ValueError as e:
         LOGGER.error('Artifact already exists')
         LOGGER.exception(e)
@@ -136,6 +100,8 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
     ars: ArtifactService = ArtifactService(db)
 
     artifact_db: Artifact = ars.get_artifact(artifact_id)
+
+    # TODO: get status from celery
 
     if artifact_db is None:
         return HTTPException(404)

@@ -6,17 +6,31 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...database.tables import Client, ClientApp, ClientDataSource, ClientToken, ClientTask
+from ...database.tables import Client, ClientApp, ClientDataSource, ClientToken
 from ..services.actions import ActionService
-from ..services.application import ClientAppService
-from ..services.client import ClientService
-from ..services.ctask import ClientTaskService
-from ..services.datasource import DataSourceService
 from ..services.security import SecurityService
+from ...database.services import (
+    ArtifactService,
+    ClientAppService,
+    ClientService,
+    JobService,
+    DataSourceService
+)
+from ...database.tables import Client, ClientApp, ClientToken, Job
+from ..services import ActionService, SecurityService
 from ..security import check_token
-from ..folders import STORAGE_ARTIFACTS
 
-from ferdelance_shared.schemas import Feature, DataSource, ClientJoinRequest, ClientJoinData, DownloadApp, Metadata, UpdateExecute, Artifact, ArtifactTask
+from ferdelance_shared.schemas import (
+    ClientJoinRequest,
+    ClientJoinData,
+    DownloadApp,
+    Metadata,
+    UpdateExecute,
+    Artifact,
+    ArtifactTask,
+    DataSource,
+    Feature
+)
 
 import aiofiles
 import logging
@@ -66,7 +80,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
             public_key=ss.get_server_public_key_str(),
         )
 
-        return Response(ss.server_encrypt_content(json.dumps(cjd.dict())))
+        return Response(ss.server_encrypt_json_content(cjd.dict()))
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
@@ -108,7 +122,7 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
 
     # consume current results (if present) and compute next action
     data = await request.body()
-    payload: dict[str, Any] = json.loads(ss.server_decrypt_content(data))
+    payload: dict[str, Any] = ss.server_decrypt_json_content(data)
 
     payload = acs.next(ss.client, payload)
 
@@ -116,7 +130,7 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
 
     cs.create_client_event(client_id, f'action:{payload.action}')
 
-    return Response(ss.server_encrypt_content(json.dumps(payload.dict())))
+    return Response(ss.server_encrypt_json_content(payload.dict()))
 
 
 @client_router.get('/client/download/application', response_class=Response)
@@ -134,7 +148,7 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
     cs.create_client_event(client_id, 'update files')
 
     body = await request.body()
-    payload = DownloadApp(**json.loads(ss.server_decrypt_content(body)))
+    payload = DownloadApp(**ss.server_decrypt_json_content(body))
 
     new_app: ClientApp = cas.get_newest_app()
 
@@ -183,7 +197,7 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
     cs.create_client_event(client_id, 'update metadata')
 
     body = await request.body()
-    metadata = Metadata(**json.loads(ss.server_decrypt_content(body)))
+    metadata = Metadata(**ss.server_decrypt_json_content(body))
 
     dss.create_or_update_metadata(client_id, metadata)
 
@@ -197,14 +211,17 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
         for cds in client_data_source_list
     ]
 
-    return Response(ss.server_encrypt_content(json.dumps(Metadata(datasources=ds_list).dict())))
+    LOGGER.info(f"{json.dumps(Metadata(datasources=ds_list).dict())}")
+
+    return Response(ss.server_encrypt_content(json.dumps([ds.dict() for ds in ds_list])))
 
 
 
 @client_router.get('/client/task/', response_class=Response)
 async def client_get_task(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     cs: ClientService = ClientService(db)
-    cts: ClientTaskService = ClientTaskService(db)
+    ars: ArtifactService = ArtifactService(db)
+    js: JobService = JobService(db)
     dss: DataSourceService = DataSourceService(db)
     ss: SecurityService = SecurityService(db, client_id)
 
@@ -213,29 +230,31 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
     cs.create_client_event(client_id, 'schedule task')
 
     body = await request.body()
-    payload = UpdateExecute(**json.loads(ss.server_decrypt_content(body)))
+    payload = UpdateExecute(**ss.server_decrypt_json_content(body))
 
-    task: ClientTask = cts.get_task_for_client(payload.client_task_id)
+    job: Job = js.get_job_by_id(payload.job_id)
 
-    if task is None:
+    if job is None:
         return HTTPException(404, 'Task does not exists')
 
-    artifact_path = os.path.join(STORAGE_ARTIFACTS, f'{task.artifact_id}.json')
+    artifact_db = ars.get_artifact(job.artifact_id)
 
-    if not os.path.exists(artifact_path):
+    if not os.path.exists(artifact_db.path):
         return HTTPException(404, 'Artifact does not exits')
 
-    async with aiofiles.open(artifact_path, 'r') as f:
+    async with aiofiles.open(artifact_db.path, 'r') as f:
         data = await f.read()
         artifact = Artifact(**json.loads(data))
 
     client_datasource_ids = dss.get_datasource_ids_by_client_id(client_id)
 
+    artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasources_id in client_datasource_ids]
+
     content = ArtifactTask(
-        artifact_id=task.artifact_id,
-        client_task_id=task.client_task_id,
+        artifact_id=job.artifact_id,
+        job_id=job.job_id,
+        dataset=artifact.dataset,
         model=artifact.model,
-        queries=[q for q in artifact.queries if q.datasources_id in client_datasource_ids]
     )
 
-    return Response(ss.server_encrypt_content(json.dumps(content.dict())))
+    return Response(ss.server_encrypt_json_content(content.dict()))

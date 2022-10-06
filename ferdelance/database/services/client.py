@@ -1,6 +1,6 @@
-from . import DBSessionService, Session
+from .core import DBSessionService, Session
 
-from ...database.tables import Client, ClientEvent, ClientToken, ClientApp, Model
+from ..tables import Client, ClientEvent, ClientToken
 
 import logging
 
