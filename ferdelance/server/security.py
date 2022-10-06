@@ -108,9 +108,9 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: S
 
     if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < datetime.now(client_token.creation_time.tzinfo):
         LOGGER.warning(f'client_id={client_id}: received expired token: invalidating')
-        db.query(ClientToken).filter(ClientToken.token == client_token.token).update({'valid': False})
-        db.commit()
+        cs.invalidate_all_tokens(client_id)
         # allow access only for a single time, since the token update has priority
 
     LOGGER.info(f'client_id={client_id}: received valid token')
+
     return client_id

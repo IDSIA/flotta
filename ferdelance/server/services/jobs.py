@@ -77,6 +77,7 @@ class JobManagementService(DBSessionService):
         return self.load(artifact_id)
 
     def aggregate(self, artifact_id: str, client_id) -> None:
+        LOGGER.info(f'client_id={client_id}: started aggregation request')
 
         self.js.create_job(artifact_id, client_id, JobStatus.COMPLETED)
 
