@@ -1,7 +1,4 @@
-from typing import Any
-
-
 class Aggregator:
 
-    def aggregator(strategy, models: list) -> Any:
+    def aggregate(strategy, model_a, model_b):
         raise NotImplementedError()

@@ -1,7 +1,11 @@
 from celery import Celery
-from celery.signals import worker_shutdown, celeryd_init
+from celery.signals import worker_ready, worker_init, worker_shutdown, celeryd_init
 
+import logging
 import os
+
+LOGGER = logging.getLogger(__name__)
+
 
 worker = Celery(
     'ferdelance',
@@ -16,15 +20,23 @@ worker.conf.update(
 
 
 @celeryd_init.connect
-def configure_workers(sender=None, conf=None, instance=None, **kwargs):
-    print('STARTUP')
-    os.environ['testing'] = 'asdasdasd'
+def celery_init(sender=None, conf=None, instance=None, **kwargs):
+    LOGGER.info('celery daemon initialization')
 
 
-@ worker_shutdown.connect
-def configure_workers(sender=None, conf=None, instance=None, **kwargs):
-    print(os.environ.get('testing', 'nothing'))
-    print('SHUTDOWN')
+@worker_init.connect
+def config_worker_init(sender=None, conf=None, instance=None, **kwargs):
+    LOGGER.info('worker initialization start')
+
+
+@worker_ready.connect
+def config_worker_ready(sender=None, conf=None, instance=None, **kwargs):
+    LOGGER.info('worker ready to accept tasks')
+
+
+@worker_shutdown.connect
+def config_worker_shutdown(sender=None, conf=None, instance=None, **kwargs):
+    LOGGER.info('worker shutdown completed')
 
 
 if __name__ == '__main__':
