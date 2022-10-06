@@ -35,22 +35,24 @@ class JobManagementService(DBSessionService):
         return path
 
     def load(self, artifact_id: str) -> Artifact:
-        path = os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json')
+        artifact = self.ars.get_artifact(artifact_id)
 
-        if not os.path.exists(path):
-            raise ValueError(f'artifact_d={artifact_id} not found')
+        if artifact is None:
+            raise ValueError(f'artifact_id={artifact_id} not found')
 
-        with open(path, 'r') as f:
-            return Artifact(**json.loads(f))
+        if not os.path.exists(artifact.path):
+            raise ValueError(f'artifact_id={artifact_id} not found')
+
+        with open(artifact.path, 'r') as f:
+            return Artifact(**json.load(f))
 
     def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        artifact_id = str(uuid4())
-        artifact.artifact_id = artifact_id
+        artifact.artifact_id = str(uuid4())
 
         try:
             path = self.dump(artifact)
 
-            artifact_db = self.ars.create_artifact(artifact_id, path, ArtifactJobStatus.SCHEDULED.name)
+            artifact_db = self.ars.create_artifact(artifact.artifact_id, path, ArtifactJobStatus.SCHEDULED.name)
 
             client_ids = set()
 
@@ -65,7 +67,7 @@ class JobManagementService(DBSessionService):
                 client_ids.add(client_id)
 
             return ArtifactStatus(
-                artifact_id=artifact_id,
+                artifact_id=artifact.artifact_id,
                 status=artifact_db.status,
             )
         except ValueError as e:
@@ -94,7 +96,7 @@ class JobManagementService(DBSessionService):
 
         LOGGER.info(f'All {total} job(s) completed, starting aggregation')
 
-        token: str = self.cs.get_token_for_client_id('WORKBENCH')
+        token: str = self.cs.get_token_by_client_type('WORKBENCH')
 
         model_ids: list[str] = [m.model_id for m in self.ms.get_models_by_artifact_id(artifact_id)]
 
