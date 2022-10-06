@@ -6,10 +6,8 @@ from base64 import b64encode
 from requests import Response
 
 from ferdelance.database import SessionLocal
-from ferdelance.database.settings import setup_settings
-from ferdelance.database.startup import init_database
 from ferdelance.server.api import api
-from ferdelance.server.security import generate_keys
+from ferdelance.server.startup import ServerStartup
 
 from ferdelance_shared.decode import HybridDecrypter, decode_from_transfer
 from ferdelance_shared.encode import HybridEncrypter
@@ -69,9 +67,8 @@ def setup_test_database() -> tuple[str, str]:
 
     # populate database
     with SessionLocal() as db:
-        init_database(db)
-        generate_keys(db)
-        setup_settings(db)
+        ss: ServerStartup = ServerStartup(db)
+        ss.startup()
 
     LOGGER.info(f'created test database {DB_NAME}')
 
