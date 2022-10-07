@@ -105,13 +105,12 @@ class Context:
 
         return DataSource(**res.json())
 
-    def submit(self, artifact: Artifact, ret_status: bool = False) -> Artifact | tuple[Artifact, ArtifactStatus]:
+    def submit(self, artifact: Artifact) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
 
         :param artifact:
             Artifact to submit to the server for training.
-        :param ret_status:
-            If true, this method returns also the status from the server.
+            This object will be updated with the id assigned by the server.
         :raises HTTPError:
             If the return code of the response is not a 2xx type.
         :returns:
@@ -129,10 +128,7 @@ class Context:
         status = ArtifactStatus(**res.json())
         artifact.artifact_id = status.artifact_id
 
-        if ret_status:
-            return artifact, status
-
-        return artifact
+        return status
 
     def status(self, artifact: Artifact | ArtifactStatus) -> ArtifactStatus:
         """Poll the server to get an update of the status of the given artifact.

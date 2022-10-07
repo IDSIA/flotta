@@ -68,7 +68,7 @@ a: Artifact = Artifact(
 print(json.dumps(a.dict(), indent=True))
 
 # %% submit artifact to the server
-a, status = ctx.submit(a, True)
+status = ctx.submit(a)
 
 print(status)
 
