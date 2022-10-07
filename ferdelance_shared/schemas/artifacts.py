@@ -60,6 +60,7 @@ class QueryFeature(BaseModel):
     """Query feature to use in a query from the workbench."""
     feature_id: str
     datasource_id: str
+    name: str
 
 
 class QueryFilter(BaseModel):
@@ -78,7 +79,7 @@ class QueryTransformer(BaseModel):
 
 class Query(BaseModel):
     """Query to apply to the selected data from the workbench."""
-    datasources_id: str
+    datasource_id: str
     features: list[QueryFeature] = list()
     filters: list[QueryFilter] = list()
     transformers: list[QueryTransformer] = list()
