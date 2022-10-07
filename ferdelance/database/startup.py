@@ -20,14 +20,14 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def init_content(db: Session) -> None:
+def init_database(db: Session) -> None:
     """Initialize all tables in the database.
 
     :param db:
         Session with the connection to the database.
     """
 
-    logging.info('Database creation started')
+    LOGGER.info('database creation started')
 
     engine = db.get_bind()
 
@@ -44,20 +44,4 @@ def init_content(db: Session) -> None:
 
     db.commit()
 
-    server_exists_query = db.query(Client).filter(Client.client_id == "SERVER").first()
-
-    if server_exists_query is None:
-
-        server_client: Client = Client(
-            client_id="SERVER",
-            machine_system="SERVER",
-            machine_mac_address="SERVER",
-            machine_node="SERVER",
-            ip_address="localhost",
-            version=__version__,
-        )
-
-        db.add(server_client)
-        db.commit()
-
-    LOGGER.info('Database creation completed')
+    LOGGER.info('database creation completed')

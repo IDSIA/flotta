@@ -3,10 +3,11 @@ from ferdelance.database.services import ClientAppService, ClientService, DataSo
 from ferdelance.database.settings import KeyValueStore
 from ferdelance.database.tables import Client, ClientApp, ClientDataSource, ClientEvent, ClientFeature, ClientToken, Job
 from ferdelance.server.security import PUBLIC_KEY
-from ferdelance.server.config import STORAGE_ARTIFACTS
+from ferdelance.config import STORAGE_ARTIFACTS
 
 from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import *
+from ferdelance_shared.schemas.models import *
 from ferdelance_shared.operations import NumericOperations
 
 from .utils import (
@@ -426,8 +427,7 @@ class TestClientClass:
                         transformers=[],
                     )],
                 ),
-                model=Model(name=''),
-                strategy=Strategy(strategy='')
+                model=Model(name='', strategy=None),
             )
 
             LOGGER.info('submit artifact')
@@ -459,7 +459,7 @@ class TestClientClass:
 
             update_execute = UpdateExecute(**data)
 
-            assert update_execute.job_id == job.job_id
+            assert update_execute.artifact_id == job.artifact_id
 
             LOGGER.info('get task for client')
 
@@ -474,15 +474,13 @@ class TestClientClass:
                 content = get_payload(self.private_key, task_response.content)
 
                 assert 'artifact_id' in content
-                assert 'job_id' in content
                 assert 'model' in content
                 assert 'dataset' in content
 
-                task = ArtifactTask(**content)
+                task = Artifact(**content)
 
                 assert task.artifact_id == job.artifact_id
                 assert task.artifact_id == artifact_status.artifact_id
-                assert task.job_id == job.job_id
                 assert len(task.dataset.queries) == 1
                 assert len(task.dataset.queries[0].features) == 2
 

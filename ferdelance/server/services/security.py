@@ -1,6 +1,6 @@
 from typing import Any
-from fastapi import UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import Request
+from fastapi.responses import StreamingResponse, Response
 
 from ferdelance_shared.decode import decode_from_transfer, decrypt, HybridDecrypter
 from ferdelance_shared.encode import encode_to_transfer, encrypt, HybridEncrypter
@@ -102,8 +102,8 @@ class SecurityService(DBSessionService):
         enc = HybridEncrypter(client_public_key)
         return enc.encrypt(content)
 
-    def server_encrypt_json_content(self, content: dict[str, Any]) -> bytes:
-        return self.server_encrypt_content(json.dumps(content))
+    def server_encrypt_response(self, content: dict[str, Any]) -> Response:
+        return Response(content=self.server_encrypt_content(json.dumps(content)))
 
     def server_decrypt_content(self, content: str) -> str:
         server_private_key: RSAPrivateKey = self.get_server_private_key()
@@ -124,15 +124,14 @@ class SecurityService(DBSessionService):
             media_type='application/octet-stream'
         )
 
-    def server_stream_decrypt_file(self, file: UploadFile, path: str) -> None:
+    def server_stream_decrypt_file(self, request: Request, path: str) -> str:
         """Used to stream decrypt data to a file, using less memory."""
         private_key: RSAPrivateKey = self.get_server_private_key()
 
         dec = HybridDecrypter(private_key)
+        dec.decrypt_stream_to_file(iter(request.stream()), path)
 
-        dec.decrypt_stream_to_file(iter(file.file), path)
-
-        # TODO: find a way to add the checksum to the stream
+        return dec.get_checksum()
 
     def server_stream_encrypt(self, content: str) -> bytes:
         """Used to encrypt small data that can be kept in memory."""
@@ -142,11 +141,10 @@ class SecurityService(DBSessionService):
 
         return enc.encrypt_to_stream(content)
 
-    def server_stream_decrypt(self, file: UploadFile) -> str:
+    def server_stream_decrypt(self, request: Request) -> tuple[str, str]:
         """Used to decrypt small data that can be kept in memory."""
         private_key: RSAPrivateKey = self.get_server_private_key()
 
         dec = HybridDecrypter(private_key)
-        return dec.decrypt_stream(iter(file.file))
-
-        # TODO: find a way to add the checksum to the stream
+        data = dec.decrypt_stream(iter(request.stream()))
+        return data, dec.get_checksum()

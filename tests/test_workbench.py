@@ -1,7 +1,8 @@
-from ferdelance.server.config import STORAGE_ARTIFACTS
+from ferdelance.config import STORAGE_ARTIFACTS
 
 from ferdelance_shared.schemas import *
-from ferdelance_shared.status import ArtifactJobStatus, JobStatus
+from ferdelance_shared.schemas.models import *
+from ferdelance_shared.status import ArtifactJobStatus
 
 from .utils import (
     setup_test_client,
@@ -83,8 +84,10 @@ class TestWorkbenchClass:
 
         client_list = json.loads(res.content)
 
-        assert len(client_list) == 2
-        assert 'SERVER' in client_list
+        assert len(client_list) == 1
+        assert 'SERVER' not in client_list
+        assert 'WORKER' not in client_list
+        assert 'WORKBENCH' not in client_list
 
     def test_client_detail(self):
         client_id = self.client_id
@@ -138,8 +141,7 @@ class TestWorkbenchClass:
                     )
                 ]
             ),
-            model=Model(name='model', model=None),
-            strategy=Strategy(strategy='strategy'),
+            model=Model(name='model', strategy=None),
         )
 
         res = self.client.post(
