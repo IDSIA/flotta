@@ -5,13 +5,11 @@ from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...database.services import ArtifactService, ClientService, DataSourceService, ModelService
-from ...database.tables import Client, ClientDataSource, Artifact, Model
+from ...database.tables import Client, ClientDataSource, Model
 from ..services import JobManagementService
 
 from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact, WorkbenchJoinData
 
-import aiofiles
-import json
 import logging
 import os
 
@@ -109,7 +107,7 @@ def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
 async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
     ars: ArtifactService = ArtifactService(db)
 
-    artifact_db: Artifact = ars.get_artifact(artifact_id)
+    artifact_db = ars.get_artifact(artifact_id)
 
     # TODO: get status from celery
 

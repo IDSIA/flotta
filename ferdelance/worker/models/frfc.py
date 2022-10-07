@@ -12,8 +12,10 @@ LOGGER = logging.getLogger(__name__)
 
 class AggregatorRandomForestClassifier(Aggregator):
 
-    def aggregate(self, strategy: StrategyRandomForestClassifier, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier):
-        LOGGER.info(f'AggregatorRandomForestClassifier: using strategy={strategy}')
+    def aggregate(self, strategy_str: str, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier):
+        LOGGER.info(f'AggregatorRandomForestClassifier: using strategy={strategy_str}')
+
+        strategy = StrategyRandomForestClassifier[strategy_str]
 
         if strategy == StrategyRandomForestClassifier.MERGE:
             return self.merge(model_a, model_b)
@@ -22,7 +24,7 @@ class AggregatorRandomForestClassifier(Aggregator):
             return self.majority_vote()
 
         else:
-            raise ValueError(f'Unsupported strategy: {strategy}')
+            raise ValueError(f'Unsupported strategy: {strategy_str}')
 
     def merge(self, model_a: RandomForestClassifier, model_b: RandomForestClassifier) -> RandomForestClassifier:
         """Solution adapted from: https://stackoverflow.com/a/28508619/1419058
