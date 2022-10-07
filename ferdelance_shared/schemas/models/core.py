@@ -10,7 +10,7 @@ class Model(BaseModel):
     """
     name: str
     strategy: str | None = None
-    parameters: dict[str, Any]
+    parameters: dict[str, Any] = dict()
 
 
 class GenericModel:
