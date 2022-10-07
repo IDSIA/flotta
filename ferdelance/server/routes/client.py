@@ -5,6 +5,9 @@ from fastapi.responses import Response
 from sqlalchemy.exc import SQLAlchemyError
 
 from ...database import get_db
+from ...database.tables import Client, ClientApp, ClientDataSource, ClientToken
+from ..services.actions import ActionService
+from ..services.security import SecurityService
 from ...database.services import (
     Session,
     ArtifactService,
@@ -25,6 +28,9 @@ from ferdelance_shared.schemas import (
     Metadata,
     UpdateExecute,
     Artifact,
+    ArtifactTask,
+    DataSource,
+    Feature
 )
 
 import aiofiles
@@ -197,7 +203,20 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
 
     dss.create_or_update_metadata(client_id, metadata)
 
-    return {}
+    client_data_source_list: list[ClientDataSource] = dss.get_datasource_by_client_id(client_id)
+
+    ds_list = [
+        DataSource(**cds.__dict__, created_at=cds.creation_time, features=[
+            Feature(**f.__dict__) for f in dss.get_features_by_datasource(cds)
+        ]
+        )
+        for cds in client_data_source_list
+    ]
+
+    LOGGER.info(f"{json.dumps(Metadata(datasources=ds_list).dict())}")
+
+    return Response(ss.server_encrypt_content(json.dumps([ds.dict() for ds in ds_list])))
+
 
 
 @client_router.get('/client/task/', response_class=Response)

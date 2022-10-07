@@ -11,7 +11,6 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
-
 class DataSourceService(DBSessionService):
 
     def __init__(self, db: Session) -> None:
