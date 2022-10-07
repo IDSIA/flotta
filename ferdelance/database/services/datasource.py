@@ -11,6 +11,7 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
+
 class DataSourceService(DBSessionService):
 
     def __init__(self, db: Session) -> None:
@@ -88,24 +89,24 @@ class DataSourceService(DBSessionService):
         self.db.refresh(ds_db)
 
         for f in ds.features:
-            self.create_or_update_feature(ds_db.datasource_id, f, ds.removed, commit=False)
+            self.create_or_update_feature(ds_db, f, ds.removed, commit=False)
 
         self.db.commit()
 
         return ds_db
 
-    def create_or_update_feature(self, ds_id: str, f: MetaFeature, remove: bool = False, commit: bool = True) -> ClientFeature:
+    def create_or_update_feature(self, ds: ClientDataSource, f: MetaFeature, remove: bool = False, commit: bool = True) -> ClientFeature:
         dt_now = datetime.now()
 
         query = self.db.query(ClientFeature).filter(
-            ClientFeature.datasource_id == ds_id,
+            ClientFeature.datasource_id == ds.datasource_id,
             ClientFeature.name == f.name
         )
 
         f_db = query.first()
 
         if f_db is None:
-            LOGGER.info(f'client_id={ds_id}: creating new feature={f.name}')
+            LOGGER.info(f'client_id={ds.datasource_id}: creating new feature={f.name}')
 
             f_db = ClientFeature(
                 feature_id=str(uuid4()),
@@ -120,14 +121,15 @@ class DataSourceService(DBSessionService):
                 v_miss=f.v_miss,
                 v_max=f.v_max,
                 removed=remove,
-                datasource_id=ds_id,
+                datasource_id=ds.datasource_id,
+                datasource_name=ds.name
             )
 
             self.db.add(f_db)
         else:
             if remove or f.removed:
                 # remove feature and info
-                LOGGER.info(f'removing feature={f.name} for datasource={ds_id}')
+                LOGGER.info(f'removing feature={f.name} for datasource={ds.datasource_id}')
 
                 query.update({
                     'removed': True,
@@ -145,7 +147,7 @@ class DataSourceService(DBSessionService):
 
             else:
                 # update data source info
-                LOGGER.info(f'client_id={ds_id}: updating data source={f.name}')
+                LOGGER.info(f'client_id={ds.datasource_id}: updating data source={f.name}')
                 query.update({
                     'dtype': f.dtype,
                     'v_mean': f.v_mean,

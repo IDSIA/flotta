@@ -57,7 +57,7 @@ class JobManagementService(DBSessionService):
             client_ids = set()
 
             for query in artifact.dataset.queries:
-                client_id: str = self.dss.get_client_id_by_datasource_id(query.datasources_id)
+                client_id: str = self.dss.get_client_id_by_datasource_id(query.datasource_id)
 
                 if client_id in client_ids:
                     continue

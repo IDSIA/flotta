@@ -28,7 +28,6 @@ from ferdelance_shared.schemas import (
     Metadata,
     UpdateExecute,
     Artifact,
-    ArtifactTask,
     DataSource,
     Feature
 )
@@ -172,25 +171,7 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
-
-    Structure of expected JSON:
-    ```
-    {"datasources": [{
-        "name": <string>,
-        "type": <string>,
-        "removed": <boolean>,
-        "n_records": <integer>,
-        "n_features": <integer>,
-        "features": [{
-            "name": <string>,
-            "dtype": <string>,
-            "v_min": <float or null>,
-            "v_max": <float or null>,
-            "v_std": <float or null>
-        }]
-    }]}
-    ```
-    """
+W    """
     cs: ClientService = ClientService(db)
     dss: DataSourceService = DataSourceService(db)
     ss: SecurityService = SecurityService(db, client_id)
@@ -206,17 +187,18 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
     client_data_source_list: list[ClientDataSource] = dss.get_datasource_by_client_id(client_id)
 
     ds_list = [
-        DataSource(**cds.__dict__, created_at=cds.creation_time, features=[
-            Feature(**f.__dict__) for f in dss.get_features_by_datasource(cds)
-        ]
-        )
+        DataSource(
+            **cds.__dict__,
+            created_at=cds.creation_time,
+            features=[
+                Feature(**f.__dict__) for f in dss.get_features_by_datasource(cds)
+            ])
         for cds in client_data_source_list
     ]
 
-    LOGGER.info(f"{json.dumps(Metadata(datasources=ds_list).dict())}")
+    LOGGER.debug(f"{json.dumps(Metadata(datasources=ds_list).dict())}")  # TODO: remove this
 
     return Response(ss.server_encrypt_content(json.dumps([ds.dict() for ds in ds_list])))
-
 
 
 @client_router.get('/client/task/', response_class=Response)
@@ -250,7 +232,7 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
 
     client_datasource_ids = dss.get_datasource_ids_by_client_id(client_id)
 
-    artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasources_id in client_datasource_ids]
+    artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasource_id in client_datasource_ids]
 
     content = Artifact(
         artifact_id=job.artifact_id,

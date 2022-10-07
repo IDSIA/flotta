@@ -86,7 +86,6 @@ async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db)):
 
     return DataSource(
         **ds_db.__dict__,
-        created_at=ds_db.creation_time,
         features=fs,
     )
 
