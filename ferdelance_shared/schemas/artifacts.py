@@ -21,6 +21,7 @@ class Feature(BaseFeature):
     """Information for the workbench."""
     feature_id: str
     datasource_id: str
+    datasource_name: str
 
 
 class MetaFeature(BaseFeature):
@@ -33,19 +34,19 @@ class BaseDataSource(BaseModel):
     n_records: int | None
     n_features: int | None
 
+    name: str
+
 
 class DataSource(BaseDataSource):
     """Information for the workbench."""
     client_id: str
     datasource_id: str
-    name: str
 
     features: list[Feature]
 
 
 class MetaDataSource(BaseDataSource):
     """Information on data source stored in the client."""
-    name: str | None
     removed: bool = False
 
     features: list[MetaFeature]
@@ -60,7 +61,8 @@ class QueryFeature(BaseModel):
     """Query feature to use in a query from the workbench."""
     feature_id: str
     datasource_id: str
-    name: str
+    feature_name: str
+    datasource_name: str
 
 
 class QueryFilter(BaseModel):
@@ -80,6 +82,7 @@ class QueryTransformer(BaseModel):
 class Query(BaseModel):
     """Query to apply to the selected data from the workbench."""
     datasource_id: str
+    datasource_name: str
     features: list[QueryFeature] = list()
     filters: list[QueryFilter] = list()
     transformers: list[QueryTransformer] = list()
