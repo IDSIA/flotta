@@ -95,10 +95,13 @@ class TestFilesClass:
                 dataset=Dataset(
                     queries=[
                         Query(
-                            datasources_id=ds.datasource_id,
+                            datasource_id=ds.datasource_id,
+                            datasource_name=ds.name,
                             features=[QueryFeature(
                                 datasource_id=f.datasource_id,
-                                feature_id=f.feature_id
+                                datasource_name=f.datasource_name,
+                                feature_id=f.feature_id,
+                                feature_name=f.name,
                             ) for f in fs]
                         )
                     ]
@@ -146,7 +149,7 @@ class TestFilesClass:
             post_q = artifact.dataset.queries[0]
             get_q = get_art.dataset.queries[0]
 
-            assert post_q.datasources_id == get_q.datasources_id
+            assert post_q.datasource_id == get_q.datasource_id
             assert len(post_q.features) == len(get_q.features)
 
             post_d = artifact.dict()

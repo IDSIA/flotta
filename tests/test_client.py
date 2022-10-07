@@ -32,7 +32,6 @@ import json
 import logging
 import os
 import random
-import time
 
 LOGGER = logging.getLogger(__name__)
 
@@ -414,20 +413,31 @@ class TestClientClass:
 
             f1, f2 = dss.get_features_by_datasource(ds)
 
-            qf1 = QueryFeature(feature_id=f1.feature_id, datasource_id=f1.datasource_id)
-            qf2 = QueryFeature(feature_id=f2.feature_id, datasource_id=f2.datasource_id)
+            qf1 = QueryFeature(
+                feature_id=f1.feature_id,
+                feature_name=f1.name,
+                datasource_id=f1.datasource_id,
+                datasource_name=f1.datasource_name,
+            )
+            qf2 = QueryFeature(
+                feature_id=f2.feature_id,
+                feature_name=f2.name,
+                datasource_id=f2.datasource_id,
+                datasource_name=f2.datasource_name,
+            )
 
             artifact = Artifact(
                 artifact_id=None,
                 dataset=Dataset(
                     queries=[Query(
-                        datasources_id=ds.datasource_id,
+                        datasource_id=ds.datasource_id,
+                        datasource_name=ds.name,
                         features=[qf1, qf2],
                         filters=[QueryFilter(feature=qf1, operation=NumericOperations.LESS_THAN.name, parameter='1.0')],
                         transformers=[],
                     )],
                 ),
-                model=Model(name='', strategy=None),
+                model=Model(name=''),
             )
 
             LOGGER.info('submit artifact')
