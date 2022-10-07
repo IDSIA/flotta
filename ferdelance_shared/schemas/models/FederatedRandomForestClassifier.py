@@ -1,6 +1,8 @@
-from .core import Model, Strategy, Parameters
+from .core import Model, Strategy
+from pydantic import BaseModel
 
 from sklearn.ensemble import RandomForestClassifier
+from typing import Any
 
 import numpy as np
 import pickle
@@ -15,7 +17,7 @@ class StrategyRandomForestClassifier(Strategy):
     """All the models will be put together and a classification is decided by majority classification between all models."""
 
 
-class ParametersRandomForestClassifier(Parameters):
+class ParametersRandomForestClassifier(BaseModel):
     """
     Class defining all the parameters accepted in training by the model.
 
@@ -44,9 +46,13 @@ class ParametersRandomForestClassifier(Parameters):
 class FederatedRandomForestClassifier(Model):
     name: str = 'FederatedRandomForestClassifier'
     strategy: StrategyRandomForestClassifier | None = None
-    parameters: ParametersRandomForestClassifier = ParametersRandomForestClassifier()
+    parameters: dict[str, Any] = dict()
 
     model: RandomForestClassifier | None = None
+
+    def __init__(self, **data):
+        data['parameters'] = data['parameters'].dict()
+        super().__init__(**data)
 
     def load(self, path) -> None:
         with open(path, 'rb') as f:

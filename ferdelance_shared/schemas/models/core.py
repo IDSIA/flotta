@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 from pydantic import BaseModel
 
 import numpy as np
@@ -9,16 +10,11 @@ class Strategy(str, Enum):
     pass
 
 
-class Parameters(BaseModel):
-    """Class defining all the parameters accepted in training by the model."""
-    pass
-
-
 class Model(BaseModel):
     """Model defined in the workbench and trained in the clients."""
     name: str
     strategy: Strategy | None = None
-    parameters: Parameters = Parameters()
+    parameters: dict[str, Any]
 
     class Config:
         arbitrary_types_allowed = True
