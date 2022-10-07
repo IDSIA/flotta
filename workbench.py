@@ -1,7 +1,7 @@
 # %%
 from ferdelance_workbench.context import Context
 from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Dataset, Query, DataSource
-from ferdelance_workbench.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+from ferdelance_workbench.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier, ParametersRandomForestClassifier
 
 import json
 
@@ -56,13 +56,13 @@ d.add_query(q)
 
 m = FederatedRandomForestClassifier(
     strategy=StrategyRandomForestClassifier.MERGE,
-    n_estimators=10,
+    parameters=ParametersRandomForestClassifier(n_estimators=10)
 )
 
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
     dataset=d,
-    model=m,
+    model=m.build(),
 )
 
 print(json.dumps(a.dict(), indent=True))
