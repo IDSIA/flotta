@@ -1,3 +1,4 @@
+from ferdelance_shared.schemas import DataSource
 from .. import __version__
 from .datasources import DataSourceFile, DataSourceDB
 
@@ -33,6 +34,7 @@ class Config:
 
         self.datasources_list: list[dict[str, str]] = datasources
         self.datasources: dict[str, DataSourceFile | DataSourceDB] = dict()
+        self.datasources_by_id: dict[str, DataSource] = dict()
 
         self.path_joined: str = os.path.join(self.workdir, '.joined')
         self.path_properties: str = os.path.join(self.workdir, 'properties.yaml')

@@ -32,7 +32,7 @@ class ActionService:
             return Action.UPDATE_TOKEN
 
         if action == Action.EXECUTE:
-            execute_action = ExecuteAction(self.routes_service,  UpdateExecute(**data))
+            execute_action = ExecuteAction(config=self.config, routes_service=self.routes_service, update_execute= UpdateExecute(**data))
             self.controller.execute(execute_action)
             return Action.DO_NOTHING
 

@@ -127,7 +127,7 @@ class RouteService:
         LOGGER.info(f'client left server {self.server}')
         sys.exit(2)
 
-    def send_metadata(self) -> None:
+    def send_metadata(self) -> list[DataSource]:
         LOGGER.info('sending metadata to remote')
 
         metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
@@ -140,9 +140,13 @@ class RouteService:
 
         res.raise_for_status()
 
-        LOGGER.info(f"-------\n{self.get_payload(res.content)}\n-------")
+        metadata: list[DataSource] = [DataSource(**ds) for ds in self.get_payload(res.content)]
+
+        LOGGER.info(f"-------\n{metadata}\n-------")
 
         LOGGER.info('metadata uploaded successful')
+
+        return metadata
 
     def get_update(self, content: dict) -> tuple[Action, dict]:
         LOGGER.info('requesting update')

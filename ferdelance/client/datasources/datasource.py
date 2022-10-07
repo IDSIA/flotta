@@ -3,6 +3,7 @@ import pandas as pd
 
 class DataSource:
     def __init__(self, name: str, kind: str) -> None:
+        self.datasource_id: str = None
         self.name = name
         self.kind: str = kind
 
