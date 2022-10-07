@@ -175,10 +175,7 @@ class FerdelanceClient:
             if self.flag_leave:
                 routes_service.leave()
 
-            self.config.datasources_by_id = {
-                ds.datasource_id: self.config.datasources[ds.name]
-                for ds in routes_service.send_metadata()
-            }
+            routes_service.send_metadata()
 
             while self.status != Action.CLIENT_EXIT and not self.stop:
                 try:

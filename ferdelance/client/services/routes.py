@@ -130,7 +130,11 @@ class RouteService:
     def send_metadata(self) -> list[DataSource]:
         LOGGER.info('sending metadata to remote')
 
-        metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
+        # Metadata = I metadati di ogni datasource = Lista di MetaDataSource
+        # MetaDataSource = metadati di datasource = Lista di MetaFeature
+        # MetaFeature = name, dtype, v_*, per ogni feature
+
+        metadata: Metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
 
         res = post(
             f'{self.config.server}/client/update/metadata',
@@ -140,13 +144,12 @@ class RouteService:
 
         res.raise_for_status()
 
-        metadata: list[DataSource] = [DataSource(**ds) for ds in self.get_payload(res.content)]
-
-        LOGGER.info(f"-------\n{metadata}\n-------")
+        # metadata: list[DataSource] = [DataSource(**ds) for ds in self.get_payload(res.content)]
+        # LOGGER.info(f"-------\n{metadata}\n-------")
 
         LOGGER.info('metadata uploaded successful')
 
-        return metadata
+        # return metadata
 
     def get_update(self, content: dict) -> tuple[Action, dict]:
         LOGGER.info('requesting update')
@@ -163,7 +166,7 @@ class RouteService:
 
         return Action[data['action']], data
 
-    def get_task(self, task: UpdateExecute) -> ArtifactTask:
+    def get_task(self, task: UpdateExecute) -> Artifact:
         LOGGER.info('requesting new client task')
 
         res = get(
@@ -174,7 +177,7 @@ class RouteService:
 
         res.raise_for_status()
 
-        return ArtifactTask(**self.get_payload(res.content))
+        return Artifact(**self.get_payload(res.content))
 
     def get_new_client(self, data: UpdateClientApp):
         expected_checksum = data.checksum
