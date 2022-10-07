@@ -11,9 +11,7 @@ volumes:
 
 services:
 
-  #
-  # FERDELANCE DB
-  #
+  # FerDeLance internal database
 
   database:
     image: postgres
@@ -28,11 +26,7 @@ services:
     networks:
       - ferdelance
 
-  #
-  # FERDELANCE BACKEND
-  #
-
-  # TASK BROKER - Where server communicates the tasks to the worker
+  # Tark Broker - Where server communicates the tasks to the worker
 
   rabbitmq:
     image: rabbitmq:3.10-management
@@ -41,7 +35,7 @@ services:
       - ferdelance
     command: rabbitmq-server
 
-  # RESULTS - Where worker stores results
+  # Result Storage - Where worker stores results
 
   redis:
     image: redis
@@ -50,16 +44,14 @@ services:
       - ferdelance
     command: redis-server
 
-  # WORKER - The actual worker
+  # Worker - The actual worker
 
   worker: 
     image: idsia.ferdelance.server
     container_name: celery-worker
-    build:
-      context: .
-      dockerfile: Dockerfile
     environment:
       - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
+      - SERVER_URL=http://server
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
     volumes: 
@@ -71,7 +63,7 @@ services:
       - redis
       - rabbitmq
   
-  # MONITOR - Where worker can be monitored
+  # Monitor - Where worker status can be monitored
 
   flower:
     image: idsia.ferdelance.server
@@ -87,17 +79,11 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.flower.entrypoints=web"
       - "traefik.http.routers.flower.rule=Host(`flower-ferdelance.${DOMAIN}`)"
-      # - "traefik.http.routers.flower.rule=(Host(`ferdelance.${DOMAIN}`) && PathPrefix(`/flower`))"
       - "traefik.http.services.flower.loadbalancer.server.port=5555"
-      # - "traefik.http.routers.flower.middlewares=flower-stripprefix,flower-addprefix"
-      # - "traefik.http.middlewares.flower-stripprefix.stripprefix.prefixes=/flower"
-      # - "traefik.http.middlewares.flower-addprefix.addprefix.prefix=/flower"
     depends_on:
       - worker    
   
-  #
-  # FERDELANCE
-  #
+  # FerDeLance server
   
   server: 
     image: idsia.ferdelance.server

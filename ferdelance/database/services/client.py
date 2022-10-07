@@ -13,7 +13,7 @@ class ClientService(DBSessionService):
         super().__init__(db)
 
     def create_client(self, client: Client) -> Client:
-        LOGGER.info(f'creating new client with version={client.version} mac_address={client.machine_mac_address} node={client.machine_node}')
+        LOGGER.info(f'client_id={client.client_id}: creating new client with version={client.version} mac_address={client.machine_mac_address} node={client.machine_node} type={client.type}')
 
         existing_client_id = (
             self.db.query(Client.client_id)
@@ -21,10 +21,10 @@ class ClientService(DBSessionService):
                 (Client.machine_mac_address == client.machine_mac_address) |
                 (Client.machine_node == client.machine_node)
             )
-            .first()
+            .first()[0]
         )
         if existing_client_id is not None:
-            LOGGER.warning(f'client already exists with id {existing_client_id}')
+            LOGGER.warning(f'client_id={existing_client_id}: client already exists')
             raise ValueError('Client already exists')
 
         self.db.add(client)
@@ -57,7 +57,7 @@ class ClientService(DBSessionService):
         return self.db.query(Client).filter(Client.client_id == client_id).first()
 
     def get_client_list(self) -> list[Client]:
-        return self.db.query(Client).all()
+        return self.db.query(Client).filter(Client.type == 'CLIENT').all()
 
     def get_client_by_token(self, token: str) -> Client:
         return self.db.query(Client)\
@@ -114,3 +114,14 @@ class ClientService(DBSessionService):
         LOGGER.info(f'client_id={client.client_id}: requested all events')
 
         return self.db.query(ClientEvent).filter(ClientEvent.client_id == client.client_id).all()
+
+    def get_token_for_client_id(self, client_id: str) -> str:
+        return self.db.query(ClientToken.token).filter(ClientToken.client_id == client_id, ClientToken.valid == True).first()
+
+    def get_token_by_client_type(self, client_type: str) -> str:
+        client_token: ClientToken = self.db.query(ClientToken)\
+            .join(Client, Client.client_id == ClientToken.client_id)\
+            .filter(Client.type == client_type)\
+            .first()
+
+        return client_token.token

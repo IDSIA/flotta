@@ -4,14 +4,12 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...database.services import ArtifactService, ClientService, DataSourceService
-from ...database.tables import Client, ClientDataSource, Artifact, Model
+from ...database.services import ArtifactService, ClientService, DataSourceService, ModelService
+from ...database.tables import Client, ClientDataSource, Model
 from ..services import JobManagementService
 
-from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact
+from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact, WorkbenchJoinData
 
-import aiofiles
-import json
 import logging
 import os
 
@@ -24,6 +22,17 @@ workbench_router = APIRouter()
 @workbench_router.get('/workbench/')
 async def wb_home():
     return 'Workbench 🔧'
+
+
+@workbench_router.get('/workbench/connect', response_model=WorkbenchJoinData)
+async def wb_get_client_list(db: Session = Depends(get_db)):
+    cs: ClientService = ClientService(db)
+
+    token: str = cs.get_token_by_client_type('WORKBENCH')
+
+    return WorkbenchJoinData(
+        token=token,
+    )
 
 
 @workbench_router.get('/workbench/client/list', response_model=list[str])
@@ -42,7 +51,7 @@ async def wb_get_client_detail(client_id: str, db: Session = Depends(get_db)):
     client: Client = cs.get_client_by_id(client_id)
 
     if client.active is False:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     return ClientDetails(
         client_id=client.client_id,
@@ -86,25 +95,24 @@ async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db)):
 def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db)):
     try:
         jms: JobManagementService = JobManagementService(db)
-
         return jms.submit_artifact(artifact)
 
     except ValueError as e:
         LOGGER.error('Artifact already exists')
         LOGGER.exception(e)
-        return HTTPException(403)
+        raise HTTPException(403)
 
 
-@workbench_router.get('/workbench/artifact/{artifact_id}', response_model=ArtifactStatus)
+@workbench_router.get('/workbench/artifact/status/{artifact_id}', response_model=ArtifactStatus)
 async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)):
     ars: ArtifactService = ArtifactService(db)
 
-    artifact_db: Artifact = ars.get_artifact(artifact_id)
+    artifact_db = ars.get_artifact(artifact_id)
 
     # TODO: get status from celery
 
     if artifact_db is None:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     return ArtifactStatus(
         artifact_id=artifact_id,
@@ -112,40 +120,29 @@ async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db)
     )
 
 
-@workbench_router.get('/workbench/download/artifact/{artifact_id}', response_model=Artifact)
+@workbench_router.get('/workbench/artifact/{artifact_id}', response_model=Artifact)
 async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
-    ars: ArtifactService = ArtifactService(db)
+    try:
+        jms: JobManagementService = JobManagementService(db)
+        return jms.get_artifact(artifact_id)
 
-    artifact_db: Artifact = ars.get_artifact(artifact_id)
-
-    if artifact_db is None:
-        return HTTPException(404)
-
-    if not os.path.exists(artifact_db.path):
-        return HTTPException(404)
-
-    async with aiofiles.open(artifact_db.path, 'r') as f:
-        content = await f.read()
-        data = json.loads(content)
-
-    return Artifact(**data)
+    except ValueError as e:
+        LOGGER.error(f'{e}')
+        raise HTTPException(404)
 
 
-@workbench_router.get('/workbench/download/model/{artifact_id}', response_class=FileResponse)
+@workbench_router.get('/workbench/model/{artifact_id}', response_class=FileResponse)
 async def wb_get_model(artifact_id: str, db: Session = Depends(get_db)):
     ars: ArtifactService = ArtifactService(db)
 
-    artifact_db: Artifact = ars.get_artifact(artifact_id)
+    model_dbs: list[Model] = ars.get_models_by_artifact_id(artifact_id)
 
-    if artifact_db is None:
-        return HTTPException(404)
+    if not model_dbs:
+        raise HTTPException(404)
 
-    if artifact_db.status != 'COMPLETED':
-        return HTTPException(404)
+    model_db = [m for m in model_dbs if m.aggregated][0]
 
-    model_db: Model = ars.get_model_by_artifact(artifact_db)
-
-    if model_db is None:
-        return HTTPException(404)
+    if not os.path.exists(model_db.path):
+        raise HTTPException(404)
 
     return FileResponse(model_db.path)

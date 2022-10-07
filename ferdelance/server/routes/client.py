@@ -3,18 +3,19 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import Response
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...database.services import (
+    Session,
     ArtifactService,
     ClientAppService,
     ClientService,
     JobService,
-    DataSourceService
+    DataSourceService,
+    ModelService,
 )
-from ...database.tables import Client, ClientApp, ClientToken, Job
-from ..services import ActionService, SecurityService
+from ...database.tables import Client, ClientApp, ClientToken, Job, Model
+from ..services import ActionService, SecurityService, JobManagementService
 from ..security import check_token
 
 from ferdelance_shared.schemas import (
@@ -24,7 +25,6 @@ from ferdelance_shared.schemas import (
     Metadata,
     UpdateExecute,
     Artifact,
-    ArtifactTask,
 )
 
 import aiofiles
@@ -60,6 +60,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
             machine_mac_address=client.mac_address,
             machine_node=client.node,
             ip_address=ip_address,
+            type='CLIENT',
         )
 
         ss.client = cs.create_client(client)
@@ -75,7 +76,7 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
             public_key=ss.get_server_public_key_str(),
         )
 
-        return Response(ss.server_encrypt_json_content(cjd.dict()))
+        return ss.server_encrypt_response(cjd.dict())
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
@@ -125,7 +126,7 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
 
     cs.create_client_event(client_id, f'action:{payload.action}')
 
-    return Response(ss.server_encrypt_json_content(payload.dict()))
+    return ss.server_encrypt_response(payload.dict())
 
 
 @client_router.get('/client/download/application', response_class=Response)
@@ -149,7 +150,7 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
 
     if new_app.version != payload.version:
         LOGGER.warning(f'client_id={client_id} requested app version={payload.version} while latest version={new_app.version}')
-        return HTTPException(400, 'Old versions are not permitted')
+        raise HTTPException(400, 'Old versions are not permitted')
 
     cs.update_client(client_id, version=payload.version)
 
@@ -196,6 +197,8 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
 
     dss.create_or_update_metadata(client_id, metadata)
 
+    return {}
+
 
 @client_router.get('/client/task/', response_class=Response)
 async def client_get_task(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
@@ -212,15 +215,15 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
     body = await request.body()
     payload = UpdateExecute(**ss.server_decrypt_json_content(body))
 
-    job: Job = js.get_job_by_id(payload.job_id)
+    job: Job = js.get_job(client_id, payload.artifact_id)
 
     if job is None:
-        return HTTPException(404, 'Task does not exists')
+        raise HTTPException(404, 'Task does not exists')
 
     artifact_db = ars.get_artifact(job.artifact_id)
 
     if not os.path.exists(artifact_db.path):
-        return HTTPException(404, 'Artifact does not exits')
+        raise HTTPException(404, 'Artifact does not exits')
 
     async with aiofiles.open(artifact_db.path, 'r') as f:
         data = await f.read()
@@ -230,11 +233,25 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
 
     artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasources_id in client_datasource_ids]
 
-    content = ArtifactTask(
+    content = Artifact(
         artifact_id=job.artifact_id,
-        job_id=job.job_id,
         dataset=artifact.dataset,
         model=artifact.model,
     )
 
-    return Response(ss.server_encrypt_json_content(content.dict()))
+    return ss.server_encrypt_response(content.dict())
+
+
+@ client_router.post('/client/task/{artifact_id}')
+async def client_post_task(request: Request, artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    ss: SecurityService = SecurityService(db, client_id)
+    jm: JobManagementService = JobManagementService(db)
+    ms: ModelService = ModelService(db)
+
+    model_db: Model = ms.create_model(artifact_id)
+
+    ss.server_stream_decrypt_file(request, model_db.path)
+
+    jm.aggregate(artifact_id, client_id)
+
+    return {}

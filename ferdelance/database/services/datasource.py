@@ -34,7 +34,7 @@ class DataSourceService(DBSessionService):
 
         if ds_db is None:
             # create a new data source for this client
-            LOGGER.info(f'creating new data source={ds.name} for client_id={client_id}')
+            LOGGER.info(f'client_id={client_id}: creating new data source={ds.name}')
 
             ds_db = ClientDataSource(
                 datasource_id=str(uuid4()),
@@ -49,7 +49,7 @@ class DataSourceService(DBSessionService):
         else:
             if ds.removed:
                 # remove data source and info
-                LOGGER.info(f'removing data source={ds.name} for client_id={client_id}')
+                LOGGER.info(f'client_id={client_id}: removing data source={ds.name}')
 
                 query.update({
                     'removed': True,
@@ -78,7 +78,7 @@ class DataSourceService(DBSessionService):
 
             else:
                 # update data source info
-                LOGGER.info(f'updating data source={ds.name} for client_id={client_id}')
+                LOGGER.info(f'client_id={client_id}: updating data source={ds.name}')
                 query.update({
                     'n_records': ds.n_records,
                     'n_features': ds.n_features,
@@ -106,7 +106,7 @@ class DataSourceService(DBSessionService):
         f_db = query.first()
 
         if f_db is None:
-            LOGGER.info(f'creating new feature={f.name} for client_id={ds_id}')
+            LOGGER.info(f'client_id={ds_id}: creating new feature={f.name}')
 
             f_db = ClientFeature(
                 feature_id=str(uuid4()),
@@ -146,7 +146,7 @@ class DataSourceService(DBSessionService):
 
             else:
                 # update data source info
-                LOGGER.info(f'updating data source={f.name} for client_id={ds_id}')
+                LOGGER.info(f'client_id={ds_id}: updating data source={f.name}')
                 query.update({
                     'dtype': f.dtype,
                     'v_mean': f.v_mean,

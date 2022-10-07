@@ -1,3 +1,4 @@
+from email.policy import default
 from sqlalchemy import Column, ForeignKey, String, Float, DateTime, Integer, Boolean, Date
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship
@@ -28,8 +29,9 @@ class Client(Base):
     machine_mac_address = Column(String, nullable=False, unique=True)
     # uuid.getnode()
     machine_node = Column(String, nullable=False)
-    # hash of above values
-    # token = Column(String, nullable=False, index=True, unique=True)
+
+    # valid values: SERVER, CLIENT, WORKER, WORKBENCH
+    type = Column(String, nullable=False)
 
     active = Column(Boolean, default=True)
     blacklisted = Column(Boolean, default=False)
@@ -102,7 +104,7 @@ class Job(Base):
     """
     __tablename__ = 'jobs'
 
-    job_id = Column(String, primary_key=True, index=True)
+    job_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
 
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
     artifact = relationship('Artifact')
@@ -122,10 +124,14 @@ class Model(Base):
     model_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
     path = Column(String, nullable=False)
+    aggregated = Column(Boolean, nullable=False, default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
     artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
     artifact = relationship('Artifact')
+
+    client_id = Column(String, ForeignKey('clients.client_id'))
+    client = relationship('Client')
 
 
 class ClientDataSource(Base):

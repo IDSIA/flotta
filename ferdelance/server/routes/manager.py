@@ -8,7 +8,7 @@ from ...database import get_db
 from ...database.services import ModelService, ClientService
 from ...database.tables import ClientApp, Artifact, Model, Client
 from ..schemas.manager import *
-from ..config import FILE_CHUNK_SIZE, STORAGE_CLIENTS, STORAGE_ARTIFACTS
+from ...config import FILE_CHUNK_SIZE, STORAGE_CLIENTS, STORAGE_ARTIFACTS
 
 import aiofiles
 import hashlib
@@ -66,7 +66,7 @@ async def manager_upload_client_metadata(metadata: ManagerUploadClientMetadataRe
 
     if client_app is None:
         LOGGER.info(f'app_id={app_id} not found in database')
-        return HTTPException(404)
+        raise HTTPException(404)
 
     u = {
         'active': metadata.active
@@ -139,12 +139,12 @@ async def manager_remove_client(client_id: str, db: Session = Depends(get_db)):
     # TODO: this endpoint need to be made secure!
     cs: ClientService = ClientService(db)
 
-    LOGGER.info(f'MANAGER: client_id={client_id}: request to leave')
+    LOGGER.info(f'client_id={client_id}: MANAGER request to leave')
 
     client: Client = cs.get_client_by_id(client_id)
 
     if client is None:
-        return HTTPException(404)
+        raise HTTPException(404)
 
     cs.client_leave(client_id)
     cs.create_client_event(client_id, 'left')
