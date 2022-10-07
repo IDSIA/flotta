@@ -148,7 +148,7 @@ class Context:
             raise ValueError('submit first the artifact to the server')
 
         res = requests.get(
-            f'{self.server}/workbench/artifact/{artifact.artifact_id}',
+            f'{self.server}/workbench/artifact/status/{artifact.artifact_id}',
             headers=self.headers(),
         )
 
@@ -167,7 +167,7 @@ class Context:
             The artifact saved on the server and associated with the given artifact_id.
         """
         res = requests.get(
-            f'{self.server}/workbench/download/artifact/{artifact_id}',
+            f'{self.server}/workbench/artifact/{artifact_id}',
             headers=self.headers(),
         )
 
@@ -189,7 +189,7 @@ class Context:
             raise ValueError('submit first the artifact to the server')
 
         res = requests.get(
-            f'{self.server}/workbench/download/model/{artifact.artifact_id}',
+            f'{self.server}/workbench/model/{artifact.artifact_id}',
             headers=self.headers(),
         )
 
