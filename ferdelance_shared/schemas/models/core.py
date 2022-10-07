@@ -11,16 +11,20 @@ class Strategy(str, Enum):
 
 
 class Model(BaseModel):
-    """Model defined in the workbench and trained in the clients."""
+    """Exchange model description defined in the workbench, trained in 
+    the clients, and aggregated in the server.
+    """
     name: str
-    strategy: Strategy | None = None
+    strategy: str | None = None
     parameters: dict[str, Any]
 
     class Config:
         arbitrary_types_allowed = True
-        fields = {
-            'model': {'exclude': True},
-        }
+
+
+class GenericModel:
+    """This is the class that can manipulate real models."""
+    model: object
 
     def load(self, path) -> None:
         raise NotImplementedError()

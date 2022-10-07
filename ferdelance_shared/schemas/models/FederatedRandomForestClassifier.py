@@ -1,4 +1,4 @@
-from .core import Model, Strategy
+from .core import GenericModel, Model, Strategy
 from pydantic import BaseModel
 
 from sklearn.ensemble import RandomForestClassifier
@@ -43,16 +43,23 @@ class ParametersRandomForestClassifier(BaseModel):
     max_samples: int | None = None
 
 
-class FederatedRandomForestClassifier(Model):
+class FederatedRandomForestClassifier(GenericModel):
     name: str = 'FederatedRandomForestClassifier'
-    strategy: StrategyRandomForestClassifier | None = None
-    parameters: dict[str, Any] = dict()
+    strategy: StrategyRandomForestClassifier
+    parameters: dict[str, Any]
 
     model: RandomForestClassifier | None = None
+
+    def __init__(self, model_desc: Model) -> None:
+        self.strategy = StrategyRandomForestClassifier[model_desc.strategy]
+        self.parameters = ParametersRandomForestClassifier(**model_desc.parameters)
 
     def __init__(self, **data):
         data['parameters'] = data['parameters'].dict()
         super().__init__(**data)
+
+    def strategy(self) -> StrategyRandomForestClassifier:
+        return StrategyRandomForestClassifier[self.strategy]
 
     def load(self, path) -> None:
         with open(path, 'rb') as f:
