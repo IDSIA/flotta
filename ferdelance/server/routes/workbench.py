@@ -134,9 +134,8 @@ async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db)):
 @workbench_router.get('/workbench/model/{artifact_id}', response_class=FileResponse)
 async def wb_get_model(artifact_id: str, db: Session = Depends(get_db)):
     ars: ArtifactService = ArtifactService(db)
-    ms: ModelService = ModelService(db)
 
-    model_dbs: list[Model] = ars.get_models_by_artifact_id(artifact_id, True)
+    model_dbs: list[Model] = ars.get_models_by_artifact_id(artifact_id)
 
     if not model_dbs:
         raise HTTPException(404)
