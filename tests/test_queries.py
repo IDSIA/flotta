@@ -1,14 +1,19 @@
+from unicodedata import name
 from ferdelance_workbench.artifacts import Feature, Query, QueryFilter, DataSource
 from ferdelance_shared.operations import ObjectOperations
+
+DS1_NAME, DS1_ID = 'data_source_1', 'ds1'
+DS2_NAME, DS2_ID = 'data_source_2', 'ds2'
 
 
 class TestQueriesClass:
 
     def feature1(self) -> Feature:
         return Feature(
+            datasource_id=DS1_ID,
+            datasource_name=DS1_NAME,
             feature_id='ds1-f1',
-            datasource_id='ds1',
-            name='f1',
+            name='feature1',
             dtype='str',
             v_mean=None,
             v_std=None,
@@ -22,9 +27,10 @@ class TestQueriesClass:
 
     def feature2(self) -> Feature:
         return Feature(
+            datasource_id=DS1_ID,
+            datasource_name=DS1_NAME,
             feature_id='ds1-f2',
-            datasource_id='ds1',
-            name='f2',
+            name='feature2',
             dtype='str',
             v_mean=None,
             v_std=None,
@@ -38,9 +44,10 @@ class TestQueriesClass:
 
     def feature3(self) -> Feature:
         return Feature(
+            datasource_id=DS2_ID,
+            datasource_name=DS2_NAME,
             feature_id='ds2-f3',
-            datasource_id='ds2',
-            name='f3',
+            name='feature3',
             dtype='str',
             v_mean=None,
             v_std=None,
@@ -58,10 +65,11 @@ class TestQueriesClass:
             self.feature2(),
         ]
         return DataSource(
+            datasource_id=DS1_ID,
+            name=DS1_NAME,
             n_records=1000,
             n_features=len(features),
             client_id='client1',
-            datasource_id='ds1',
             features=features
         )
 
@@ -70,10 +78,11 @@ class TestQueriesClass:
             self.feature3(),
         ]
         return DataSource(
+            datasource_id=DS2_ID,
+            name=DS2_NAME,
             n_records=1000,
             n_features=len(features),
             client_id='client1',
-            datasource_id='ds2',
             features=features
         )
 
@@ -117,7 +126,7 @@ class TestQueriesClass:
         assert len(q1.features) == 2
         assert f1 in q1.features
         assert f2 in q1.features
-        assert q1.datasources_id == ds.datasource_id
+        assert q1.datasource_id == ds.datasource_id
 
         q2 = q1 - f1
 

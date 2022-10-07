@@ -71,6 +71,8 @@ class Feature(BaseFeature):
         return QueryFeature(
             feature_id=self.feature_id,
             datasource_id=self.datasource_id,
+            feature_name=self.name,
+            datasource_name=self.datasource_name,
         )
 
     def __lt__(self, other) -> QueryFilter:
@@ -109,6 +111,7 @@ class Feature(BaseFeature):
         if isinstance(other, Feature):
             return (
                 self.datasource_id == other.datasource_id and
+                self.datasource_name == other.datasource_name and
                 self.feature_id == other.feature_id and
                 self.name == other.name and
                 self.dtype == other.dtype
@@ -147,7 +150,8 @@ class Query(BaseQuery):
 
     def copy(self) -> Query:
         return Query(
-            datasources_id=self.datasources_id,
+            datasource_id=self.datasource_id,
+            datasource_name=self.datasource_name,
             features=self.features.copy(),
             filters=self.filters.copy(),
             transformers=self.transformers.copy()
@@ -157,14 +161,14 @@ class Query(BaseQuery):
         if isinstance(feature, Feature):
             feature = feature.qf()
 
-        if feature.datasource_id != self.datasources_id:
+        if feature.datasource_id != self.datasource_id:
             raise ValueError('Cannot add features from a different data source')
 
         if feature not in self.features:
             self.features.append(feature)
 
     def add_filter(self, filter: QueryFilter) -> None:
-        if filter.feature.datasource_id != self.datasources_id:
+        if filter.feature.datasource_id != self.datasource_id:
             raise ValueError('Cannot add filter for features from a different data source')
 
         self.filters.append(filter)
@@ -197,7 +201,7 @@ class Query(BaseQuery):
         if isinstance(feature, Feature):
             feature = feature.qf()
 
-        if feature.datasource_id != self.datasources_id:
+        if feature.datasource_id != self.datasource_id:
             raise ValueError('Cannot remove features from a different data source')
 
         self.features = [f for f in self.features if f != feature]
@@ -205,7 +209,7 @@ class Query(BaseQuery):
         self.transformers = [f for f in self.transformers if f.feature != feature]
 
     def remove_filter(self, filter: QueryFilter) -> None:
-        if filter.feature.datasource_id != self.datasources_id:
+        if filter.feature.datasource_id != self.datasource_id:
             raise ValueError('Cannot remove filter for features from a different data source')
 
         self.features.remove(filter)
@@ -239,14 +243,15 @@ class Query(BaseQuery):
             return False
 
         return (
-            self.datasources_id == other.datasources_id and
+            self.datasource_id == other.datasource_id and
+            self.datasource_name == other.datasource_name and
             self.features == other.features and
             self.filters == other.filters and
             self.transformers == other.transformers
         )
 
     def __hash__(self) -> int:
-        return hash((self.datasources_id, self.features, self.filters, self.transformers))
+        return hash((self.datasource_id, self.features, self.filters, self.transformers))
 
     def __getitem__(self, key: QueryFilter) -> Query:
         if isinstance(key, QueryFilter):

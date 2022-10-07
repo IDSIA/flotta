@@ -18,7 +18,8 @@ class DataSource(BaseDataSource):
 
     def all_features(self):
         return Query(
-            datasources_id=self.datasource_id,
+            datasource_id=self.datasource_id,
+            datasource_name=self.name,
             features=[f.qf() for f in self.features]
         )
 
