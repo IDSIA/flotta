@@ -28,12 +28,9 @@ from ferdelance_shared.schemas import (
     Metadata,
     UpdateExecute,
     Artifact,
-<<<<<<< HEAD
     ArtifactTask,
     DataSource,
     Feature
-=======
->>>>>>> main
 )
 
 import aiofiles
