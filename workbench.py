@@ -18,13 +18,15 @@ for c in ctx.list_clients():
 # %% ask the context for available metadata
 data_sources_id: list[str] = ctx.list_datasources()
 
-for ds in data_sources_id:
-    dds: DataSource = ctx.detail_datasource(ds)
-    print(dds.name)
-    print(dds.info())
+ds: DataSource | None = None
 
-#     if dds.name == 'earthquakes':
-#         ds = dds
+for ds_id in data_sources_id:
+    ds = ctx.detail_datasource(ds_id)
+
+    if ds.name == 'earthquakes':
+        break
+
+assert ds is not None
 
 # print(ds.info())
 
