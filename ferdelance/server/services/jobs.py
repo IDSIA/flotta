@@ -1,4 +1,5 @@
 from ...database.services import DBSessionService, Session, ArtifactService, DataSourceService, JobService, ModelService, ClientService
+from ...database.tables import Client
 
 from ...worker.tasks import aggregation
 
@@ -57,14 +58,14 @@ class JobManagementService(DBSessionService):
             client_ids = set()
 
             for query in artifact.dataset.queries:
-                client_id: str = self.dss.get_client_id_by_datasource_id(query.datasource_id)
+                client: Client = self.dss.get_client_by_datasource_id(query.datasource_id)
 
-                if client_id in client_ids:
+                if client in client_ids:
                     continue
 
-                self.js.create_job(artifact.artifact_id, client_id, JobStatus.SCHEDULED)
+                self.js.create_job(artifact.artifact_id, client.client_id, JobStatus.SCHEDULED)
 
-                client_ids.add(client_id)
+                client_ids.add(client.client_id)
 
             return ArtifactStatus(
                 artifact_id=artifact.artifact_id,
@@ -83,6 +84,10 @@ class JobManagementService(DBSessionService):
 
         artifact: Artifact = self.ars.get_artifact(artifact_id)
 
+        if artifact is None:
+            LOGGER.error(f'Cannot aggregate: artifact_id={artifact_id} not found')
+            return
+
         total = self.js.count_jobs_by_status(artifact_id, JobStatus.SCHEDULED)
         completed = self.js.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
         error = self.js.count_jobs_by_status(artifact_id, JobStatus.ERROR)
@@ -97,7 +102,7 @@ class JobManagementService(DBSessionService):
 
         LOGGER.info(f'All {total} job(s) completed, starting aggregation')
 
-        token: str = self.cs.get_token_by_client_type('WORKBENCH')
+        token = self.cs.get_token_by_client_type('WORKBENCH')
 
         model_ids: list[str] = [m.model_id for m in self.ms.get_models_by_artifact_id(artifact_id)]
 

@@ -1,4 +1,3 @@
-from typing import Any
 from fastapi import Request
 from fastapi.responses import StreamingResponse, Response
 
@@ -17,6 +16,7 @@ from ...database.tables import Client, ClientToken
 
 from hashlib import sha256
 from time import time
+from typing import Any, Iterator
 from uuid import uuid4
 
 import json
@@ -40,9 +40,9 @@ class SecurityService(DBSessionService):
             cs: ClientService = ClientService(db)
             self.client: Client = cs.get_client_by_id(client_id)
 
-    def generate_token(self, system: str, mac_address: str, node: str, client_id: str = None) -> ClientToken:
+    def generate_token(self, system: str, mac_address: str, node: str, client_id: str = '') -> ClientToken:
         """Generates a client token with the data received from the client."""
-        if client_id is None:
+        if client_id == '':
             client_id = str(uuid4())
             LOGGER.info(f'client_id={client_id}: generating new token')
         else:
@@ -50,9 +50,9 @@ class SecurityService(DBSessionService):
 
         ms = round(time() * 1000)
 
-        token: bytes = f'{client_id}~{system}${mac_address}£{node}={ms};'.encode('utf8')
-        token: bytes = sha256(token).hexdigest().encode('utf8')
-        token: str = sha256(token).hexdigest()
+        token_b: bytes = f'{client_id}~{system}${mac_address}£{node}={ms};'.encode('utf8')
+        token_b: bytes = sha256(token_b).hexdigest().encode('utf8')
+        token: str = sha256(token_b).hexdigest()
 
         exp_time: int = self.kvs.get_int(KEY_TOKEN_EXPIRATION)
 
@@ -71,10 +71,10 @@ class SecurityService(DBSessionService):
         return public_key_from_bytes(public_bytes)
 
     def get_server_public_key_str(self) -> str:
-        public_str: bytes = self.kvs.get_str(PUBLIC_KEY)
+        public_str: str = self.kvs.get_str(PUBLIC_KEY)
         return encode_to_transfer(public_str)
 
-    def get_server_private_key(self) -> str:
+    def get_server_private_key(self) -> RSAPrivateKey:
         """
         :param db:
             Current session to the database.
@@ -105,12 +105,12 @@ class SecurityService(DBSessionService):
     def server_encrypt_response(self, content: dict[str, Any]) -> Response:
         return Response(content=self.server_encrypt_content(json.dumps(content)))
 
-    def server_decrypt_content(self, content: str) -> str:
+    def server_decrypt_content(self, content: bytes) -> str:
         server_private_key: RSAPrivateKey = self.get_server_private_key()
         enc = HybridDecrypter(server_private_key)
         return enc.decrypt(content)
 
-    def server_decrypt_json_content(self, content: str) -> dict[str, Any]:
+    def server_decrypt_json_content(self, content: bytes) -> dict[str, Any]:
         return json.loads(self.server_decrypt_content(content))
 
     def server_stream_encrypt_file(self, path: str) -> StreamingResponse:
@@ -133,7 +133,7 @@ class SecurityService(DBSessionService):
 
         return dec.get_checksum()
 
-    def server_stream_encrypt(self, content: str) -> bytes:
+    def server_stream_encrypt(self, content: str) -> Iterator[bytes]:
         """Used to encrypt small data that can be kept in memory."""
         public_key = self.get_client_public_key()
 

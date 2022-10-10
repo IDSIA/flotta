@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, UploadFile, Response, HTTPException
 from fastapi.responses import FileResponse
 
-from sqlalchemy.orm import Session
-from uuid import uuid4
-
 from ...database import get_db
 from ...database.services import ModelService, ClientService
 from ...database.tables import ClientApp, Artifact, Model, Client
 from ..schemas.manager import *
 from ...config import FILE_CHUNK_SIZE, STORAGE_CLIENTS, STORAGE_ARTIFACTS
+
+from typing import Any
+from sqlalchemy.orm import Session
+from uuid import uuid4
 
 import aiofiles
 import hashlib
@@ -68,7 +69,7 @@ async def manager_upload_client_metadata(metadata: ManagerUploadClientMetadataRe
         LOGGER.info(f'app_id={app_id} not found in database')
         raise HTTPException(404)
 
-    u = {
+    u: dict[str, Any] = {
         'active': metadata.active
     }
 
@@ -110,10 +111,10 @@ async def manager_upload_artifact(file: UploadFile, db: Session = Depends(get_db
 
 
 @manager_router.get('/manager/download/model', response_class=FileResponse)
-async def manager_download_model(model: ManagerDownloadModelRequest, db: Session = Depends(get_db)):
+async def manager_download_model(request: ManagerDownloadModelRequest, db: Session = Depends(get_db)):
     ms: ModelService = ModelService(db)
 
-    model: Model = ms.get_model_by_id(model.model_id)
+    model: Model = ms.get_model_by_id(request.model_id)
 
     if model is None:
         raise HTTPException(status_code=404)

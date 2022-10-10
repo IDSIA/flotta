@@ -1,4 +1,4 @@
-from ...database.tables import Client, ClientToken, Job
+from ...database.tables import Client, ClientApp, ClientToken, Job
 
 from ...database.services import (
     DBSessionService,
@@ -63,7 +63,7 @@ class ActionService(DBSessionService):
         :return:
             True if there is a new version and this version is different from the current client version.
         """
-        version: str = self.cas.get_newest_app_version()
+        version: ClientApp = self.cas.get_newest_app()
 
         LOGGER.info(f'client_id={client.client_id}: version={client.version} newest_version={version}')
 
@@ -76,7 +76,9 @@ class ActionService(DBSessionService):
             Fetch and return the version to download.
         """
 
-        new_client: str = self.cas.get_newest_app_version()
+        new_client: ClientApp = self.cas.get_newest_app()
+
+        assert new_client is not None
 
         return UpdateClientApp(
             action=Action.UPDATE_CLIENT.name,
@@ -88,13 +90,13 @@ class ActionService(DBSessionService):
     def _check_scheduled_job(self, client: Client) -> Job | None:
         return self.js.next_for_client(client.client_id)
 
-    def _action_schedule_job(self, job: Job) -> UpdateNothing:
+    def _action_schedule_job(self, job: Job) -> UpdateExecute:
         return UpdateExecute(
             action=Action.EXECUTE.name,
             artifact_id=job.artifact_id
         )
 
-    def _action_nothing(self) -> tuple[str, Any]:
+    def _action_nothing(self) -> UpdateNothing:
         """Do nothing and waits for the next update request."""
         return UpdateNothing(
             action=Action.DO_NOTHING.name

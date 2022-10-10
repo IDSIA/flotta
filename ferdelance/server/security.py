@@ -56,7 +56,7 @@ def generate_keys(db: Session) -> None:
         LOGGER.info(f'Application initialization, Environment variable {MAIN_KEY} saved in storage')
 
     try:
-        private_key = kvs.get_bytes(PRIVATE_KEY)
+        kvs.get_bytes(PRIVATE_KEY)
         LOGGER.info('Keys are already available')
         return
 
@@ -88,7 +88,7 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: S
     :return:
         True if the token is valid, otherwise false.
     """
-    token = credentials.credentials
+    token: str = credentials.credentials  # type: ignore
 
     cs: ClientService = ClientService(db)
 
