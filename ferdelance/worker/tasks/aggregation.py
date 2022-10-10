@@ -16,11 +16,11 @@ LOGGER = logging.getLogger(__name__)
     ignore_result=False,
     bind=True,
 )
-def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> str:
+def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> None:
     try:
         task_id: str = str(self.request.id)
 
-        server_url: str = os.environ.get('SERVER_URL', None)
+        server_url: str | None = os.environ.get('SERVER_URL', None)
 
         if server_url is None:
             raise ValueError('No SERVER_URL variable found, cannot perform aggregation')

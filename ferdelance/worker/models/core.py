@@ -1,4 +1,4 @@
 class Aggregator:
 
-    def aggregate(strategy, model_a, model_b):
+    def aggregate(self, strategy, model_a, model_b):
         raise NotImplementedError()
