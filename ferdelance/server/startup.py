@@ -40,10 +40,10 @@ class ServerStartup:
             return
 
         if node is None:
-            node = uuid.uuid4()
+            node = uuid.uuid4().int
 
         node_str: str = str(node)[:12]
-        mac_address: str = ':'.join(re.findall('..', f'{int(node):012x}'[:12]))
+        mac_address: str = ':'.join(re.findall('..', f'{node:012x}'[:12]))
 
         client_token: ClientToken = self.ss.generate_token(system, mac_address, node_str)
 

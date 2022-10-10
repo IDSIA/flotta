@@ -1,7 +1,16 @@
 from ferdelance.config import STORAGE_ARTIFACTS
 
-from ferdelance_shared.schemas import *
-from ferdelance_shared.schemas.models import *
+from ferdelance_shared.schemas import (
+    Artifact,
+    ArtifactStatus,
+    ClientDetails,
+    Dataset,
+    DataSource,
+    Metadata,
+    Query,
+    QueryFeature,
+)
+from ferdelance_shared.schemas.models import Model
 from ferdelance_shared.status import ArtifactJobStatus
 
 from .utils import (
@@ -116,7 +125,7 @@ class TestWorkbenchClass:
 
         assert res.status_code == 200
 
-        datasource = DataSource(**json.loads(res.content))
+        datasource: DataSource = DataSource(**json.loads(res.content))
 
         assert len(datasource.features) == 2
         assert datasource.n_records == 1000
@@ -130,18 +139,22 @@ class TestWorkbenchClass:
         assert 'int' in dtypes
 
         artifact = Artifact(
+            artifact_id=None,
             dataset=Dataset(
                 queries=[
                     Query(
-                        datasources_id=datasource_id,
+                        datasource_id=datasource.datasource_id,
+                        datasource_name=datasource.name,
                         features=[QueryFeature(
                             datasource_id=f.datasource_id,
-                            feature_id=f.feature_id
+                            datasource_name=f.datasource_name,
+                            feature_id=f.feature_id,
+                            feature_name=f.name,
                         ) for f in datasource.features]
                     )
                 ]
             ),
-            model=Model(name='model', strategy=None),
+            model=Model(name='model', strategy=''),
         )
 
         res = self.client.post(
@@ -155,24 +168,26 @@ class TestWorkbenchClass:
 
         artifact_id = status.artifact_id
 
+        assert status.status is not None
         assert artifact_id is not None
+        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
+
+        res = self.client.get(f'/workbench/artifact/status/{artifact_id}')
+
+        assert res.status_code == 200
+
+        status = ArtifactStatus(**json.loads(res.content))
+        assert status.status is not None
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
         res = self.client.get(f'/workbench/artifact/{artifact_id}')
 
         assert res.status_code == 200
 
-        status = ArtifactStatus(**json.loads(res.content))
-        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
-
-        res = self.client.get(f'/workbench/download/artifact/{artifact_id}')
-
-        assert res.status_code == 200
-
         downloaded_artifact = Artifact(**json.loads(res.content))
 
         assert len(downloaded_artifact.dataset.queries) == 1
-        assert downloaded_artifact.dataset.queries[0].datasources_id == datasource_id
+        assert downloaded_artifact.dataset.queries[0].datasource_id == datasource_id
         assert len(downloaded_artifact.dataset.queries[0].features) == 2
 
         os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json'))

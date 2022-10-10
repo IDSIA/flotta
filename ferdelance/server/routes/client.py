@@ -1,10 +1,12 @@
-from typing import Any
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import Response
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from ...database import get_db
+from ...database.tables import Client, ClientApp, ClientDataSource, ClientToken
+from ..services.actions import ActionService
+from ..services.security import SecurityService
 from ...database.services import (
     Session,
     ArtifactService,
@@ -19,13 +21,17 @@ from ..services import ActionService, SecurityService, JobManagementService
 from ..security import check_token
 
 from ferdelance_shared.schemas import (
+    Artifact,
     ClientJoinRequest,
     ClientJoinData,
     DownloadApp,
+    MetaFeature,
     Metadata,
+    MetaDataSource,
     UpdateExecute,
-    Artifact,
 )
+
+from typing import Any
 
 import aiofiles
 import logging
@@ -45,6 +51,10 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
     ss: SecurityService = SecurityService(db, None)
 
     try:
+        if request.client is None:
+            LOGGER.warn('client not set for request?')
+            raise HTTPException(400)
+
         ip_address = request.client.host
 
         client_token: ClientToken = ss.generate_token(client.system, client.mac_address, client.node)
@@ -120,13 +130,13 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
     data = await request.body()
     payload: dict[str, Any] = ss.server_decrypt_json_content(data)
 
-    payload = acs.next(ss.client, payload)
+    next_action = acs.next(ss.client, payload)
 
-    LOGGER.info(f'client_id={client_id}: sending action={payload.action}')
+    LOGGER.info(f'client_id={client_id}: sending action={next_action.action}')
 
-    cs.create_client_event(client_id, f'action:{payload.action}')
+    cs.create_client_event(client_id, f'action:{next_action.action}')
 
-    return ss.server_encrypt_response(payload.dict())
+    return ss.server_encrypt_response(next_action.dict())
 
 
 @client_router.get('/client/download/application', response_class=Response)
@@ -148,6 +158,9 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
 
     new_app: ClientApp = cas.get_newest_app()
 
+    if new_app is None:
+        raise HTTPException(400, 'no newest version found')
+
     if new_app.version != payload.version:
         LOGGER.warning(f'client_id={client_id} requested app version={payload.version} while latest version={new_app.version}')
         raise HTTPException(400, 'Old versions are not permitted')
@@ -166,25 +179,7 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
-
-    Structure of expected JSON:
-    ```
-    {"datasources": [{
-        "name": <string>,
-        "type": <string>,
-        "removed": <boolean>,
-        "n_records": <integer>,
-        "n_features": <integer>,
-        "features": [{
-            "name": <string>,
-            "dtype": <string>,
-            "v_min": <float or null>,
-            "v_max": <float or null>,
-            "v_std": <float or null>
-        }]
-    }]}
-    ```
-    """
+W    """
     cs: ClientService = ClientService(db)
     dss: DataSourceService = DataSourceService(db)
     ss: SecurityService = SecurityService(db, client_id)
@@ -197,7 +192,20 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
 
     dss.create_or_update_metadata(client_id, metadata)
 
-    return {}
+    client_data_source_list: list[ClientDataSource] = dss.get_datasource_by_client_id(client_id)
+
+    ds_list = [
+        MetaDataSource(
+            **cds.__dict__,
+            features=[
+                MetaFeature(**f.__dict__) for f in dss.get_features_by_datasource(cds)
+            ])
+        for cds in client_data_source_list
+    ]
+
+    LOGGER.debug(f"{json.dumps(Metadata(datasources=ds_list).dict())}")  # TODO: remove this
+
+    return Response(ss.server_encrypt_content(json.dumps([ds.dict() for ds in ds_list])))
 
 
 @client_router.get('/client/task/', response_class=Response)
@@ -222,8 +230,11 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
 
     artifact_db = ars.get_artifact(job.artifact_id)
 
+    if artifact_db is None:
+        raise HTTPException(404, 'Artifact does not exists')
+
     if not os.path.exists(artifact_db.path):
-        raise HTTPException(404, 'Artifact does not exits')
+        raise HTTPException(404, 'Artifact does not exists')
 
     async with aiofiles.open(artifact_db.path, 'r') as f:
         data = await f.read()
@@ -231,7 +242,7 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
 
     client_datasource_ids = dss.get_datasource_ids_by_client_id(client_id)
 
-    artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasources_id in client_datasource_ids]
+    artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasource_id in client_datasource_ids]
 
     content = Artifact(
         artifact_id=job.artifact_id,
@@ -248,7 +259,7 @@ async def client_post_task(request: Request, artifact_id: str, db: Session = Dep
     jm: JobManagementService = JobManagementService(db)
     ms: ModelService = ModelService(db)
 
-    model_db: Model = ms.create_model(artifact_id)
+    model_db: Model = ms.create_model(artifact_id, client_id)
 
     ss.server_stream_decrypt_file(request, model_db.path)
 

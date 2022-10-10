@@ -175,5 +175,7 @@ class ClientFeature(Base):
     update_time = Column(DateTime(timezone=True), server_default=now())
     removed = Column(Boolean, nullable=False, default=False)
 
+    datasource_name = Column(String, nullable=False)
+
     datasource_id = Column(String, ForeignKey('client_datasources.datasource_id'))
     datasource = relationship('ClientDataSource')

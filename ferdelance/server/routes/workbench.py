@@ -25,10 +25,13 @@ async def wb_home():
 
 
 @workbench_router.get('/workbench/connect', response_model=WorkbenchJoinData)
-async def wb_get_client_list(db: Session = Depends(get_db)):
+async def wb_connect(db: Session = Depends(get_db)):
     cs: ClientService = ClientService(db)
 
-    token: str = cs.get_token_by_client_type('WORKBENCH')
+    token: str | None = cs.get_token_by_client_type('WORKBENCH')
+
+    if token is None:
+        raise HTTPException(404)
 
     return WorkbenchJoinData(
         token=token,
@@ -82,11 +85,10 @@ async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db)):
 
     f_db = dss.get_features_by_datasource(ds_db)
 
-    fs = [Feature(**f.__dict__, created_at=f.creation_time) for f in f_db if not f.removed]
+    fs = [Feature(**f.__dict__) for f in f_db if not f.removed]
 
     return DataSource(
         **ds_db.__dict__,
-        created_at=ds_db.creation_time,
         features=fs,
     )
 

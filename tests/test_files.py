@@ -6,9 +6,16 @@ from ferdelance.database.services import (
 )
 from ferdelance.database.tables import ClientDataSource, ClientFeature
 
-from ferdelance_shared.schemas import *
-from ferdelance_shared.schemas.models import *
-from ferdelance_shared.status import *
+from ferdelance_shared.schemas import (
+    Artifact,
+    ArtifactStatus,
+    Metadata,
+    Dataset,
+    Query,
+    QueryFeature,
+)
+from ferdelance_shared.schemas.models import Model
+from ferdelance_shared.status import JobStatus
 
 from .utils import (
     setup_test_client,
@@ -92,18 +99,22 @@ class TestFilesClass:
             fs: list[ClientFeature] = db.query(ClientFeature).filter(ClientFeature.datasource_id == ds.datasource_id).all()
 
             artifact = Artifact(
+                artifact_id=None,
                 dataset=Dataset(
                     queries=[
                         Query(
-                            datasources_id=ds.datasource_id,
+                            datasource_id=ds.datasource_id,
+                            datasource_name=ds.name,
                             features=[QueryFeature(
                                 datasource_id=f.datasource_id,
-                                feature_id=f.feature_id
+                                datasource_name=f.datasource_name,
+                                feature_id=f.feature_id,
+                                feature_name=f.name,
                             ) for f in fs]
                         )
                     ]
                 ),
-                model=Model(name='model', strategy=None),
+                model=Model(name='model', strategy=''),
             )
 
             # test artifact submit
@@ -120,7 +131,9 @@ class TestFilesClass:
             LOGGER.info(f'artifact_id: {status.artifact_id}')
 
             artifact.artifact_id = status.artifact_id
+            assert artifact.artifact_id is not None
 
+            assert status.status is not None
             assert JobStatus[status.status] == JobStatus.SCHEDULED
 
             art_db = ars.get_artifact(artifact.artifact_id)
@@ -146,7 +159,7 @@ class TestFilesClass:
             post_q = artifact.dataset.queries[0]
             get_q = get_art.dataset.queries[0]
 
-            assert post_q.datasources_id == get_q.datasources_id
+            assert post_q.datasource_id == get_q.datasource_id
             assert len(post_q.features) == len(get_q.features)
 
             post_d = artifact.dict()

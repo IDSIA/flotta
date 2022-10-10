@@ -49,6 +49,9 @@ services:
   worker: 
     image: idsia.ferdelance.server
     container_name: celery-worker
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     environment:
       - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
       - SERVER_URL=http://server

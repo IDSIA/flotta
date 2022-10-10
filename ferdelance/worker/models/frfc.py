@@ -18,10 +18,13 @@ class AggregatorRandomForestClassifier(Aggregator):
         strategy = StrategyRandomForestClassifier[strategy_str]
 
         if strategy == StrategyRandomForestClassifier.MERGE:
+            if not isinstance(model_a, RandomForestClassifier):
+                raise ValueError('StrategyRandomForestClassifier.MERGE can be used only with RandomForestClassifier models')
+
             return self.merge(model_a, model_b)
 
         elif strategy == StrategyRandomForestClassifier.MAJORITY_VOTE:
-            return self.majority_vote()
+            return self.majority_vote(model_a, model_b)
 
         else:
             raise ValueError(f'Unsupported strategy: {strategy_str}')
@@ -39,7 +42,9 @@ class AggregatorRandomForestClassifier(Aggregator):
         """
 
         if isinstance(model_a, VotingClassifier):
-            model_a.estimators_ += (f'{len(model_a.estimators_)}', model_b)
+            assert model_a.estimators_ is not None
+
+            model_a.estimators_.append((f'{len(model_a.estimators_)}', model_b))
             return model_a
 
         models = [('0', model_a), ('1', model_b)]

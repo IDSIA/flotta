@@ -15,4 +15,4 @@ class ManagerUploadClientMetadataRequest(BaseModel):
 
 
 class ManagerDownloadModelRequest(BaseModel):
-    model_id: int
+    model_id: str
