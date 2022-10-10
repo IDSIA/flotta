@@ -19,13 +19,13 @@ nuke:
 	docker volume rm federated-learning-client_ferdelance-client-data
 	rm -rf ./workdir/*
 
-venv-create:
+create:
 	python -m venv Ferdelance_env
 
-venv-recreate:
+recreate:
 	rm -rf Ferdelance_env
 	python -m venv Ferdelance_env
 
-venv-dev-install:
+dev:
 	pip install federated-learning-shared/
 	pip install -e ".[test]"
