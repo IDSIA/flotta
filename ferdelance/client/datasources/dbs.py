@@ -8,6 +8,6 @@ class DataSourceDB(DataSource):
         super().__init__(name, kind)
         self.connection_string: str = connection_string
 
-    def get(self, label: str = None, filter: str = None) -> pd.DataFrame:
+    def get(self, label: str, filter: str) -> pd.DataFrame:
         # TODO open connection, filter content, pack as pandas DF
         raise NotImplementedError()

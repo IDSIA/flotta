@@ -1,8 +1,8 @@
 from ferdelance_shared.schemas import DataSource
+from ferdelance_shared.generate import RSAPrivateKey, RSAPublicKey, private_key_from_bytes, public_key_from_bytes
+
 from .. import __version__
 from .datasources import DataSourceFile, DataSourceDB
-
-from ferdelance_shared.generate import RSAPrivateKey, RSAPublicKey, private_key_from_bytes, public_key_from_bytes
 
 import logging
 import os
@@ -20,7 +20,7 @@ class ConfigError(Exception):
 
 class Config:
 
-    def __init__(self, server: str, workdir: str, heartbeat: float | None, datasources: list[dict[str, str]]) -> None:
+    def __init__(self, server: str, workdir: str, heartbeat: float, datasources: list[dict[str, str]]) -> None:
         self.server: str = server.rstrip('/')
         self.workdir: str = workdir
 

@@ -9,7 +9,7 @@ import yaml
 
 LOGGER = logging.getLogger(__name__)
 
-VAR_PATTERN = re.compile('.*?\${(\w+)}.*?')
+VAR_PATTERN = re.compile(r'.*?\${(\w+)}.*?')
 
 LOCAL_CONFIG_FILE = os.path.join('.', 'config.yaml')
 
@@ -149,6 +149,8 @@ def setup_arguments() -> dict[str, Any]:
     # parse YAML config file
     if config is not None and os.path.exists(config):
         LOGGER.info(f'Reading configuration from {config}')
+
+        config_args: dict = dict()
 
         with open(config, 'r') as f:
             try:

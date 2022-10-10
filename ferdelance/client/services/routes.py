@@ -1,7 +1,15 @@
 from ferdelance_shared.encode import HybridEncrypter
 from ferdelance_shared.decode import HybridDecrypter
 from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import *
+from ferdelance_shared.schemas import (
+    ClientJoinData,
+    ClientJoinRequest,
+    Metadata,
+    Artifact,
+    UpdateExecute,
+    UpdateClientApp,
+    DownloadApp,
+)
 
 from requests import Response, post, get
 
@@ -43,7 +51,7 @@ class RouteService:
         print('enc obj', enc)
         return enc.encrypt(data)
 
-    def get_payload(self, content: str) -> dict:
+    def get_payload(self, content: bytes) -> dict:
         """Extract the content of a payload received from the server.
 
         :return:
@@ -124,10 +132,10 @@ class RouteService:
         LOGGER.info(f'removing working directory {self.config.workdir}')
         shutil.rmtree(self.config.workdir)
 
-        LOGGER.info(f'client left server {self.server}')
+        LOGGER.info(f'client left server {self.config.server}')
         sys.exit(2)
 
-    def send_metadata(self) -> list[DataSource]:
+    def send_metadata(self) -> None:
         LOGGER.info('sending metadata to remote')
 
         # Metadata = I metadati di ogni datasource = Lista di MetaDataSource

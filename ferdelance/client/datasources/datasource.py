@@ -1,13 +1,15 @@
+from ferdelance_shared.schemas import MetaDataSource
+
 import pandas as pd
 
 
 class DataSource:
     def __init__(self, name: str, kind: str) -> None:
-        self.datasource_id: str = None
-        self.name = name
+        self.datasource_id: str | None = None
+        self.name: str = name
         self.kind: str = kind
 
-    def get(self, label: str = None, filter: str = None) -> pd.DataFrame:
+    def get(self, label: str, filter: str) -> pd.DataFrame:
         raise NotImplemented()
 
     def __eq__(self, other: object) -> bool:
@@ -22,5 +24,5 @@ class DataSource:
     def __repr__(self) -> str:
         return f'({self.kind}) {self.name}'
 
-    def metadata(self) -> dict:
-        NotImplementedError()
+    def metadata(self) -> MetaDataSource:
+        raise NotImplementedError()

@@ -6,8 +6,12 @@ from .execute import ExecuteAction
 from .update_client import UpdateClientAction
 from .update_token import UpdateTokenAction
 from .controller import ClientActionController
-from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import *
+from ferdelance_shared.actions import Action as ActionType
+from ferdelance_shared.schemas import (
+    UpdateToken,
+    UpdateExecute,
+    UpdateClientApp,
+)
 
 from ferdelance.client.config import Config
 from ferdelance.client.services.routes import RouteService
@@ -20,30 +24,29 @@ LOGGER = logging.getLogger(__name__)
 class ActionService:
     def __init__(self, config: Config) -> None:
         self.config: Config = config
-        self.routes_service: RouteService = RouteService(config)
         self.controller: ClientActionController = ClientActionController()
 
-    def perform_action(self, action: Action, data: dict) -> Action:
+    def perform_action(self, action: ActionType, data: dict) -> ActionType:
         LOGGER.info(f'action received={action}')
 
-        if action == Action.UPDATE_TOKEN:
+        if action == ActionType.UPDATE_TOKEN:
             update_token_action = UpdateTokenAction(self.config, UpdateToken(**data))
             self.controller.execute(update_token_action)
-            return Action.UPDATE_TOKEN
+            return ActionType.UPDATE_TOKEN
 
-        if action == Action.EXECUTE:
-            execute_action = ExecuteAction(config=self.config, routes_service=self.routes_service, update_execute= UpdateExecute(**data))
+        if action == ActionType.EXECUTE:
+            execute_action = ExecuteAction(self.config, UpdateExecute(**data))
             self.controller.execute(execute_action)
-            return Action.DO_NOTHING
+            return ActionType.DO_NOTHING
 
-        if action == Action.UPDATE_CLIENT:
-            update_client_action = UpdateClientAction(self.routes_service, UpdateClientApp(**data))
+        if action == ActionType.UPDATE_CLIENT:
+            update_client_action = UpdateClientAction(self.config, UpdateClientApp(**data))
             self.controller.execute(update_client_action)
-            return Action.UPDATE_CLIENT
+            return ActionType.UPDATE_CLIENT
 
-        if action == Action.DO_NOTHING:
+        if action == ActionType.DO_NOTHING:
             self.controller.execute(DoNothingAction())
-            return Action.DO_NOTHING
+            return ActionType.DO_NOTHING
 
         LOGGER.error(f'cannot complete action={action}')
-        return Action.DO_NOTHING
+        return ActionType.DO_NOTHING

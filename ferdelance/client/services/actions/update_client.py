@@ -1,18 +1,21 @@
-from ferdelance.client.services.routes import RouteService
 from ferdelance_shared.schemas import UpdateClientApp
 
+from ...config import Config
+from ..routes import RouteService
+from .action import Action
 
-class UpdateClientAction:
-    def __init__(self, routes_service: RouteService, data: UpdateClientApp) -> None:
-        self.routes_service = routes_service
+
+class UpdateClientAction(Action):
+
+    def __init__(self, config: Config, data: UpdateClientApp) -> None:
+        self.routes_service: RouteService = RouteService(config)
         self.data = data
-        self._validate_input(self.config, self.data)
 
-    def _validate_input(config, data):
-        if not isinstance(config, RouteService):
+    def validate_input(self):
+        if not isinstance(self.routes_service, RouteService):
             raise ValueError(f"config parameter must be of type Config")
-        elif not isinstance(data, UpdateClientApp):
-            raise ValueError(f"data parameter must be of type UpateToken")
-    
-    def execute(self, ) -> None:
+        if not isinstance(self.data, UpdateClientApp):
+            raise ValueError(f"data parameter must be of type UpdateToken")
+
+    def execute(self) -> None:
         self.routes_service.get_new_client(self.data)
