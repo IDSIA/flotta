@@ -1,10 +1,3 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import close_all_sessions
-
-from fastapi.testclient import TestClient
-from base64 import b64encode
-from requests import Response
-
 from ferdelance.database import SessionLocal
 from ferdelance.server.api import api
 from ferdelance.server.startup import ServerStartup
@@ -21,6 +14,15 @@ from ferdelance_shared.generate import (
     RSAPublicKey
 )
 from ferdelance_shared.schemas import ClientJoinRequest, ClientJoinData, Metadata, MetaDataSource, MetaFeature, DataSource, Feature
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import close_all_sessions
+
+from fastapi.testclient import TestClient
+
+from base64 import b64encode
+from requests import Response
+from typing import Any
 
 import random
 import json
@@ -126,7 +128,7 @@ def create_client(client: TestClient, private_key: RSAPrivateKey) -> tuple[str, 
     cjr = ClientJoinRequest(
         system='Linux',
         mac_address=mac_address,
-        node=node,
+        node=str(node),
         public_key=b64encode(public_key).decode('utf8'),
         version='test',
     )
@@ -154,7 +156,7 @@ def headers(token) -> dict[str, str]:
     }
 
 
-def get_payload(client_private_key: RSAPrivateKey, content: str) -> dict:
+def get_payload(client_private_key: RSAPrivateKey, content: bytes) -> dict[str, Any]:
     return json.loads(
         HybridDecrypter(client_private_key).decrypt(content)
     )

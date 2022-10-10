@@ -1,7 +1,16 @@
 from ferdelance.config import STORAGE_ARTIFACTS
 
-from ferdelance_shared.schemas import *
-from ferdelance_shared.schemas.models import *
+from ferdelance_shared.schemas import (
+    Artifact,
+    ArtifactStatus,
+    ClientDetails,
+    Dataset,
+    DataSource,
+    Metadata,
+    Query,
+    QueryFeature,
+)
+from ferdelance_shared.schemas.models import Model
 from ferdelance_shared.status import ArtifactJobStatus
 
 from .utils import (
@@ -130,6 +139,7 @@ class TestWorkbenchClass:
         assert 'int' in dtypes
 
         artifact = Artifact(
+            artifact_id=None,
             dataset=Dataset(
                 queries=[
                     Query(
@@ -144,7 +154,7 @@ class TestWorkbenchClass:
                     )
                 ]
             ),
-            model=Model(name='model', strategy=None),
+            model=Model(name='model', strategy=''),
         )
 
         res = self.client.post(
@@ -158,6 +168,7 @@ class TestWorkbenchClass:
 
         artifact_id = status.artifact_id
 
+        assert status.status is not None
         assert artifact_id is not None
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
@@ -166,6 +177,7 @@ class TestWorkbenchClass:
         assert res.status_code == 200
 
         status = ArtifactStatus(**json.loads(res.content))
+        assert status.status is not None
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
         res = self.client.get(f'/workbench/artifact/{artifact_id}')

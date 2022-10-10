@@ -6,9 +6,23 @@ from ferdelance.server.security import PUBLIC_KEY
 from ferdelance.config import STORAGE_ARTIFACTS
 
 from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import *
-from ferdelance_shared.schemas.models import *
-from ferdelance_shared.operations import NumericOperations
+from ferdelance_shared.schemas import (
+    Artifact,
+    ArtifactStatus,
+    ClientUpdate,
+    ClientJoinRequest,
+    Dataset,
+    DownloadApp,
+    Metadata,
+    Query,
+    QueryFeature,
+    QueryFilter,
+    UpdateClientApp,
+    UpdateExecute,
+    UpdateToken,
+)
+from ferdelance_shared.schemas.models import Model
+from ferdelance_shared.operations import Operations
 
 from .utils import (
     setup_test_client,
@@ -27,6 +41,7 @@ from .utils import (
 
 from base64 import b64encode
 from requests import Response
+from typing import Any
 
 import json
 import logging
@@ -79,11 +94,13 @@ class TestClientClass:
         client_id, self.token, self.server_key = create_client(self.client, self.private_key)
         return client_id
 
-    def get_client_update(self, payload: str | None = None, token: str | None = None) -> tuple[int, str, str]:
+    def get_client_update(self, payload: str | None = None, token: str | None = None) -> tuple[int, str, Any]:
         cur_token = token if token else self.token
 
         if payload is None:
             payload = json.dumps(ClientUpdate(action=Action.DO_NOTHING.name).dict())
+
+        assert self.server_key is not None
 
         response = self.client.get(
             '/client/update',
@@ -92,7 +109,7 @@ class TestClientClass:
         )
 
         if response.status_code != 200:
-            return response.status_code, None, None
+            return response.status_code, '', None
 
         response_payload = get_payload(self.private_key, response.content)
 
@@ -138,6 +155,7 @@ class TestClientClass:
 
             server_public_key_db: str = kvs.get_str(PUBLIC_KEY)
 
+            assert self.server_key is not None
             assert server_public_key_db == bytes_from_public_key(self.server_key).decode('utf8')
 
             db_events: list[ClientEvent] = cs.get_all_client_events(db_client)
@@ -316,7 +334,7 @@ class TestClientClass:
 
             assert metadata_response.status_code == 200
 
-            client_app: ClientApp = db.query(ClientApp).filter(ClientApp.app_id == upload_id).first()
+            client_app: ClientApp | None = db.query(ClientApp).filter(ClientApp.app_id == upload_id).one_or_none()
 
             assert client_app is not None
             assert client_app.version == version_app
@@ -325,7 +343,8 @@ class TestClientClass:
             n_apps = db.query(ClientApp).filter(ClientApp.active).count()
             assert n_apps == 1
 
-            newest_version: ClientApp = cas.get_newest_app_version()
+            newest_version: ClientApp | None = cas.get_newest_app()
+            assert newest_version is not None
             assert newest_version.version == version_app
 
             # update request
@@ -339,6 +358,8 @@ class TestClientClass:
             assert update_client_app.version == version_app
 
             download_app = DownloadApp(name=update_client_app.name, version=update_client_app.version)
+
+            assert self.server_key is not None
 
             # download new client
             with self.client.get(
@@ -369,14 +390,17 @@ class TestClientClass:
         with SessionLocal() as db:
             client_id = self.get_client()
 
+            assert client_id is not None
+            assert self.token is not None
+            assert self.server_key is not None
+
             metadata: Metadata = get_metadata()
             upload_response: Response = send_metadata(self.client, self.token, self.server_key, metadata)
 
             assert upload_response.status_code == 200
 
-            ds_db: ClientDataSource = db.query(ClientDataSource).filter(ClientDataSource.client_id == client_id).first()
+            ds_db: ClientDataSource = db.query(ClientDataSource).filter(ClientDataSource.client_id == client_id).one()
 
-            assert ds_db is not None
             assert ds_db.name == metadata.datasources[0].name
             assert ds_db.removed == metadata.datasources[0].removed
             assert ds_db.n_records == metadata.datasources[0].n_records
@@ -393,6 +417,11 @@ class TestClientClass:
     def test_task_get(self):
         with SessionLocal() as db:
             client_id = self.get_client()
+
+            assert client_id is not None
+            assert self.token is not None
+            assert self.server_key is not None
+
             dss: DataSourceService = DataSourceService(db)
 
             LOGGER.info('setup metadata for client')
@@ -433,7 +462,7 @@ class TestClientClass:
                         datasource_id=ds.datasource_id,
                         datasource_name=ds.name,
                         features=[qf1, qf2],
-                        filters=[QueryFilter(feature=qf1, operation=NumericOperations.LESS_THAN.name, parameter='1.0')],
+                        filters=[QueryFilter(feature=qf1, operation=Operations.NUM_LESS_THAN.name, parameter='1.0')],
                         transformers=[],
                     )],
                 ),
