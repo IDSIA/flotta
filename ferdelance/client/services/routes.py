@@ -1,7 +1,15 @@
 from ferdelance_shared.encode import HybridEncrypter
 from ferdelance_shared.decode import HybridDecrypter
 from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import *
+from ferdelance_shared.schemas import (
+    ClientJoinData,
+    ClientJoinRequest,
+    Metadata,
+    Artifact,
+    UpdateExecute,
+    UpdateClientApp,
+    DownloadApp,
+)
 
 from requests import Response, post, get
 
@@ -43,7 +51,7 @@ class RouteService:
         print('enc obj', enc)
         return enc.encrypt(data)
 
-    def get_payload(self, content: str) -> dict:
+    def get_payload(self, content: bytes) -> dict:
         """Extract the content of a payload received from the server.
 
         :return:
@@ -124,13 +132,17 @@ class RouteService:
         LOGGER.info(f'removing working directory {self.config.workdir}')
         shutil.rmtree(self.config.workdir)
 
-        LOGGER.info(f'client left server {self.server}')
+        LOGGER.info(f'client left server {self.config.server}')
         sys.exit(2)
 
     def send_metadata(self) -> None:
         LOGGER.info('sending metadata to remote')
 
-        metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
+        # Metadata = I metadati di ogni datasource = Lista di MetaDataSource
+        # MetaDataSource = metadati di datasource = Lista di MetaFeature
+        # MetaFeature = name, dtype, v_*, per ogni feature
+
+        metadata: Metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
 
         res = post(
             f'{self.config.server}/client/update/metadata',
@@ -140,7 +152,12 @@ class RouteService:
 
         res.raise_for_status()
 
+        # metadata: list[DataSource] = [DataSource(**ds) for ds in self.get_payload(res.content)]
+        # LOGGER.info(f"-------\n{metadata}\n-------")
+
         LOGGER.info('metadata uploaded successful')
+
+        # return metadata
 
     def get_update(self, content: dict) -> tuple[Action, dict]:
         LOGGER.info('requesting update')
@@ -157,7 +174,7 @@ class RouteService:
 
         return Action[data['action']], data
 
-    def get_task(self, task: UpdateExecute) -> ArtifactTask:
+    def get_task(self, task: UpdateExecute) -> Artifact:
         LOGGER.info('requesting new client task')
 
         res = get(
@@ -168,7 +185,7 @@ class RouteService:
 
         res.raise_for_status()
 
-        return ArtifactTask(**self.get_payload(res.content))
+        return Artifact(**self.get_payload(res.content))
 
     def get_new_client(self, data: UpdateClientApp):
         expected_checksum = data.checksum

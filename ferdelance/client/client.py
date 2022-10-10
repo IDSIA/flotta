@@ -1,5 +1,4 @@
 from ferdelance import __version__
-from ferdelance_shared.actions import *
 from ferdelance_shared.generate import (
     generate_asymmetric_key,
     bytes_from_private_key,
@@ -7,9 +6,8 @@ from ferdelance_shared.generate import (
     public_key_from_str,
 )
 from ferdelance_shared.decode import decode_from_transfer
-
 from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import *
+from ferdelance_shared.schemas import ClientJoinData
 
 from .datasources import DataSourceDB, DataSourceFile
 from .config import Config, ConfigError
@@ -32,9 +30,9 @@ LOGGER = logging.getLogger(__name__)
 
 class FerdelanceClient:
 
-    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float | None = None, leave: bool = False, datasources: list[dict[str, str]] = dict()) -> None:
+    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float | None = None, leave: bool = False, datasources: list[dict[str, str]] = list()) -> None:
         # possible states are: work, exit, update, install
-        self.status: str = 'init'
+        self.status: Action = Action.INIT
 
         self.config: Config = Config(
             server=server,
@@ -51,7 +49,7 @@ class FerdelanceClient:
         LOGGER.info(f'waiting for {self.config.heartbeat}')
         sleep(self.config.heartbeat)
 
-    def get_datasource(self, name: str, filter: str = None) -> None:
+    def get_datasource(self, name: str, filter: str | None = None) -> None:
         # TODO
         pass
 
@@ -71,7 +69,6 @@ class FerdelanceClient:
                     LOGGER.info(f'creating working directory={self.config.workdir}')
                     os.makedirs(self.config.workdir, exist_ok=True)
                     os.chmod(self.config.workdir, 0o700)
-
                     os.makedirs(self.config.path_artifact_folder, exist_ok=True)
 
                 if item == 'pk':
@@ -88,8 +85,8 @@ class FerdelanceClient:
                     public_key_bytes: bytes = bytes_from_public_key(self.config.private_key.public_key())
 
                     machine_system: str = platform.system()
-                    machine_mac_address: str = get_mac_address()
-                    machine_node: str = uuid.getnode()
+                    machine_mac_address: str = get_mac_address() or ''
+                    machine_node: str = str(uuid.getnode())
 
                     LOGGER.info(f'system info: machine_system={machine_system}')
                     LOGGER.info(f'system info: machine_mac_address={machine_mac_address}')
