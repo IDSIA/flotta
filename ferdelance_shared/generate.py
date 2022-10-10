@@ -80,7 +80,7 @@ def public_key_from_bytes(data: bytes) -> RSAPublicKey:
     return load_ssh_public_key(data, backend=default_backend())
 
 
-def public_key_from_str(data: str, encoding: str = 'utf8') -> RSAPrivateKey:
+def public_key_from_str(data: str, encoding: str = 'utf8') -> RSAPublicKey:
     """Convert a str to a valid public key.
 
     This is useful when reading the key from an encoded source, like a database.

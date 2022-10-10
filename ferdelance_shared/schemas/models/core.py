@@ -9,8 +9,8 @@ class Model(BaseModel):
     the clients, and aggregated in the server.
     """
     name: str
-    strategy: str | None = None
-    parameters: dict[str, Any]
+    strategy: str = ''
+    parameters: dict[str, Any] = dict()
 
 
 class GenericModel:

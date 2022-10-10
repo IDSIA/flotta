@@ -2,6 +2,11 @@ from enum import Enum, auto
 
 
 class Action(Enum):
+    """Enums to describe actions done by the client and issued by the server"""
+
+    """Initialize client"""
+    INIT = auto()
+
     """Execute a new train query."""
     EXECUTE = auto()
 
