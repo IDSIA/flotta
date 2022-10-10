@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance_shared.operations import NumericOperations, TimeOperations, ObjectOperations
+from ferdelance_shared.operations import Operations
 from ferdelance_shared.schemas import (
     Feature as BaseFeature,
     QueryFilter as BaseQueryFilter,
@@ -60,7 +60,7 @@ class QueryFeature(BaseQueryFeature):
 
 class Feature(BaseFeature):
 
-    def _filter(self, operation: NumericOperations | TimeOperations | ObjectOperations, value):
+    def _filter(self, operation: Operations, value):
         return QueryFilter(
             feature=self.qf(),
             operation=operation.name,
@@ -71,69 +71,72 @@ class Feature(BaseFeature):
         return QueryFeature(
             feature_id=self.feature_id,
             datasource_id=self.datasource_id,
+            feature_name=self.name,
+            datasource_name=self.datasource_name,
         )
 
     def __lt__(self, other) -> QueryFilter:
         if self.dtype == 'int' and self.dtype == 'float':
 
             if isinstance(other, int | float):
-                return self._filter(NumericOperations.LESS_THAN, other)
+                return self._filter(Operations.NUM_LESS_THAN, other)
 
             if isinstance(other, datetime):
-                return self._filter(TimeOperations.BEFORE, other)
+                return self._filter(Operations.TIME_BEFORE, other)
 
         raise ValueError('operator less than "<" can be used only for int, float, or time values')
 
     def __le__(self, other) -> QueryFilter:
         if isinstance(other, int | float):
-            return self._filter(NumericOperations.LESS_EQUAL, other)
+            return self._filter(Operations.NUM_LESS_EQUAL, other)
 
         raise ValueError('operator less equal "<=" can be used only for int or float values')
 
     def __gt__(self, other) -> QueryFilter:
         if isinstance(other, int | float):
-            return self._filter(NumericOperations.GREATER_THAN, other)
+            return self._filter(Operations.NUM_GREATER_THAN, other)
 
         if isinstance(other, datetime):
-            return self._filter(TimeOperations.AFTER, other)
+            return self._filter(Operations.TIME_AFTER, other)
 
         raise ValueError('operator greater than ">" can be used only for int, float, or time values')
 
     def __ge__(self, other) -> QueryFilter:
         if isinstance(other, int | float):
-            return self._filter(NumericOperations.GREATER_EQUAL, other)
+            return self._filter(Operations.NUM_GREATER_EQUAL, other)
 
         raise ValueError('operator greater equal ">=" can be used only for int or float values')
 
-    def __eq__(self, other) -> QueryFilter:
+    def __eq__(self, other) -> bool | QueryFilter:
         if isinstance(other, Feature):
             return (
                 self.datasource_id == other.datasource_id and
+                self.datasource_name == other.datasource_name and
                 self.feature_id == other.feature_id and
                 self.name == other.name and
                 self.dtype == other.dtype
             )
 
         if isinstance(other, int | float):
-            return self._filter(NumericOperations.EQUALS, other)
+            return self._filter(Operations.NUM_EQUALS, other)
 
         if isinstance(other, str):
-            return self._filter(ObjectOperations.LIKE, other)
+            return self._filter(Operations.OBJ_LIKE, other)
 
         if isinstance(other, datetime):
-            return self._filter(TimeOperations.EQUALS, other)
+            return self._filter(Operations.TIME_EQUALS, other)
 
         raise ValueError('operator equals "==" can be used only for int, float, str, or time values')
 
     def __ne__(self, other) -> QueryFilter:
         if isinstance(other, int | float):
-            return self._filter(NumericOperations.NOT_EQUALS, other)
+            return self._filter(Operations.NUM_NOT_EQUALS, other)
 
         if isinstance(other, str):
-            return self._filter(ObjectOperations.NOT_LIKE, other)
+            return self._filter(Operations.OBJ_NOT_LIKE, other)
 
         if isinstance(other, datetime):
-            return self._filter(TimeOperations.NOT_EQUALS, other)
+            return self._filter(Operations.TIME_NOT_EQUALS, other)
 
         raise ValueError('operator not equals "!=" can be used only for int, float, str, or time values')
 
@@ -147,7 +150,8 @@ class Query(BaseQuery):
 
     def copy(self) -> Query:
         return Query(
-            datasources_id=self.datasources_id,
+            datasource_id=self.datasource_id,
+            datasource_name=self.datasource_name,
             features=self.features.copy(),
             filters=self.filters.copy(),
             transformers=self.transformers.copy()
@@ -157,14 +161,14 @@ class Query(BaseQuery):
         if isinstance(feature, Feature):
             feature = feature.qf()
 
-        if feature.datasource_id != self.datasources_id:
+        if feature.datasource_id != self.datasource_id:
             raise ValueError('Cannot add features from a different data source')
 
         if feature not in self.features:
             self.features.append(feature)
 
     def add_filter(self, filter: QueryFilter) -> None:
-        if filter.feature.datasource_id != self.datasources_id:
+        if filter.feature.datasource_id != self.datasource_id:
             raise ValueError('Cannot add filter for features from a different data source')
 
         self.filters.append(filter)
@@ -197,7 +201,7 @@ class Query(BaseQuery):
         if isinstance(feature, Feature):
             feature = feature.qf()
 
-        if feature.datasource_id != self.datasources_id:
+        if feature.datasource_id != self.datasource_id:
             raise ValueError('Cannot remove features from a different data source')
 
         self.features = [f for f in self.features if f != feature]
@@ -205,10 +209,10 @@ class Query(BaseQuery):
         self.transformers = [f for f in self.transformers if f.feature != feature]
 
     def remove_filter(self, filter: QueryFilter) -> None:
-        if filter.feature.datasource_id != self.datasources_id:
+        if filter.feature.datasource_id != self.datasource_id:
             raise ValueError('Cannot remove filter for features from a different data source')
 
-        self.features.remove(filter)
+        self.filters.remove(filter)
 
     def __sub__(self, other: QueryFeature | Feature) -> Query:
         if isinstance(other, Feature | QueryFeature):
@@ -218,7 +222,7 @@ class Query(BaseQuery):
 
         if isinstance(other, QueryFilter):
             q = self.copy()
-            q.remove_filter(filter)
+            q.remove_filter(other)
             return q
 
         raise ValueError('only Feature or QueryFeature objects can be removed from Query objects')
@@ -239,17 +243,18 @@ class Query(BaseQuery):
             return False
 
         return (
-            self.datasources_id == other.datasources_id and
+            self.datasource_id == other.datasource_id and
+            self.datasource_name == other.datasource_name and
             self.features == other.features and
             self.filters == other.filters and
             self.transformers == other.transformers
         )
 
     def __hash__(self) -> int:
-        return hash((self.datasources_id, self.features, self.filters, self.transformers))
+        return hash((self.datasource_id, self.features, self.filters, self.transformers))
 
     def __getitem__(self, key: QueryFilter) -> Query:
         if isinstance(key, QueryFilter):
             return self + key
 
-        return ValueError('unsupported key type')
+        raise ValueError('unsupported key type')

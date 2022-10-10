@@ -171,7 +171,7 @@ class Context:
 
         return Artifact(**json.loads(res.content))
 
-    def get_model(self, artifact: Artifact, path: str = None) -> Model:
+    def get_model(self, artifact: Artifact, path: str = '') -> Model:
         """Get the trained and aggregated model from the artifact and save it to disk.
 
         :param artifact:
@@ -191,12 +191,12 @@ class Context:
 
         res.raise_for_status()
 
-        if path is None:
+        if not path:
             path = f'{artifact.model.name}.{uuid4()}.model.bin'
 
         with open(path, 'wb') as f:
             f.write(res.content)
 
         m = artifact.model
-        m.load(path)
+        m.load(path)  # TODO: fix this
         return m

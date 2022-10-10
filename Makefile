@@ -1,10 +1,10 @@
-venv-create:
+create:
 	python -m venv Ferdelance_env
 
-venv-recreate:
+recreate:
 	rm -rf Ferdelance_env
 	python -m venv Ferdelance_env
 
-venv-dev-install:
+dev:
 	pip install federated-learning-shared/
 	pip install -e ".[test]"
