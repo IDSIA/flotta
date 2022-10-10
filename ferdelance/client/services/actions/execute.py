@@ -1,5 +1,5 @@
 from ferdelance_shared.schemas import Artifact, UpdateExecute, QueryFeature
-from ferdelance_shared.operations import NumericOperations, ObjectOperations, TimeOperations
+from ferdelance_shared.operations import Operations
 from ferdelance.client.config import Config
 from ferdelance.client.services.routes import RouteService
 from .action import Action
@@ -25,9 +25,10 @@ class ExecuteAction(Action):
         ...
 
     def execute(self) -> None:
-        LOGGER.info('executing new task')
 
         artifact: Artifact = self.routes_service.get_task(self.update_execute)
+        
+        LOGGER.info('received artifact_id={artifact.artifact_id}')
 
         dfs: list[pd.DataFrame] = []
 
@@ -70,20 +71,20 @@ class ExecuteAction(Action):
                 operation_on_feature_parameter: str = query_filter.parameter
 
                 apply_filter = {
-                    NumericOperations.LESS_THAN: lambda df: df[df[feature_name] < float(operation_on_feature_parameter)],
-                    NumericOperations.LESS_EQUAL: lambda df: df[df[feature_name] <= float(operation_on_feature_parameter)],
-                    NumericOperations.GREATER_THAN: lambda df: df[df[feature_name] > float(operation_on_feature_parameter)],
-                    NumericOperations.GREATER_EQUAL: lambda df: df[df[feature_name] >= float(operation_on_feature_parameter)],
-                    NumericOperations.EQUALS: lambda df: df[df[feature_name] == float(operation_on_feature_parameter)],
-                    NumericOperations.NOT_EQUALS: lambda df: df[df[feature_name] != float(operation_on_feature_parameter)],
+                    Operations.NUM_LESS_THAN: lambda df: df[df[feature_name] < float(operation_on_feature_parameter)],
+                    Operations.NUM_LESS_EQUAL: lambda df: df[df[feature_name] <= float(operation_on_feature_parameter)],
+                    Operations.NUM_GREATER_THAN: lambda df: df[df[feature_name] > float(operation_on_feature_parameter)],
+                    Operations.NUM_GREATER_EQUAL: lambda df: df[df[feature_name] >= float(operation_on_feature_parameter)],
+                    Operations.NUM_EQUALS: lambda df: df[df[feature_name] == float(operation_on_feature_parameter)],
+                    Operations.NUM_NOT_EQUALS: lambda df: df[df[feature_name] != float(operation_on_feature_parameter)],
 
-                    ObjectOperations.LIKE: lambda df: df[df[feature_name] == operation_on_feature_parameter],
-                    ObjectOperations.NOT_LIKE: lambda df: df[df[feature_name] != operation_on_feature_parameter],
+                    Operations.OBJ_LIKE: lambda df: df[df[feature_name] == operation_on_feature_parameter],
+                    Operations.OBJ_NOT_LIKE: lambda df: df[df[feature_name] != operation_on_feature_parameter],
 
-                    TimeOperations.BEFORE: lambda df: df[df[feature_name] < pd.to_datetime(operation_on_feature_parameter)],
-                    TimeOperations.AFTER: lambda df: df[df[feature_name] > pd.to_datetime(operation_on_feature_parameter)],
-                    TimeOperations.EQUALS: lambda df: df[df[feature_name] == pd.to_datetime(operation_on_feature_parameter)],
-                    TimeOperations.NOT_EQUALS: lambda df: df[df[feature_name] != pd.to_datetime(operation_on_feature_parameter)],
+                    Operations.TIME_BEFORE: lambda df: df[df[feature_name] < pd.to_datetime(operation_on_feature_parameter)],
+                    Operations.TIME_AFTER: lambda df: df[df[feature_name] > pd.to_datetime(operation_on_feature_parameter)],
+                    Operations.TIME_EQUALS: lambda df: df[df[feature_name] == pd.to_datetime(operation_on_feature_parameter)],
+                    Operations.TIME_NOT_EQUALS: lambda df: df[df[feature_name] != pd.to_datetime(operation_on_feature_parameter)],
                 }
 
                 df_filtered = apply_filter[operation_on_feature](df_filtered)
@@ -103,10 +104,6 @@ class ExecuteAction(Action):
             dfs.append(df_filtered)
 
         df_all_datasources = pd.concat(dfs)
-
-        # TODO: this is an example, execute required task when implemented
-
-        LOGGER.info(f'received artifact_id={artifact.artifact_id}')
 
         with open(Path(self.config.path_artifact_folder) / Path(f'{artifact.artifact_id}.json'), 'w') as f:
             json.dump(artifact.dict(), f)

@@ -1,3 +1,4 @@
+from pathlib import Path
 from ferdelance_shared.schemas import MetaDataSource, MetaFeature
 
 from .datasource import DataSource
@@ -8,11 +9,17 @@ import pandas as pd
 class DataSourceFile(DataSource):
     def __init__(self, name: str, kind: str, path: str) -> None:
         super().__init__(name, kind)
-        self.path: str = path
+        self.path: Path = Path(path)
 
     def get(self, ) -> pd.DataFrame:
-        # TODO open file, read content, filter content, pack as pandas DF
-        raise NotImplemented()
+        extension = self.path.suffix # CSV, TSV, XLSX, ...
+        
+        if extension == ".csv":
+            return pd.read_csv(self.path)
+        elif extension == ".tsv":
+            return pd.read_csv(self.path, sep="\t")
+            
+        raise NotImplemented(f"Don't know how to load {extension} format")
 
     def metadata(self) -> MetaDataSource:
         sep = '\t' if self.kind == 'tsv' else ','
