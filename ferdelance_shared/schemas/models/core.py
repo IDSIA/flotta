@@ -9,7 +9,7 @@ class Model(BaseModel):
     the clients, and aggregated in the server.
     """
     name: str
-    strategy: str | None = None
+    strategy: str = ''
     parameters: dict[str, Any] = dict()
 
 
