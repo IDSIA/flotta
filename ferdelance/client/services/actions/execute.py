@@ -27,7 +27,7 @@ class ExecuteAction(Action):
     def execute(self) -> None:
 
         artifact: Artifact = self.routes_service.get_task(self.update_execute)
-        
+
         LOGGER.info('received artifact_id={artifact.artifact_id}')
 
         dfs: list[pd.DataFrame] = []
@@ -67,7 +67,7 @@ class ExecuteAction(Action):
             for query_filter in query.filters:
 
                 feature_name: str = query_filter.feature.feature_name
-                operation_on_feature: str = query_filter.operation
+                operation_on_feature: Operations = Operations[query_filter.operation]
                 operation_on_feature_parameter: str = query_filter.parameter
 
                 apply_filter = {

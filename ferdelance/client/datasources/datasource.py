@@ -9,8 +9,8 @@ class DataSource:
         self.name: str = name
         self.kind: str = kind
 
-    def get(self, label: str, filter: str) -> pd.DataFrame:
-        raise NotImplemented()
+    def get(self) -> pd.DataFrame:
+        raise NotImplementedError()
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, type(self)) and self.name == other.name and self.kind == other.kind

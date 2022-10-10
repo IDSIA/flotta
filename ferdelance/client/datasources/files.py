@@ -11,14 +11,14 @@ class DataSourceFile(DataSource):
         super().__init__(name, kind)
         self.path: Path = Path(path)
 
-    def get(self, ) -> pd.DataFrame:
-        extension = self.path.suffix # CSV, TSV, XLSX, ...
-        
+    def get(self) -> pd.DataFrame:
+        extension = self.path.suffix  # CSV, TSV, XLSX, ...
+
         if extension == ".csv":
             return pd.read_csv(self.path)
         elif extension == ".tsv":
             return pd.read_csv(self.path, sep="\t")
-            
+
         raise NotImplemented(f"Don't know how to load {extension} format")
 
     def metadata(self) -> MetaDataSource:
