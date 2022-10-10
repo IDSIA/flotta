@@ -1,6 +1,6 @@
 from .core import DBSessionService, Session
 
-from ..tables import ClientDataSource, ClientFeature
+from ..tables import ClientDataSource, ClientFeature, Client
 
 from ferdelance_shared.schemas import Metadata, MetaDataSource, MetaFeature
 
@@ -30,7 +30,7 @@ class DataSourceService(DBSessionService):
         )
 
         # check if ds exists:
-        ds_db: ClientDataSource = query.first()
+        ds_db: ClientDataSource = query.one_or_none()
 
         if ds_db is None:
             # create a new data source for this client
@@ -103,7 +103,7 @@ class DataSourceService(DBSessionService):
             ClientFeature.name == f.name
         )
 
-        f_db = query.first()
+        f_db: ClientFeature | None = query.one_or_none()
 
         if f_db is None:
             LOGGER.info(f'client_id={ds.datasource_id}: creating new feature={f.name}')
@@ -165,9 +165,7 @@ class DataSourceService(DBSessionService):
             self.db.commit()
             self.db.refresh(f_db)
 
-            return f_db
-
-        return None
+        return f_db
 
     def get_datasource_list(self) -> list[ClientDataSource]:
         return self.db.query(ClientDataSource).all()
@@ -179,10 +177,13 @@ class DataSourceService(DBSessionService):
         return [r[0] for r in self.db.query(ClientDataSource.datasource_id).filter(ClientDataSource.client_id == client_id).all()]
 
     def get_datasource_by_id(self, ds_id: str) -> ClientDataSource:
-        return self.db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).first()
+        return self.db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).one()
 
-    def get_client_id_by_datasource_id(self, ds_id: str) -> str:
-        return self.db.query(ClientDataSource.client_id).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).first()[0]
+    def get_client_by_datasource_id(self, ds_id: str) -> Client:
+        return self.db.query(Client)\
+            .join(ClientDataSource, Client.client_id == ClientDataSource.client_id)\
+            .filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False)\
+            .one()
 
     def get_features_by_datasource(self, ds: ClientDataSource) -> list[ClientFeature]:
         return self.db.query(ClientFeature).filter(ClientFeature.datasource_id == ds.datasource_id, ClientFeature.removed == False).all()

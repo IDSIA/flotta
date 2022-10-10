@@ -33,20 +33,17 @@ class ClientService(DBSessionService):
 
         return client
 
-    def update_client(self, client_id: str, version: str = None) -> None:
-        u = dict()
-
-        if version is not None:
-            LOGGER.info(f'client_id={client_id}: update version to {version}')
-            u['version'] = version
-
-        if not u:
+    def update_client(self, client_id: str, version: str = '') -> None:
+        if not version:
             return
+
+        LOGGER.info(f'client_id={client_id}: update version to {version}')
+        u = {'version': version}
 
         self.db.query(Client).filter(Client.client_id == client_id).update(u)
         self.db.commit()
 
-    def client_leave(self, client_id: str) -> Client:
+    def client_leave(self, client_id: str) -> None:
         self.db.query(Client).filter(Client.client_id == client_id).update({
             'active': False,
             'left': True,
@@ -54,7 +51,7 @@ class ClientService(DBSessionService):
         self.invalidate_all_tokens(client_id)  # this will already commit the changes!
 
     def get_client_by_id(self, client_id: str) -> Client:
-        return self.db.query(Client).filter(Client.client_id == client_id).first()
+        return self.db.query(Client).filter(Client.client_id == client_id).one()
 
     def get_client_list(self) -> list[Client]:
         return self.db.query(Client).filter(Client.type == 'CLIENT').all()
@@ -63,17 +60,17 @@ class ClientService(DBSessionService):
         return self.db.query(Client)\
             .join(ClientToken, Client.client_id == ClientToken.token_id)\
             .filter(ClientToken.token == token)\
-            .first()
+            .one()
 
     def create_client_token(self, token: ClientToken) -> ClientToken:
         LOGGER.info(f'client_id={token.client_id}: creating new token')
 
-        existing_client_id = self.db.query(ClientToken.client_id).filter(ClientToken.token == token.token).first()
+        existing_client_token: ClientToken | None = self.db.query(ClientToken).filter(ClientToken.token == token.token).one_or_none()
 
-        if existing_client_id is not None:
-            LOGGER.warning(f'valid token already exists for client_id {existing_client_id}')
+        if existing_client_token is not None:
+            LOGGER.warning(f'valid token already exists for client_id={existing_client_token.client_id}')
             # TODO: check if we have more strong condition for this
-            return
+            return existing_client_token
 
         self.db.add(token)
         self.db.commit()
@@ -87,14 +84,19 @@ class ClientService(DBSessionService):
         })
         self.db.commit()
 
-    def get_client_id_by_token(self, token: str) -> str:
-        return self.db.query(ClientToken.client_id).filter(ClientToken.token == token).first()
+    def get_client_id_by_token(self, token: str) -> str | None:
+        client_token: ClientToken | None = self.db.query(ClientToken).filter(ClientToken.token == token).one_or_none()
 
-    def get_client_token_by_token(self, token: str) -> ClientToken:
-        return self.db.query(ClientToken).filter(ClientToken.token == token).first()
+        if client_token is None:
+            return None
 
-    def get_client_token_by_client_id(self, client_id: str) -> ClientToken:
-        return self.db.query(ClientToken).filter(ClientToken.client_id == client_id).first()
+        return client_token.client_id
+
+    def get_client_token_by_token(self, token: str) -> ClientToken | None:
+        return self.db.query(ClientToken).filter(ClientToken.token == token).one_or_none()
+
+    def get_client_token_by_client_id(self, client_id: str) -> ClientToken | None:
+        return self.db.query(ClientToken).filter(ClientToken.client_id == client_id, ClientToken.valid == True).one_or_none()
 
     def create_client_event(self, client_id: str, event: str) -> ClientEvent:
         LOGGER.info(f'client_id={client_id}: creating new event="{event}"')
@@ -115,13 +117,13 @@ class ClientService(DBSessionService):
 
         return self.db.query(ClientEvent).filter(ClientEvent.client_id == client.client_id).all()
 
-    def get_token_for_client_id(self, client_id: str) -> str:
-        return self.db.query(ClientToken.token).filter(ClientToken.client_id == client_id, ClientToken.valid == True).first()
-
-    def get_token_by_client_type(self, client_type: str) -> str:
-        client_token: ClientToken = self.db.query(ClientToken)\
+    def get_token_by_client_type(self, client_type: str) -> str | None:
+        client_token: ClientToken | None = self.db.query(ClientToken)\
             .join(Client, Client.client_id == ClientToken.client_id)\
             .filter(Client.type == client_type)\
             .first()
+
+        if client_token is None:
+            return None
 
         return client_token.token
