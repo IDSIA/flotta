@@ -1,22 +1,18 @@
 from enum import Enum, auto
 
 
-class NumericOperations(Enum):
-    LESS_THAN = auto()
-    LESS_EQUAL = auto()
-    GREATER_THAN = auto()
-    GREATER_EQUAL = auto()
-    EQUALS = auto()
-    NOT_EQUALS = auto()
+class Operations(Enum):
+    NUM_LESS_THAN = auto()
+    NUM_LESS_EQUAL = auto()
+    NUM_GREATER_THAN = auto()
+    NUM_GREATER_EQUAL = auto()
+    NUM_EQUALS = auto()
+    NUM_NOT_EQUALS = auto()
 
+    OBJ_LIKE = auto()
+    OBJ_NOT_LIKE = auto()
 
-class ObjectOperations(Enum):
-    LIKE = auto()
-    NOT_LIKE = auto()
-
-
-class TimeOperations(Enum):
-    BEFORE = auto()
-    AFTER = auto()
-    EQUALS = auto()
-    NOT_EQUALS = auto()
+    TIME_BEFORE = auto()
+    TIME_AFTER = auto()
+    TIME_EQUALS = auto()
+    TIME_NOT_EQUALS = auto()
