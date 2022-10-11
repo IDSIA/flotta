@@ -34,13 +34,13 @@ class ExecuteAction(Action):
         if artifact_id is None:
             raise ValueError('Invalid Artifact')
 
-        LOGGER.info('received artifact_id={artifact.artifact_id}')
+        LOGGER.info(f'received artifact_id={artifact.artifact_id}')
 
         working_folder = os.path.join(self.config.path_artifact_folder, f'{artifact_id}')
 
         os.makedirs(working_folder, exist_ok=True)
 
-        path_artifact = os.path.join(working_folder, f'{artifact_id}.json')
+        path_artifact = os.path.join(working_folder, f'descriptor.json')
 
         with open(path_artifact, 'w') as f:
             json.dump(artifact.dict(), f)
@@ -48,6 +48,8 @@ class ExecuteAction(Action):
         LOGGER.info(f'saved artifact_id={artifact_id} to {path_artifact}')
 
         dfs: list[pd.DataFrame] = []
+
+        LOGGER.info(f'number of selection query: {len(artifact.dataset.queries)}')
 
         for query in artifact.dataset.queries:
             # LOAD
@@ -57,65 +59,78 @@ class ExecuteAction(Action):
             if not ds:
                 raise ValueError()
 
-            df_single_datasource: pd.DataFrame = ds.get()  # not yet implemented, but should return a pd df
+            datasource: pd.DataFrame = ds.get()  # not yet implemented, but should return a pd df
 
             # SELECT
-            LOGGER.info(f"EXECUTE -  SELECT {query.datasource_name}")
+            LOGGER.info(f"datasource_id={query.datasource_name}: selecting")
 
-            selected_features: list[QueryFeature] = query.features
-            selected_features_names: list[str] = [sf.feature_name for sf in selected_features]
+            selected_features: list[str] = []
+            for sf in query.features:
+                name = sf.feature_name
+                if name not in datasource.columns:
+                    LOGGER.warn(f'feature_name={name} not found in data source')
+                else:
+                    selected_features.append(name)
 
-            df_single_datasource_select = df_single_datasource[selected_features_names]
+            datasource = datasource[selected_features]
+
+            LOGGER.info(f'selected data shape: {datasource.shape}')
 
             # FILTER
-            LOGGER.info(f"EXECUTE - FILTER {query.datasource_name}")
+            LOGGER.info(f"datasource_id={query.datasource_name}: filtering")
 
-            df_filtered = df_single_datasource_select.copy()
+            df_filtered = datasource.copy()
 
             for query_filter in query.filters:
 
-                feature_name: str = query_filter.feature.feature_name
-                operation_on_feature: Operations = Operations[query_filter.operation]
-                operation_on_feature_parameter: str = query_filter.parameter
+                # TODO: accumulate all filters in single huge boolean vector
+
+                feature: str = query_filter.feature.feature_name
+                operation: Operations = Operations[query_filter.operation]
+                parameter: str = query_filter.parameter
 
                 apply_filter = {
-                    Operations.NUM_LESS_THAN: lambda df: df[df[feature_name] < float(operation_on_feature_parameter)],
-                    Operations.NUM_LESS_EQUAL: lambda df: df[df[feature_name] <= float(operation_on_feature_parameter)],
-                    Operations.NUM_GREATER_THAN: lambda df: df[df[feature_name] > float(operation_on_feature_parameter)],
-                    Operations.NUM_GREATER_EQUAL: lambda df: df[df[feature_name] >= float(operation_on_feature_parameter)],
-                    Operations.NUM_EQUALS: lambda df: df[df[feature_name] == float(operation_on_feature_parameter)],
-                    Operations.NUM_NOT_EQUALS: lambda df: df[df[feature_name] != float(operation_on_feature_parameter)],
+                    Operations.NUM_LESS_THAN: lambda df: df[df[feature] < float(parameter)],
+                    Operations.NUM_LESS_EQUAL: lambda df: df[df[feature] <= float(parameter)],
+                    Operations.NUM_GREATER_THAN: lambda df: df[df[feature] > float(parameter)],
+                    Operations.NUM_GREATER_EQUAL: lambda df: df[df[feature] >= float(parameter)],
+                    Operations.NUM_EQUALS: lambda df: df[df[feature] == float(parameter)],
+                    Operations.NUM_NOT_EQUALS: lambda df: df[df[feature] != float(parameter)],
 
-                    Operations.OBJ_LIKE: lambda df: df[df[feature_name] == operation_on_feature_parameter],
-                    Operations.OBJ_NOT_LIKE: lambda df: df[df[feature_name] != operation_on_feature_parameter],
+                    Operations.OBJ_LIKE: lambda df: df[df[feature] == parameter],
+                    Operations.OBJ_NOT_LIKE: lambda df: df[df[feature] != parameter],
 
-                    Operations.TIME_BEFORE: lambda df: df[df[feature_name] < pd.to_datetime(operation_on_feature_parameter)],
-                    Operations.TIME_AFTER: lambda df: df[df[feature_name] > pd.to_datetime(operation_on_feature_parameter)],
-                    Operations.TIME_EQUALS: lambda df: df[df[feature_name] == pd.to_datetime(operation_on_feature_parameter)],
-                    Operations.TIME_NOT_EQUALS: lambda df: df[df[feature_name] != pd.to_datetime(operation_on_feature_parameter)],
+                    Operations.TIME_BEFORE: lambda df: df[df[feature] < pd.to_datetime(parameter)],
+                    Operations.TIME_AFTER: lambda df: df[df[feature] > pd.to_datetime(parameter)],
+                    Operations.TIME_EQUALS: lambda df: df[df[feature] == pd.to_datetime(parameter)],
+                    Operations.TIME_NOT_EQUALS: lambda df: df[df[feature] != pd.to_datetime(parameter)],
                 }
 
-                df_filtered = apply_filter[operation_on_feature](df_filtered)
+                df_filtered = apply_filter[operation](df_filtered)
 
-                LOGGER.info(f"Applying {operation_on_feature}({operation_on_feature_parameter}) on {feature_name}")
+                LOGGER.info(f"Applying {operation}({parameter}) on {feature}")
+
+                LOGGER.info(f'filtered data shape: {df_filtered.shape}')
 
             # TRANSFORM
-            LOGGER.info(f"EXECUTE -  TRANSFORM {query.datasource_id}")
+            LOGGER.info(f"datasource_id={query.datasource_name}: transforming")
 
             # TODO
 
             # TERMINATE
-            LOGGER.info(f"EXECUTE -  Finished with datasource {query.datasource_id}")
+            LOGGER.info(f"datasource_id={query.datasource_name}: terminated")
 
             # TODO
 
             dfs.append(df_filtered)
 
-        df_all_datasources = pd.concat(dfs)
+        df_dataset = pd.concat(dfs)
 
-        path_datasource = os.path.join(working_folder, f'{artifact.artifact_id}_data.csv.gz')
+        LOGGER.info(f'dataset shape: {df_dataset.shape}')
 
-        df_all_datasources.to_csv(path_datasource, compression='gzip')
+        path_datasource = os.path.join(working_folder, f'dataset.csv.gz')
+
+        df_dataset.to_csv(path_datasource, compression='gzip')
 
         LOGGER.info(f'saved artifact_id={artifact_id} data to {path_datasource}')
 
@@ -125,12 +140,17 @@ class ExecuteAction(Action):
         test_p = artifact.dataset.test_percentage
 
         if label is None:
-            LOGGER.error('label is note defined!')
-            # TODO: raise exception
-            return
+            msg = 'label is not defined!'
+            LOGGER.error(msg)
+            raise ValueError(msg)
 
-        X_tr = df_all_datasources.drop(label).values
-        Y_tr = df_all_datasources[label].values
+        if label not in df_dataset.columns:
+            msg = f'label {label} not found in data source!'
+            LOGGER.error(msg)
+            raise ValueError(msg)
+
+        X_tr = df_dataset.drop(label, axis=1).values
+        Y_tr = df_dataset[label].values
 
         X_ts, Y_ts = None, None
         X_val, Y_val = None, None
