@@ -28,8 +28,15 @@ class JobManagementService(DBSessionService):
         self.js: JobService = JobService(db)
         self.ms: ModelService = ModelService(db)
 
+    def storage_dir(self, artifact_id) -> str:
+        out_dir = os.path.join(STORAGE_ARTIFACTS, artifact_id)
+        os.makedirs(out_dir, exist_ok=True)
+        return out_dir
+
     def dump_artifact(self, artifact: Artifact) -> str:
-        path = os.path.join(STORAGE_ARTIFACTS, f'{artifact.artifact_id}', f'{artifact.artifact_id}.json')
+        out_dir = self.storage_dir(artifact.artifact_id)
+
+        path = os.path.join(out_dir, 'descriptor.json')
 
         with open(path, 'w') as f:
             json.dump(artifact.dict(), f)
@@ -121,9 +128,9 @@ class JobManagementService(DBSessionService):
         if artifact is None:
             raise ValueError(f'artifact_id={metrics.artifact_id} assigned to metrics not found')
 
-        folder, _ = os.path.split(artifact.path)
+        out_dir = self.storage_dir(artifact.artifact_id)
 
-        path = os.path.join(folder, f'{artifact.artifact_id}_metrics_{metrics.source}.json')
+        path = os.path.join(out_dir, f'{artifact.artifact_id}_metrics_{metrics.source}.json')
 
         with open(path, 'w') as f:
             json.dump(metrics.dict(), f)

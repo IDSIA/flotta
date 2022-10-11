@@ -1,6 +1,6 @@
 from .core import DBSessionService, Session
 from ..tables import Model
-from ...config import STORAGE_MODELS
+from ...config import STORAGE_ARTIFACTS
 
 from uuid import uuid4
 
@@ -13,7 +13,7 @@ class ModelService(DBSessionService):
         super().__init__(db)
 
     def storage_dir(self, artifact_id) -> str:
-        out_dir = os.path.join(STORAGE_MODELS, artifact_id)
+        out_dir = os.path.join(STORAGE_ARTIFACTS, artifact_id)
         os.makedirs(out_dir, exist_ok=True)
         return out_dir
 
