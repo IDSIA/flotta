@@ -128,7 +128,7 @@ class Context:
         status = ArtifactStatus(**res.json())
         artifact.artifact_id = status.artifact_id
 
-        return status
+        return artifact
 
     def status(self, artifact: Artifact | ArtifactStatus) -> ArtifactStatus:
         """Poll the server to get an update of the status of the given artifact.

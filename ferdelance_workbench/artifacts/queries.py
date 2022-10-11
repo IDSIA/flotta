@@ -75,6 +75,26 @@ class Feature(BaseFeature):
             datasource_name=self.datasource_name,
         )
 
+    def info(self) -> str:
+        lines: list[str] = [
+            f'{self.name}',
+            f'Data type:            {self.dtype}',
+        ]
+
+        if self.dtype != 'object':
+            lines += [
+                f'Value min:            {self.v_min:.2f}',
+                f'Value max:            {self.v_max:.2f}',
+                f'Mean:                 {self.v_mean:.2f}',
+                f'Std deviation:        {self.v_std:.2f}',
+                f'Value 25° percentile: {self.v_p25:.2f}',
+                f'Value 50° percentile: {self.v_p50:.2f}',
+                f'Value 75° percentile: {self.v_p75:.2f}',
+                f'Missing value:        {self.v_miss:.2f}',
+            ]
+
+        return '\n'.join(lines)
+
     def __lt__(self, other) -> QueryFilter:
         if self.dtype == 'int' and self.dtype == 'float':
 

@@ -6,7 +6,7 @@ from ferdelance_workbench.models import FederatedRandomForestClassifier, Strateg
 import json
 
 # %% create the context
-ctx = Context('http://ferdelance.chronos.idsia.ch')
+ctx = Context('http://ferdelance.artemis.idsia.ch')
 
 # %% ask the context for available client
 for c in ctx.list_clients():
@@ -28,34 +28,38 @@ for ds_id in data_sources_id:
 
 assert ds is not None
 
-# print(ds.info())
+print(ds.info())
 
 # %% feature analysis
 
 ds = ctx.detail_datasource(data_sources_id[-1])
 
-
-for k in ds.features_dict().keys():
-    print(k)
-
 # %% develop a filter query
 q: Query = ds.all_features()
+
 # remove features
-# q -= ds['ID']
-# q -= ds['Latitude']
-# q -= ds['Longitude']
+for qf in q.features:
+    f = ds[qf]
+    if f.dtype != 'float64':
+        q -= f
+
+    if f.v_miss is None or f.v_miss > 0:
+        q -= f
+
+for feature in q.features:
+    print(ds[feature].info())
+    print()
 
 
 # # add filters
-# q = q[ds['Depth'] > 5.0]
-# q += ds['Magnitude'] <= 3.0
+q = q[ds['Depth'] > 30.0]
+q += ds['Magnitude'] >= 6.0
 
 # %% create dataset
 d = Dataset(
     test_percentage=0.2,
     val_percentage=0.1,
-    # label='Magnitude'
-    label='y1'
+    label='Magnitude',
 )
 d.add_query(q)
 
@@ -75,12 +79,12 @@ a: Artifact = Artifact(
 print(json.dumps(a.dict(), indent=True))
 
 # %% submit artifact to the server
-status = ctx.submit(a)
+a = ctx.submit(a)
 
-print(status)
+assert a.artifact_id is not None
 
 # %% monitor learning progress
-a: ArtifactStatus = ctx.status(a)
+status: ArtifactStatus = ctx.status(a)
 
 print(a)
 

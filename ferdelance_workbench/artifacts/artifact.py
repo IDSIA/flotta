@@ -4,3 +4,4 @@ from .dataset import Dataset
 
 class Artifact(BaseArtifact):
     dataset: Dataset
+    artifact_id: str | None = None
