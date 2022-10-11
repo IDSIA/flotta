@@ -46,7 +46,7 @@ class FerdelanceClient:
         self.stop: bool = False
 
     def beat(self):
-        LOGGER.info(f'waiting for {self.config.heartbeat}')
+        LOGGER.debug(f'waiting for {self.config.heartbeat}')
         sleep(self.config.heartbeat)
 
     def get_datasource(self, name: str, filter: str | None = None) -> None:
