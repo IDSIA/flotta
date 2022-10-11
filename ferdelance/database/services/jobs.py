@@ -4,8 +4,6 @@ from ..tables import Job
 
 from ferdelance_shared.status import JobStatus
 
-import sqlalchemy.sql.functions as f
-
 
 class JobService(DBSessionService):
 

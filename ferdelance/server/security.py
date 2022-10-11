@@ -111,6 +111,6 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: S
         cs.invalidate_all_tokens(client_id)
         # allow access only for a single time, since the token update has priority
 
-    LOGGER.info(f'client_id={client_id}: received valid token')
+    LOGGER.debug(f'client_id={client_id}: received valid token')
 
     return client_id

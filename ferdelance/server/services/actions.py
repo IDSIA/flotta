@@ -65,7 +65,7 @@ class ActionService(DBSessionService):
         """
         version: ClientApp = self.cas.get_newest_app()
 
-        LOGGER.info(f'client_id={client.client_id}: version={client.version} newest_version={version}')
+        LOGGER.debug(f'client_id={client.client_id}: version={client.version} newest_version={version}')
 
         return version is not None and client.version != version
 

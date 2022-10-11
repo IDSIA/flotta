@@ -50,8 +50,8 @@ class ClientService(DBSessionService):
         })
         self.invalidate_all_tokens(client_id)  # this will already commit the changes!
 
-    def get_client_by_id(self, client_id: str) -> Client:
-        return self.db.query(Client).filter(Client.client_id == client_id).one()
+    def get_client_by_id(self, client_id: str) -> Client | None:
+        return self.db.query(Client).filter(Client.client_id == client_id).one_or_none()
 
     def get_client_list(self) -> list[Client]:
         return self.db.query(Client).filter(Client.type == 'CLIENT').all()
@@ -99,7 +99,7 @@ class ClientService(DBSessionService):
         return self.db.query(ClientToken).filter(ClientToken.client_id == client_id, ClientToken.valid == True).one_or_none()
 
     def create_client_event(self, client_id: str, event: str) -> ClientEvent:
-        LOGGER.info(f'client_id={client_id}: creating new event="{event}"')
+        LOGGER.debug(f'client_id={client_id}: creating new event="{event}"')
 
         db_client_event = ClientEvent(
             client_id=client_id,
@@ -113,8 +113,6 @@ class ClientService(DBSessionService):
         return db_client_event
 
     def get_all_client_events(self, client: Client) -> list[ClientEvent]:
-        LOGGER.info(f'client_id={client.client_id}: requested all events')
-
         return self.db.query(ClientEvent).filter(ClientEvent.client_id == client.client_id).all()
 
     def get_token_by_client_type(self, client_type: str) -> str | None:

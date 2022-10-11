@@ -48,6 +48,8 @@ client_router = APIRouter()
 @client_router.post('/client/join', response_class=Response)
 async def client_join(request: Request, client: ClientJoinRequest, db: Session = Depends(get_db)):
     """API for new client joining."""
+    LOGGER.info('new client join request')
+
     cs: ClientService = ClientService(db)
     ss: SecurityService = SecurityService(db, None)
 
@@ -124,7 +126,6 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
     cs: ClientService = ClientService(db)
     ss: SecurityService = SecurityService(db, client_id)
 
-    LOGGER.info(f'client_id={client_id}: update request')
     cs.create_client_event(client_id, 'update')
 
     # consume current results (if present) and compute next action
@@ -133,7 +134,7 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
 
     next_action = acs.next(ss.client, payload)
 
-    LOGGER.info(f'client_id={client_id}: sending action={next_action.action}')
+    LOGGER.info(f'client_id={client_id}: update action={next_action.action}')
 
     cs.create_client_event(client_id, f'action:{next_action.action}')
 
@@ -147,11 +148,12 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
     - update application software
     - obtain model files
     """
+    LOGGER.info(f'client_id={client_id}: update files request')
+
     cas: ClientAppService = ClientAppService(db)
     cs: ClientService = ClientService(db)
     ss: SecurityService = SecurityService(db, client_id)
 
-    LOGGER.info(f'client_id={client_id}: update files request')
     cs.create_client_event(client_id, 'update files')
 
     body = await request.body()
@@ -180,12 +182,13 @@ async def client_update_metadata(request: Request, db: Session = Depends(get_db)
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
-W    """
+    """
+    LOGGER.info(f'client_id={client_id}: update metadata request')
+
     cs: ClientService = ClientService(db)
     dss: DataSourceService = DataSourceService(db)
     ss: SecurityService = SecurityService(db, client_id)
 
-    LOGGER.info(f'client_id={client_id}: update metadata request')
     cs.create_client_event(client_id, 'update metadata')
 
     body = await request.body()
@@ -204,20 +207,18 @@ W    """
         for cds in client_data_source_list
     ]
 
-    LOGGER.debug(f"{json.dumps(Metadata(datasources=ds_list).dict())}")  # TODO: remove this
-
     return Response(ss.server_encrypt_content(json.dumps([ds.dict() for ds in ds_list])))
 
 
-@client_router.get('/client/task/', response_class=Response)
+@client_router.get('/client/task', response_class=Response)
 async def client_get_task(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    LOGGER.info(f'client_id={client_id}: new task request')
+
     cs: ClientService = ClientService(db)
     ars: ArtifactService = ArtifactService(db)
     js: JobService = JobService(db)
     dss: DataSourceService = DataSourceService(db)
     ss: SecurityService = SecurityService(db, client_id)
-
-    LOGGER.info(f'client_id={client_id}: new task request')
 
     cs.create_client_event(client_id, 'schedule task')
 
@@ -227,17 +228,22 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
     job: Job = js.get_job(client_id, payload.artifact_id)
 
     if job is None:
+        LOGGER.warn(f'client_id={client_id}: task does not exists with artifact_id={payload.artifact_id}')
         raise HTTPException(404, 'Task does not exists')
 
     artifact_db = ars.get_artifact(job.artifact_id)
 
     if artifact_db is None:
+        LOGGER.warn(f'client_id={client_id}: artifact_id={payload.artifact_id} does not exists')
         raise HTTPException(404, 'Artifact does not exists')
 
-    if not os.path.exists(artifact_db.path):
+    artifact_path = artifact_db.path
+
+    if not os.path.exists(artifact_path):
+        LOGGER.warn(f'client_id={client_id}: artifact_id={payload.artifact_id} does not exist with path={artifact_path}')
         raise HTTPException(404, 'Artifact does not exists')
 
-    async with aiofiles.open(artifact_db.path, 'r') as f:
+    async with aiofiles.open(artifact_path, 'r') as f:
         data = await f.read()
         artifact = Artifact(**json.loads(data))
 
@@ -256,6 +262,8 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
 
 @client_router.post('/client/task/{artifact_id}')
 async def client_post_task(request: Request, artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    LOGGER.info(f'client_id={client_id}: complete work on artifact_id={artifact_id}')
+
     ss: SecurityService = SecurityService(db, client_id)
     jm: JobManagementService = JobManagementService(db)
     ms: ModelService = ModelService(db)
@@ -276,6 +284,8 @@ async def client_post_metrics(request: Request, db: Session = Depends(get_db), c
 
     body = await request.body()
     metrics = Metrics(**ss.server_decrypt_json_content(body))
+
+    LOGGER.info(f'client_id={client_id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}')
 
     jm.save_metrics(metrics)
 
