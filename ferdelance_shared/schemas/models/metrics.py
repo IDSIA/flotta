@@ -2,6 +2,10 @@ from pydantic import BaseModel
 
 
 class Metrics(BaseModel):
+
+    artifact_id: str = ''
+    source: str = ''
+
     accuracy_score: float = -1.0
     precision_score: float = -1.0
     recall_score: float = -1.0
