@@ -50,9 +50,13 @@ async def get_artifact(artifact_id: str, db: Session = Depends(get_db), client_i
 @files_router.post('/files/model/{artifact_id}')
 async def post_model(file: UploadFile, artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     LOGGER.info(f'client_id={client_id}: send model for artifact_id={artifact_id}')
+
+    if client_id != 'WORKER':
+        raise HTTPException(403)
+
     try:
         ms: ModelService = ModelService(db)
-        model_db = ms.create_model(artifact_id, client_id, client_id == 'WORKER')
+        model_db = ms.create_model_aggregated(artifact_id, client_id)
 
         async with aiofiles.open(model_db.path, 'wb') as out_file:
             while content := await file.read(FILE_CHUNK_SIZE):

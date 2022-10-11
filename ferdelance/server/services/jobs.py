@@ -5,6 +5,7 @@ from ...worker.tasks import aggregation
 
 from ...config import STORAGE_ARTIFACTS
 
+from ferdelance_shared.schemas.models import Metrics
 from ferdelance_shared.schemas import Artifact, ArtifactStatus
 from ferdelance_shared.status import JobStatus, ArtifactJobStatus
 
@@ -27,15 +28,15 @@ class JobManagementService(DBSessionService):
         self.js: JobService = JobService(db)
         self.ms: ModelService = ModelService(db)
 
-    def dump(self, artifact: Artifact) -> str:
-        path = os.path.join(STORAGE_ARTIFACTS, f'{artifact.artifact_id}.json')
+    def dump_artifact(self, artifact: Artifact) -> str:
+        path = os.path.join(STORAGE_ARTIFACTS, f'{artifact.artifact_id}', f'{artifact.artifact_id}.json')
 
         with open(path, 'w') as f:
             json.dump(artifact.dict(), f)
 
         return path
 
-    def load(self, artifact_id: str) -> Artifact:
+    def load_artifact(self, artifact_id: str) -> Artifact:
         artifact = self.ars.get_artifact(artifact_id)
 
         if artifact is None:
@@ -51,7 +52,7 @@ class JobManagementService(DBSessionService):
         artifact.artifact_id = str(uuid4())
 
         try:
-            path = self.dump(artifact)
+            path = self.dump_artifact(artifact)
 
             artifact_db = self.ars.create_artifact(artifact.artifact_id, path, ArtifactJobStatus.SCHEDULED.name)
 
@@ -75,7 +76,7 @@ class JobManagementService(DBSessionService):
             raise e
 
     def get_artifact(self, artifact_id: str) -> Artifact:
-        return self.load(artifact_id)
+        return self.load_artifact(artifact_id)
 
     def aggregate(self, artifact_id: str, client_id) -> None:
         LOGGER.info(f'client_id={client_id}: started aggregation request')
@@ -113,3 +114,16 @@ class JobManagementService(DBSessionService):
     def evaluate(self, artifact: Artifact) -> ArtifactStatus:
         # TODO
         raise NotImplementedError()
+
+    def save_metrics(self, metrics: Metrics):
+        artifact = self.ars.get_artifact(metrics.artifact_id)
+
+        if artifact is None:
+            raise ValueError(f'artifact_id={metrics.artifact_id} assigned to metrics not found')
+
+        folder, _ = os.path.split(artifact.path)
+
+        path = os.path.join(folder, f'{artifact.artifact_id}_metrics_{metrics.source}.json')
+
+        with open(path, 'w') as f:
+            json.dump(metrics.dict(), f)

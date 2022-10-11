@@ -30,6 +30,7 @@ from ferdelance_shared.schemas import (
     MetaDataSource,
     UpdateExecute,
 )
+from ferdelance_shared.schemas.models import Metrics
 
 from typing import Any
 
@@ -253,16 +254,29 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
     return ss.server_encrypt_response(content.dict())
 
 
-@ client_router.post('/client/task/{artifact_id}')
+@client_router.post('/client/task/{artifact_id}')
 async def client_post_task(request: Request, artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     ss: SecurityService = SecurityService(db, client_id)
     jm: JobManagementService = JobManagementService(db)
     ms: ModelService = ModelService(db)
 
-    model_db: Model = ms.create_model(artifact_id, client_id)
+    model_db: Model = ms.create_local_model(artifact_id, client_id)
 
     ss.server_stream_decrypt_file(request, model_db.path)
 
     jm.aggregate(artifact_id, client_id)
+
+    return {}
+
+
+@client_router.post('/client/metrics')
+async def client_post_metrics(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    ss: SecurityService = SecurityService(db, client_id)
+    jm: JobManagementService = JobManagementService(db)
+
+    body = await request.body()
+    metrics = Metrics(**ss.server_decrypt_json_content(body))
+
+    jm.save_metrics(metrics)
 
     return {}
