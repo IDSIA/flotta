@@ -12,6 +12,18 @@ from ferdelance_shared.schemas import (
 from datetime import datetime
 
 
+def is_numeric(other) -> bool:
+    return isinstance(other, int | float)
+
+
+def is_string(other) -> bool:
+    return isinstance(other, str)
+
+
+def is_time(other) -> bool:
+    return isinstance(other, datetime)
+
+
 class QueryFilter(BaseQueryFilter):
 
     def __eq__(self, other: QueryFilter) -> bool:
@@ -95,35 +107,41 @@ class Feature(BaseFeature):
 
         return '\n'.join(lines)
 
-    def __lt__(self, other) -> QueryFilter:
-        if self.dtype == 'int' and self.dtype == 'float':
+    def _dtype_numeric(self):
+        return self.dtype in ('int', 'float', 'int64', 'float64')
 
-            if isinstance(other, int | float):
+    def __lt__(self, other) -> QueryFilter:
+        if self._dtype_numeric():
+
+            if is_numeric(other):
                 return self._filter(Operations.NUM_LESS_THAN, other)
 
-            if isinstance(other, datetime):
+            if is_time(other):
                 return self._filter(Operations.TIME_BEFORE, other)
 
         raise ValueError('operator less than "<" can be used only for int, float, or time values')
 
     def __le__(self, other) -> QueryFilter:
-        if isinstance(other, int | float):
-            return self._filter(Operations.NUM_LESS_EQUAL, other)
+        if self._dtype_numeric():
+            if is_numeric(other):
+                return self._filter(Operations.NUM_LESS_EQUAL, other)
 
         raise ValueError('operator less equal "<=" can be used only for int or float values')
 
     def __gt__(self, other) -> QueryFilter:
-        if isinstance(other, int | float):
-            return self._filter(Operations.NUM_GREATER_THAN, other)
+        if self._dtype_numeric():
+            if is_numeric(other):
+                return self._filter(Operations.NUM_GREATER_THAN, other)
 
-        if isinstance(other, datetime):
-            return self._filter(Operations.TIME_AFTER, other)
+            if is_time(other):
+                return self._filter(Operations.TIME_AFTER, other)
 
         raise ValueError('operator greater than ">" can be used only for int, float, or time values')
 
     def __ge__(self, other) -> QueryFilter:
-        if isinstance(other, int | float):
-            return self._filter(Operations.NUM_GREATER_EQUAL, other)
+        if self._dtype_numeric():
+            if is_numeric(other):
+                return self._filter(Operations.NUM_GREATER_EQUAL, other)
 
         raise ValueError('operator greater equal ">=" can be used only for int or float values')
 
@@ -137,26 +155,28 @@ class Feature(BaseFeature):
                 self.dtype == other.dtype
             )
 
-        if isinstance(other, int | float):
-            return self._filter(Operations.NUM_EQUALS, other)
+        if self._dtype_numeric():
+            if is_numeric(other):
+                return self._filter(Operations.NUM_EQUALS, other)
 
-        if isinstance(other, str):
+            if is_time(other):
+                return self._filter(Operations.TIME_EQUALS, other)
+
+        if is_string(other):
             return self._filter(Operations.OBJ_LIKE, other)
-
-        if isinstance(other, datetime):
-            return self._filter(Operations.TIME_EQUALS, other)
 
         raise ValueError('operator equals "==" can be used only for int, float, str, or time values')
 
     def __ne__(self, other) -> QueryFilter:
-        if isinstance(other, int | float):
-            return self._filter(Operations.NUM_NOT_EQUALS, other)
+        if self._dtype_numeric():
+            if is_numeric(other):
+                return self._filter(Operations.NUM_NOT_EQUALS, other)
 
-        if isinstance(other, str):
+            if is_time(other):
+                return self._filter(Operations.TIME_NOT_EQUALS, other)
+
+        if is_string(other):
             return self._filter(Operations.OBJ_NOT_LIKE, other)
-
-        if isinstance(other, datetime):
-            return self._filter(Operations.TIME_NOT_EQUALS, other)
 
         raise ValueError('operator not equals "!=" can be used only for int, float, str, or time values')
 

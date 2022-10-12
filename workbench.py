@@ -21,30 +21,17 @@ data_sources_id: list[str] = ctx.list_datasources()
 ds: DataSource | None = None
 
 for ds_id in data_sources_id:
-    ds = ctx.detail_datasource(ds_id)
+    ds = ctx.datasource_by_id(ds_id)
 
-    if ds.name == 'earthquakes':
+    if ds.name == 'iris':
         break
 
 assert ds is not None
 
 print(ds.info())
 
-# %% feature analysis
-
-ds = ctx.detail_datasource(data_sources_id[-1])
-
 # %% develop a filter query
 q: Query = ds.all_features()
-
-# remove features
-for qf in q.features:
-    f = ds[qf]
-    if f.dtype != 'float64':
-        q -= f
-
-    if f.v_miss is None or f.v_miss > 0:
-        q -= f
 
 for feature in q.features:
     print(ds[feature].info())
@@ -52,14 +39,13 @@ for feature in q.features:
 
 
 # # add filters
-q = q[ds['Depth'] > 30.0]
-q += ds['Magnitude'] >= 6.0
+q = q[ds['variety'] < 2]
 
 # %% create dataset
 d = Dataset(
     test_percentage=0.2,
     val_percentage=0.1,
-    label='Magnitude',
+    label='variety',
 )
 d.add_query(q)
 

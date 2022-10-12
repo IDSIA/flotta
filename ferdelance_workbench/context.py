@@ -85,7 +85,7 @@ class Context:
 
         return res.json()
 
-    def detail_datasource(self, datasource_id: str) -> DataSource:
+    def datasource_by_id(self, datasource_id: str) -> DataSource:
         """Returns the detail, like metadata, of the given datasource.
 
         :param datasource_id:
