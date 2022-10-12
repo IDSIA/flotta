@@ -81,7 +81,7 @@ class TestEncodeDecode:
         for chunk in enc.encrypt_to_stream(content):
             chunks_encrypted.append(chunk)
 
-        dec_content = dec.decrypt_stream(chunks_encrypted)
+        dec_content = dec.decrypt_stream(iter(chunks_encrypted))
 
         assert content == dec_content
 
@@ -105,7 +105,7 @@ class TestEncodeDecode:
         for chunk in enc.encrypt_file_to_stream(path_content_from):
             chunks_encrypted.append(chunk)
 
-        dec.decrypt_stream_to_file(chunks_encrypted, path_content_to)
+        dec.decrypt_stream_to_file(iter(chunks_encrypted), path_content_to)
 
         with open(path_content_to, 'rb') as f:
             content_to = f.read().decode('utf8')
