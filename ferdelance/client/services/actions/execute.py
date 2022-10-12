@@ -173,14 +173,14 @@ class ExecuteAction(Action):
         LOGGER.info(f'saved artifact_id={artifact_id} model to {path_model}')
 
         # model test
-        if X_ts and Y_ts:
+        if X_ts is not None and Y_ts is not None:
             metrics = local_model.eval(X_ts, Y_ts)
             metrics.source = 'test'
             metrics.artifact_id = artifact_id
             self.routes_service.post_metrics(metrics)
 
         # model validation
-        if X_val and Y_val:
+        if X_val is not None and Y_val is not None:
             metrics = local_model.eval(X_val, Y_val)
             metrics.source = 'val'
             metrics.artifact_id = artifact_id

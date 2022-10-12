@@ -221,14 +221,15 @@ class RouteService:
         enc = HybridEncrypter(self.config.server_public_key)
         with open(path_out, 'wb') as w:
             w.write(enc.start())
-            with open(path_in, 'r') as r:
+            with open(path_in, 'rb') as r:
                 while content := r.read():
-                    w.write(enc.encrypt(content))
+                    w.write(enc.update(content))
                 w.write(enc.end())
 
         res = post(
             f'{self.config.server}/client/task/{artifact_id}',
-            data=open(path_out, 'wb'),
+            data=open(path_out, 'rb'),
+            headers=self.headers(),
         )
 
         if os.path.exists(path_out):
