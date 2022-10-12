@@ -103,7 +103,7 @@ class HybridDecrypter:
         self.decryptor = None
         self.checksum = None
 
-        self.data: bytearray = None
+        self.data: bytearray = bytearray()
         self.preamble_found: bool = False
 
     def decrypt(self, content: bytes) -> str:
@@ -190,6 +190,9 @@ class HybridDecrypter:
         :return:
             Decrypted bytes.
         """
+        if self.checksum is None or self.data is None:
+            raise ValueError('Call the start() method before update(...)')
+
         if not self.preamble_found:
             self.data.extend(content)
 
@@ -212,6 +215,9 @@ class HybridDecrypter:
             return ''
 
         else:
+            if self.checksum is None or self.decryptor is None:
+                raise ValueError('Cannot decrypt, data may be corrupted')
+
             data: bytes = self.decryptor.update(content)
             self.checksum.update(data)
             return data.decode(self.encoding)
@@ -224,6 +230,9 @@ class HybridDecrypter:
         :return:
             Decrypted string.
         """
+        if self.decryptor is None or self.checksum is None:
+            raise ValueError('Call the start() method before end()')
+
         data = self.decryptor.finalize()
         self.checksum.update(data)
         return data.decode(self.encoding)
@@ -232,4 +241,7 @@ class HybridDecrypter:
         """Checksum of the transferred data that can be used to check if the data has 
         been transferred correctly.
         """
+        if self.checksum is None:
+            raise ValueError('No decryption performed')
+
         return self.checksum.hexdigest()

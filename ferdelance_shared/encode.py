@@ -188,7 +188,7 @@ class HybridEncrypter:
 
         return bytes(content)
 
-    def update(self, content: str) -> bytes:
+    def update(self, content: str | bytes) -> bytes:
         """Encrypt the given content.
 
         This method requires that the `start()` method is called first.
@@ -201,7 +201,14 @@ class HybridEncrypter:
         :return:
             Encrypted bytes.
         """
-        data = content.encode(self.encoding)
+        if self.checksum is None or self.encryptor is None:
+            raise ValueError('Call the start() method before update(...)')
+
+        if isinstance(content, str):
+            data = content.encode(self.encoding)
+        else:
+            data = content
+
         self.checksum.update(data)
         return self.encryptor.update(data)
 
@@ -213,10 +220,16 @@ class HybridEncrypter:
         :return:
             Encrypted bytes.
         """
+        if self.encryptor is None:
+            raise ValueError('Call the start() method before end()')
+
         return self.encryptor.finalize()
 
     def get_checksum(self) -> str:
         """Checksum of the original data that can be used to check if the data has 
         been transferred correctly.
         """
+        if self.checksum is None:
+            raise ValueError('No encryption performed')
+
         return self.checksum.hexdigest()
