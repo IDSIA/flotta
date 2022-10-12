@@ -270,7 +270,7 @@ async def client_post_task(request: Request, artifact_id: str, db: Session = Dep
 
     model_db: Model = ms.create_local_model(artifact_id, client_id)
 
-    ss.server_stream_decrypt_file(request, model_db.path)
+    await ss.server_stream_decrypt_file(request, model_db.path)
 
     jm.aggregate(artifact_id, client_id)
 

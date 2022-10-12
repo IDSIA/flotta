@@ -19,6 +19,7 @@ from time import time
 from typing import Any, Iterator
 from uuid import uuid4
 
+import aiofiles
 import json
 import logging
 
@@ -124,12 +125,17 @@ class SecurityService(DBSessionService):
             media_type='application/octet-stream'
         )
 
-    def server_stream_decrypt_file(self, request: Request, path: str) -> str:
+    async def server_stream_decrypt_file(self, request: Request, path: str) -> str:
         """Used to stream decrypt data to a file, using less memory."""
         private_key: RSAPrivateKey = self.get_server_private_key()
 
         dec = HybridDecrypter(private_key)
-        dec.decrypt_stream_to_file(iter(request.stream()), path)
+
+        async with aiofiles.open(path, 'wb') as f:
+            await f.write(dec.start())
+            async for content in request.stream():
+                await f.write(dec.update(content))
+            await f.write(dec.end())
 
         return dec.get_checksum()
 
@@ -141,10 +147,16 @@ class SecurityService(DBSessionService):
 
         return enc.encrypt_to_stream(content)
 
-    def server_stream_decrypt(self, request: Request) -> tuple[str, str]:
+    async def server_stream_decrypt(self, request: Request) -> tuple[str, str]:
         """Used to decrypt small data that can be kept in memory."""
         private_key: RSAPrivateKey = self.get_server_private_key()
 
         dec = HybridDecrypter(private_key)
-        data = dec.decrypt_stream(iter(request.stream()))
-        return data, dec.get_checksum()
+
+        data: bytearray = bytearray()
+        data.extend(dec.start())
+        async for content in request.stream():
+            data.extend(dec.update(content))
+        data.extend(dec.end())
+
+        return data.decode(dec.encoding), dec.get_checksum()
