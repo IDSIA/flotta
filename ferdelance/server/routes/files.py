@@ -5,7 +5,7 @@ from ferdelance.database.tables import Model
 
 from ...config import FILE_CHUNK_SIZE
 from ...database import get_db, Session
-from ...database.services import ModelService
+from ...database.services import ModelService, ClientService
 from ...database.tables import Model
 from ..services import JobManagementService
 from ..security import check_token
@@ -51,7 +51,10 @@ async def get_artifact(artifact_id: str, db: Session = Depends(get_db), client_i
 async def post_model(file: UploadFile, artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     LOGGER.info(f'client_id={client_id}: send model for artifact_id={artifact_id}')
 
-    if client_id != 'WORKER':
+    cs: ClientService = ClientService(db)
+    client = cs.get_client_by_id(client_id)
+
+    if client is None or client.type not in ('CLIENT', 'WORKER'):
         raise HTTPException(403)
 
     try:

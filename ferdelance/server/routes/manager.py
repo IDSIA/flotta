@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, UploadFile, Response, HTTPException
 from fastapi.responses import FileResponse
 
 from ...database import get_db
-from ...database.services import ModelService, ClientService
+from ...database.services import ModelService, ClientService, JobService
 from ...database.tables import ClientApp, Artifact, Model, Client
 from ..schemas.manager import *
 from ...config import FILE_CHUNK_SIZE, STORAGE_CLIENTS, STORAGE_ARTIFACTS
@@ -149,3 +149,29 @@ async def manager_remove_client(client_id: str, db: Session = Depends(get_db)):
 
     cs.client_leave(client_id)
     cs.create_client_event(client_id, 'left')
+
+
+@manager_router.get('/manager/jobs/status')
+async def manager_jobs_status(db: Session = Depends(get_db)):
+    js: JobService = JobService(db)
+
+    jobs = js.get_jobs_all()
+
+    return [{
+        'artifact_id': j.artifact_id,
+        'client_id': j.client_id,
+        'status': j.status,
+    } for j in jobs]
+
+
+@manager_router.get('/manager/jobs/status/{client_id}')
+async def manager_client_job_status(client_id: str, db: Session = Depends(get_db)):
+    js: JobService = JobService(db)
+
+    jobs = js.get_jobs_for_client(client_id)
+
+    return [{
+        'artifact_id': j.artifact_id,
+        'client_id': j.client_id,
+        'status': j.status,
+    } for j in jobs]

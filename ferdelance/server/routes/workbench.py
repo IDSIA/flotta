@@ -70,7 +70,10 @@ async def wb_get_client_list(db: Session = Depends(get_db), client_id: str = Dep
 async def wb_get_client_detail(req_client_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     LOGGER.info(f'a workbench requested details on client_id={req_client_id}')
 
-    client: Client = check_access(db, client_id)
+    check_access(db, client_id)
+
+    cs: ClientService = ClientService(db)
+    client: Client = cs.get_client_by_id(req_client_id)
 
     if client is None or client.active is False:
         LOGGER.warn(f'client_id={req_client_id} not found in database or is not active')

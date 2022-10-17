@@ -63,11 +63,14 @@ class ActionService(DBSessionService):
         :return:
             True if there is a new version and this version is different from the current client version.
         """
-        version: ClientApp = self.cas.get_newest_app()
+        app: ClientApp = self.cas.get_newest_app()
 
-        LOGGER.debug(f'client_id={client.client_id}: version={client.version} newest_version={version}')
+        if app is None:
+            return False
 
-        return version is not None and client.version != version
+        LOGGER.debug(f'client_id={client.client_id}: version={client.version} newest_version={app.version}')
+
+        return client.version != app.version
 
     def _action_update_client_app(self) -> UpdateClientApp:
         """Update and restart the client with the new version.
@@ -88,7 +91,7 @@ class ActionService(DBSessionService):
         )
 
     def _check_scheduled_job(self, client: Client) -> Job | None:
-        return self.js.next_for_client(client.client_id)
+        return self.js.next_job_for_client(client.client_id)
 
     def _action_schedule_job(self, job: Job) -> UpdateExecute:
         return UpdateExecute(

@@ -1,9 +1,16 @@
-from ...database.services import DBSessionService, Session, ArtifactService, DataSourceService, JobService, ModelService, ClientService
+from ...database.services import (
+    DBSessionService,
+    Session,
+    ArtifactService,
+    DataSourceService,
+    JobService,
+    ModelService,
+    ClientService
+)
 from ...database.tables import Client
-
 from ...worker.tasks import aggregation
-
 from ...config import STORAGE_ARTIFACTS
+from ..exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
 from ferdelance_shared.schemas.models import Metrics
 from ferdelance_shared.schemas import Artifact, ArtifactStatus
@@ -11,6 +18,7 @@ from ferdelance_shared.status import JobStatus, ArtifactJobStatus
 
 from uuid import uuid4
 
+import aiofiles
 import json
 import logging
 import os
@@ -71,7 +79,7 @@ class JobManagementService(DBSessionService):
                 if client in client_ids:
                     continue
 
-                self.js.create_job(artifact.artifact_id, client.client_id, JobStatus.SCHEDULED)
+                self.js.schedule_job(artifact.artifact_id, client.client_id)
 
                 client_ids.add(client.client_id)
 
@@ -85,10 +93,45 @@ class JobManagementService(DBSessionService):
     def get_artifact(self, artifact_id: str) -> Artifact:
         return self.load_artifact(artifact_id)
 
-    def aggregate(self, artifact_id: str, client_id) -> None:
+    async def client_local_model_start(self, artifact_id: str, client_id: str) -> Artifact:
+        artifact_db = self.ars.get_artifact(artifact_id)
+
+        if artifact_db is None:
+            LOGGER.warn(f'client_id={client_id}: artifact_id={artifact_id} does not exists')
+            raise ArtifactDoesNotExists()
+
+        artifact_path = artifact_db.path
+
+        if not os.path.exists(artifact_path):
+            LOGGER.warn(f'client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}')
+            raise ArtifactDoesNotExists()
+
+        async with aiofiles.open(artifact_path, 'r') as f:
+            data = await f.read()
+            artifact = Artifact(**json.loads(data))
+
+        client_datasource_ids = self.dss.get_datasource_ids_by_client_id(client_id)
+
+        artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasource_id in client_datasource_ids]
+
+        job = self.js.next_job_for_client(client_id)
+
+        if job is None:
+            LOGGER.warn(f'client_id={client_id}: task does not exists with artifact_id={artifact_id}')
+            raise TaskDoesNotExists()
+
+        job = self.js.start_execution(job)
+
+        return Artifact(
+            artifact_id=job.artifact_id,
+            dataset=artifact.dataset,
+            model=artifact.model,
+        )
+
+    def client_local_model_completed(self, artifact_id: str, client_id: str) -> None:
         LOGGER.info(f'client_id={client_id}: started aggregation request')
 
-        self.js.create_job(artifact_id, client_id, JobStatus.COMPLETED)
+        self.js.stop_execution(artifact_id, client_id)
 
         artifact: Artifact = self.ars.get_artifact(artifact_id)
 

@@ -9,19 +9,17 @@ from ..services.actions import ActionService
 from ..services.security import SecurityService
 from ...database.services import (
     Session,
-    ArtifactService,
     ClientAppService,
     ClientService,
-    JobService,
     DataSourceService,
     ModelService,
 )
-from ...database.tables import Client, ClientApp, ClientToken, Job, Model
+from ...database.tables import Client, ClientApp, ClientToken, Model
 from ..services import ActionService, SecurityService, JobManagementService
 from ..security import check_token
+from ..exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
 from ferdelance_shared.schemas import (
-    Artifact,
     ClientJoinRequest,
     ClientJoinData,
     DownloadApp,
@@ -34,10 +32,8 @@ from ferdelance_shared.schemas.models import Metrics
 
 from typing import Any
 
-import aiofiles
 import logging
 import json
-import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -175,8 +171,6 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
     return ss.server_stream_encrypt_file(new_app.path)
 
 
-# TODO: /client/download/model
-
 @client_router.post('/client/update/metadata')
 async def client_update_metadata(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
@@ -215,49 +209,27 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
     LOGGER.info(f'client_id={client_id}: new task request')
 
     cs: ClientService = ClientService(db)
-    ars: ArtifactService = ArtifactService(db)
-    js: JobService = JobService(db)
-    dss: DataSourceService = DataSourceService(db)
+    jm: JobManagementService = JobManagementService(db)
     ss: SecurityService = SecurityService(db, client_id)
 
     cs.create_client_event(client_id, 'schedule task')
 
     body = await request.body()
     payload = UpdateExecute(**ss.server_decrypt_json_content(body))
+    artifact_id = payload.artifact_id
 
-    job: Job = js.get_job(client_id, payload.artifact_id)
+    try:
+        content = await jm.client_local_model_start(artifact_id, client_id)
 
-    if job is None:
-        LOGGER.warn(f'client_id={client_id}: task does not exists with artifact_id={payload.artifact_id}')
+    except ArtifactDoesNotExists as _:
+        raise HTTPException(404, 'Artifact does not exists')
+
+    except TaskDoesNotExists as _:
         raise HTTPException(404, 'Task does not exists')
 
-    artifact_db = ars.get_artifact(job.artifact_id)
-
-    if artifact_db is None:
-        LOGGER.warn(f'client_id={client_id}: artifact_id={payload.artifact_id} does not exists')
-        raise HTTPException(404, 'Artifact does not exists')
-
-    artifact_path = artifact_db.path
-
-    if not os.path.exists(artifact_path):
-        LOGGER.warn(f'client_id={client_id}: artifact_id={payload.artifact_id} does not exist with path={artifact_path}')
-        raise HTTPException(404, 'Artifact does not exists')
-
-    async with aiofiles.open(artifact_path, 'r') as f:
-        data = await f.read()
-        artifact = Artifact(**json.loads(data))
-
-    client_datasource_ids = dss.get_datasource_ids_by_client_id(client_id)
-
-    artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasource_id in client_datasource_ids]
-
-    content = Artifact(
-        artifact_id=job.artifact_id,
-        dataset=artifact.dataset,
-        model=artifact.model,
-    )
-
     return ss.server_encrypt_response(content.dict())
+
+# TODO: add endpoint for failed job executions
 
 
 @client_router.post('/client/task/{artifact_id}')
@@ -272,7 +244,7 @@ async def client_post_task(request: Request, artifact_id: str, db: Session = Dep
 
     await ss.server_stream_decrypt_file(request, model_db.path)
 
-    jm.aggregate(artifact_id, client_id)
+    jm.client_local_model_completed(artifact_id, client_id)
 
     return {}
 
