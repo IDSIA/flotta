@@ -114,7 +114,9 @@ class Job(Base):
 
     status = Column(String, nullable=True)
 
-    time = Column(DateTime(timezone=True), server_default=now())
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    execution_time = Column(DateTime(timezone=True))
+    termination_time = Column(DateTime(timezone=True))
 
 
 class Model(Base):
