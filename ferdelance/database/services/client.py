@@ -35,13 +35,13 @@ class ClientService(DBSessionService):
 
     def update_client(self, client_id: str, version: str = '') -> None:
         if not version:
+            LOGGER.warn('cannot update a version with an empty string')
             return
 
-        LOGGER.info(f'client_id={client_id}: update version to {version}')
-        u = {'version': version}
-
-        self.db.query(Client).filter(Client.client_id == client_id).update(u)
+        self.db.query(Client).filter(Client.client_id == client_id).update({Client.version: version})
         self.db.commit()
+
+        LOGGER.info(f'client_id={client_id}: updated client version to {version}')
 
     def client_leave(self, client_id: str) -> None:
         self.db.query(Client).filter(Client.client_id == client_id).update({
