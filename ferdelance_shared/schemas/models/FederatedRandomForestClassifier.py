@@ -72,7 +72,7 @@ class FederatedRandomForestClassifier(GenericModel):
     def build(self) -> Model:
         return Model(
             name=self.name,
-            strategy=str(self.strategy),
+            strategy=self.strategy.name,
             parameters=self.parameters.dict()
         )
 
