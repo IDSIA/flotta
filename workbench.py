@@ -72,7 +72,7 @@ assert a.artifact_id is not None
 # %% monitor learning progress
 status: ArtifactStatus = ctx.status(a)
 
-print(a)
+print(status)
 
 # %% download submitted artifact
 art = ctx.get_artifact(a.artifact_id)
@@ -80,6 +80,8 @@ art = ctx.get_artifact(a.artifact_id)
 print(art)
 
 # %% download trained model:
-m = ctx.get_model(a)
+model_path = ctx.get_model(a)
+
+m.load(model_path)
 
 # %%
