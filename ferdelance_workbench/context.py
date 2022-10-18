@@ -2,6 +2,7 @@ from ferdelance_workbench.exceptions import ServerError
 from ferdelance_workbench.artifacts import *
 from ferdelance_workbench.models import *
 from ferdelance_shared.schemas import WorkbenchJoinData
+from ferdelance_shared.schemas.models import GenericModel
 
 from uuid import uuid4
 
@@ -171,7 +172,7 @@ class Context:
 
         return Artifact(**json.loads(res.content))
 
-    def get_model(self, artifact: Artifact, path: str = '') -> Model:
+    def get_model(self, artifact: Artifact, path: str = '') -> str:
         """Get the trained and aggregated model from the artifact and save it to disk.
 
         :param artifact:
@@ -192,11 +193,9 @@ class Context:
         res.raise_for_status()
 
         if not path:
-            path = f'{artifact.model.name}.{uuid4()}.model.bin'
+            path = f'{artifact.model.name}.{uuid4()}.model'
 
         with open(path, 'wb') as f:
             f.write(res.content)
 
-        m = artifact.model
-        m.load(path)  # TODO: fix this
-        return m
+        return path
