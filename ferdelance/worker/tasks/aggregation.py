@@ -30,7 +30,7 @@ def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> Non
         LOGGER.info(f'beginning aggregation task={task_id} for artifact_id={artifact_id}')
 
         res = requests.get(
-            f'{server_url}/files/artifact/{artifact_id}',
+            f'{server_url}/worker/artifact/{artifact_id}',
             headers={'Authorization': f'Bearer {token}'},
         )
 
@@ -64,7 +64,7 @@ def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> Non
         LOGGER.info(f'aggregated {len(model_ids)} model(s)')
 
         res = requests.post(
-            f'{server_url}/files/model/{artifact_id}',
+            f'{server_url}/worker/model/{artifact_id}',
             headers={'Authorization': f'Bearer {token}'},
             files={'file': pickle.dumps(base_model)}
         )

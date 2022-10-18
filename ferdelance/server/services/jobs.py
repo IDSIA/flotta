@@ -100,6 +100,9 @@ class JobManagementService(DBSessionService):
             LOGGER.warn(f'client_id={client_id}: artifact_id={artifact_id} does not exists')
             raise ArtifactDoesNotExists()
 
+        if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
+            self.ars.update_status(artifact_id, ArtifactJobStatus.TRAINING)
+
         artifact_path = artifact_db.path
 
         if not os.path.exists(artifact_path):
@@ -139,11 +142,13 @@ class JobManagementService(DBSessionService):
             LOGGER.error(f'Cannot aggregate: artifact_id={artifact_id} not found')
             return
 
-        total = self.js.count_jobs_by_status(artifact_id, JobStatus.SCHEDULED)
+        scheduled = self.js.count_jobs_by_status(artifact_id, JobStatus.SCHEDULED)
         completed = self.js.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
         error = self.js.count_jobs_by_status(artifact_id, JobStatus.ERROR)
 
-        if completed < total:
+        total = scheduled + completed
+
+        if scheduled > 0:
             LOGGER.info(f'Cannot aggregate: {completed} / {total} completed job(s)')
             return
 
@@ -160,6 +165,10 @@ class JobManagementService(DBSessionService):
         self.ars.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
 
         aggregation.delay(token, artifact_id, model_ids)
+
+    def aggregation_completed(self, artifact_id: str) -> None:
+        LOGGER.info(f'aggregation completed for artifact_id={artifact_id}')
+        self.ars.update_status(artifact_id, ArtifactJobStatus.COMPLETED)
 
     def evaluate(self, artifact: Artifact) -> ArtifactStatus:
         # TODO
