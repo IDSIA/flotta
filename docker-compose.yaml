@@ -15,6 +15,7 @@ services:
 
   database:
     image: postgres
+    container_name: database
     environment:
       - POSTGRES_USER=${DATABASE_USER}
       - POSTGRES_PASSWORD=${DATABASE_PASS}
@@ -48,13 +49,11 @@ services:
 
   worker: 
     image: idsia.ferdelance.server
-    container_name: celery-worker
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    container_name: worker
     environment:
       - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
-      - SERVER_URL=http://server
+      # - SERVER_URL=http://server
+      # - SERVER_PORT=1456
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
     volumes: 
@@ -68,23 +67,23 @@ services:
   
   # Monitor - Where worker status can be monitored
 
-  flower:
-    image: idsia.ferdelance.server
-    container_name: celery-flower
-    networks:
-      - www
-      - ferdelance
-    environment:
-      - CELERY_BROKER_URL=pyamqp://rabbitmq/
-      - CELERY_BACKEND_URL=redis://redis/
-    command: --target flower
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.flower.entrypoints=web"
-      - "traefik.http.routers.flower.rule=Host(`flower-ferdelance.${DOMAIN}`)"
-      - "traefik.http.services.flower.loadbalancer.server.port=5555"
-    depends_on:
-      - worker    
+  # flower:
+  #   image: idsia.ferdelance.server
+  #   container_name: flower
+  #   networks:
+  #     - www
+  #     - ferdelance
+  #   environment:
+  #     - CELERY_BROKER_URL=pyamqp://rabbitmq/
+  #     - CELERY_BACKEND_URL=redis://redis/
+  #   command: --target flower
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.flower.entrypoints=web"
+  #     - "traefik.http.routers.flower.rule=Host(`flower-ferdelance.${DOMAIN}`)"
+  #     - "traefik.http.services.flower.loadbalancer.server.port=5555"
+  #   depends_on:
+  #     - worker    
   
   # FerDeLance server
   
@@ -98,6 +97,7 @@ services:
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
+    container_name: server
     volumes: 
       - ./storage:/ferdelance/storage
     networks:
