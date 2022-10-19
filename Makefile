@@ -1,19 +1,17 @@
-PROJECT:=spearhead
-
 build:
-	docker-compose -p ${PROJECT} -f federated-learning-client/docker-compose.yaml build
-	docker-compose -p ${PROJECT} -f federated-learning-server/docker-compose.yaml build
+	cd federated-learning-client && $(MAKE) build
+	cd federated-learning-server && $(MAKE) build
 
 start:
-	docker-compose -p ${PROJECT} -f federated-learning-client/docker-compose.yaml up -d
-	docker-compose -p ${PROJECT} -f federated-learning-server/docker-compose.yaml up -d
+	docker-compose up -d
 
 stop:
-	docker-compose -p ${PROJECT} -f federated-learning-client/docker-compose.yaml down
-	docker-compose -p ${PROJECT} -f federated-learning-server/docker-compose.yaml down
+	docker-compose down
+
+logs:
+	docker-compose logs -f server worker client1 client2
 
 clear:
-	docker volume rm ${PROJECT}_spearhead-client-data
-	docker volume rm ${PROJECT}_spearhead-server-data
-	docker volume rm ${PROJECT}_spearhead-db-data
-
+	docker volume rm ferdelance-server-data
+	docker volume rm ferdelance-client-data
+	docker volume rm ferdelance-db-data

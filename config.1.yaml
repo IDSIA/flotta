@@ -1,0 +1,6 @@
+ferdelance:
+  datasource:
+    - name: california1
+      type: csv
+      path: "data/california_housing.MedIncHigh.csv"
+      kind: file
