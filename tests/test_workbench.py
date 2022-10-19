@@ -9,11 +9,13 @@ from ferdelance_shared.schemas import (
     Metadata,
     Query,
     QueryFeature,
+    WorkbenchJoinData,
 )
 from ferdelance_shared.schemas.models import Model
 from ferdelance_shared.status import ArtifactJobStatus
 
 from .utils import (
+    headers,
     setup_test_client,
     setup_test_database,
     setup_rsa_keys,
@@ -30,6 +32,7 @@ import json
 import logging
 import os
 import random
+import shutil
 
 LOGGER = logging.getLogger(__name__)
 
@@ -62,6 +65,12 @@ class TestWorkbenchClass:
 
         self.client_id, self.token, self.server_key = create_client(self.client, self.private_key)
 
+        res = self.client.get('/workbench/connect')
+
+        res.raise_for_status()
+
+        self.wb_token = WorkbenchJoinData(**res.json()).token
+
         metadata: Metadata = get_metadata()
         upload_response: Response = send_metadata(self.client, self.token, self.server_key, metadata)
 
@@ -81,13 +90,13 @@ class TestWorkbenchClass:
 
     def test_read_workbench_home(self):
         """Generic test to check if the home works."""
-        response = self.client.get('/workbench')
+        response = self.client.get('/workbench', headers=headers(self.wb_token))
 
         assert response.status_code == 200
         assert response.content.decode('utf8') == '"Workbench 🔧"'
 
     def test_client_list(self):
-        res = self.client.get('/workbench/client/list')
+        res = self.client.get('/workbench/client/list', headers=headers(self.wb_token))
 
         assert res.status_code == 200
 
@@ -101,7 +110,7 @@ class TestWorkbenchClass:
     def test_client_detail(self):
         client_id = self.client_id
 
-        res = self.client.get(f'/workbench/client/{client_id}')
+        res = self.client.get(f'/workbench/client/{client_id}', headers=headers(self.wb_token))
 
         assert res.status_code == 200
 
@@ -111,7 +120,7 @@ class TestWorkbenchClass:
         assert cd.version == 'test'
 
     def test_workflow_submit(self):
-        res = self.client.get('/workbench/datasource/list')
+        res = self.client.get('/workbench/datasource/list', headers=headers(self.wb_token))
 
         assert res.status_code == 200
 
@@ -121,7 +130,7 @@ class TestWorkbenchClass:
 
         datasource_id = ds_list[0]
 
-        res = self.client.get(f'/workbench/datasource/{datasource_id}')
+        res = self.client.get(f'/workbench/datasource/{datasource_id}', headers=headers(self.wb_token))
 
         assert res.status_code == 200
 
@@ -160,6 +169,7 @@ class TestWorkbenchClass:
         res = self.client.post(
             '/workbench/artifact/submit',
             json=artifact.dict(),
+            headers=headers(self.wb_token),
         )
 
         assert res.status_code == 200
@@ -172,7 +182,7 @@ class TestWorkbenchClass:
         assert artifact_id is not None
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-        res = self.client.get(f'/workbench/artifact/status/{artifact_id}')
+        res = self.client.get(f'/workbench/artifact/status/{artifact_id}', headers=headers(self.wb_token))
 
         assert res.status_code == 200
 
@@ -180,7 +190,7 @@ class TestWorkbenchClass:
         assert status.status is not None
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-        res = self.client.get(f'/workbench/artifact/{artifact_id}')
+        res = self.client.get(f'/workbench/artifact/{artifact_id}', headers=headers(self.wb_token))
 
         assert res.status_code == 200
 
@@ -190,4 +200,4 @@ class TestWorkbenchClass:
         assert downloaded_artifact.dataset.queries[0].datasource_id == datasource_id
         assert len(downloaded_artifact.dataset.queries[0].features) == 2
 
-        os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_id}.json'))
+        shutil.rmtree(os.path.join(STORAGE_ARTIFACTS, artifact_id))

@@ -20,6 +20,7 @@ from ferdelance_shared.schemas import (
     UpdateClientApp,
     UpdateExecute,
     UpdateToken,
+    WorkbenchJoinData,
 )
 from ferdelance_shared.schemas.models import Model
 from ferdelance_shared.operations import Operations
@@ -47,6 +48,7 @@ import json
 import logging
 import os
 import random
+import shutil
 
 LOGGER = logging.getLogger(__name__)
 
@@ -174,6 +176,8 @@ class TestClientClass:
 
             client = cs.get_client_by_id(client_id)
 
+            assert client is not None
+
             data = ClientJoinRequest(
                 system=client.machine_system,
                 mac_address=client.machine_mac_address,
@@ -294,8 +298,11 @@ class TestClientClass:
             cs: ClientService = ClientService(db)
 
             client_id = self.get_client()
+            client = cs.get_client_by_id(client_id)
 
-            client_version = cs.get_client_by_id(client_id).version
+            assert client is not None
+
+            client_version = client.version
 
             assert client_version == 'test'
 
@@ -375,9 +382,11 @@ class TestClientClass:
                 assert update_client_app.checksum == checksum
                 assert json.loads(content) == {'version': version_app}
 
-            client_version = cs.get_client_by_id(client_id).version
+            client = cs.get_client_by_id(client_id)
+            db.refresh(client)
 
-            assert client_version == version_app
+            assert client is not None
+            assert client.version == version_app
 
             # delete local fake client app
             if os.path.exists(path_fake_app):
@@ -415,6 +424,10 @@ class TestClientClass:
             assert ds_fs[1].name == ds_features[1].name
 
     def test_task_get(self):
+        res = self.client.get('/workbench/connect')
+        res.raise_for_status()
+        wb_token = WorkbenchJoinData(**res.json()).token
+
         with SessionLocal() as db:
             client_id = self.get_client()
 
@@ -474,13 +487,14 @@ class TestClientClass:
             submit_response = self.client.post(
                 '/workbench/artifact/submit',
                 json=artifact.dict(),
-                headers=headers(self.token),
+                headers=headers(wb_token),
             )
 
             assert submit_response.status_code == 200
 
             artifact_status = ArtifactStatus(**submit_response.json())
 
+        with SessionLocal() as db:
             n = db.query(Job).count()
             assert n == 1
 
@@ -519,13 +533,14 @@ class TestClientClass:
                 task = Artifact(**content)
 
                 assert task.artifact_id == job.artifact_id
+                assert artifact_status.artifact_id is not None
                 assert task.artifact_id == artifact_status.artifact_id
                 assert len(task.dataset.queries) == 1
                 assert len(task.dataset.queries[0].features) == 2
 
             # cleanup
             LOGGER.info('cleaning up')
-            os.remove(os.path.join(STORAGE_ARTIFACTS, f'{artifact_status.artifact_id}.json'))
+            shutil.rmtree(os.path.join(STORAGE_ARTIFACTS, artifact_status.artifact_id))
 
             db.query(Job).delete()
             db.commit()

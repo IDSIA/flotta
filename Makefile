@@ -12,7 +12,7 @@ reload:
 	docker-compose up -d
 
 logs:
-	docker-compose logs -f server
+	docker-compose logs -f server worker
 
 nuke:
 	docker-compose down

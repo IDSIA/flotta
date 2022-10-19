@@ -27,3 +27,4 @@ storage
 *.tsv
 
 docker-compose.yaml
+Makefile

@@ -35,13 +35,13 @@ class ClientService(DBSessionService):
 
     def update_client(self, client_id: str, version: str = '') -> None:
         if not version:
+            LOGGER.warn('cannot update a version with an empty string')
             return
 
-        LOGGER.info(f'client_id={client_id}: update version to {version}')
-        u = {'version': version}
-
-        self.db.query(Client).filter(Client.client_id == client_id).update(u)
+        self.db.query(Client).filter(Client.client_id == client_id).update({Client.version: version})
         self.db.commit()
+
+        LOGGER.info(f'client_id={client_id}: updated client version to {version}')
 
     def client_leave(self, client_id: str) -> None:
         self.db.query(Client).filter(Client.client_id == client_id).update({
@@ -50,8 +50,8 @@ class ClientService(DBSessionService):
         })
         self.invalidate_all_tokens(client_id)  # this will already commit the changes!
 
-    def get_client_by_id(self, client_id: str) -> Client:
-        return self.db.query(Client).filter(Client.client_id == client_id).one()
+    def get_client_by_id(self, client_id: str) -> Client | None:
+        return self.db.query(Client).filter(Client.client_id == client_id).one_or_none()
 
     def get_client_list(self) -> list[Client]:
         return self.db.query(Client).filter(Client.type == 'CLIENT').all()
@@ -99,7 +99,7 @@ class ClientService(DBSessionService):
         return self.db.query(ClientToken).filter(ClientToken.client_id == client_id, ClientToken.valid == True).one_or_none()
 
     def create_client_event(self, client_id: str, event: str) -> ClientEvent:
-        LOGGER.info(f'client_id={client_id}: creating new event="{event}"')
+        LOGGER.debug(f'client_id={client_id}: creating new event="{event}"')
 
         db_client_event = ClientEvent(
             client_id=client_id,
@@ -113,8 +113,6 @@ class ClientService(DBSessionService):
         return db_client_event
 
     def get_all_client_events(self, client: Client) -> list[ClientEvent]:
-        LOGGER.info(f'client_id={client.client_id}: requested all events')
-
         return self.db.query(ClientEvent).filter(ClientEvent.client_id == client.client_id).all()
 
     def get_token_by_client_type(self, client_type: str) -> str | None:

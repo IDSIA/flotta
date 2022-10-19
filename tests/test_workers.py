@@ -85,7 +85,7 @@ class TestFilesClass:
 
             # test artifact not found
             res = self.client.get(
-                f'/files/artifact/{uuid.uuid4()}',
+                f'/worker/artifact/{uuid.uuid4()}',
                 headers=headers(token),
             )
 
@@ -119,7 +119,7 @@ class TestFilesClass:
 
             # test artifact submit
             res = self.client.post(
-                '/files/artifact',
+                '/worker/artifact',
                 headers=headers(token),
                 json=artifact.dict()
             )
@@ -143,7 +143,7 @@ class TestFilesClass:
 
             # test artifact get
             res = self.client.get(
-                f'/files/artifact/{status.artifact_id}',
+                f'/worker/artifact/{status.artifact_id}',
                 headers=headers(token),
             )
 
@@ -175,7 +175,7 @@ class TestFilesClass:
                 pickle.dump(model, f)
 
             res = self.client.post(
-                f'/files/model/{artifact.artifact_id}',
+                f'/worker/model/{artifact.artifact_id}',
                 headers=headers(token),
                 files={'file': open(model_path, 'rb')}
             )
@@ -190,7 +190,7 @@ class TestFilesClass:
 
             # test model get
             res = self.client.get(
-                f'/files/model/{model_id}',
+                f'/worker/model/{model_id}',
                 headers=headers(token),
             )
 
