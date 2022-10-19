@@ -31,6 +31,10 @@ def config_worker_init(sender=None, conf=None, instance=None, **kwargs):
 
 @worker_ready.connect
 def config_worker_ready(sender=None, conf=None, instance=None, **kwargs):
+    server_url = os.environ.get('SERVER_URL', 'http://server').rstrip('/')
+    server_port = os.environ.get('SERVER_PORT', '1456')
+
+    LOGGER.info(f'configured server: {server_url}:{server_port}')
     LOGGER.info('worker ready to accept tasks')
 
 

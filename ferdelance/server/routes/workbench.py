@@ -133,7 +133,7 @@ def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db), c
         jms: JobManagementService = JobManagementService(db)
         status = jms.submit_artifact(artifact)
 
-        LOGGER.info(f'a workbench submitted a new with assigned artifact_id={status.artifact_id}')
+        LOGGER.info(f'a workbench submitted a new artifact with assigned artifact_id={status.artifact_id}')
 
         return status
 

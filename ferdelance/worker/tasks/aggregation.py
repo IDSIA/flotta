@@ -12,6 +12,10 @@ import requests
 LOGGER = logging.getLogger(__name__)
 
 
+def headers(token):
+    return {'Authorization': f'Bearer {token}'}
+
+
 @worker.task(
     ignore_result=False,
     bind=True,
@@ -20,18 +24,18 @@ def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> Non
     try:
         task_id: str = str(self.request.id)
 
-        server_url: str | None = os.environ.get('SERVER_URL', None)
+        server_url = os.environ.get('SERVER_URL', 'http://server').rstrip('/')
+        server_port = os.environ.get('SERVER_PORT', '1456')
 
-        if server_url is None:
-            raise ValueError('No SERVER_URL variable found, cannot perform aggregation')
+        server = f'{server_url}:{server_port}'
 
-        server_url = server_url.rstrip('/')
+        LOGGER.debug(f'using server {server}')
 
         LOGGER.info(f'beginning aggregation task={task_id} for artifact_id={artifact_id}')
 
         res = requests.get(
-            f'{server_url}/worker/artifact/{artifact_id}',
-            headers={'Authorization': f'Bearer {token}'},
+            f'{server}/worker/artifact/{artifact_id}',
+            headers=headers(token),
         )
 
         res.raise_for_status()
@@ -50,7 +54,11 @@ def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> Non
 
         for model_id in model_ids:
             LOGGER.info(f'requesting {model_id}')
-            res = requests.get(f'{server_url}/file/model/{model_id}')
+
+            res = requests.get(
+                f'{server}/worker/model/{model_id}',
+                headers=headers(token),
+            )
 
             res.raise_for_status()
 
@@ -64,8 +72,8 @@ def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> Non
         LOGGER.info(f'aggregated {len(model_ids)} model(s)')
 
         res = requests.post(
-            f'{server_url}/worker/model/{artifact_id}',
-            headers={'Authorization': f'Bearer {token}'},
+            f'{server}/worker/model/{artifact_id}',
+            headers=headers(token),
             files={'file': pickle.dumps(base_model)}
         )
 

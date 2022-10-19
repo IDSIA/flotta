@@ -27,7 +27,12 @@ def check_access(db: Session = Depends(get_db), client_id: str = Depends(check_t
 
     client = cs.get_client_by_id(client_id)
 
-    if client is None or client.type != 'WORKER':
+    if client is None:
+        LOGGER.warn(f'client_id={client_id} not found')
+        raise HTTPException(403)
+
+    if client.type != 'WORKER':
+        LOGGER.warn(f'client of type={client.type} cannot access the route')
         raise HTTPException(403)
 
     return client

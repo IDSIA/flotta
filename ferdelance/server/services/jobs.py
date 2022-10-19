@@ -158,7 +158,7 @@ class JobManagementService(DBSessionService):
 
         LOGGER.info(f'All {total} job(s) completed, starting aggregation')
 
-        token = self.cs.get_token_by_client_type('WORKBENCH')
+        token = self.cs.get_token_by_client_type('WORKER')
 
         model_ids: list[str] = [m.model_id for m in self.ms.get_models_by_artifact_id(artifact_id)]
 
