@@ -6,6 +6,8 @@ RUN python -m venv /opt/venv
 
 ENV PATH="/opt/venv/bin:${PATH}"
 
+RUN python -m pip install --upgrade pip
+
 # copy and install shared library
 COPY federated-learning-shared/ /federated-learning-shared/
 
@@ -13,8 +15,6 @@ RUN pip install --no-cache-dir /federated-learning-shared/
 
 # copy config file and install dependencies
 COPY setup.cfg /
-
-RUN python -m pip install --upgrade pip
 
 RUN cd / && \
     python -c "import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['options']['install_requires'])" | xargs pip install

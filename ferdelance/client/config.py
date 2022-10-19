@@ -41,6 +41,7 @@ class Config:
         self.path_server_key: str = os.path.join(self.workdir, 'server_key.pub')
         self.path_private_key: str = os.path.join(self.workdir, 'private_key.pem')
         self.path_artifact_folder: str = os.path.join(self.workdir, 'artifacts')
+        self.path_artifact_folder: str = os.path.join(self.workdir, 'artifacts')
 
     def check(self) -> None:
         # check for existing working directory

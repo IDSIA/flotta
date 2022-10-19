@@ -10,6 +10,7 @@ from ferdelance_shared.schemas import (
     UpdateClientApp,
     DownloadApp,
 )
+from ferdelance_shared.schemas.models import Metrics
 
 from requests import Response, post, get
 
@@ -212,3 +213,39 @@ class RouteService:
 
             with open('.update', 'w') as f:
                 f.write(path_file)
+
+    def post_model(self, artifact_id: str, path_in: str):
+
+        path_out = f'{path_in}.enc'
+
+        enc = HybridEncrypter(self.config.server_public_key)
+        with open(path_out, 'wb') as w:
+            w.write(enc.start())
+            with open(path_in, 'rb') as r:
+                while content := r.read():
+                    w.write(enc.update(content))
+                w.write(enc.end())
+
+        res = post(
+            f'{self.config.server}/client/task/{artifact_id}',
+            data=open(path_out, 'rb'),
+            headers=self.headers(),
+        )
+
+        if os.path.exists(path_out):
+            os.remove(path_out)
+
+        res.raise_for_status()
+
+        LOGGER.info(f'model for artifact_id={artifact_id} uploaded successful')
+
+    def post_metrics(self, metrics: Metrics):
+        res = post(
+            f'{self.config.server}/client/metrics',
+            data=self.create_payload(metrics.dict()),
+            headers=self.headers(),
+        )
+
+        res.raise_for_status()
+
+        LOGGER.info(f'metrics for artifact_id={metrics.artifact_id} source={metrics.source} uploaded successful')

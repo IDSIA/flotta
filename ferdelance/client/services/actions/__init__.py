@@ -27,8 +27,6 @@ class ActionService:
         self.controller: ClientActionController = ClientActionController()
 
     def perform_action(self, action: ActionType, data: dict) -> ActionType:
-        LOGGER.info(f'action received={action}')
-
         if action == ActionType.UPDATE_TOKEN:
             update_token_action = UpdateTokenAction(self.config, UpdateToken(**data))
             self.controller.execute(update_token_action)

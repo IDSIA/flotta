@@ -46,7 +46,7 @@ class FerdelanceClient:
         self.stop: bool = False
 
     def beat(self):
-        LOGGER.info(f'waiting for {self.config.heartbeat}')
+        LOGGER.debug(f'waiting for {self.config.heartbeat}')
         sleep(self.config.heartbeat)
 
     def get_datasource(self, name: str, filter: str | None = None) -> None:
@@ -177,11 +177,11 @@ class FerdelanceClient:
 
             while self.status != Action.CLIENT_EXIT and not self.stop:
                 try:
-                    LOGGER.info('requesting update')
+                    LOGGER.debug('requesting update')
 
                     action, data = routes_service.get_update({})
 
-                    LOGGER.info(f'update: action={action}')
+                    LOGGER.debug(f'update: action={action}')
 
                     # work loop
                     self.status = action_service.perform_action(action, data)
