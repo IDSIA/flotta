@@ -9,6 +9,7 @@ volumes:
 services:
   client: 
     image: idsia.ferdelance.client
+    container_name: ferdelance-client
     build:
       context: .
       dockerfile: Dockerfile
