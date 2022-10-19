@@ -2,7 +2,6 @@ from enum import Enum, auto
 
 
 class JobStatus(Enum):
-    CREATED = auto()
     SCHEDULED = auto()
     RUNNING = auto()
     COMPLETED = auto()

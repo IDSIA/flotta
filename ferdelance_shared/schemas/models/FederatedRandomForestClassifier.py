@@ -47,11 +47,10 @@ class ParametersRandomForestClassifier(BaseModel):
 
 
 class FederatedRandomForestClassifier(GenericModel):
+    name: str = 'FederatedRandomForestClassifier'
 
     def __init__(self, strategy: StrategyRandomForestClassifier, parameters: ParametersRandomForestClassifier) -> None:
         super().__init__()
-
-        self.name: str = 'FederatedRandomForestClassifier'
 
         self.strategy: StrategyRandomForestClassifier = strategy
         self.parameters: ParametersRandomForestClassifier = parameters
@@ -66,12 +65,14 @@ class FederatedRandomForestClassifier(GenericModel):
             pickle.dump(self.model, f)
 
     def predict(self, x: np.ndarray) -> np.ndarray:
+        if self.model is None:
+            raise ValueError('No model has been loaded or created')
         return self.model.predict(x)
 
     def build(self) -> Model:
         return Model(
             name=self.name,
-            strategy=str(self.strategy),
+            strategy=self.strategy.name,
             parameters=self.parameters.dict()
         )
 
