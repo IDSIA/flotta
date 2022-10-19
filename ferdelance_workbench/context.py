@@ -2,7 +2,6 @@ from ferdelance_workbench.exceptions import ServerError
 from ferdelance_workbench.artifacts import *
 from ferdelance_workbench.models import *
 from ferdelance_shared.schemas import WorkbenchJoinData
-from ferdelance_shared.schemas.models import GenericModel
 
 from uuid import uuid4
 

@@ -3,6 +3,8 @@ from ferdelance_workbench.context import Context
 from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Dataset, Query, DataSource
 from ferdelance_workbench.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier, ParametersRandomForestClassifier
 
+import numpy as np
+
 import json
 
 # %% create the context
@@ -80,8 +82,11 @@ art = ctx.get_artifact(a.artifact_id)
 print(art)
 
 # %% download trained model:
-model_path = ctx.get_model(a)
+m.load(ctx.get_model(a))
 
-m.load(model_path)
+# %%
+
+print(m.predict(np.array([[0, 0, 0, 0]])))
+print(m.predict(np.array([[1, 1, 1, 1]])))
 
 # %%
