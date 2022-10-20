@@ -1,8 +1,11 @@
+from ..config import LOGGING_CONFIG
+
 from celery import Celery
-from celery.signals import worker_ready, worker_init, worker_shutdown, celeryd_init
+from celery.signals import worker_ready, worker_init, worker_shutdown, celeryd_init, after_setup_logger
 
 import logging
 import os
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,6 +20,12 @@ worker = Celery(
 worker.conf.update(
     result_expires=3600,
 )
+
+
+@after_setup_logger.connect
+def setup_loggers(logger, *args, **kwargs):
+    import logging.config
+    logging.config.dictConfig(LOGGING_CONFIG)
 
 
 @celeryd_init.connect
