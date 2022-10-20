@@ -29,6 +29,7 @@ case $W in
         uvicorn \
             ferdelance.server.api:api \
             --host 0.0.0.0 \
-            --port 1456
+            --port 1456 \
+            --log-level critical
         ;;
 esac
