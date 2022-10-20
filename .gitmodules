@@ -4,3 +4,6 @@
 [submodule "federated-learning-client"]
 	path = federated-learning-client
 	url = git@gitlab-core.supsi.ch:dti-idsia/spearhead/federated-learning-client
+[submodule "federated-learning-workbench"]
+	path = federated-learning-workbench
+	url = git@gitlab-core.supsi.ch:dti-idsia/spearhead/federated-learning-workbench.git
