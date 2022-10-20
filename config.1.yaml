@@ -1,6 +1,11 @@
 ferdelance:
+  client:
+    server: ${SERVER}
+    heartbeat: 10.0
+    workdir: ./workdir
+
   datasource:
     - name: california1
       type: csv
-      path: "data/california_housing.MedIncHigh.csv"
+      path: "/ferdelance/data/california_housing.MedIncHigh.csv"
       kind: file
