@@ -65,3 +65,6 @@ class ModelService(DBSessionService):
 
     def get_models_by_job_id(self, job_id: str) -> list[Model]:
         return self.db.query(Model).filter(Model.job_id == job_id).all()
+
+    def get_model_list(self) -> list[Model]:
+        return self.db.query(Model).all()

@@ -179,6 +179,9 @@ class DataSourceService(DBSessionService):
     def get_datasource_by_id(self, ds_id: str) -> ClientDataSource:
         return self.db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).one()
 
+    def get_datasource_by_name(self, ds_name: str) -> list[ClientDataSource]:
+        return self.db.query(ClientDataSource).filter(ClientDataSource.name == ds_name, ClientDataSource.removed == False).all()
+
     def get_client_by_datasource_id(self, ds_id: str) -> Client:
         return self.db.query(Client)\
             .join(ClientDataSource, Client.client_id == ClientDataSource.client_id)\
