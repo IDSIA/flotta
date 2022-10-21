@@ -85,7 +85,7 @@ services:
       - FDL_SERVER=http://server:1456
     volumes: 
       - ferdelance-client-1-data:/ferdelance/workdir
-      - ./config.yaml:/ferdelance/config.1.yaml
+      - ./config.1.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
     networks:
       - ferdelance
@@ -99,7 +99,7 @@ services:
       - FDL_SERVER=http://server:1456
     volumes: 
       - ferdelance-client-2-data:/ferdelance/workdir
-      - ./config.yaml:/ferdelance/config.2.yaml
+      - ./config.2.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
     networks:
       - ferdelance

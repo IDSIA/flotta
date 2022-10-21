@@ -23,3 +23,6 @@ __pycache__
 *.pem
 
 storage/
+
+*.model
+data/
