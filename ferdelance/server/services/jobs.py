@@ -142,13 +142,11 @@ class JobManagementService(DBSessionService):
             LOGGER.error(f'Cannot aggregate: artifact_id={artifact_id} not found')
             return
 
-        scheduled = self.js.count_jobs_by_status(artifact_id, JobStatus.SCHEDULED)
+        total = self.js.count_jobs_for_artifact(artifact_id)
         completed = self.js.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
         error = self.js.count_jobs_by_status(artifact_id, JobStatus.ERROR)
 
-        total = scheduled + completed
-
-        if scheduled > 0:
+        if completed < total:
             LOGGER.info(f'Cannot aggregate: {completed} / {total} completed job(s)')
             return
 

@@ -159,12 +159,13 @@ async def wb_get_client_datasource_by_name(ds_id: str, db: Session = Depends(get
 @workbench_router.post('/workbench/artifact/submit', response_model=ArtifactStatus)
 def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     check_access(db, client_id)
+    LOGGER.info(f'a workbench submitted a new artifact')
 
     try:
         jms: JobManagementService = JobManagementService(db)
         status = jms.submit_artifact(artifact)
 
-        LOGGER.info(f'a workbench submitted a new artifact with assigned artifact_id={status.artifact_id}')
+        LOGGER.info(f'submitted artifact got artifact_id={status.artifact_id}')
 
         return status
 

@@ -18,7 +18,7 @@ class JobService(DBSessionService):
         super().__init__(db)
 
     def schedule_job(self, artifact_id: str, client_id: str) -> Job:
-        LOGGER.info(f'scheduled new job for artifact_id={artifact_id} client_id={client_id}')
+        LOGGER.info(f'client_id={client_id}: scheduled new job for artifact_id={artifact_id}')
 
         job = Job(
             artifact_id=artifact_id,
@@ -44,7 +44,7 @@ class JobService(DBSessionService):
         self.db.commit()
         self.db.refresh(job)
 
-        LOGGER.info(f'started execution of job_id={job.job_id} artifact_id={job.artifact_id} client_id={job.client_id}')
+        LOGGER.info(f'client_id={job.client_id}: started execution of job_id={job.job_id} artifact_id={job.artifact_id}')
 
         return job
 
@@ -60,7 +60,7 @@ class JobService(DBSessionService):
             self.db.commit()
             self.db.refresh(job)
 
-            LOGGER.info(f'completed execution of job_id={job.job_id} artifact_id={job.artifact_id} client_id={job.client_id}')
+            LOGGER.info(f'client_id={job.client_id}: completed execution of job_id={job.job_id} artifact_id={job.artifact_id}')
 
             return job
 
@@ -84,7 +84,7 @@ class JobService(DBSessionService):
         self.db.commit()
         self.db.refresh(job)
 
-        LOGGER.error(f'failed execution of job_id={job.job_id} artifact_id={job.artifact_id} client_id={job.client_id}')
+        LOGGER.error(f'client_id={job.client_id}: failed execution of job_id={job.job_id} artifact_id={job.artifact_id}')
 
         return job
 
@@ -96,6 +96,9 @@ class JobService(DBSessionService):
 
     def get_jobs_for_artifact(self, artifact_id: str) -> list[Job]:
         return self.db.query(Job).filter(Job.artifact_id == artifact_id).all()
+
+    def count_jobs_for_artifact(self, artifact_id: str) -> int:
+        return self.db.query(Job).filter(Job.artifact_id == artifact_id).count()
 
     def count_jobs_by_status(self, artifact_id: str, status: JobStatus) -> int:
         return self.db.query(Job).filter(Job.artifact_id == artifact_id, Job.status == status.name).count()

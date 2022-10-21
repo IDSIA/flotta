@@ -68,7 +68,7 @@ class ClientService(DBSessionService):
         existing_client_token: ClientToken | None = self.db.query(ClientToken).filter(ClientToken.token == token.token).one_or_none()
 
         if existing_client_token is not None:
-            LOGGER.warning(f'valid token already exists for client_id={existing_client_token.client_id}')
+            LOGGER.warning(f'client_id={existing_client_token.client_id}: a valid token already exists')
             # TODO: check if we have more strong condition for this
             return existing_client_token
 
