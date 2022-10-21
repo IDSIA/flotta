@@ -34,3 +34,4 @@ class ArtifactService(DBSessionService):
         self.db.query(Artifact).filter(Artifact.artifact_id == artifact_id).update({
             'status': new_status.name,
         })
+        self.db.commit()
