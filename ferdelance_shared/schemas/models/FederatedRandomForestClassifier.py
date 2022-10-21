@@ -49,12 +49,15 @@ class ParametersRandomForestClassifier(BaseModel):
 class FederatedRandomForestClassifier(GenericModel):
     name: str = 'FederatedRandomForestClassifier'
 
-    def __init__(self, strategy: StrategyRandomForestClassifier, parameters: ParametersRandomForestClassifier) -> None:
+    def __init__(self, strategy: StrategyRandomForestClassifier | None = None, parameters: ParametersRandomForestClassifier = ParametersRandomForestClassifier(), load: str | None = None) -> None:
         super().__init__()
 
-        self.strategy: StrategyRandomForestClassifier = strategy
+        self.strategy: StrategyRandomForestClassifier | None = strategy
         self.parameters: ParametersRandomForestClassifier = parameters
         self.model: RandomForestClassifier | None = None
+
+        if load:
+            self.load(load)
 
     def load(self, path) -> None:
         with open(path, 'rb') as f:
@@ -70,6 +73,9 @@ class FederatedRandomForestClassifier(GenericModel):
         return self.model.predict(x)
 
     def build(self) -> Model:
+        if not self.strategy:
+            raise ValueError('Cannot build model with no strategy assigned')
+
         return Model(
             name=self.name,
             strategy=self.strategy.name,
