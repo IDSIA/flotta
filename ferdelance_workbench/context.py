@@ -1,9 +1,11 @@
 from ferdelance_workbench.exceptions import ServerError
-from ferdelance_workbench.artifacts import *
-from ferdelance_workbench.models import *
+from ferdelance_workbench.artifacts import (
+    ClientDetails,
+    DataSource,
+    Artifact,
+    ArtifactStatus,
+)
 from ferdelance_shared.schemas import WorkbenchJoinData
-
-from uuid import uuid4
 
 import json
 import logging
@@ -105,6 +107,28 @@ class Context:
 
         return DataSource(**res.json())
 
+    def datasources_by_name(self, datasource_name: str) -> list[DataSource]:
+        """Returns the detail, like metadata, of the datasources associated with the
+        given name.
+
+        :param datasource_name:
+            This is the name of one or more data sources.
+        :raises HTTPError:
+            If the return code of the response is not a 2xx type.
+        :returns:
+            A list with all the details of the datasources with the given name,
+            with also the features.
+        """
+        res = requests.get(
+            f'{self.server}/workbench/datasource/name/{datasource_name}',
+            headers=self.headers(),
+        )
+
+        if res.status_code != 200:
+            raise ServerError(f'server status code: {res.status_code}')
+
+        return [DataSource(**data) for data in res.json()]
+
     def submit(self, artifact: Artifact) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
 
@@ -192,7 +216,37 @@ class Context:
         res.raise_for_status()
 
         if not path:
-            path = f'{artifact.model.name}.{uuid4()}.model'
+            path = f'{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model'
+
+        with open(path, 'wb') as f:
+            f.write(res.content)
+
+        return path
+
+    def get_partial_model(self, artifact: Artifact, client_id: str, path: str = '') -> str:
+        """Get the trained partial model from the artifact and save it to disk.
+
+        :param artifact:
+            Artifact to get the model from.
+        :param client_id:
+            The client_it that trained the partial model.
+        :param path:
+            Optional, destination path on disk. If none, a UUID will be used to store the downloaded model.
+        :raises HTTPError:
+            If the return code of the response is not a 2xx type.
+        """
+        if artifact.artifact_id is None:
+            raise ValueError('submit first the artifact to the server')
+
+        res = requests.get(
+            f'{self.server}/workbench/model/partial/{artifact.artifact_id}/{client_id}',
+            headers=self.headers(),
+        )
+
+        res.raise_for_status()
+
+        if not path:
+            path = f'{artifact.artifact_id}.{artifact.model.name}.{client_id}.PARTIAL.model'
 
         with open(path, 'wb') as f:
             f.write(res.content)
