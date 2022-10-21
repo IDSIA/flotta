@@ -27,10 +27,14 @@ class ArtifactService(DBSessionService):
     def get_artifact(self, artifact_id: str) -> Artifact | None:
         return self.db.query(Artifact).filter(Artifact.artifact_id == artifact_id).first()
 
-    def get_models_by_artifact_id(self, artifact_id: str) -> list[Model]:
-        return self.db.query(Model).filter(Model.artifact_id == artifact_id, Model.aggregated).all()
+    def get_aggregated_model(self, artifact_id: str) -> Model:
+        return self.db.query(Model).filter(Model.artifact_id == artifact_id, Model.aggregated).one()
+
+    def get_partial_model(self, artifact_id: str, client_id: str) -> Model:
+        return self.db.query(Model).filter(Model.artifact_id == artifact_id, Model.client_id == client_id).one()
 
     def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> None:
         self.db.query(Artifact).filter(Artifact.artifact_id == artifact_id).update({
             'status': new_status.name,
         })
+        self.db.commit()

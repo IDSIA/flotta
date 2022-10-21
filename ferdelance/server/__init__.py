@@ -1,6 +1,5 @@
-import logging
+from ..config import LOGGING_CONFIG
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(name)s %(levelname)5s %(message)s',
-)
+import logging.config
+
+logging.config.dictConfig(LOGGING_CONFIG)

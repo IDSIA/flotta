@@ -130,7 +130,7 @@ async def client_update(request: Request, db: Session = Depends(get_db), client_
 
     next_action = acs.next(ss.client, payload)
 
-    LOGGER.info(f'client_id={client_id}: update action={next_action.action}')
+    LOGGER.debug(f'client_id={client_id}: update action={next_action.action}')
 
     cs.create_client_event(client_id, f'action:{next_action.action}')
 

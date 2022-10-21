@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from sqlalchemy.orm import Session
+import sqlalchemy.orm.exc as sqlex
 
 from ...database import get_db
 from ...database.services import ArtifactService, ClientService, DataSourceService
@@ -125,6 +126,36 @@ async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db), cl
     )
 
 
+@workbench_router.get('/workbench/datasource/name/{ds_id}', response_model=list[DataSource])
+async def wb_get_client_datasource_by_name(ds_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    LOGGER.info(f'a workbench requested details on datasource_name={ds_id}')
+
+    check_access(db, client_id)
+
+    dss: DataSourceService = DataSourceService(db)
+
+    ds_dbs: list[ClientDataSource] = dss.get_datasource_by_name(ds_id)
+
+    if not ds_dbs:
+        LOGGER.warn(f'datasource_id={ds_id} not found in database or has been removed')
+        raise HTTPException(404)
+
+    ret_ds = []
+
+    for ds_db in ds_dbs:
+
+        f_db = dss.get_features_by_datasource(ds_db)
+
+        fs = [Feature(**f.__dict__) for f in f_db if not f.removed]
+
+        ret_ds.append(DataSource(
+            **ds_db.__dict__,
+            features=fs,
+        ))
+
+    return ret_ds
+
+
 @workbench_router.post('/workbench/artifact/submit', response_model=ArtifactStatus)
 def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
     check_access(db, client_id)
@@ -188,17 +219,56 @@ async def wb_get_model(artifact_id: str, db: Session = Depends(get_db), client_i
 
     ars: ArtifactService = ArtifactService(db)
 
-    model_dbs: list[Model] = ars.get_models_by_artifact_id(artifact_id)
+    try:
+        model_db: Model = ars.get_aggregated_model(artifact_id)
 
-    if not model_dbs:
+        model_path = model_db.path
+
+        if not os.path.exists(model_path):
+            raise ValueError(f'model_id={model_db.model_id} not found at path={model_path}')
+
+        return FileResponse(model_path)
+
+    except ValueError as e:
+        LOGGER.warn(str(e))
         raise HTTPException(404)
 
-    model_db = [m for m in model_dbs if m.aggregated][0]
-
-    model_path = model_db.path
-
-    if not os.path.exists(model_path):
-        LOGGER.warn(f'model_id={model_db.model_id} not found at path={model_path}')
+    except sqlex.NoResultFound as _:
+        LOGGER.warn(f'no aggregated model found for artifact_id={artifact_id}')
         raise HTTPException(404)
 
-    return FileResponse(model_path)
+    except sqlex.MultipleResultsFound as _:
+        LOGGER.error(f'multiple aggregated models found for artifact_id={artifact_id}')  # TODO: do we want to allow this?
+        raise HTTPException(500)
+
+
+@workbench_router.get('/workbench/model/partial/{artifact_id}/{builder_client_id}', response_class=FileResponse)
+async def wb_get_partial_model(artifact_id: str, builder_client_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+    LOGGER.info(f'a workbench requested partial model for artifact_id={artifact_id} from client_id={builder_client_id}')
+
+    check_access(db, client_id)
+
+    ars: ArtifactService = ArtifactService(db)
+
+    try:
+
+        model_db: Model = ars.get_partial_model(artifact_id, builder_client_id)
+
+        model_path = model_db.path
+
+        if not os.path.exists(model_path):
+            raise ValueError(f'partial model_id={model_db.model_id} not found at path={model_path}')
+
+        return FileResponse(model_path)
+
+    except ValueError as e:
+        LOGGER.warn(str(e))
+        raise HTTPException(404)
+
+    except sqlex.NoResultFound as _:
+        LOGGER.warn(f'no partial model found for artifact_id={artifact_id} and client_id={builder_client_id}')
+        raise HTTPException(404)
+
+    except sqlex.MultipleResultsFound as _:
+        LOGGER.error(f'multiple partial models found for artifact_id={artifact_id} and client_id={builder_client_id}')  # TODO: do we want to allow this?
+        raise HTTPException(500)

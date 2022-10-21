@@ -1,11 +1,32 @@
-from fastapi import APIRouter, Depends, UploadFile, Response, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import (
+    APIRouter,
+    Depends,
+    UploadFile,
+    Response,
+    HTTPException,
+)
 
 from ...database import get_db
-from ...database.services import ModelService, ClientService, JobService
-from ...database.tables import ClientApp, Artifact, Model, Client
-from ..schemas.manager import *
-from ...config import FILE_CHUNK_SIZE, STORAGE_CLIENTS, STORAGE_ARTIFACTS
+from ...database.services import (
+    ModelService,
+    ClientService,
+    JobService,
+)
+from ...database.tables import (
+    ClientApp,
+    Artifact,
+    Model,
+    Client,
+)
+from ..schemas.manager import (
+    ManagerUploadClientMetadataRequest,
+    ManagerUploadClientResponse,
+)
+from ...config import (
+    FILE_CHUNK_SIZE,
+    STORAGE_CLIENTS,
+    STORAGE_ARTIFACTS,
+)
 
 from typing import Any
 from sqlalchemy.orm import Session
@@ -110,18 +131,6 @@ async def manager_upload_artifact(file: UploadFile, db: Session = Depends(get_db
     return Response()
 
 
-@manager_router.get('/manager/download/model', response_class=FileResponse)
-async def manager_download_model(request: ManagerDownloadModelRequest, db: Session = Depends(get_db)):
-    ms: ModelService = ModelService(db)
-
-    model: Model = ms.get_model_by_id(request.model_id)
-
-    if model is None:
-        raise HTTPException(status_code=404)
-
-    return FileResponse(model.path)
-
-
 @manager_router.get('/manager/client/list')
 async def manager_client_list(db: Session = Depends(get_db)):
     cs: ClientService = ClientService(db)
@@ -175,3 +184,18 @@ async def manager_client_job_status(client_id: str, db: Session = Depends(get_db
         'client_id': j.client_id,
         'status': j.status,
     } for j in jobs]
+
+
+@manager_router.get('/manager/models')
+async def manager_models_list(db: Session = Depends(get_db)):
+    ms = ModelService(db)
+
+    model_dbs: list[Model] = ms.get_model_list()
+
+    return [{
+        'model_id': m.model_id,
+        'artifact_id': m.artifact_id,
+        'client_id': m.client_id,
+        'aggregated': m.aggregated,
+        'creation_time': m.creation_time,
+    } for m in model_dbs]
