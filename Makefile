@@ -26,14 +26,24 @@ logs-server:
 	docker-compose -p ${project} logs -f server worker
 
 clear:
+					            
 	docker volume rm ${project}_ferdelance-server-data
-	docker volume rm ${project}_ferdelance-client-data
+	docker volume rm ${project}_ferdelance-client-1-data
+	docker volume rm ${project}_ferdelance-client-2-data
 	docker volume rm ${project}_ferdelance-db-data
 
 create:
 	python -m venv Ferdelance_env
 
+del:
+	rm -rf Ferdelance_env
+
 dev:
-	pip install federated-learning-workbench/federated-learning-shared/
-	pip install federated-learning-workbench/
-	pip install -e .
+	cd federated-learning-client    && pip install federated-learning-shared/
+	cd federated-learning-client    && pip install ".[test]" && rm -rf build
+	cd federated-learning-server    && pip install ".[test]" && rm -rf build
+	cd federated-learning-workbench && pip install ".[test]" && rm -rf build
+	pip install -e ".[test]"
+
+test:
+	python tests/test_distributed.py
