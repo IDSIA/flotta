@@ -8,12 +8,35 @@ from ferdelance_workbench.models import (
     StrategyRandomForestClassifier,
     ParametersRandomForestClassifier,
 )
+
 from dotenv import load_dotenv
+from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
+
+import pandas as pd
 
 import time
 import os
 
+
 load_dotenv()
+
+
+def evaluate(model: FederatedRandomForestClassifier, x, y):
+    pred = model.predict(x)
+    y_pred = (pred > 0.5).astype('int')
+
+    f1 = f1_score(y, y_pred)
+    ac = accuracy_score(y, y_pred)
+    ra = roc_auc_score(y, pred)
+
+    cm = confusion_matrix(y, pred)
+
+    print('Accuracy:', ac)
+    print('F1:      ', f1)
+    print('ROC AUC: ', ra)
+
+    print(cm)
+
 
 if __name__ == '__main__':
 
@@ -57,9 +80,9 @@ if __name__ == '__main__':
         time.sleep(0.5)
     print('done!')
 
-    model_path = ctx.get_model(a)
+    aggregated_model_path = ctx.get_model(a)
 
-    print('model saved to:          ', model_path)
+    print('model saved to:          ', aggregated_model_path)
 
     partial_model_path_1 = ctx.get_partial_model(a, ds_california_1.client_id)
 
@@ -68,3 +91,24 @@ if __name__ == '__main__':
     partial_model_path_2 = ctx.get_partial_model(a, ds_california_2.client_id)
 
     print('partial model 2 saved to:', partial_model_path_2)
+
+    df = pd.read_csv('data/california_housing.validation.csv')
+
+    cls_pa1 = FederatedRandomForestClassifier(load=partial_model_path_1)
+    cls_pa2 = FederatedRandomForestClassifier(load=partial_model_path_2)
+    cls_agg = FederatedRandomForestClassifier(load=aggregated_model_path)
+
+    X = df.drop('MedHouseValDiscrete', axis=1).values
+    Y = df['MedHouseValDiscrete']
+
+    print('Partial Model 1')
+    evaluate(cls_pa1, X, Y)
+    print()
+
+    print('Partial Model 2')
+    evaluate(cls_pa2, X, Y)
+    print()
+
+    print('Aggregated model')
+    evaluate(cls_agg, X, Y)
+    print()

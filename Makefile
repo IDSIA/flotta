@@ -39,10 +39,10 @@ del:
 	rm -rf Ferdelance_env
 
 dev:
-	cd federated-learning-client    && pip install federated-learning-shared/
+	cd federated-learning-workbench && pip install federated-learning-shared/
+	cd federated-learning-workbench && pip install ".[test]" && rm -rf build
 	cd federated-learning-client    && pip install ".[test]" && rm -rf build
 	cd federated-learning-server    && pip install ".[test]" && rm -rf build
-	cd federated-learning-workbench && pip install ".[test]" && rm -rf build
 	pip install -e ".[test]"
 
 test:
