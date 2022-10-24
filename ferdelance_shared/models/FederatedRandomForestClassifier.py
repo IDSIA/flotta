@@ -10,7 +10,6 @@ from .core import GenericModel, Model
 
 import logging
 import numpy as np
-import pickle
 
 LOGGER = logging.getLogger(__name__)
 
@@ -63,28 +62,11 @@ class FederatedRandomForestClassifier(GenericModel):
         if load:
             self.load(load)
 
-    def load(self, path) -> None:
-        with open(path, 'rb') as f:
-            self.model = pickle.load(f)
-
-    def save(self, path) -> None:
-        with open(path, 'wb') as f:
-            pickle.dump(self.model, f)
-
-    def predict(self, x: np.ndarray) -> np.ndarray:
+    def train(self, x, y) -> None:
         if self.model is None:
-            raise ValueError('No model has been loaded or created')
-        return self.model.predict(x)
+            self.model = RandomForestClassifier(**self.parameters.dict())
 
-    def build(self) -> Model:
-        if not self.strategy:
-            raise ValueError('Cannot build model with no strategy assigned')
-
-        return Model(
-            name=self.name,
-            strategy=self.strategy.name,
-            parameters=self.parameters.dict()
-        )
+        self.model.fit(x, y)
 
     def aggregate(self, strategy_str: str, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier) -> RandomForestClassifier | VotingClassifier:
         LOGGER.info(f'AggregatorRandomForestClassifier: using strategy={strategy_str}')
@@ -131,6 +113,21 @@ class FederatedRandomForestClassifier(GenericModel):
         vc.classes_ = vc.le_.classes_
 
         return vc
+
+    def predict(self, x) -> np.ndarray:
+        if self.model is None:
+            raise ValueError('No model has been loaded or created')
+        return self.model.predict(x)
+
+    def build(self) -> Model:
+        if not self.strategy:
+            raise ValueError('Cannot build model with no strategy assigned')
+
+        return Model(
+            name=self.name,
+            strategy=self.strategy.name,
+            parameters=self.parameters.dict()
+        )
 
     @staticmethod
     def from_model(model: Model) -> FederatedRandomForestClassifier:

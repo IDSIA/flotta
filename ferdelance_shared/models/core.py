@@ -5,6 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 
 import numpy as np
+import pickle
 
 from sklearn.metrics import (
     accuracy_score,
@@ -27,25 +28,27 @@ class Model(BaseModel):
 class GenericModel:
     """This is the class that can manipulate real models."""
 
-    def load(self, path) -> None:
+    def load(self, path: str) -> None:
         """Load a trained model from a path on the local disk to the internal
         model object.
 
         :param path:
             A valid path to a model downloaded from the aggregation server.
         """
-        raise NotImplementedError()
+        with open(path, 'rb') as f:
+            self.model = pickle.load(f)
 
-    def save(self, path) -> None:
+    def save(self, path: str) -> None:
         """Save the internal model object to the disk. Models save with this method
         can be loaded again using the `load()` method.
 
         :param path:
             A valid path to the disk. 
         """
-        raise NotImplementedError()
+        with open(path, 'wb') as f:
+            pickle.dump(self.model, f)
 
-    def train(self, x: np.ndarray, y: np.ndarray) -> None:
+    def train(self, x, y) -> None:
         """Perform a training using local data produced with a Query, a Pipeline, or a Dataset.
         This method is used by the clients to train the partial models.
 
@@ -74,7 +77,7 @@ class GenericModel:
         """
         raise NotImplementedError()
 
-    def predict(self, x: np.ndarray) -> np.ndarray:
+    def predict(self, x) -> np.ndarray:
         """Predict the probabilities for the given instances of features.
 
         :param x:
@@ -82,7 +85,7 @@ class GenericModel:
         """
         raise NotImplementedError()
 
-    def eval(self, x: np.ndarray, y: np.ndarray) -> Metrics:
+    def eval(self, x, y) -> Metrics:
         """Perform some evaluations and compute metrics given the input data.
 
         :param x:
