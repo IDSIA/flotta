@@ -3,12 +3,16 @@ from __future__ import annotations
 from enum import Enum
 from pydantic import BaseModel
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.preprocessing import LabelEncoder
 
 from .core import GenericModel, Model
 
+import logging
 import numpy as np
 import pickle
+
+LOGGER = logging.getLogger(__name__)
 
 
 class StrategyRandomForestClassifier(str, Enum):
@@ -81,6 +85,52 @@ class FederatedRandomForestClassifier(GenericModel):
             strategy=self.strategy.name,
             parameters=self.parameters.dict()
         )
+
+    def aggregate(self, strategy_str: str, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier) -> RandomForestClassifier | VotingClassifier:
+        LOGGER.info(f'AggregatorRandomForestClassifier: using strategy={strategy_str}')
+
+        strategy = StrategyRandomForestClassifier[strategy_str]
+
+        if strategy == StrategyRandomForestClassifier.MERGE:
+            if not isinstance(model_a, RandomForestClassifier):
+                raise ValueError('StrategyRandomForestClassifier.MERGE can be used only with RandomForestClassifier models')
+
+            return self.merge(model_a, model_b)
+
+        if strategy == StrategyRandomForestClassifier.MAJORITY_VOTE:
+            return self.majority_vote(model_a, model_b)
+
+        raise ValueError(f'Unsupported strategy: {strategy_str}')
+
+    def merge(self, model_a: RandomForestClassifier, model_b: RandomForestClassifier) -> RandomForestClassifier:
+        """Solution adapted from: https://stackoverflow.com/a/28508619/1419058
+        """
+        model_a.estimators_ += model_b.estimators_
+        model_a.n_estimators = len(model_a.estimators_)
+
+        return model_a
+
+    def majority_vote(self, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier) -> VotingClassifier:
+        """Solution adapted from: https://stackoverflow.com/a/54610569/1419058
+        """
+
+        if isinstance(model_a, VotingClassifier):
+            assert model_a.estimators_ is not None
+
+            model_a.estimators_.append((f'{len(model_a.estimators_)}', model_b))
+            return model_a
+
+        models = [('0', model_a), ('1', model_b)]
+        vc = VotingClassifier(
+            estimators=models,
+            voting='soft'
+        )
+
+        vc.estimators_ = models
+        vc.le_ = LabelEncoder().fit(model_a.classes_)  # TODO: check if this is valid?
+        vc.classes_ = vc.le_.classes_
+
+        return vc
 
     @staticmethod
     def from_model(model: Model) -> FederatedRandomForestClassifier:
