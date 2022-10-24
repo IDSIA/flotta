@@ -1,6 +1,5 @@
 from ferdelance_shared.schemas import Artifact
-
-from ..models import AggregatorRandomForestClassifier
+from ferdelance_shared.models import FederatedRandomForestClassifier
 
 from ..celery import worker
 
@@ -45,7 +44,7 @@ def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> Non
         model_name = artifact.model.name
 
         if model_name == 'FederatedRandomForestClassifier':
-            agg = AggregatorRandomForestClassifier()
+            agg = FederatedRandomForestClassifier()
 
         else:
             raise ValueError(f'Unsupported model: {model_name}')
