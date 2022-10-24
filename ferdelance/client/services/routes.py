@@ -10,7 +10,7 @@ from ferdelance_shared.schemas import (
     UpdateClientApp,
     DownloadApp,
 )
-from ferdelance_shared.schemas.models import Metrics
+from ferdelance_shared.models import Metrics
 
 from requests import Response, post, get
 

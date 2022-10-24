@@ -1,4 +1,4 @@
-from ferdelance_shared.schemas import Artifact, UpdateExecute, QueryFeature
+from ferdelance_shared.schemas import Artifact, UpdateExecute
 from ferdelance_shared.operations import Operations
 from ...config import Config
 from ...models import model_creator
