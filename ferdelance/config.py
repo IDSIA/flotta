@@ -31,7 +31,7 @@ LOGGING_CONFIG = {
             'level': 'WARN',
             'class': 'logging.handlers.RotatingFileHandler',
             'formatter': 'standard',
-            'filename': 'logconfig.log',
+            'filename': 'ferdelance.log',
             'maxBytes': 100000,
             'backupCount': 5,
         }
