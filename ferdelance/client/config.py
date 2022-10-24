@@ -26,11 +26,11 @@ class Config:
 
         self.heartbeat: float = heartbeat
 
-        self.private_key: RSAPrivateKey = None
+        self.private_key: RSAPrivateKey
 
-        self.client_id: str = None
-        self.client_token: str = None
-        self.server_public_key: RSAPublicKey = None
+        self.client_id: str
+        self.client_token: str
+        self.server_public_key: RSAPublicKey
 
         self.datasources_list: list[dict[str, str]] = datasources
         self.datasources: dict[str, DataSourceFile | DataSourceDB] = dict()

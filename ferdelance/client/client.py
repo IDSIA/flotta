@@ -30,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 
 class FerdelanceClient:
 
-    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float | None = None, leave: bool = False, datasources: list[dict[str, str]] = list()) -> None:
+    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float = -1.0, leave: bool = False, datasources: list[dict[str, str]] = list()) -> None:
         # possible states are: work, exit, update, install
         self.status: Action = Action.INIT
 
