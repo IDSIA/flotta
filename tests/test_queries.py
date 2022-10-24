@@ -1,6 +1,5 @@
-from unicodedata import name
 from ferdelance_workbench.artifacts import Feature, Query, QueryFilter, DataSource
-from ferdelance_shared.operations import ObjectOperations
+from ferdelance_shared.operations import Operations
 
 DS1_NAME, DS1_ID = 'data_source_1', 'ds1'
 DS2_NAME, DS2_ID = 'data_source_2', 'ds2'
@@ -137,7 +136,7 @@ class TestQueriesClass:
         assert len(q2.features) == 1
 
         try:
-            q1 - f3
+            _ = q1 - f3
             assert False
         except ValueError as _:
             assert True
@@ -154,5 +153,5 @@ class TestQueriesClass:
 
         assert qf.feature == f1
         assert qf.feature != f2
-        assert ObjectOperations[qf.operation] == ObjectOperations.LIKE
+        assert Operations[qf.operation] == Operations.OBJ_LIKE
         assert isinstance(qf, QueryFilter)
