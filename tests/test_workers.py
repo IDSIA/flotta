@@ -14,7 +14,7 @@ from ferdelance_shared.schemas import (
     Query,
     QueryFeature,
 )
-from ferdelance_shared.schemas.models import Model
+from ferdelance_shared.models import Model
 from ferdelance_shared.status import JobStatus
 
 from .utils import (

@@ -28,10 +28,10 @@ LOGGING_CONFIG = {
             'stream': 'ext://sys.stdout',
         },
         'file': {
-            'level': 'WARN',
+            'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
             'formatter': 'standard',
-            'filename': 'logconfig.log',
+            'filename': 'ferdelance.log',
             'maxBytes': 100000,
             'backupCount': 5,
         }

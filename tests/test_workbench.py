@@ -11,7 +11,7 @@ from ferdelance_shared.schemas import (
     QueryFeature,
     WorkbenchJoinData,
 )
-from ferdelance_shared.schemas.models import Model
+from ferdelance_shared.models import Model
 from ferdelance_shared.status import ArtifactJobStatus
 
 from .utils import (

@@ -28,7 +28,7 @@ from ferdelance_shared.schemas import (
     MetaDataSource,
     UpdateExecute,
 )
-from ferdelance_shared.schemas.models import Metrics
+from ferdelance_shared.models import Metrics
 
 from typing import Any
 
