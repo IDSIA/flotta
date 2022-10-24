@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from .models import Model
+from ..models import Model
 
 
 class BaseFeature(BaseModel):
