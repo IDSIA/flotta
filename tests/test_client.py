@@ -22,7 +22,7 @@ from ferdelance_shared.schemas import (
     UpdateToken,
     WorkbenchJoinData,
 )
-from ferdelance_shared.schemas.models import Model
+from ferdelance_shared.models import Model
 from ferdelance_shared.operations import Operations
 
 from .utils import (

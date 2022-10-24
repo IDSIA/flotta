@@ -28,7 +28,7 @@ LOGGING_CONFIG = {
             'stream': 'ext://sys.stdout',
         },
         'file': {
-            'level': 'WARN',
+            'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
             'formatter': 'standard',
             'filename': 'ferdelance.log',
