@@ -1,17 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
-from sqlalchemy.orm import Session
 import sqlalchemy.orm.exc as sqlex
 
-from ...database import get_db
+from ...database import get_session, AsyncSession
 from ...database.services import ArtifactService, ClientService, DataSourceService
 from ...database.tables import Client, ClientDataSource, Model
 from ..services import JobManagementService
 from ..security import check_token
 
 
-from ferdelance_shared.schemas import ClientDetails, DataSource, Feature, ArtifactStatus, Artifact, WorkbenchJoinData
+from ferdelance_shared.schemas import (
+    ClientDetails,
+    DataSource,
+    Feature,
+    ArtifactStatus,
+    Artifact,
+    WorkbenchJoinData,
+)
 
 import logging
 import os
@@ -22,10 +28,10 @@ LOGGER = logging.getLogger(__name__)
 workbench_router = APIRouter()
 
 
-def check_access(db: Session, client_id) -> Client:
-    cs: ClientService = ClientService(db)
+async def check_access(session: AsyncSession, client_id) -> Client:
+    cs: ClientService = ClientService(session)
 
-    client = cs.get_client_by_id(client_id)
+    client = await cs.get_client_by_id(client_id)
 
     if client is None or client.type != 'WORKBENCH':
         raise HTTPException(403)
@@ -39,10 +45,10 @@ async def wb_home():
 
 
 @workbench_router.get('/workbench/connect', response_model=WorkbenchJoinData)
-async def wb_connect(db: Session = Depends(get_db)):
+async def wb_connect(session: AsyncSession = Depends(get_session)):
     LOGGER.info('new workbench connected')
 
-    cs: ClientService = ClientService(db)
+    cs: ClientService = ClientService(session)
 
     token = cs.get_token_by_client_type('WORKBENCH')
 
@@ -55,26 +61,26 @@ async def wb_connect(db: Session = Depends(get_db)):
 
 
 @workbench_router.get('/workbench/client/list', response_model=list[str])
-async def wb_get_client_list(db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_client_list(session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info('a workbench requested a list of clients')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
-    cs: ClientService = ClientService(db)
+    cs: ClientService = ClientService(session)
 
-    clients: list[Client] = cs.get_client_list()
+    clients: list[Client] = await cs.get_client_list()
 
     return [m.client_id for m in clients if m.active is True]
 
 
 @workbench_router.get('/workbench/client/{req_client_id}', response_model=ClientDetails)
-async def wb_get_client_detail(req_client_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_client_detail(req_client_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'a workbench requested details on client_id={req_client_id}')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
-    cs: ClientService = ClientService(db)
-    client: Client = cs.get_client_by_id(req_client_id)
+    cs: ClientService = ClientService(session)
+    client: Client | None = await cs.get_client_by_id(req_client_id)
 
     if client is None or client.active is False:
         LOGGER.warn(f'client_id={req_client_id} not found in database or is not active')
@@ -88,68 +94,68 @@ async def wb_get_client_detail(req_client_id: str, db: Session = Depends(get_db)
 
 
 @workbench_router.get('/workbench/datasource/list', response_model=list[str])
-async def wb_get_datasource_list(db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info('a workbench requested a list of available data source')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
-    dss: DataSourceService = DataSourceService(db)
+    dss: DataSourceService = DataSourceService(session)
 
-    ds_db: list[ClientDataSource] = dss.get_datasource_list()
+    ds_session: list[ClientDataSource] = await dss.get_datasource_list()
 
-    LOGGER.info(f'found {len(ds_db)} datasource(s)')
+    LOGGER.info(f'found {len(ds_session)} datasource(s)')
 
-    return [ds.datasource_id for ds in ds_db if ds.removed is False]
+    return [ds.datasource_id for ds in ds_session if ds.removed is False]
 
 
 @workbench_router.get('/workbench/datasource/{ds_id}', response_model=DataSource)
-async def wb_get_client_datasource(ds_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_client_datasource(ds_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'a workbench requested details on datasource_id={ds_id}')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
-    dss: DataSourceService = DataSourceService(db)
+    dss: DataSourceService = DataSourceService(session)
 
-    ds_db: ClientDataSource = dss.get_datasource_by_id(ds_id)
+    ds_session: ClientDataSource | None = await dss.get_datasource_by_id(ds_id)
 
-    if ds_db is None or ds_db.removed is True:
+    if ds_session is None or ds_session.removed is True:
         LOGGER.warn(f'datasource_id={ds_id} not found in database or has been removed')
         raise HTTPException(404)
 
-    f_db = dss.get_features_by_datasource(ds_db)
+    f_session = await dss.get_features_by_datasource(ds_session)
 
-    fs = [Feature(**f.__dict__) for f in f_db if not f.removed]
+    fs = [Feature(**f.__dict__) for f in f_session if not f.removed]
 
     return DataSource(
-        **ds_db.__dict__,
+        **ds_session.__dict__,
         features=fs,
     )
 
 
 @workbench_router.get('/workbench/datasource/name/{ds_id}', response_model=list[DataSource])
-async def wb_get_client_datasource_by_name(ds_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_client_datasource_by_name(ds_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'a workbench requested details on datasource_name={ds_id}')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
-    dss: DataSourceService = DataSourceService(db)
+    dss: DataSourceService = DataSourceService(session)
 
-    ds_dbs: list[ClientDataSource] = dss.get_datasource_by_name(ds_id)
+    ds_sessions: list[ClientDataSource] = await dss.get_datasource_by_name(ds_id)
 
-    if not ds_dbs:
+    if not ds_sessions:
         LOGGER.warn(f'datasource_id={ds_id} not found in database or has been removed')
         raise HTTPException(404)
 
     ret_ds = []
 
-    for ds_db in ds_dbs:
+    for ds_session in ds_sessions:
 
-        f_db = dss.get_features_by_datasource(ds_db)
+        f_session = await dss.get_features_by_datasource(ds_session)
 
-        fs = [Feature(**f.__dict__) for f in f_db if not f.removed]
+        fs = [Feature(**f.__dict__) for f in f_session if not f.removed]
 
         ret_ds.append(DataSource(
-            **ds_db.__dict__,
+            **ds_session.__dict__,
             features=fs,
         ))
 
@@ -157,13 +163,14 @@ async def wb_get_client_datasource_by_name(ds_id: str, db: Session = Depends(get
 
 
 @workbench_router.post('/workbench/artifact/submit', response_model=ArtifactStatus)
-def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
-    check_access(db, client_id)
+async def wb_post_artifact_submit(artifact: Artifact, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+    await check_access(session, client_id)
+
     LOGGER.info(f'a workbench submitted a new artifact')
 
     try:
-        jms: JobManagementService = JobManagementService(db)
-        status = jms.submit_artifact(artifact)
+        jms: JobManagementService = JobManagementService(session)
+        status = await jms.submit_artifact(artifact)
 
         LOGGER.info(f'submitted artifact got artifact_id={status.artifact_id}')
 
@@ -176,35 +183,35 @@ def wb_post_artifact_submit(artifact: Artifact, db: Session = Depends(get_db), c
 
 
 @workbench_router.get('/workbench/artifact/status/{artifact_id}', response_model=ArtifactStatus)
-async def wb_get_artifact_status(artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_artifact_status(artifact_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'a workbench requested status of artifact_id={artifact_id}')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
-    ars: ArtifactService = ArtifactService(db)
+    ars: ArtifactService = ArtifactService(session)
 
-    artifact_db = ars.get_artifact(artifact_id)
+    artifact_session = await ars.get_artifact(artifact_id)
 
     # TODO: get status from celery
 
-    if artifact_db is None:
+    if artifact_session is None:
         LOGGER.warn(f'artifact_id={artifact_id} not found in database')
         raise HTTPException(404)
 
     return ArtifactStatus(
         artifact_id=artifact_id,
-        status=artifact_db.status,
+        status=artifact_session.status,
     )
 
 
 @workbench_router.get('/workbench/artifact/{artifact_id}', response_model=Artifact)
-async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_artifact(artifact_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'a workbench requested details on artifact_id={artifact_id}')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
     try:
-        jms: JobManagementService = JobManagementService(db)
+        jms: JobManagementService = JobManagementService(session)
         return jms.get_artifact(artifact_id)
 
     except ValueError as e:
@@ -213,20 +220,20 @@ async def wb_get_artifact(artifact_id: str, db: Session = Depends(get_db), clien
 
 
 @workbench_router.get('/workbench/model/{artifact_id}', response_class=FileResponse)
-async def wb_get_model(artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_model(artifact_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'a workbench requested aggregate model for artifact_id={artifact_id}')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
-    ars: ArtifactService = ArtifactService(db)
+    ars: ArtifactService = ArtifactService(session)
 
     try:
-        model_db: Model = ars.get_aggregated_model(artifact_id)
+        model_session: Model = await ars.get_aggregated_model(artifact_id)
 
-        model_path = model_db.path
+        model_path = model_session.path
 
         if not os.path.exists(model_path):
-            raise ValueError(f'model_id={model_db.model_id} not found at path={model_path}')
+            raise ValueError(f'model_id={model_session.model_id} not found at path={model_path}')
 
         return FileResponse(model_path)
 
@@ -244,21 +251,21 @@ async def wb_get_model(artifact_id: str, db: Session = Depends(get_db), client_i
 
 
 @workbench_router.get('/workbench/model/partial/{artifact_id}/{builder_client_id}', response_class=FileResponse)
-async def wb_get_partial_model(artifact_id: str, builder_client_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def wb_get_partial_model(artifact_id: str, builder_client_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'a workbench requested partial model for artifact_id={artifact_id} from client_id={builder_client_id}')
 
-    check_access(db, client_id)
+    await check_access(session, client_id)
 
-    ars: ArtifactService = ArtifactService(db)
+    ars: ArtifactService = ArtifactService(session)
 
     try:
 
-        model_db: Model = ars.get_partial_model(artifact_id, builder_client_id)
+        model_session: Model = await ars.get_partial_model(artifact_id, builder_client_id)
 
-        model_path = model_db.path
+        model_path = model_session.path
 
         if not os.path.exists(model_path):
-            raise ValueError(f'partial model_id={model_db.model_id} not found at path={model_path}')
+            raise ValueError(f'partial model_id={model_session.model_id} not found at path={model_path}')
 
         return FileResponse(model_path)
 

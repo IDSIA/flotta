@@ -10,8 +10,8 @@ from ferdelance_shared.generate import (
     RSAPrivateKey,
 )
 
-from ...database.services import DBSessionService, Session, ClientService
-from ...database.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
+from ...database.services import DBSessionService, AsyncSession, ClientService
+from ...database.services.settings import KeyValueStore, KEY_TOKEN_EXPIRATION
 from ...database.tables import Client, ClientToken
 
 from hashlib import sha256
@@ -32,16 +32,14 @@ PRIVATE_KEY = 'SERVER_KEY_PRIVATE'
 
 
 class SecurityService(DBSessionService):
-    def __init__(self, db: Session, client_id: str | None) -> None:
+    def __init__(self, db: AsyncSession, client_id: str | None) -> None:
         super().__init__(db)
 
         self.kvs: KeyValueStore = KeyValueStore(db)
+        self.cs: ClientService = ClientService(db)
+        self.client_id: str | None = client_id
 
-        if client_id is not None:
-            cs: ClientService = ClientService(db)
-            self.client: Client = cs.get_client_by_id(client_id)
-
-    def generate_token(self, system: str, mac_address: str, node: str, client_id: str = '') -> ClientToken:
+    async def generate_token(self, system: str, mac_address: str, node: str, client_id: str = '') -> ClientToken:
         """Generates a client token with the data received from the client."""
         if client_id == '':
             client_id = str(uuid4())
@@ -55,7 +53,7 @@ class SecurityService(DBSessionService):
         token_b: bytes = sha256(token_b).hexdigest().encode('utf8')
         token: str = sha256(token_b).hexdigest()
 
-        exp_time: int = self.kvs.get_int(KEY_TOKEN_EXPIRATION)
+        exp_time: int = await self.kvs.get_int(KEY_TOKEN_EXPIRATION)
 
         return ClientToken(
             token=token,
@@ -63,60 +61,75 @@ class SecurityService(DBSessionService):
             expiration_time=exp_time,
         )
 
-    def get_server_public_key(self) -> RSAPublicKey:
+    async def get_server_public_key(self) -> RSAPublicKey:
         """
         :return:
             The server public key in string format.
         """
-        public_bytes: bytes = self.kvs.get_bytes(PUBLIC_KEY)
+        public_bytes: bytes = await self.kvs.get_bytes(PUBLIC_KEY)
         return public_key_from_bytes(public_bytes)
 
-    def get_server_public_key_str(self) -> str:
-        public_str: str = self.kvs.get_str(PUBLIC_KEY)
+    async def get_server_public_key_str(self) -> str:
+        public_str: str = await self.kvs.get_str(PUBLIC_KEY)
         return encode_to_transfer(public_str)
 
-    def get_server_private_key(self) -> RSAPrivateKey:
+    async def get_server_private_key(self) -> RSAPrivateKey:
         """
         :param db:
             Current session to the database.
         :return:
             The server public key in string format.
         """
-        private_bytes: bytes = self.kvs.get_bytes(PRIVATE_KEY)
+        private_bytes: bytes = await self.kvs.get_bytes(PRIVATE_KEY)
         return private_key_from_bytes(private_bytes)
 
-    def get_client_public_key(self) -> RSAPublicKey:
-        key_bytes: bytes = decode_from_transfer(self.client.public_key).encode('utf8')
+    async def get_client(self) -> Client:
+        if self.client_id is None:
+            raise ValueError('client_id is missing for security service')
+
+        if self.client is None:
+            self.client: Client | None = await self.cs.get_client_by_id(self.client_id)
+
+        if self.client is None:
+            raise ValueError(f'could not get client for client_id={self.client_id}')
+
+        return self.client
+
+    async def get_client_public_key(self) -> RSAPublicKey:
+        client = await self.get_client()
+
+        key_bytes: bytes = decode_from_transfer(client.public_key).encode('utf8')
         public_key: RSAPublicKey = public_key_from_bytes(key_bytes)
         return public_key
 
-    def server_encrypt(self, content: str) -> str:
-        client_public_key: RSAPublicKey = self.get_client_public_key()
+    async def server_encrypt(self, content: str) -> str:
+        client_public_key: RSAPublicKey = await self.get_client_public_key()
         return encrypt(client_public_key, content)
 
-    def server_decrypt(self, content: str) -> str:
-        server_private_key: RSAPrivateKey = self.get_server_private_key()
+    async def server_decrypt(self, content: str) -> str:
+        server_private_key: RSAPrivateKey = await self.get_server_private_key()
         return decrypt(server_private_key, content)
 
-    def server_encrypt_content(self, content: str) -> bytes:
-        client_public_key: RSAPublicKey = self.get_client_public_key()
+    async def server_encrypt_content(self, content: str) -> bytes:
+        client_public_key: RSAPublicKey = await self.get_client_public_key()
         enc = HybridEncrypter(client_public_key)
         return enc.encrypt(content)
 
     def server_encrypt_response(self, content: dict[str, Any]) -> Response:
         return Response(content=self.server_encrypt_content(json.dumps(content)))
 
-    def server_decrypt_content(self, content: bytes) -> str:
-        server_private_key: RSAPrivateKey = self.get_server_private_key()
+    async def server_decrypt_content(self, content: bytes) -> str:
+        server_private_key: RSAPrivateKey = await self.get_server_private_key()
         enc = HybridDecrypter(server_private_key)
         return enc.decrypt(content)
 
-    def server_decrypt_json_content(self, content: bytes) -> dict[str, Any]:
-        return json.loads(self.server_decrypt_content(content))
+    async def server_decrypt_json_content(self, content: bytes) -> dict[str, Any]:
+        data = await self.server_decrypt_content(content)
+        return json.loads(data)
 
-    def server_stream_encrypt_file(self, path: str) -> StreamingResponse:
+    async def server_stream_encrypt_file(self, path: str) -> StreamingResponse:
         """Used to stream encrypt data from a file, using less memory."""
-        client_public_key: RSAPublicKey = self.get_client_public_key()
+        client_public_key: RSAPublicKey = await self.get_client_public_key()
 
         enc = HybridEncrypter(client_public_key)
 
@@ -127,7 +140,7 @@ class SecurityService(DBSessionService):
 
     async def server_stream_decrypt_file(self, request: Request, path: str) -> str:
         """Used to stream decrypt data to a file, using less memory."""
-        private_key: RSAPrivateKey = self.get_server_private_key()
+        private_key: RSAPrivateKey = await self.get_server_private_key()
 
         dec = HybridDecrypter(private_key)
 
@@ -139,9 +152,9 @@ class SecurityService(DBSessionService):
 
         return dec.get_checksum()
 
-    def server_stream_encrypt(self, content: str) -> Iterator[bytes]:
+    async def server_stream_encrypt(self, content: str) -> Iterator[bytes]:
         """Used to encrypt small data that can be kept in memory."""
-        public_key = self.get_client_public_key()
+        public_key = await self.get_client_public_key()
 
         enc = HybridEncrypter(public_key)
 
@@ -149,7 +162,7 @@ class SecurityService(DBSessionService):
 
     async def server_stream_decrypt(self, request: Request) -> tuple[str, str]:
         """Used to decrypt small data that can be kept in memory."""
-        private_key: RSAPrivateKey = self.get_server_private_key()
+        private_key: RSAPrivateKey = await self.get_server_private_key()
 
         dec = HybridDecrypter(private_key)
 

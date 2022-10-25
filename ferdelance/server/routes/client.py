@@ -1,23 +1,28 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import Response
-
-from sqlalchemy.exc import SQLAlchemyError
-
-from ...database import get_db
-from ...database.tables import Client, ClientApp, ClientDataSource, ClientToken
-from ..services.actions import ActionService
-from ..services.security import SecurityService
+from ...database import get_session
 from ...database.services import (
-    Session,
+    AsyncSession,
     ClientAppService,
     ClientService,
     DataSourceService,
     ModelService,
 )
-from ...database.tables import Client, ClientApp, ClientToken, Model
-from ..services import ActionService, SecurityService, JobManagementService
+from ...database.tables import (
+    Client,
+    ClientApp,
+    ClientDataSource,
+    ClientToken,
+    Model,
+)
+from ..services import (
+    ActionService,
+    SecurityService,
+    JobManagementService,
+)
 from ..security import check_token
-from ..exceptions import ArtifactDoesNotExists, TaskDoesNotExists
+from ..exceptions import (
+    ArtifactDoesNotExists,
+    TaskDoesNotExists
+)
 
 from ferdelance_shared.schemas import (
     ClientJoinRequest,
@@ -30,6 +35,15 @@ from ferdelance_shared.schemas import (
 )
 from ferdelance_shared.models import Metrics
 
+from fastapi import (
+    APIRouter,
+    Depends,
+    Request,
+    HTTPException,
+)
+from fastapi.responses import Response
+
+from sqlalchemy.exc import SQLAlchemyError
 from typing import Any
 
 import logging
@@ -42,12 +56,12 @@ client_router = APIRouter()
 
 
 @client_router.post('/client/join', response_class=Response)
-async def client_join(request: Request, client: ClientJoinRequest, db: Session = Depends(get_db)):
+async def client_join(request: Request, client: ClientJoinRequest, session: AsyncSession = Depends(get_session)):
     """API for new client joining."""
     LOGGER.info('new client join request')
 
-    cs: ClientService = ClientService(db)
-    ss: SecurityService = SecurityService(db, None)
+    cs: ClientService = ClientService(session)
+    ss: SecurityService = SecurityService(session, None)
 
     try:
         if request.client is None:
@@ -56,12 +70,12 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
 
         ip_address = request.client.host
 
-        client_token: ClientToken = ss.generate_token(client.system, client.mac_address, client.node)
+        client_token: ClientToken = await ss.generate_token(client.system, client.mac_address, client.node)
 
         token = client_token.token
         client_id = client_token.client_id
 
-        client = Client(
+        new_client = Client(
             client_id=client_id,
             version=client.version,
             public_key=client.public_key,
@@ -72,17 +86,19 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
             type='CLIENT',
         )
 
-        ss.client = cs.create_client(client)
-        client_token = cs.create_client_token(client_token)
+        ss.client = await cs.create_client(new_client)
+        client_token = await cs.create_client_token(client_token)
 
-        cs.create_client_event(client_id, 'creation')
+        await cs.create_client_event(client_id, 'creation')
 
         LOGGER.info(f'client_id={client_id}: joined')
+
+        public_key = await ss.get_server_public_key_str()
 
         cjd = ClientJoinData(
             id=client_id,
             token=token,
-            public_key=ss.get_server_public_key_str(),
+            public_key=public_key,
         )
 
         return ss.server_encrypt_response(cjd.dict())
@@ -98,47 +114,48 @@ async def client_join(request: Request, client: ClientJoinRequest, db: Session =
 
 
 @client_router.post('/client/leave')
-async def client_leave(db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def client_leave(session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     """API for existing client to be removed"""
-    cs: ClientService = ClientService(db)
+    cs: ClientService = ClientService(session)
 
     LOGGER.info(f'client_id={client_id}: request to leave')
 
-    cs.client_leave(client_id)
-    cs.create_client_event(client_id, 'left')
+    await cs.client_leave(client_id)
+    await cs.create_client_event(client_id, 'left')
 
     return {}
 
 
 @client_router.get('/client/update', response_class=Response)
-async def client_update(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def client_update(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
     - new artifact package
     - new client app package
     - nothing (keep alive)
     """
-    acs: ActionService = ActionService(db)
-    cs: ClientService = ClientService(db)
-    ss: SecurityService = SecurityService(db, client_id)
+    acs: ActionService = ActionService(session)
+    cs: ClientService = ClientService(session)
+    ss: SecurityService = SecurityService(session, client_id)
 
-    cs.create_client_event(client_id, 'update')
+    await cs.create_client_event(client_id, 'update')
 
     # consume current results (if present) and compute next action
     data = await request.body()
-    payload: dict[str, Any] = ss.server_decrypt_json_content(data)
+    payload: dict[str, Any] = await ss.server_decrypt_json_content(data)
+    client = await ss.get_client()
 
-    next_action = acs.next(ss.client, payload)
+    next_action = await acs.next(client, payload)
 
     LOGGER.debug(f'client_id={client_id}: update action={next_action.action}')
 
-    cs.create_client_event(client_id, f'action:{next_action.action}')
+    await cs.create_client_event(client_id, f'action:{next_action.action}')
 
     return ss.server_encrypt_response(next_action.dict())
 
 
 @client_router.get('/client/download/application', response_class=Response)
-async def client_update_files(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def client_update_files(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     """
     API request by the client to get updated files. With this endpoint a client can:
     - update application software
@@ -146,16 +163,17 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
     """
     LOGGER.info(f'client_id={client_id}: update files request')
 
-    cas: ClientAppService = ClientAppService(db)
-    cs: ClientService = ClientService(db)
-    ss: SecurityService = SecurityService(db, client_id)
+    cas: ClientAppService = ClientAppService(session)
+    cs: ClientService = ClientService(session)
+    ss: SecurityService = SecurityService(session, client_id)
 
-    cs.create_client_event(client_id, 'update files')
+    await cs.create_client_event(client_id, 'update files')
 
     body = await request.body()
-    payload = DownloadApp(**ss.server_decrypt_json_content(body))
+    data = await ss.server_decrypt_json_content(body)
+    payload = DownloadApp(**data)
 
-    new_app: ClientApp = cas.get_newest_app()
+    new_app: ClientApp | None = await cas.get_newest_app()
 
     if new_app is None:
         raise HTTPException(400, 'no newest version found')
@@ -164,58 +182,63 @@ async def client_update_files(request: Request, db: Session = Depends(get_db), c
         LOGGER.warning(f'client_id={client_id} requested app version={payload.version} while latest version={new_app.version}')
         raise HTTPException(400, 'Old versions are not permitted')
 
-    cs.update_client(client_id, version=payload.version)
+    await cs.update_client(client_id, version=payload.version)
 
     LOGGER.info(f'client_id={client_id}: requested new client version={payload.version}')
 
-    return ss.server_stream_encrypt_file(new_app.path)
+    return await ss.server_stream_encrypt_file(new_app.path)
 
 
 @client_router.post('/client/update/metadata')
-async def client_update_metadata(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def client_update_metadata(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
     """
     LOGGER.info(f'client_id={client_id}: update metadata request')
 
-    cs: ClientService = ClientService(db)
-    dss: DataSourceService = DataSourceService(db)
-    ss: SecurityService = SecurityService(db, client_id)
+    cs: ClientService = ClientService(session)
+    dss: DataSourceService = DataSourceService(session)
+    ss: SecurityService = SecurityService(session, client_id)
 
-    cs.create_client_event(client_id, 'update metadata')
+    await cs.create_client_event(client_id, 'update metadata')
 
     body = await request.body()
-    metadata = Metadata(**ss.server_decrypt_json_content(body))
+    data = await ss.server_decrypt_json_content(body)
+    metadata = Metadata(**data)
 
-    dss.create_or_update_metadata(client_id, metadata)
+    await dss.create_or_update_metadata(client_id, metadata)
 
-    client_data_source_list: list[ClientDataSource] = dss.get_datasource_by_client_id(client_id)
+    client_data_source_list: list[ClientDataSource] = await dss.get_datasource_by_client_id(client_id)
 
-    ds_list = [
-        MetaDataSource(
-            **cds.__dict__,
-            features=[
-                MetaFeature(**f.__dict__) for f in dss.get_features_by_datasource(cds)
-            ])
-        for cds in client_data_source_list
-    ]
+    ds_list = []
+
+    for cds in client_data_source_list:
+        features = await dss.get_features_by_datasource(cds)
+        ds_list.append(
+            MetaDataSource(
+                **cds.__dict__,
+                features=[
+                    MetaFeature(**f.__dict__) for f in features
+                ])
+        )
 
     return Response(ss.server_encrypt_content(json.dumps([ds.dict() for ds in ds_list])))
 
 
 @client_router.get('/client/task', response_class=Response)
-async def client_get_task(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def client_get_task(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'client_id={client_id}: new task request')
 
-    cs: ClientService = ClientService(db)
-    jm: JobManagementService = JobManagementService(db)
-    ss: SecurityService = SecurityService(db, client_id)
+    cs: ClientService = ClientService(session)
+    jm: JobManagementService = JobManagementService(session)
+    ss: SecurityService = SecurityService(session, client_id)
 
-    cs.create_client_event(client_id, 'schedule task')
+    await cs.create_client_event(client_id, 'schedule task')
 
     body = await request.body()
-    payload = UpdateExecute(**ss.server_decrypt_json_content(body))
+    data = await ss.server_decrypt_json_content(body)
+    payload = UpdateExecute(**data)
     artifact_id = payload.artifact_id
 
     try:
@@ -233,32 +256,33 @@ async def client_get_task(request: Request, db: Session = Depends(get_db), clien
 
 
 @client_router.post('/client/task/{artifact_id}')
-async def client_post_task(request: Request, artifact_id: str, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
+async def client_post_task(request: Request, artifact_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
     LOGGER.info(f'client_id={client_id}: complete work on artifact_id={artifact_id}')
 
-    ss: SecurityService = SecurityService(db, client_id)
-    jm: JobManagementService = JobManagementService(db)
-    ms: ModelService = ModelService(db)
+    ss: SecurityService = SecurityService(session, client_id)
+    jm: JobManagementService = JobManagementService(session)
+    ms: ModelService = ModelService(session)
 
-    model_db: Model = ms.create_local_model(artifact_id, client_id)
+    model_session: Model = await ms.create_local_model(artifact_id, client_id)
 
-    await ss.server_stream_decrypt_file(request, model_db.path)
+    await ss.server_stream_decrypt_file(request, model_session.path)
 
-    jm.client_local_model_completed(artifact_id, client_id)
+    await jm.client_local_model_completed(artifact_id, client_id)
 
     return {}
 
 
 @client_router.post('/client/metrics')
-async def client_post_metrics(request: Request, db: Session = Depends(get_db), client_id: str = Depends(check_token)):
-    ss: SecurityService = SecurityService(db, client_id)
-    jm: JobManagementService = JobManagementService(db)
+async def client_post_metrics(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+    ss: SecurityService = SecurityService(session, client_id)
+    jm: JobManagementService = JobManagementService(session)
 
     body = await request.body()
-    metrics = Metrics(**ss.server_decrypt_json_content(body))
+    data = await ss.server_decrypt_json_content(body)
+    metrics = Metrics(**data)
 
     LOGGER.info(f'client_id={client_id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}')
 
-    jm.save_metrics(metrics)
+    await jm.save_metrics(metrics)
 
     return {}
