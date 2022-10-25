@@ -1,7 +1,7 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class DBSessionService:
 
-    def __init__(self, db: Session) -> None:
-        self.db: Session = db
+    def __init__(self, session: AsyncSession) -> None:
+        self.session: AsyncSession = session

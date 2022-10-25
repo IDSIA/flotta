@@ -1,7 +1,8 @@
-from .core import DBSessionService, Session
+from .core import DBSessionService, AsyncSession
 from ..tables import Model
 from ...config import STORAGE_ARTIFACTS
 
+from sqlalchemy import select
 from uuid import uuid4
 
 import os
@@ -9,15 +10,15 @@ import os
 
 class ModelService(DBSessionService):
 
-    def __init__(self, db: Session) -> None:
-        super().__init__(db)
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(session)
 
     def storage_dir(self, artifact_id) -> str:
         out_dir = os.path.join(STORAGE_ARTIFACTS, artifact_id)
         os.makedirs(out_dir, exist_ok=True)
         return out_dir
 
-    def create_model_aggregated(self, artifact_id: str, client_id: str) -> Model:
+    async def create_model_aggregated(self, artifact_id: str, client_id: str) -> Model:
         model_id: str = str(uuid4())
 
         filename = f'{artifact_id}.{model_id}.AGGREGATED.model'
@@ -31,13 +32,13 @@ class ModelService(DBSessionService):
             aggregated=True,
         )
 
-        self.db.add(model_db)
-        self.db.commit()
-        self.db.refresh(model_db)
+        self.session.add(model_db)
+        await self.session.commit()
+        await self.session.refresh(model_db)
 
         return model_db
 
-    def create_local_model(self, artifact_id: str, client_id) -> Model:
+    async def create_local_model(self, artifact_id: str, client_id) -> Model:
         model_id: str = str(uuid4())
 
         filename = f'{artifact_id}.{client_id}.{model_id}.model'
@@ -51,20 +52,20 @@ class ModelService(DBSessionService):
             aggregated=False,
         )
 
-        self.db.add(model_db)
-        self.db.commit()
-        self.db.refresh(model_db)
+        self.session.add(model_db)
+        await self.session.commit()
+        await self.session.refresh(model_db)
 
         return model_db
 
-    def get_model_by_id(self, model_id: str) -> Model | None:
-        return self.db.query(Model).filter(Model.model_id == model_id).first()
+    async def get_model_by_id(self, model_id: str) -> Model | None:
+        res = await self.session.execute(select(Model).where(Model.model_id == model_id).limit(1))
+        return res.scalar_one_or_none()
 
-    def get_models_by_artifact_id(self, artifact_id: str) -> list[Model]:
-        return self.db.query(Model).filter(Model.artifact_id == artifact_id).all()
+    async def get_models_by_artifact_id(self, artifact_id: str) -> list[Model]:
+        res = await self.session.execute(select(Model).where(Model.artifact_id == artifact_id))
+        return res.scalars().all()
 
-    def get_models_by_job_id(self, job_id: str) -> list[Model]:
-        return self.db.query(Model).filter(Model.job_id == job_id).all()
-
-    def get_model_list(self) -> list[Model]:
-        return self.db.query(Model).all()
+    async def get_model_list(self) -> list[Model]:
+        res = await self.session.execute(select(Model))
+        return res.scalars().all()

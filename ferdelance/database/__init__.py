@@ -1,30 +1,53 @@
-from typing import Generator
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from typing import AsyncGenerator
+
+from asyncio import current_task
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_scoped_session
+from sqlalchemy.orm import sessionmaker, registry
+from sqlalchemy.orm.decl_api import DeclarativeMeta
 
 import os
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 
-Base = declarative_base()
+mapper_registry = registry()
 
 
-def SessionLocal(database_url: str | None = None) -> Session:
-    if not database_url:
-        database_url = os.environ.get('DATABASE_URL', None)
+class Base(metaclass=DeclarativeMeta):
+    __abstract__ = True
 
-    assert database_url is not None
+    registry = mapper_registry
+    metadata = mapper_registry.metadata
 
-    engine = create_engine(database_url)
-    session_maker = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    return session_maker()
+    __init__ = mapper_registry.constructor
 
 
-def get_db() -> Generator[Session, None, None]:
-    """This is a generator to get a session to the database through SQLAlchemy."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+class DataBase:
+    _instance = None
+
+    def __init__(self) -> None:
+        self.database_url = os.environ.get('DATABASE_URL', None)
+
+        assert self.database_url is not None
+
+        self.engine: AsyncEngine = create_async_engine(self.database_url)
+
+        self.async_session_factory = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False)
+        self.async_session = async_scoped_session(self.async_session_factory, scopefunc=current_task)
+
+        LOGGER.info('DataBase factories created')
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            LOGGER.info('DataBase singleton created')
+            cls._instance = cls.__new__(cls)
+
+        return cls._instance
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async with DataBase.instance().async_session() as session:
+        yield session
