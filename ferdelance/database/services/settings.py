@@ -3,7 +3,7 @@ from ..tables import Setting
 
 from cryptography.fernet import Fernet
 from pytimeparse import parse
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 import base64
 import os
@@ -45,18 +45,21 @@ class KeyValueStore(DBSessionService):
 
         # check that entry exists
         res = await self.session.execute(
-            select(Setting).filter(Setting.key == key).limit(1)
+            select(Setting).where(Setting.key == key).limit(1)
         )
-        db_setting = res.scalar_one_or_none()
+        db_setting: Setting | None = res.scalar_one_or_none()
 
         if db_setting is None:
             db_setting = Setting(key=key, value=value)
             self.session.add(db_setting)
         else:
-            db_setting.value = value
+            await self.session.execute(
+                update(Setting)
+                .where(Setting.key == key)
+                .values(value=value)
+            )
 
         await self.session.commit()
-        await self.session.refresh(db_setting)
 
     async def put_str(self, key: str, value_in: str) -> None:
         value = value_in.encode('utf8')
@@ -73,7 +76,7 @@ class KeyValueStore(DBSessionService):
     async def get_bytes(self, key: str) -> bytes:
         res = await self.session.execute(
             select(Setting)
-            .filter(Setting.key == key)
+            .where(Setting.key == key)
         )
 
         db_setting: Setting | None = res.scalar_one_or_none()

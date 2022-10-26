@@ -50,7 +50,7 @@ class ArtifactService(DBSessionService):
     async def get_partial_model(self, artifact_id: str, client_id: str) -> Model:
         res = await self.session.execute(
             select(Model)
-            .filter(
+            .where(
                 Model.artifact_id == artifact_id,
                 Model.client_id == client_id
             )

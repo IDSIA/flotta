@@ -34,7 +34,7 @@ class ServerStartup(DBSessionService):
     async def create_client(self, type: str, ip_address: str = '', system: str = '', node: int | None = None) -> None:
         LOGGER.info(f'creating client {type}')
 
-        res = await self.session.execute(select(Client).filter(Client.type == type).limit(1))
+        res = await self.session.execute(select(Client).where(Client.type == type).limit(1))
         entry_exists = res.scalar_one_or_none()
 
         if entry_exists is not None:

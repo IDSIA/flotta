@@ -1,8 +1,8 @@
-from typing import AsyncGenerator
+from __future__ import annotations
+from curses import echo
+from typing import AsyncGenerator, Any
 
-from asyncio import current_task
-
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_scoped_session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_session
 from sqlalchemy.orm import sessionmaker, registry
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 
@@ -25,29 +25,40 @@ class Base(metaclass=DeclarativeMeta):
 
 
 class DataBase:
-    _instance = None
-
     def __init__(self) -> None:
-        self.database_url = os.environ.get('DATABASE_URL', None)
+        self.database_url: str | None
+        self.engine: AsyncEngine
+        self.async_session_factory: Any
+        self.async_session: Any
+        LOGGER.info('init!!!')
+        pass
 
-        assert self.database_url is not None
+    def __new__(cls: type[DataBase]) -> DataBase:
+        if not hasattr(cls, 'instance'):
+            LOGGER.info('singleton new')
+            cls.instance = super(DataBase, cls).__new__(cls)
 
-        self.engine: AsyncEngine = create_async_engine(self.database_url)
+            DB_HOST = os.environ.get('DB_HOST', None)
+            DB_USER = os.environ.get('DB_USER', None)
+            DB_PASS = os.environ.get('DB_PASS', None)
+            DB_SCHEMA = os.environ.get('DB_SCHEMA', None)
 
-        self.async_session_factory = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False)
-        self.async_session = async_scoped_session(self.async_session_factory, scopefunc=current_task)
+            assert DB_HOST is not None
+            assert DB_USER is not None
+            assert DB_PASS is not None
+            assert DB_SCHEMA is not None
 
-        LOGGER.info('DataBase factories created')
+            cls.instance.database_url = f'postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_SCHEMA}'
 
-    @classmethod
-    def instance(cls):
-        if cls._instance is None:
-            LOGGER.info('DataBase singleton created')
-            cls._instance = cls.__new__(cls)
+            cls.instance.engine = create_async_engine(cls.instance.database_url)
+            cls.instance.async_session = sessionmaker(bind=cls.instance.engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False)
 
-        return cls._instance
+            LOGGER.info('DataBase factories created')
+
+        return cls.instance
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with DataBase.instance().async_session() as session:
+    db = DataBase()
+    async with db.async_session() as session:
         yield session

@@ -44,7 +44,7 @@ async def generate_keys(session: AsyncSession) -> None:
     kvs = KeyValueStore(session)
 
     try:
-        db_smp_key = kvs.get_str(MAIN_KEY)
+        db_smp_key = await kvs.get_str(MAIN_KEY)
 
         if db_smp_key != SMP_VALUE:
             LOGGER.fatal(f'Environment variable {MAIN_KEY} invalid: please set the correct password!')

@@ -33,24 +33,27 @@ api = init_api()
 @api.on_event('startup')
 async def populate_database() -> None:
     """All operations marked as `on_event('startup')` are executed when the API are started."""
-    engine = DataBase.instance().engine
-    await engine.connect()
+    LOGGER.info('server startup procedure started')
 
-    async with engine.begin() as conn:
+    inst = DataBase()
+
+    await inst.engine.connect()
+
+    async with inst.engine.begin() as conn:
         LOGGER.info('database creation started')
         await conn.run_sync(Base.metadata.create_all)
         LOGGER.info('database creation completed')
 
-    async with DataBase.instance().async_session() as session:
-        async with session.begin():
-            ss = ServerStartup(session)
-            await ss.startup()
+    async with inst.async_session() as session:
+        ss = ServerStartup(session)
+        await ss.startup()
 
 
 @api.on_event('shutdown')
 async def shutdown() -> None:
-    engine = DataBase.instance().engine
-    await engine.dispose()
+    LOGGER.info('server shutdown procedure started')
+    inst = DataBase()
+    await inst.engine.dispose()
 
 
 @api.get("/")
