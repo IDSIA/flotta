@@ -28,11 +28,11 @@ async def check_access(session: AsyncSession = Depends(get_session), client_id: 
     client = await cs.get_client_by_id(client_id)
 
     if client is None:
-        LOGGER.warn(f'client_id={client_id} not found')
+        LOGGER.warning(f'client_id={client_id} not found')
         raise HTTPException(403)
 
     if client.type != 'WORKER':
-        LOGGER.warn(f'client of type={client.type} cannot access the route')
+        LOGGER.warning(f'client of type={client.type} cannot access the route')
         raise HTTPException(403)
 
     return client
@@ -43,7 +43,8 @@ async def post_artifact(artifact: Artifact, session: AsyncSession = Depends(get_
     LOGGER.info(f'client_id={client.client_id}: sent new artifact')
     try:
         jms: JobManagementService = JobManagementService(session)
-        return jms.submit_artifact(artifact)
+        status = await jms.submit_artifact(artifact)
+        return status
 
     except ValueError as e:
         LOGGER.error('Artifact already exists')
@@ -56,7 +57,8 @@ async def get_artifact(artifact_id: str, session: AsyncSession = Depends(get_ses
     LOGGER.info(f'client_id={client.client_id}: requested artifact_id={artifact_id}')
     try:
         jms: JobManagementService = JobManagementService(session)
-        return jms.get_artifact(artifact_id)
+        artifact = jms.get_artifact(artifact_id)
+        return await artifact
 
     except ValueError as e:
         LOGGER.error(f'{e}')

@@ -50,7 +50,7 @@ async def wb_connect(session: AsyncSession = Depends(get_session)):
 
     cs: ClientService = ClientService(session)
 
-    token = cs.get_token_by_client_type('WORKBENCH')
+    token = await cs.get_token_by_client_type('WORKBENCH')
 
     if token is None:
         raise HTTPException(404)
@@ -83,7 +83,7 @@ async def wb_get_client_detail(req_client_id: str, session: AsyncSession = Depen
     client: Client | None = await cs.get_client_by_id(req_client_id)
 
     if client is None or client.active is False:
-        LOGGER.warn(f'client_id={req_client_id} not found in database or is not active')
+        LOGGER.warning(f'client_id={req_client_id} not found in database or is not active')
         raise HTTPException(404)
 
     return ClientDetails(
@@ -119,7 +119,7 @@ async def wb_get_client_datasource(ds_id: str, session: AsyncSession = Depends(g
     ds_session: ClientDataSource | None = await dss.get_datasource_by_id(ds_id)
 
     if ds_session is None or ds_session.removed is True:
-        LOGGER.warn(f'datasource_id={ds_id} not found in database or has been removed')
+        LOGGER.warning(f'datasource_id={ds_id} not found in database or has been removed')
         raise HTTPException(404)
 
     f_session = await dss.get_features_by_datasource(ds_session)
@@ -143,7 +143,7 @@ async def wb_get_client_datasource_by_name(ds_id: str, session: AsyncSession = D
     ds_sessions: list[ClientDataSource] = await dss.get_datasource_by_name(ds_id)
 
     if not ds_sessions:
-        LOGGER.warn(f'datasource_id={ds_id} not found in database or has been removed')
+        LOGGER.warning(f'datasource_id={ds_id} not found in database or has been removed')
         raise HTTPException(404)
 
     ret_ds = []
@@ -195,7 +195,7 @@ async def wb_get_artifact_status(artifact_id: str, session: AsyncSession = Depen
     # TODO: get status from celery
 
     if artifact_session is None:
-        LOGGER.warn(f'artifact_id={artifact_id} not found in database')
+        LOGGER.warning(f'artifact_id={artifact_id} not found in database')
         raise HTTPException(404)
 
     return ArtifactStatus(
@@ -212,7 +212,8 @@ async def wb_get_artifact(artifact_id: str, session: AsyncSession = Depends(get_
 
     try:
         jms: JobManagementService = JobManagementService(session)
-        return jms.get_artifact(artifact_id)
+        artifact = await jms.get_artifact(artifact_id)
+        return artifact
 
     except ValueError as e:
         LOGGER.error(f'{e}')
@@ -238,11 +239,11 @@ async def wb_get_model(artifact_id: str, session: AsyncSession = Depends(get_ses
         return FileResponse(model_path)
 
     except ValueError as e:
-        LOGGER.warn(str(e))
+        LOGGER.warning(str(e))
         raise HTTPException(404)
 
     except sqlex.NoResultFound as _:
-        LOGGER.warn(f'no aggregated model found for artifact_id={artifact_id}')
+        LOGGER.warning(f'no aggregated model found for artifact_id={artifact_id}')
         raise HTTPException(404)
 
     except sqlex.MultipleResultsFound as _:
@@ -270,11 +271,11 @@ async def wb_get_partial_model(artifact_id: str, builder_client_id: str, session
         return FileResponse(model_path)
 
     except ValueError as e:
-        LOGGER.warn(str(e))
+        LOGGER.warning(str(e))
         raise HTTPException(404)
 
     except sqlex.NoResultFound as _:
-        LOGGER.warn(f'no partial model found for artifact_id={artifact_id} and client_id={builder_client_id}')
+        LOGGER.warning(f'no partial model found for artifact_id={artifact_id} and client_id={builder_client_id}')
         raise HTTPException(404)
 
     except sqlex.MultipleResultsFound as _:

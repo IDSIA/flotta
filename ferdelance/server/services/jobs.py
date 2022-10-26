@@ -98,7 +98,7 @@ class JobManagementService(DBSessionService):
         artifact_db = await self.ars.get_artifact(artifact_id)
 
         if artifact_db is None:
-            LOGGER.warn(f'client_id={client_id}: artifact_id={artifact_id} does not exists')
+            LOGGER.warning(f'client_id={client_id}: artifact_id={artifact_id} does not exists')
             raise ArtifactDoesNotExists()
 
         if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
@@ -107,7 +107,7 @@ class JobManagementService(DBSessionService):
         artifact_path = artifact_db.path
 
         if not os.path.exists(artifact_path):
-            LOGGER.warn(f'client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}')
+            LOGGER.warning(f'client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}')
             raise ArtifactDoesNotExists()
 
         async with aiofiles.open(artifact_path, 'r') as f:
@@ -121,7 +121,7 @@ class JobManagementService(DBSessionService):
         job = await self.js.next_job_for_client(client_id)
 
         if job is None:
-            LOGGER.warn(f'client_id={client_id}: task does not exists with artifact_id={artifact_id}')
+            LOGGER.warning(f'client_id={client_id}: task does not exists with artifact_id={artifact_id}')
             raise TaskDoesNotExists()
 
         job = await self.js.start_execution(job)

@@ -38,6 +38,7 @@ class SecurityService(DBSessionService):
         self.kvs: KeyValueStore = KeyValueStore(db)
         self.cs: ClientService = ClientService(db)
         self.client_id: str | None = client_id
+        self.client: Client | None = None
 
     async def generate_token(self, system: str, mac_address: str, node: str, client_id: str = '') -> ClientToken:
         """Generates a client token with the data received from the client."""
@@ -115,8 +116,9 @@ class SecurityService(DBSessionService):
         enc = HybridEncrypter(client_public_key)
         return enc.encrypt(content)
 
-    def server_encrypt_response(self, content: dict[str, Any]) -> Response:
-        return Response(content=self.server_encrypt_content(json.dumps(content)))
+    async def server_encrypt_response(self, content: dict[str, Any]) -> Response:
+        data = await self.server_encrypt_content(json.dumps(content))
+        return Response(content=data)
 
     async def server_decrypt_content(self, content: bytes) -> str:
         server_private_key: RSAPrivateKey = await self.get_server_private_key()

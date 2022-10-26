@@ -65,7 +65,7 @@ async def client_join(request: Request, client: ClientJoinRequest, session: Asyn
 
     try:
         if request.client is None:
-            LOGGER.warn('client not set for request?')
+            LOGGER.warning('client not set for request?')
             raise HTTPException(400)
 
         ip_address = request.client.host
@@ -86,6 +86,7 @@ async def client_join(request: Request, client: ClientJoinRequest, session: Asyn
             type='CLIENT',
         )
 
+        ss.client_id = client_id
         ss.client = await cs.create_client(new_client)
         client_token = await cs.create_client_token(client_token)
 
@@ -101,7 +102,7 @@ async def client_join(request: Request, client: ClientJoinRequest, session: Asyn
             public_key=public_key,
         )
 
-        return ss.server_encrypt_response(cjd.dict())
+        return await ss.server_encrypt_response(cjd.dict())
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
@@ -151,7 +152,7 @@ async def client_update(request: Request, session: AsyncSession = Depends(get_se
 
     await cs.create_client_event(client_id, f'action:{next_action.action}')
 
-    return ss.server_encrypt_response(next_action.dict())
+    return await ss.server_encrypt_response(next_action.dict())
 
 
 @client_router.get('/client/download/application', response_class=Response)
@@ -211,7 +212,7 @@ async def client_update_metadata(request: Request, session: AsyncSession = Depen
 
     client_data_source_list: list[ClientDataSource] = await dss.get_datasource_by_client_id(client_id)
 
-    ds_list = []
+    ds_list: list[MetaDataSource] = []
 
     for cds in client_data_source_list:
         features = await dss.get_features_by_datasource(cds)
@@ -223,7 +224,8 @@ async def client_update_metadata(request: Request, session: AsyncSession = Depen
                 ])
         )
 
-    return Response(ss.server_encrypt_content(json.dumps([ds.dict() for ds in ds_list])))
+    data = await ss.server_encrypt_content(json.dumps([ds.dict() for ds in ds_list]))
+    return Response(data)
 
 
 @client_router.get('/client/task', response_class=Response)
@@ -250,7 +252,7 @@ async def client_get_task(request: Request, session: AsyncSession = Depends(get_
     except TaskDoesNotExists as _:
         raise HTTPException(404, 'Task does not exists')
 
-    return ss.server_encrypt_response(content.dict())
+    return await ss.server_encrypt_response(content.dict())
 
 # TODO: add endpoint for failed job executions
 

@@ -38,7 +38,7 @@ class ServerStartup(DBSessionService):
         entry_exists = res.scalar_one_or_none()
 
         if entry_exists is not None:
-            LOGGER.warn(f'client already exists for type={type} ip_address={ip_address} system={system}')
+            LOGGER.warning(f'client already exists for type={type} ip_address={ip_address} system={system}')
             return
 
         if node is None:

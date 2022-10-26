@@ -35,7 +35,8 @@ class ActionService(DBSessionService):
             True if no valid token is found, otherwise False.
         """
         n_tokens = await self.session.scalar(
-            select(func.count(ClientToken))
+            select(func.count())
+            .select_from(ClientToken)
             .where(
                 ClientToken.client_id == client.client_id,
                 ClientToken.valid
