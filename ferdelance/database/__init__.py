@@ -29,12 +29,10 @@ class DataBase:
         self.engine: AsyncEngine
         self.async_session_factory: Any
         self.async_session: Any
-        LOGGER.info('init!!!')
-        pass
 
     def __new__(cls: type[DataBase]) -> DataBase:
         if not hasattr(cls, 'instance'):
-            LOGGER.info('singleton new')
+            LOGGER.debug('Database singleton creation')
             cls.instance = super(DataBase, cls).__new__(cls)
 
             DB_HOST = os.environ.get('DB_HOST', None)
@@ -52,7 +50,7 @@ class DataBase:
             cls.instance.engine = create_async_engine(cls.instance.database_url)
             cls.instance.async_session = sessionmaker(bind=cls.instance.engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False)
 
-            LOGGER.info('DataBase factories created')
+            LOGGER.info('DataBase connection established')
 
         return cls.instance
 
