@@ -43,7 +43,7 @@ import uuid
 LOGGER = logging.getLogger(__name__)
 
 
-class TestFilesClass:
+class TestWorkersClass:
 
     def setup_class(self):
         LOGGER.info('setting up')

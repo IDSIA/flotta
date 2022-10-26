@@ -63,20 +63,6 @@ class TestWorkbenchClass:
         self.server_key = None
         self.token = None
 
-        with TestClient(api) as client:
-            self.client_id, self.token, self.server_key = create_client(client, self.private_key)
-
-            res = client.get('/workbench/connect')
-
-            res.raise_for_status()
-
-            self.wb_token = WorkbenchJoinData(**res.json()).token
-
-            metadata: Metadata = get_metadata()
-            upload_response: Response = send_metadata(client, self.token, self.server_key, metadata)
-
-            assert upload_response.status_code == 200
-
         LOGGER.info('setup completed')
 
     def teardown_class(self):
@@ -89,9 +75,27 @@ class TestWorkbenchClass:
 
         LOGGER.info('teardown completed')
 
+    def connect(self, client: TestClient) -> str:
+        self.client_id, self.token, self.server_key = create_client(client, self.private_key)
+
+        res = client.get('/workbench/connect')
+
+        res.raise_for_status()
+
+        self.wb_token = WorkbenchJoinData(**res.json()).token
+
+        metadata: Metadata = get_metadata()
+        upload_response: Response = send_metadata(client, self.token, self.server_key, metadata)
+
+        assert upload_response.status_code == 200
+
+        return self.client_id
+
     def test_read_workbench_home(self):
         """Generic test to check if the home works."""
         with TestClient(api) as client:
+            self.connect(client)
+
             response = client.get('/workbench', headers=headers(self.wb_token))
 
             assert response.status_code == 200
@@ -99,6 +103,8 @@ class TestWorkbenchClass:
 
     def test_client_list(self):
         with TestClient(api) as client:
+            self.connect(client)
+
             res = client.get(
                 '/workbench/client/list',
                 headers=headers(self.wb_token)
@@ -115,7 +121,7 @@ class TestWorkbenchClass:
 
     def test_client_detail(self):
         with TestClient(api) as client:
-            client_id = self.client_id
+            client_id = self.connect(client)
 
             res = client.get(
                 f'/workbench/client/{client_id}',
@@ -131,6 +137,8 @@ class TestWorkbenchClass:
 
     def test_workflow_submit(self):
         with TestClient(api) as client:
+            self.connect(client)
+
             res = client.get(
                 '/workbench/datasource/list',
                 headers=headers(self.wb_token)

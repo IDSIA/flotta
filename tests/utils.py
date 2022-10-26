@@ -21,8 +21,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import close_all_sessions
 
-from psycopg2.errors import DuplicateDatabase
-
 from fastapi.testclient import TestClient
 
 from base64 import b64encode
@@ -66,11 +64,11 @@ def setup_test_database() -> Engine:
     # database
     db_string_no_db = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/postgres'
 
-    with create_engine(db_string_no_db, isolation_level='AUTOCOMMIT').connect() as db:
+    with create_engine(db_string_no_db, isolation_level='AUTOCOMMIT').connect() as conn:
         try:
-            db.execute(f'CREATE DATABASE {DB_SCHEMA}')
-            db.execute(f'GRANT ALL PRIVILEGES ON DATABASE {DB_SCHEMA} to {DB_USER};')
-        except DuplicateDatabase as _:
+            conn.execute(f'CREATE DATABASE {DB_SCHEMA}')
+            conn.execute(f'GRANT ALL PRIVILEGES ON DATABASE {DB_SCHEMA} to {DB_USER};')
+        except Exception as _:
             LOGGER.warning('database already exists')
 
     os.environ['DATABASE_URL_NO_DB'] = db_string_no_db

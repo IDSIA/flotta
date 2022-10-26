@@ -37,9 +37,6 @@ class TestWorkflowClass:
         self.public_key = self.private_key.public_key()
         self.public_key_bytes = bytes_from_public_key(self.public_key)
 
-        with TestClient(api) as client:
-            self.client_1, self.token_1, self.server_key = create_client(client, self.private_key)
-
         random.seed(42)
 
         LOGGER.info('setup completed')
@@ -56,7 +53,9 @@ class TestWorkflowClass:
         LOGGER.info('add new version of the client')
 
         with TestClient(api) as client:
-            update_response = client.post('/client/update', json={'payload': ''}, headers=headers(self.token_1))
+            _, token, _ = create_client(client, self.private_key)
+
+            update_response = client.post('/client/update', json={'payload': ''}, headers=headers(token))
 
             LOGGER.info(f'{update_response}')
 
