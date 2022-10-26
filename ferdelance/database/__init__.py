@@ -1,8 +1,7 @@
 from __future__ import annotations
-from curses import echo
 from typing import AsyncGenerator, Any
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
 from sqlalchemy.orm import sessionmaker, registry
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 

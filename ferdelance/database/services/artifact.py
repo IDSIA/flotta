@@ -16,7 +16,8 @@ class ArtifactService(DBSessionService):
         db_artifact = Artifact(artifact_id=artifact_id, path=path, status=status)
 
         existing = await self.session.scalar(
-            select(func.count(Artifact))
+            select(func.count())
+            .select_from(Artifact)
             .where(Artifact.artifact_id == artifact_id)
         )
 

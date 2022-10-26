@@ -107,13 +107,15 @@ class JobService(DBSessionService):
 
     async def count_jobs_for_artifact(self, artifact_id: str) -> int:
         return await self.session.scalar(
-            select(func.count(Job))
+            select(func.count())
+            .select_from(Job)
             .where(Job.artifact_id == artifact_id)
         )
 
     async def count_jobs_by_status(self, artifact_id: str, status: JobStatus) -> int:
         return await self.session.scalar(
-            select(func.count(Job))
+            select(func.count())
+            .select_from(Job)
             .where(
                 Job.artifact_id == artifact_id,
                 Job.status == status.name

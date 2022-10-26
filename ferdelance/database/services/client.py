@@ -38,7 +38,7 @@ class ClientService(DBSessionService):
 
     async def update_client(self, client_id: str, version: str = '') -> None:
         if not version:
-            LOGGER.warn('cannot update a version with an empty string')
+            LOGGER.warning('cannot update a version with an empty string')
             return
 
         client = await self.session.scalar(
