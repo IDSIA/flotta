@@ -1,14 +1,16 @@
 from . import security
 from .. import __version__
 from ..config import STORAGE_ARTIFACTS, STORAGE_CLIENTS, STORAGE_MODELS
-from ..database.services import ClientService, DBSessionService, AsyncSession, setup_settings
+from ..database.services.core import DBSessionService, AsyncSession
+from ..database.services.client import ClientService
+from ..database.services.settings import setup_settings
 from ..database.tables import Client, ClientToken
 from ..server.services import SecurityService
 
 from sqlalchemy import select
 
+import aiofiles.os
 import logging
-import os
 import platform
 import re
 import uuid
@@ -25,9 +27,9 @@ class ServerStartup(DBSessionService):
     async def init_directories(self) -> None:
         LOGGER.info('directory initialization')
 
-        os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
-        os.makedirs(STORAGE_CLIENTS, exist_ok=True)
-        os.makedirs(STORAGE_MODELS, exist_ok=True)
+        await aiofiles.os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
+        await aiofiles.os.makedirs(STORAGE_CLIENTS, exist_ok=True)
+        await aiofiles.os.makedirs(STORAGE_MODELS, exist_ok=True)
 
         LOGGER.info('directory initialization completed')
 
