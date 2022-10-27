@@ -56,16 +56,19 @@ class DataSourceService(DBSessionService):
                 LOGGER.info(f'client_id={client_id}: removing data source={ds.name}')
 
                 ds_db.removed = True
-                ds_db.type = None,
-                ds_db.n_records = None,
-                ds_db.n_features = None,
-                ds_db.update_time = dt_now,
+                ds_db.n_records = None
+                ds_db.n_features = None
+                ds_db.update_time = dt_now
 
                 # remove features assigned with this data source
-                for f in await self.session.scalars(
+                x = await self.session.execute(
                     select(ClientFeature)
                     .where(ClientFeature.datasource_id == ds_db.client_id)
-                ):
+                )
+
+                features: list[ClientFeature] = x.scalars().all()
+
+                for f in features:
                     f.removed = True
                     f.dtype = None
                     f.v_mean = None
@@ -135,32 +138,32 @@ class DataSourceService(DBSessionService):
                 # remove feature and info
                 LOGGER.info(f'removing feature={f.name} for datasource={ds.datasource_id}')
 
-                f_db.removed = True,
-                f_db.dtype = None,
-                f_db.v_mean = None,
-                f_db.v_std = None,
-                f_db.v_min = None,
-                f_db.v_p25 = None,
-                f_db.v_p50 = None,
-                f_db.v_p75 = None,
-                f_db.v_max = None,
-                f_db.v_miss = None,
-                f_db.update_time = dt_now,
+                f_db.removed = True
+                f_db.dtype = None
+                f_db.v_mean = None
+                f_db.v_std = None
+                f_db.v_min = None
+                f_db.v_p25 = None
+                f_db.v_p50 = None
+                f_db.v_p75 = None
+                f_db.v_max = None
+                f_db.v_miss = None
+                f_db.update_time = dt_now
 
             else:
                 # update data source info
                 LOGGER.info(f'client_id={ds.datasource_id}: updating data source={f.name}')
 
-                f_db.dtype = f.dtype,
-                f_db.v_mean = f.v_mean,
-                f_db.v_std = f.v_std,
-                f_db.v_min = f.v_min,
-                f_db.v_p25 = f.v_p25,
-                f_db.v_p50 = f.v_p50,
-                f_db.v_p75 = f.v_p75,
-                f_db.v_max = f.v_max,
-                f_db.v_miss = f.v_miss,
-                f_db.update_time = dt_now,
+                f_db.dtype = f.dtype
+                f_db.v_mean = f.v_mean
+                f_db.v_std = f.v_std
+                f_db.v_min = f.v_min
+                f_db.v_p25 = f.v_p25
+                f_db.v_p50 = f.v_p50
+                f_db.v_p75 = f.v_p75
+                f_db.v_max = f.v_max
+                f_db.v_miss = f.v_miss
+                f_db.update_time = dt_now
 
         if commit:
             await self.session.commit()
