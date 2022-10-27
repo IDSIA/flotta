@@ -8,7 +8,6 @@ from ferdelance_shared.status import JobStatus
 from .utils import (
     setup_test_database,
     setup_rsa_keys,
-    teardown_test_database,
     bytes_from_public_key,
 )
 
@@ -47,16 +46,6 @@ class TestJobsClass:
         self.token = None
 
         LOGGER.info('setup completed')
-
-    def teardown_class(self):
-        """Class teardown. This method will ensure that the database is closed and deleted from the remote dbms.
-        Note that all database connections still open will be forced to close by this method.
-        """
-        LOGGER.info('tearing down')
-
-        teardown_test_database()
-
-        LOGGER.info('teardown completed')
 
     @pytest.mark.asyncio
     async def test_next_job(self):

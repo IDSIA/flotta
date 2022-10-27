@@ -1,4 +1,5 @@
 from ferdelance.database.tables import (
+    Artifact as ArtifactDB,
     Client,
     ClientApp,
     ClientDataSource,
@@ -33,7 +34,6 @@ from ferdelance_shared.operations import Operations
 from .utils import (
     setup_test_database,
     setup_rsa_keys,
-    teardown_test_database,
     create_client,
     headers,
     bytes_from_public_key,
@@ -42,6 +42,16 @@ from .utils import (
     decrypt_stream_response,
     get_metadata,
     send_metadata,
+    RSAPublicKey,
+)
+from .crud import (
+    delete_client,
+    get_client_by_id,
+    get_token_by_id,
+    get_client_events,
+    delete_datasource,
+    delete_artifact,
+    delete_job,
 )
 
 from fastapi.testclient import TestClient
@@ -59,30 +69,6 @@ import random
 import shutil
 
 LOGGER = logging.getLogger(__name__)
-
-
-def get_client_by_id(session: Session, client_id: str) -> Client | None:
-    return session.execute(
-        select(Client)
-        .where(Client.client_id == client_id)
-    ).scalar_one_or_none()
-
-
-def get_token_by_id(session: Session, client_id: str) -> ClientToken | None:
-    return session.execute(
-        select(ClientToken)
-        .where(
-            ClientToken.client_id == client_id,
-            ClientToken.valid == True
-        )
-    ).scalar_one_or_none()
-
-
-def get_client_events(session: Session, client_id: str) -> list[str]:
-    return session.scalars(
-        select(ClientEvent.event)
-        .where(ClientEvent.client_id == client_id)
-    ).all()
 
 
 class TestClientClass:
@@ -107,37 +93,16 @@ class TestClientClass:
 
         random.seed(42)
 
-        self.server_key = None
-        self.token = None
-
         LOGGER.info('setup completed')
 
-    def teardown_class(self):
-        """Class teardown. This method will ensure that the database is closed and deleted from the remote dbms.
-        Note that all database connections still open will be forced to close by this method.
-        """
-        LOGGER.info('tearing down')
-
-        teardown_test_database()
-
-        LOGGER.info('teardown completed')
-
-    def get_client(self, client: TestClient) -> str:
-        client_id, self.token, self.server_key = create_client(client, self.private_key)
-        return client_id
-
-    def get_client_update(self, client: TestClient, payload: str | None = None, token: str | None = None) -> tuple[int, str, Any]:
-        cur_token = token if token else self.token
-
+    def get_client_update(self, client: TestClient, token: str, server_key: RSAPublicKey, payload: str | None = None) -> tuple[int, str, Any]:
         if payload is None:
             payload = json.dumps(ClientUpdate(action=Action.DO_NOTHING.name).dict())
 
-        assert self.server_key is not None
-
         response = client.get(
             '/client/update',
-            data=create_payload(self.server_key, payload),
-            headers=headers(cur_token)
+            data=create_payload(server_key, payload),
+            headers=headers(token)
         )
 
         if response.status_code != 200:
@@ -152,12 +117,15 @@ class TestClientClass:
     def test_read_home(self):
         """Generic test to check if the home works."""
         with TestClient(api) as client:
-            create_client(client, self.private_key)
+            client_id, _, _ = create_client(client, self.private_key)
 
             response = client.get('/')
 
             assert response.status_code == 200
             assert response.content.decode('utf8') == '"Hi! 😀"'
+
+            with Session(self.engine) as session:
+                delete_client(session, client_id)
 
     def test_client_connect_successful(self):
         """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
@@ -174,7 +142,7 @@ class TestClientClass:
         """
 
         with TestClient(api) as client:
-            client_id = self.get_client(client)
+            client_id, token, _ = create_client(client, self.private_key)
 
             with Session(self.engine) as session:
                 db_client: Client | None = get_client_by_id(session, client_id)
@@ -185,7 +153,7 @@ class TestClientClass:
                 db_token: ClientToken | None = get_token_by_id(session, client_id)
 
                 assert db_token is not None
-                assert db_token.token == self.token
+                assert db_token.token == token
                 assert db_token.valid
 
                 db_events: list[str] = get_client_events(session, client_id)
@@ -193,11 +161,13 @@ class TestClientClass:
                 assert len(db_events) == 1
                 assert db_events[0] == 'creation'
 
+                delete_client(session, client_id)
+
     def test_client_already_exists(self):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
 
         with TestClient(api) as client:
-            client_id = self.get_client(client)
+            client_id, _, _ = create_client(client, self.private_key)
             public_key = bytes_from_public_key(self.public_key)
 
             with Session(self.engine) as session:
@@ -221,13 +191,15 @@ class TestClientClass:
             assert response.status_code == 403
             assert response.json()['detail'] == 'Invalid client data'
 
+            delete_client(session, client_id)
+
     def test_client_update(self):
         """This will test the endpoint for updates."""
 
         with TestClient(api) as client:
-            client_id = self.get_client(client)
+            client_id, token, server_key = create_client(client, self.private_key)
 
-            status_code, action, _ = self.get_client_update(client)
+            status_code, action, _ = self.get_client_update(client, token, server_key)
 
             assert status_code == 200
             assert Action[action] == Action.DO_NOTHING
@@ -240,14 +212,16 @@ class TestClientClass:
                 assert 'update' in db_events
                 assert f'action:{Action.DO_NOTHING.name}' in db_events
 
+            delete_client(session, client_id)
+
     def test_client_leave(self):
         """This will test the endpoint for leave a client."""
         with TestClient(api) as client:
-            client_id = self.get_client(client)
+            client_id, token, server_key = create_client(client, self.private_key)
 
             response_leave = client.post(
                 '/client/leave',
-                headers=headers(self.token)
+                headers=headers(token)
             )
 
             LOGGER.info(f'response_leave={response_leave}')
@@ -255,7 +229,7 @@ class TestClientClass:
             assert response_leave.status_code == 200
 
             # cannot get other updates
-            status_code, _, _ = self.get_client_update(client)
+            status_code, _, _ = self.get_client_update(client, token, server_key)
 
             assert status_code == 403
 
@@ -272,10 +246,12 @@ class TestClientClass:
                 assert 'left' in db_events
                 assert 'update' not in db_events
 
+            delete_client(session, client_id)
+
     def test_client_update_token(self):
         """This will test the failure and update of a token."""
         with TestClient(api) as client:
-            client_id = self.get_client(client)
+            client_id, token, server_key = create_client(client, self.private_key)
 
             with Session(self.engine) as session:
                 # expire token
@@ -288,7 +264,7 @@ class TestClientClass:
 
                 LOGGER.info('expiration_time for token set to 0')
 
-                status_code, action, data = self.get_client_update(client)
+                status_code, action, data = self.get_client_update(client, token, server_key)
 
                 assert 'action' in data
                 assert Action[action] == Action.UPDATE_TOKEN
@@ -310,21 +286,23 @@ class TestClientClass:
 
                 LOGGER.info('expiration_time for token set to 24h')
 
-                status_code, _, _ = self.get_client_update(client)
+                status_code, _, _ = self.get_client_update(client, token, server_key)
 
                 assert status_code == 403
 
-                status_code, action, data = self.get_client_update(client, token=new_token)
+                status_code, action, data = self.get_client_update(client, new_token, server_key)
 
                 assert status_code == 200
                 assert 'action' in data
                 assert Action[action] == Action.DO_NOTHING
                 assert len(data) == 1
 
+            delete_client(session, client_id)
+
     def test_client_update_app(self):
         """This will test the upload of a new (fake) app, and the update process."""
         with TestClient(api) as client:
-            client_id = self.get_client(client)
+            client_id, token, server_key = create_client(client, self.private_key)
 
             with Session(self.engine) as session:
                 client_db = get_client_by_id(session, client_id)
@@ -391,7 +369,7 @@ class TestClientClass:
                 assert newest_version.version == version_app
 
                 # update request
-                status_code, action, data = self.get_client_update(client)
+                status_code, action, data = self.get_client_update(client, token, server_key)
 
                 assert status_code == 200
                 assert Action[action] == Action.UPDATE_CLIENT
@@ -402,13 +380,13 @@ class TestClientClass:
 
                 download_app = DownloadApp(name=update_client_app.name, version=update_client_app.version)
 
-                assert self.server_key is not None
+                assert server_key is not None
 
                 # download new client
                 with client.get(
                     '/client/download/application',
-                    data=create_payload(self.server_key, json.dumps(download_app.dict())),
-                    headers=headers(self.token),
+                    data=create_payload(server_key, json.dumps(download_app.dict())),
+                    headers=headers(token),
                     stream=True,
                 ) as stream:
                     assert stream.status_code == 200
@@ -434,16 +412,18 @@ class TestClientClass:
                 )
                 session.commit()
 
+            delete_client(session, client_id)
+
     def test_update_metadata(self):
         with TestClient(api) as client:
-            client_id = self.get_client(client)
+            client_id, token, server_key = create_client(client, self.private_key)
 
             assert client_id is not None
-            assert self.token is not None
-            assert self.server_key is not None
+            assert token is not None
+            assert server_key is not None
 
             metadata: Metadata = get_metadata()
-            upload_response: Response = send_metadata(client, self.token, self.server_key, metadata)
+            upload_response: Response = send_metadata(client, token, server_key, metadata)
 
             assert upload_response.status_code == 200
 
@@ -469,43 +449,43 @@ class TestClientClass:
                 assert ds_fs[0].name == ds_features[0].name
                 assert ds_fs[1].name == ds_features[1].name
 
+            delete_datasource(session, ds_db.datasource_id)
+            delete_client(session, client_id)
+
     def test_task_get(self):
         with TestClient(api) as client:
-            client_id = self.get_client(client)
-            assert client_id is not None
-            assert self.token is not None
-            assert self.server_key is not None
-
-            res = client.get('/workbench/connect')
-            res.raise_for_status()
-            wb_token = WorkbenchJoinData(**res.json()).token
+            client_id, token, server_key = create_client(client, self.private_key)
 
             with Session(self.engine) as session:
                 LOGGER.info('setup metadata for client')
 
                 metadata: Metadata = get_metadata()
                 ds_name = metadata.datasources[0].name
-                upload_response: Response = send_metadata(client, self.token, self.server_key, metadata)
+                upload_response: Response = send_metadata(client, token, server_key, metadata)
 
                 assert upload_response.status_code == 200
 
                 LOGGER.info('setup artifact')
 
-                ds_list: list[ClientDataSource] = session.scalars(
+                ds_db: ClientDataSource | None = session.execute(
                     select(ClientDataSource)
-                ).all()
+                    .where(ClientDataSource.client_id == client_id)
+                ).scalar_one_or_none()
 
-                assert client_id in [ds.client_id for ds in ds_list]
+                assert ds_db is not None
 
-                ds = [ds for ds in ds_list if ds.name == ds_name][0]
-
-                f1, f2 = session.scalars(
+                fs = session.scalars(
                     select(ClientFeature)
                     .where(
-                        ClientFeature.datasource_id == ds.datasource_id,
+                        ClientFeature.datasource_id == ds_db.datasource_id,
                         ClientFeature.removed == False
                     )
                 ).all()
+
+                assert len(fs) == 2
+
+                f1: ClientFeature = fs[0]
+                f2: ClientFeature = fs[1]
 
                 qf1 = QueryFeature(
                     feature_id=f1.feature_id,
@@ -524,8 +504,8 @@ class TestClientClass:
                     artifact_id=None,
                     dataset=Dataset(
                         queries=[Query(
-                            datasource_id=ds.datasource_id,
-                            datasource_name=ds.name,
+                            datasource_id=ds_db.datasource_id,
+                            datasource_name=ds_db.name,
                             features=[qf1, qf2],
                             filters=[QueryFilter(feature=qf1, operation=Operations.NUM_LESS_THAN.name, parameter='1.0')],
                             transformers=[],
@@ -535,6 +515,10 @@ class TestClientClass:
                 )
 
                 LOGGER.info('submit artifact')
+
+                res = client.get('/workbench/connect')
+                res.raise_for_status()
+                wb_token = WorkbenchJoinData(**res.json()).token
 
                 submit_response = client.post(
                     '/workbench/artifact/submit',
@@ -546,7 +530,6 @@ class TestClientClass:
 
                 artifact_status = ArtifactStatus(**submit_response.json())
 
-            with Session(self.engine) as session:
                 n = session.scalar(select(func.count()).select_from(Job))
                 assert n == 1
 
@@ -557,7 +540,7 @@ class TestClientClass:
 
                 LOGGER.info('update client')
 
-                status_code, action, data = self.get_client_update(client)
+                status_code, action, data = self.get_client_update(client, token, server_key)
 
                 assert status_code == 200
                 assert Action[action] == Action.EXECUTE
@@ -570,8 +553,8 @@ class TestClientClass:
 
                 with client.get(
                     '/client/task/',
-                    data=create_payload(self.server_key, json.dumps(update_execute.dict())),
-                    headers=headers(self.token),
+                    data=create_payload(server_key, json.dumps(update_execute.dict())),
+                    headers=headers(token),
                     stream=True,
                 ) as task_response:
                     assert task_response.status_code == 200
@@ -594,5 +577,7 @@ class TestClientClass:
                 LOGGER.info('cleaning up')
                 shutil.rmtree(os.path.join(STORAGE_ARTIFACTS, artifact_status.artifact_id))
 
-                session.execute(delete(Job))
-                session.commit()
+                delete_job(session, job.client_id)
+                delete_artifact(session, artifact_status.artifact_id)
+                delete_datasource(session, ds_db.datasource_id)
+                delete_client(session, client_id)

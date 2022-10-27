@@ -19,11 +19,17 @@ from .utils import (
     headers,
     setup_test_database,
     setup_rsa_keys,
-    teardown_test_database,
     create_client,
     bytes_from_public_key,
     get_metadata,
     send_metadata,
+)
+from .crud import (
+    delete_artifact,
+    delete_client,
+    Session,
+    delete_datasource,
+    delete_job,
 )
 
 from fastapi.testclient import TestClient
@@ -60,23 +66,10 @@ class TestWorkbenchClass:
 
         random.seed(42)
 
-        self.server_key = None
-        self.token = None
-
         LOGGER.info('setup completed')
 
-    def teardown_class(self):
-        """Class teardown. This method will ensure that the database is closed and deleted from the remote dbms.
-        Note that all database connections still open will be forced to close by this method.
-        """
-        LOGGER.info('tearing down')
-
-        teardown_test_database()
-
-        LOGGER.info('teardown completed')
-
     def connect(self, client: TestClient) -> str:
-        self.client_id, self.token, self.server_key = create_client(client, self.private_key)
+        client_id, token, server_key = create_client(client, self.private_key)
 
         res = client.get('/workbench/connect')
 
@@ -85,25 +78,29 @@ class TestWorkbenchClass:
         self.wb_token = WorkbenchJoinData(**res.json()).token
 
         metadata: Metadata = get_metadata()
-        upload_response: Response = send_metadata(client, self.token, self.server_key, metadata)
+        upload_response: Response = send_metadata(client, token, server_key, metadata)
 
         assert upload_response.status_code == 200
 
-        return self.client_id
+        return client_id
 
     def test_read_workbench_home(self):
         """Generic test to check if the home works."""
         with TestClient(api) as client:
-            self.connect(client)
+            client_id = self.connect(client)
 
             response = client.get('/workbench', headers=headers(self.wb_token))
 
             assert response.status_code == 200
             assert response.content.decode('utf8') == '"Workbench 🔧"'
 
+            with Session(self.engine) as session:
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)
+
     def test_client_list(self):
         with TestClient(api) as client:
-            self.connect(client)
+            client_id = self.connect(client)
 
             res = client.get(
                 '/workbench/client/list',
@@ -118,6 +115,10 @@ class TestWorkbenchClass:
             assert 'SERVER' not in client_list
             assert 'WORKER' not in client_list
             assert 'WORKBENCH' not in client_list
+
+            with Session(self.engine) as session:
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)
 
     def test_client_detail(self):
         with TestClient(api) as client:
@@ -135,9 +136,13 @@ class TestWorkbenchClass:
             assert cd.client_id == client_id
             assert cd.version == 'test'
 
+            with Session(self.engine) as session:
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)
+
     def test_workflow_submit(self):
         with TestClient(api) as client:
-            self.connect(client)
+            client_id = self.connect(client)
 
             res = client.get(
                 '/workbench/datasource/list',
@@ -223,3 +228,9 @@ class TestWorkbenchClass:
             assert len(downloaded_artifact.dataset.queries[0].features) == 2
 
             shutil.rmtree(os.path.join(STORAGE_ARTIFACTS, artifact_id))
+
+            with Session(self.engine) as session:
+                delete_job(session, client_id)
+                delete_artifact(session, downloaded_artifact.artifact_id)
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)

@@ -3,10 +3,13 @@ from ferdelance.server.api import api
 from .utils import (
     setup_test_database,
     setup_rsa_keys,
-    teardown_test_database,
     create_client,
     headers,
     bytes_from_public_key
+)
+from .crud import (
+    delete_client,
+    Session,
 )
 
 from fastapi.testclient import TestClient
@@ -41,19 +44,12 @@ class TestWorkflowClass:
 
         LOGGER.info('setup completed')
 
-    def teardown_class(self):
-        LOGGER.info('tearing down')
-
-        teardown_test_database()
-
-        LOGGER.info('teardown completed')
-
     def test_workflow_update_client(self):
         LOGGER.info('start workflow')
         LOGGER.info('add new version of the client')
 
         with TestClient(api) as client:
-            _, token, _ = create_client(client, self.private_key)
+            client_id, token, _ = create_client(client, self.private_key)
 
             update_response = client.post('/client/update', json={'payload': ''}, headers=headers(token))
 
@@ -64,3 +60,6 @@ class TestWorkflowClass:
             # TODO
 
             LOGGER.info('')
+
+            with Session(self.engine) as session:
+                delete_client(session, client_id)

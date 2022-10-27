@@ -22,17 +22,23 @@ from ferdelance_shared.status import JobStatus
 from .utils import (
     setup_test_database,
     setup_rsa_keys,
-    teardown_test_database,
     bytes_from_public_key,
     create_client,
     get_metadata,
     send_metadata,
     headers,
 )
+from .crud import (
+    delete_artifact,
+    delete_client,
+    delete_datasource,
+    delete_job,
+
+)
 
 from fastapi.testclient import TestClient
 from requests import Response
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import logging
@@ -54,45 +60,31 @@ class TestWorkersClass:
         self.public_key = self.private_key.public_key()
         self.public_key_bytes = bytes_from_public_key(self.public_key)
 
-        self.server_key = None
-        self.token = None
-
+    def test_endpoints(self):
         with TestClient(api) as client:
-            self.client_id, self.token, self.server_key = create_client(client, self.private_key)
+            client_id, token, server_key = create_client(client, self.private_key)
 
             metadata: Metadata = get_metadata()
-            upload_response: Response = send_metadata(client, self.token, self.server_key, metadata)
+            upload_response: Response = send_metadata(client, token, server_key, metadata)
 
             assert upload_response.status_code == 200
 
-    def teardown_class(self):
-        """Class teardown. This method will ensure that the database is closed and deleted from the remote dbms.
-        Note that all database connections still open will be forced to close by this method.
-        """
-        LOGGER.info('tearing down')
-
-        teardown_test_database()
-
-        LOGGER.info('teardown completed')
-
-    def test_endpoints(self):
-        with TestClient(api) as client:
             with Session(self.engine) as session:
-                token: ClientToken | None = session.execute(
+                worker_token: str | None = session.execute(
                     select(ClientToken.token)
                     .select_from(ClientToken)
                     .join(Client, Client.client_id == ClientToken.client_id)
                     .where(Client.type == 'WORKER')
                     .limit(1)
-                ).scalar_one()
+                ).scalar_one_or_none()
 
-                assert token is not None
-                assert isinstance(token, str)
+                assert worker_token is not None
+                assert isinstance(worker_token, str)
 
                 # test artifact not found
                 res = client.get(
                     f'/worker/artifact/{uuid.uuid4()}',
-                    headers=headers(token),
+                    headers=headers(worker_token),
                 )
 
                 assert res.status_code == 404
@@ -126,7 +118,7 @@ class TestWorkersClass:
                 # test artifact submit
                 res = client.post(
                     '/worker/artifact',
-                    headers=headers(token),
+                    headers=headers(worker_token),
                     json=artifact.dict()
                 )
 
@@ -150,7 +142,7 @@ class TestWorkersClass:
                 # test artifact get
                 res = client.get(
                     f'/worker/artifact/{status.artifact_id}',
-                    headers=headers(token),
+                    headers=headers(worker_token),
                 )
 
                 assert res.status_code == 200
@@ -182,7 +174,7 @@ class TestWorkersClass:
 
                 res = client.post(
                     f'/worker/model/{artifact.artifact_id}',
-                    headers=headers(token),
+                    headers=headers(worker_token),
                     files={'file': open(model_path, 'rb')}
                 )
 
@@ -197,7 +189,7 @@ class TestWorkersClass:
                 # test model get
                 res = client.get(
                     f'/worker/model/{model_id}',
-                    headers=headers(token),
+                    headers=headers(worker_token),
                 )
 
                 assert res.status_code == 200
@@ -214,3 +206,8 @@ class TestWorkersClass:
                 os.remove(art_db.path)
                 os.remove(models[0].path)
                 os.remove(model_path)
+
+                delete_job(session, client_id)
+                delete_artifact(session, artifact.artifact_id)
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)
