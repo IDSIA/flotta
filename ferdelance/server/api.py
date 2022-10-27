@@ -41,7 +41,7 @@ async def populate_database() -> None:
 
     async with inst.engine.begin() as conn:
         LOGGER.info('database creation started')
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
         LOGGER.info('database creation completed')
 
     async with inst.async_session() as session:
@@ -53,7 +53,8 @@ async def populate_database() -> None:
 async def shutdown() -> None:
     LOGGER.info('server shutdown procedure started')
     inst = DataBase()
-    await inst.engine.dispose()
+    if inst.engine:
+        await inst.engine.dispose()
 
 
 @api.get("/")
