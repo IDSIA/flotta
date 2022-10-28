@@ -41,7 +41,7 @@ class ClientService(DBSessionService):
             LOGGER.warning('cannot update a version with an empty string')
             return
 
-        client = await self.session.scalar(
+        client: Client = await self.session.scalar(
             select(Client).where(Client.client_id == client_id)
         )
         client.version = version
@@ -53,7 +53,7 @@ class ClientService(DBSessionService):
     async def client_leave(self, client_id: str) -> None:
         await self.invalidate_all_tokens(client_id)
 
-        client = await self.session.scalar(
+        client: Client = await self.session.scalar(
             select(Client).where(Client.client_id == client_id)
         )
         client.active = False

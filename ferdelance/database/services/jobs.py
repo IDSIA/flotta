@@ -1,4 +1,3 @@
-from ssl import SSL_ERROR_SSL
 from ..tables import Job
 from .core import DBSessionService, AsyncSession
 
@@ -39,7 +38,7 @@ class JobService(DBSessionService):
         # TODO: add checks like in stop_execution method
 
         stmt = select(Job).where(Job.job_id == job.job_id)
-        job_db = await self.session.scalar(stmt)
+        job_db: Job = await self.session.scalar(stmt)
 
         job_db.status = JobStatus.RUNNING.name
         job_db.execution_time = datetime.now(tz=job.creation_time.tzinfo)
@@ -56,7 +55,7 @@ class JobService(DBSessionService):
             stmt = select(Job).where(Job.artifact_id == artifact_id, Job.client_id == client_id, Job.status == JobStatus.RUNNING.name)
 
             res = await self.session.execute(stmt)
-            job = res.scalar_one()
+            job: Job = res.scalar_one()
 
             job.status = JobStatus.COMPLETED.name
             job.termination_time = datetime.now(tz=job.creation_time.tzinfo)
@@ -81,7 +80,7 @@ class JobService(DBSessionService):
         # TODO: add checks like in stop_execution method
 
         stmt = select(Job).where(Job.job_id == job.job_id)
-        job_db = await self.session.scalar(stmt)
+        job_db: Job = await self.session.scalar(stmt)
 
         job_db.status = JobStatus.ERROR.name,
         job_db.termination_time = datetime.now(tz=job.creation_time.tzinfo)

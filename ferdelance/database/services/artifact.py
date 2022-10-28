@@ -59,7 +59,7 @@ class ArtifactService(DBSessionService):
         return res.scalar_one()
 
     async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> None:
-        artifact = await self.session.scalar(
+        artifact: Artifact = await self.session.scalar(
             select(Artifact).where(Artifact.artifact_id == artifact_id)
         )
         artifact.status = new_status.name
