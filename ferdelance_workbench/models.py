@@ -5,7 +5,7 @@ __all__ = [
     'ParametersRandomForestClassifier',
 ]
 
-from ferdelance_shared.schemas.models import (
+from ferdelance_shared.models import (
     Model,
     FederatedRandomForestClassifier,
     StrategyRandomForestClassifier,
