@@ -55,7 +55,7 @@ class ActionService(DBSessionService):
         """
         ss: SecurityService = SecurityService(self.session, None)
         ss.client = client
-        token: ClientToken = await ss.generate_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
+        token: ClientToken = await ss.generate_client_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
         await self.cs.invalidate_all_tokens(client.client_id)
         await self.cs.create_client_token(token)
 

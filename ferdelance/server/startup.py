@@ -49,7 +49,7 @@ class ServerStartup(DBSessionService):
         node_str: str = str(node)[:12]
         mac_address: str = ':'.join(re.findall('..', f'{node:012x}'[:12]))
 
-        client_token: ClientToken = await self.ss.generate_token(system, mac_address, node_str)
+        client_token: ClientToken = await self.ss.generate_client_token(system, mac_address, node_str)
 
         client = Client(
             client_id=client_token.client_id,
@@ -83,14 +83,10 @@ class ServerStartup(DBSessionService):
         await self.create_client(
             'WORKER',
         )
-        await self.create_client(
-            'WORKBENCH',
-        )
 
         await self.session.commit()
 
     async def startup(self) -> None:
         await self.init_directories()
         await self.init_security()
-
         await self.populate_database()

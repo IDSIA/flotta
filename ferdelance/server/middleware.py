@@ -4,7 +4,7 @@ from starlette.types import ASGIApp
 from starlette.requests import Request
 from starlette.responses import Response
 
-from .security import check_token
+from .security import check_client_token
 from ..database import SessionLocal
 
 import logging
@@ -35,7 +35,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             raise HTTPException(403)
 
         with SessionLocal() as db:
-            if not check_token(db, headers['X-Token']):
+            if not check_client_token(db, headers['X-Token']):
                 LOGGER.warning('Invalid token received')
                 raise HTTPException(403)
 

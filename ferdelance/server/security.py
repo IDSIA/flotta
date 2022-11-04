@@ -13,8 +13,8 @@ from ferdelance_shared.generate import (
 
 from ..database import get_session, AsyncSession
 from ..database.services import KeyValueStore
-from ..database.tables import ClientToken
-from ..database.services.client import ClientService
+from ..database.tables import ClientToken, UserToken
+from ..database.services import ClientService, UserService
 
 import logging
 import os
@@ -77,15 +77,15 @@ async def generate_keys(session: AsyncSession) -> None:
     LOGGER.info('Keys generation completed')
 
 
-async def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> str:
-    """Check if the given token exists in the database.
+async def check_client_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> str:
+    """Checks if the given client token exists in the database.
 
-    :param db:
-        Current session to the database.
-    :param token:
-        Header token received from the client.
+    :param credentials:
+        Content of Authorization header.
+    :session:
+        Session on the database.
     :return:
-        True if the token is valid, otherwise false.
+        The client_id associated with the authorization header, otherwise an exception is raised.
     """
     token: str = credentials.credentials  # type: ignore
 
@@ -113,3 +113,41 @@ async def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()),
     LOGGER.debug(f'client_id={client_id}: received valid token')
 
     return client_id
+
+
+async def check_user_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> str:
+    """Checks if the given user token exists in the database.
+
+    :param credentials:
+        Content of Authorization header.
+    :session:
+        Session on the database.
+    :return:
+        The user_id associated with the authorization header, otherwise an exception is raised.
+    """
+    token: str = credentials.credentials  # type: ignore
+
+    us: UserService = UserService(session)
+
+    user_token: UserToken | None = await us.get_user_token_by_token(token)
+
+    # TODO: add expiration to token, and also an endpoint to update the token using an expired one
+
+    if user_token is None:
+        LOGGER.warning('received token does not exist in database')
+        raise HTTPException(401, 'Invalid access token')
+
+    user_id = str(user_token.user_id)
+
+    if not user_token.valid:
+        LOGGER.warning('received invalid token')
+        raise HTTPException(403, 'Permission denied')
+
+    if user_token.creation_time + timedelta(seconds=user_token.expiration_time) < datetime.now(user_token.creation_time.tzinfo):
+        LOGGER.warning(f'user_id={user_id}: received expired token: invalidating')
+        await us.invalidate_all_tokens(user_id)
+        # allow access only for a single time, since the token update has priority
+
+    LOGGER.debug(f'user_id={user_id}: received valid token')
+
+    return user_id

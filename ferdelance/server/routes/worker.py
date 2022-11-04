@@ -8,7 +8,7 @@ from ...database import get_session, AsyncSession
 from ...database.services import ModelService, ClientService
 from ...database.tables import Model, Client
 from ..services import JobManagementService
-from ..security import check_token
+from ..security import check_client_token
 
 from ferdelance_shared.schemas import Artifact, ArtifactStatus
 
@@ -22,7 +22,7 @@ LOGGER = logging.getLogger(__name__)
 worker_router = APIRouter()
 
 
-async def check_access(session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)) -> Client:
+async def check_access(session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)) -> Client:
     cs: ClientService = ClientService(session)
 
     client = await cs.get_client_by_id(client_id)

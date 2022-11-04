@@ -18,7 +18,7 @@ from ..services import (
     SecurityService,
     JobManagementService,
 )
-from ..security import check_token
+from ..security import check_client_token
 from ..exceptions import (
     ArtifactDoesNotExists,
     TaskDoesNotExists
@@ -70,7 +70,7 @@ async def client_join(request: Request, client: ClientJoinRequest, session: Asyn
 
         ip_address = request.client.host
 
-        client_token: ClientToken = await ss.generate_token(client.system, client.mac_address, client.node)
+        client_token: ClientToken = await ss.generate_client_token(client.system, client.mac_address, client.node)
 
         token = client_token.token
         client_id = client_token.client_id
@@ -115,7 +115,7 @@ async def client_join(request: Request, client: ClientJoinRequest, session: Asyn
 
 
 @client_router.post('/client/leave')
-async def client_leave(session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+async def client_leave(session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
     """API for existing client to be removed"""
     cs: ClientService = ClientService(session)
 
@@ -128,7 +128,7 @@ async def client_leave(session: AsyncSession = Depends(get_session), client_id: 
 
 
 @client_router.get('/client/update', response_class=Response)
-async def client_update(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+async def client_update(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
     - new artifact package
@@ -156,7 +156,7 @@ async def client_update(request: Request, session: AsyncSession = Depends(get_se
 
 
 @client_router.get('/client/download/application', response_class=Response)
-async def client_update_files(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+async def client_update_files(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
     """
     API request by the client to get updated files. With this endpoint a client can:
     - update application software
@@ -191,7 +191,7 @@ async def client_update_files(request: Request, session: AsyncSession = Depends(
 
 
 @client_router.post('/client/update/metadata')
-async def client_update_metadata(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+async def client_update_metadata(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
@@ -229,7 +229,7 @@ async def client_update_metadata(request: Request, session: AsyncSession = Depen
 
 
 @client_router.get('/client/task', response_class=Response)
-async def client_get_task(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+async def client_get_task(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
     LOGGER.info(f'client_id={client_id}: new task request')
 
     cs: ClientService = ClientService(session)
@@ -258,7 +258,7 @@ async def client_get_task(request: Request, session: AsyncSession = Depends(get_
 
 
 @client_router.post('/client/task/{artifact_id}')
-async def client_post_task(request: Request, artifact_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+async def client_post_task(request: Request, artifact_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
     LOGGER.info(f'client_id={client_id}: complete work on artifact_id={artifact_id}')
 
     ss: SecurityService = SecurityService(session, client_id)
@@ -275,7 +275,7 @@ async def client_post_task(request: Request, artifact_id: str, session: AsyncSes
 
 
 @client_router.post('/client/metrics')
-async def client_post_metrics(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)):
+async def client_post_metrics(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
     ss: SecurityService = SecurityService(session, client_id)
     jm: JobManagementService = JobManagementService(session)
 
