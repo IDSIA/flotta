@@ -1,9 +1,10 @@
-from .core import DBSessionService, Session
+from .core import DBSessionService, AsyncSession
 
 from ..tables import ClientDataSource, ClientFeature, Client
 
 from ferdelance_shared.schemas import Metadata, MetaDataSource, MetaFeature
 
+from sqlalchemy import select
 from datetime import datetime
 from uuid import uuid4
 
@@ -14,23 +15,26 @@ LOGGER = logging.getLogger(__name__)
 
 class DataSourceService(DBSessionService):
 
-    def __init__(self, db: Session) -> None:
-        super().__init__(db)
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(session)
 
-    def create_or_update_metadata(self, client_id: str, metadata: Metadata) -> None:
+    async def create_or_update_metadata(self, client_id: str, metadata: Metadata) -> None:
         for ds in metadata.datasources:
-            self.create_or_update_datasource(client_id, ds)
+            await self.create_or_update_datasource(client_id, ds)
 
-    def create_or_update_datasource(self, client_id: str, ds: MetaDataSource) -> ClientDataSource:
+    async def create_or_update_datasource(self, client_id: str, ds: MetaDataSource) -> ClientDataSource:
         dt_now = datetime.now()
 
-        query = self.db.query(ClientDataSource).filter(
-            ClientDataSource.client_id == client_id,
-            ClientDataSource.name == ds.name,
+        res = await self.session.execute(
+            select(ClientDataSource)
+            .where(
+                ClientDataSource.client_id == client_id,
+                ClientDataSource.name == ds.name,
+            )
         )
 
         # check if ds exists:
-        ds_db: ClientDataSource = query.one_or_none()
+        ds_db: ClientDataSource | None = res.scalar_one_or_none()
 
         if ds_db is None:
             # create a new data source for this client
@@ -44,66 +48,69 @@ class DataSourceService(DBSessionService):
                 client_id=client_id,
             )
 
-            self.db.add(ds_db)
+            self.session.add(ds_db)
 
         else:
             if ds.removed:
                 # remove data source and info
                 LOGGER.info(f'client_id={client_id}: removing data source={ds.name}')
 
-                query.update({
-                    'removed': True,
-                    'type': None,
-                    'n_records': None,
-                    'n_features': None,
-                    'update_time': dt_now,
-                })
+                ds_db.removed = True
+                ds_db.n_records = None
+                ds_db.n_features = None
+                ds_db.update_time = dt_now
 
                 # remove features assigned with this data source
-                self.db.query(ClientFeature)\
-                    .filter(ClientFeature.datasource_id == ds_db.client_id)\
-                    .update({
-                        'removed': True,
-                        'dtype': None,
-                        'v_mean': None,
-                        'v_std': None,
-                        'v_min': None,
-                        'v_p25': None,
-                        'v_p50': None,
-                        'v_p75': None,
-                        'v_max': None,
-                        'v_miss': None,
-                        'update_time': dt_now,
-                    })
+                x = await self.session.execute(
+                    select(ClientFeature)
+                    .where(ClientFeature.datasource_id == ds_db.client_id)
+                )
+
+                features: list[ClientFeature] = x.scalars().all()
+
+                for f in features:
+                    f.removed = True
+                    f.dtype = None
+                    f.v_mean = None
+                    f.v_std = None
+                    f.v_min = None
+                    f.v_p25 = None
+                    f.v_p50 = None
+                    f.v_p75 = None
+                    f.v_max = None
+                    f.v_miss = None
+                    f.update_time = dt_now
 
             else:
                 # update data source info
                 LOGGER.info(f'client_id={client_id}: updating data source={ds.name}')
-                query.update({
-                    'n_records': ds.n_records,
-                    'n_features': ds.n_features,
-                    'update_time': dt_now,
-                })
 
-        self.db.commit()
-        self.db.refresh(ds_db)
+                ds_db.n_records = ds.n_records
+                ds_db.n_features = ds.n_features
+                ds_db.update_time = dt_now
+
+        await self.session.commit()
+        await self.session.refresh(ds_db)
 
         for f in ds.features:
-            self.create_or_update_feature(ds_db, f, ds.removed, commit=False)
+            await self.create_or_update_feature(ds_db, f, ds.removed, commit=False)
 
-        self.db.commit()
+        await self.session.commit()
 
         return ds_db
 
-    def create_or_update_feature(self, ds: ClientDataSource, f: MetaFeature, remove: bool = False, commit: bool = True) -> ClientFeature:
+    async def create_or_update_feature(self, ds: ClientDataSource, f: MetaFeature, remove: bool = False, commit: bool = True) -> ClientFeature:
         dt_now = datetime.now()
 
-        query = self.db.query(ClientFeature).filter(
-            ClientFeature.datasource_id == ds.datasource_id,
-            ClientFeature.name == f.name
+        res = await self.session.execute(
+            select(ClientFeature)
+            .where(
+                ClientFeature.datasource_id == ds.datasource_id,
+                ClientFeature.name == f.name
+            )
         )
 
-        f_db: ClientFeature | None = query.one_or_none()
+        f_db: ClientFeature | None = res.scalar_one_or_none()
 
         if f_db is None:
             LOGGER.info(f'client_id={ds.datasource_id}: creating new feature={f.name}')
@@ -125,68 +132,100 @@ class DataSourceService(DBSessionService):
                 datasource_name=ds.name
             )
 
-            self.db.add(f_db)
+            self.session.add(f_db)
         else:
             if remove or f.removed:
                 # remove feature and info
                 LOGGER.info(f'removing feature={f.name} for datasource={ds.datasource_id}')
 
-                query.update({
-                    'removed': True,
-                    'dtype': None,
-                    'v_mean': None,
-                    'v_std': None,
-                    'v_min': None,
-                    'v_p25': None,
-                    'v_p50': None,
-                    'v_p75': None,
-                    'v_max': None,
-                    'v_miss': None,
-                    'update_time': dt_now,
-                })
+                f_db.removed = True
+                f_db.dtype = None
+                f_db.v_mean = None
+                f_db.v_std = None
+                f_db.v_min = None
+                f_db.v_p25 = None
+                f_db.v_p50 = None
+                f_db.v_p75 = None
+                f_db.v_max = None
+                f_db.v_miss = None
+                f_db.update_time = dt_now
 
             else:
                 # update data source info
                 LOGGER.info(f'client_id={ds.datasource_id}: updating data source={f.name}')
-                query.update({
-                    'dtype': f.dtype,
-                    'v_mean': f.v_mean,
-                    'v_std': f.v_std,
-                    'v_min': f.v_min,
-                    'v_p25': f.v_p25,
-                    'v_p50': f.v_p50,
-                    'v_p75': f.v_p75,
-                    'v_max': f.v_max,
-                    'v_miss': f.v_miss,
-                    'update_time': dt_now,
-                })
+
+                f_db.dtype = f.dtype
+                f_db.v_mean = f.v_mean
+                f_db.v_std = f.v_std
+                f_db.v_min = f.v_min
+                f_db.v_p25 = f.v_p25
+                f_db.v_p50 = f.v_p50
+                f_db.v_p75 = f.v_p75
+                f_db.v_max = f.v_max
+                f_db.v_miss = f.v_miss
+                f_db.update_time = dt_now
 
         if commit:
-            self.db.commit()
-            self.db.refresh(f_db)
+            await self.session.commit()
+            await self.session.refresh(f_db)
 
         return f_db
 
-    def get_datasource_list(self) -> list[ClientDataSource]:
-        return self.db.query(ClientDataSource).all()
+    async def get_datasource_list(self) -> list[ClientDataSource]:
+        res = await self.session.scalars(select(ClientDataSource))
+        return res.all()
 
-    def get_datasource_by_client_id(self, client_id: str) -> list[ClientDataSource]:
-        return self.db.query(ClientDataSource).filter(ClientDataSource.client_id == client_id).all()
+    async def get_datasource_by_client_id(self, client_id: str) -> list[ClientDataSource]:
+        res = await self.session.scalars(
+            select(ClientDataSource)
+            .where(ClientDataSource.client_id == client_id)
+        )
+        return res.all()
 
-    def get_datasource_ids_by_client_id(self, client_id: str) -> list[str]:
-        return [r[0] for r in self.db.query(ClientDataSource.datasource_id).filter(ClientDataSource.client_id == client_id).all()]
+    async def get_datasource_ids_by_client_id(self, client_id: str) -> list[str]:
+        res = await self.session.scalars(
+            select(ClientDataSource.datasource_id)
+            .where(ClientDataSource.client_id == client_id)
+        )
 
-    def get_datasource_by_id(self, ds_id: str) -> ClientDataSource:
-        return self.db.query(ClientDataSource).filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False).one()
+        return res.all()
 
-    def get_datasource_by_name(self, ds_name: str) -> list[ClientDataSource]:
-        return self.db.query(ClientDataSource).filter(ClientDataSource.name == ds_name, ClientDataSource.removed == False).all()
+    async def get_datasource_by_id(self, ds_id: str) -> ClientDataSource:
+        res = await self.session.execute(
+            select(ClientDataSource)
+            .where(
+                ClientDataSource.datasource_id == ds_id,
+                ClientDataSource.removed == False
+            )
+        )
+        return res.scalar_one()
 
-    def get_client_by_datasource_id(self, ds_id: str) -> Client:
-        return self.db.query(Client)\
-            .join(ClientDataSource, Client.client_id == ClientDataSource.client_id)\
-            .filter(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False)\
-            .one()
+    async def get_datasource_by_name(self, ds_name: str) -> list[ClientDataSource]:
+        res = await self.session.scalars(
+            select(ClientDataSource)
+            .where(
+                ClientDataSource.name == ds_name,
+                ClientDataSource.removed == False
+            )
+        )
+        return res.all()
 
-    def get_features_by_datasource(self, ds: ClientDataSource) -> list[ClientFeature]:
-        return self.db.query(ClientFeature).filter(ClientFeature.datasource_id == ds.datasource_id, ClientFeature.removed == False).all()
+    async def get_client_by_datasource_id(self, ds_id: str) -> Client:
+        res = await self.session.execute(
+            select(Client)
+            .join(
+                ClientDataSource,
+                Client.client_id == ClientDataSource.client_id
+            )
+            .where(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False)
+        )
+        return res.scalar_one()
+
+    async def get_features_by_datasource(self, ds: ClientDataSource) -> list[ClientFeature]:
+        res = await self.session.scalars(
+            select(ClientFeature)
+            .where(
+                ClientFeature.datasource_id == ds.datasource_id,
+                ClientFeature.removed == False)
+        )
+        return res.all()

@@ -1,15 +1,20 @@
-from .core import DBSessionService, Session
+from .core import DBSessionService, AsyncSession
 
 from ..tables import ClientApp
+
+from sqlalchemy import select
 
 
 class ClientAppService(DBSessionService):
 
-    def __init__(self, db: Session) -> None:
-        super().__init__(db)
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(session)
 
-    def get_newest_app(self) -> ClientApp | None:
-        return self.db.query(ClientApp)\
-            .filter(ClientApp.active)\
-            .order_by(ClientApp.creation_time.desc())\
-            .one_or_none()
+    async def get_newest_app(self) -> ClientApp | None:
+        result = await self.session.execute(
+            select(ClientApp)
+            .where(ClientApp.active)
+            .order_by(ClientApp.creation_time.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()

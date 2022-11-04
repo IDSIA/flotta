@@ -14,7 +14,7 @@ reload:
 logs:
 	docker-compose logs -f server worker
 
-nuke:
+clear:
 	docker-compose down
 	docker volume rm federated-learning-server_ferdelance-db-data
 	docker volume rm federated-learning-server_ferdelance-server-data

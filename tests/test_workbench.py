@@ -1,4 +1,5 @@
 from ferdelance.config import STORAGE_ARTIFACTS
+from ferdelance.server.api import api
 
 from ferdelance_shared.schemas import (
     Artifact,
@@ -16,15 +17,22 @@ from ferdelance_shared.status import ArtifactJobStatus
 
 from .utils import (
     headers,
-    setup_test_client,
     setup_test_database,
     setup_rsa_keys,
-    teardown_test_database,
     create_client,
     bytes_from_public_key,
     get_metadata,
     send_metadata,
 )
+from .crud import (
+    delete_artifact,
+    delete_client,
+    Session,
+    delete_datasource,
+    delete_job,
+)
+
+from fastapi.testclient import TestClient
 
 from requests import Response
 
@@ -50,9 +58,7 @@ class TestWorkbenchClass:
         """
         LOGGER.info('setting up')
 
-        self.client = setup_test_client()
-
-        self.db_string, self.db_string_no_db = setup_test_database()
+        self.engine = setup_test_database()
 
         self.private_key = setup_rsa_keys()
         self.public_key = self.private_key.public_key()
@@ -60,144 +66,171 @@ class TestWorkbenchClass:
 
         random.seed(42)
 
-        self.server_key = None
-        self.token = None
+        LOGGER.info('setup completed')
 
-        self.client_id, self.token, self.server_key = create_client(self.client, self.private_key)
+    def connect(self, client: TestClient) -> str:
+        client_id, token, server_key = create_client(client, self.private_key)
 
-        res = self.client.get('/workbench/connect')
+        res = client.get('/workbench/connect')
 
         res.raise_for_status()
 
         self.wb_token = WorkbenchJoinData(**res.json()).token
 
         metadata: Metadata = get_metadata()
-        upload_response: Response = send_metadata(self.client, self.token, self.server_key, metadata)
+        upload_response: Response = send_metadata(client, token, server_key, metadata)
 
         assert upload_response.status_code == 200
 
-        LOGGER.info('setup completed')
-
-    def teardown_class(self):
-        """Class teardown. This method will ensure that the database is closed and deleted from the remote dbms.
-        Note that all database connections still open will be forced to close by this method.
-        """
-        LOGGER.info('tearing down')
-
-        teardown_test_database(self.db_string_no_db)
-
-        LOGGER.info('teardown completed')
+        return client_id
 
     def test_read_workbench_home(self):
         """Generic test to check if the home works."""
-        response = self.client.get('/workbench', headers=headers(self.wb_token))
+        with TestClient(api) as client:
+            client_id = self.connect(client)
 
-        assert response.status_code == 200
-        assert response.content.decode('utf8') == '"Workbench 🔧"'
+            response = client.get('/workbench', headers=headers(self.wb_token))
+
+            assert response.status_code == 200
+            assert response.content.decode('utf8') == '"Workbench 🔧"'
+
+            with Session(self.engine) as session:
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)
 
     def test_client_list(self):
-        res = self.client.get('/workbench/client/list', headers=headers(self.wb_token))
+        with TestClient(api) as client:
+            client_id = self.connect(client)
 
-        assert res.status_code == 200
+            res = client.get(
+                '/workbench/client/list',
+                headers=headers(self.wb_token)
+            )
 
-        client_list = json.loads(res.content)
+            assert res.status_code == 200
 
-        assert len(client_list) == 1
-        assert 'SERVER' not in client_list
-        assert 'WORKER' not in client_list
-        assert 'WORKBENCH' not in client_list
+            client_list = json.loads(res.content)
+
+            assert len(client_list) == 1
+            assert 'SERVER' not in client_list
+            assert 'WORKER' not in client_list
+            assert 'WORKBENCH' not in client_list
+
+            with Session(self.engine) as session:
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)
 
     def test_client_detail(self):
-        client_id = self.client_id
+        with TestClient(api) as client:
+            client_id = self.connect(client)
 
-        res = self.client.get(f'/workbench/client/{client_id}', headers=headers(self.wb_token))
+            res = client.get(
+                f'/workbench/client/{client_id}',
+                headers=headers(self.wb_token)
+            )
 
-        assert res.status_code == 200
+            assert res.status_code == 200
 
-        cd = ClientDetails(**json.loads(res.content))
+            cd = ClientDetails(**json.loads(res.content))
 
-        assert cd.client_id == client_id
-        assert cd.version == 'test'
+            assert cd.client_id == client_id
+            assert cd.version == 'test'
+
+            with Session(self.engine) as session:
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)
 
     def test_workflow_submit(self):
-        res = self.client.get('/workbench/datasource/list', headers=headers(self.wb_token))
+        with TestClient(api) as client:
+            client_id = self.connect(client)
 
-        assert res.status_code == 200
+            res = client.get(
+                '/workbench/datasource/list',
+                headers=headers(self.wb_token)
+            )
 
-        ds_list = json.loads(res.content)
+            assert res.status_code == 200
 
-        assert len(ds_list) == 1
+            ds_list = json.loads(res.content)
 
-        datasource_id = ds_list[0]
+            assert len(ds_list) == 1
 
-        res = self.client.get(f'/workbench/datasource/{datasource_id}', headers=headers(self.wb_token))
+            datasource_id = ds_list[0]
 
-        assert res.status_code == 200
+            res = client.get(f'/workbench/datasource/{datasource_id}', headers=headers(self.wb_token))
 
-        datasource: DataSource = DataSource(**json.loads(res.content))
+            assert res.status_code == 200
 
-        assert len(datasource.features) == 2
-        assert datasource.n_records == 1000
-        assert datasource.n_features == 2
+            datasource: DataSource = DataSource(**json.loads(res.content))
 
-        assert len(datasource.features) == datasource.n_features
+            assert len(datasource.features) == 2
+            assert datasource.n_records == 1000
+            assert datasource.n_features == 2
 
-        dtypes = [f.dtype for f in datasource.features]
+            assert len(datasource.features) == datasource.n_features
 
-        assert 'float' in dtypes
-        assert 'int' in dtypes
+            dtypes = [f.dtype for f in datasource.features]
 
-        artifact = Artifact(
-            artifact_id=None,
-            dataset=Dataset(
-                queries=[
-                    Query(
-                        datasource_id=datasource.datasource_id,
-                        datasource_name=datasource.name,
-                        features=[QueryFeature(
-                            datasource_id=f.datasource_id,
-                            datasource_name=f.datasource_name,
-                            feature_id=f.feature_id,
-                            feature_name=f.name,
-                        ) for f in datasource.features]
-                    )
-                ]
-            ),
-            model=Model(name='model', strategy=''),
-        )
+            assert 'float' in dtypes
+            assert 'int' in dtypes
 
-        res = self.client.post(
-            '/workbench/artifact/submit',
-            json=artifact.dict(),
-            headers=headers(self.wb_token),
-        )
+            artifact = Artifact(
+                artifact_id=None,
+                dataset=Dataset(
+                    queries=[
+                        Query(
+                            datasource_id=datasource.datasource_id,
+                            datasource_name=datasource.name,
+                            features=[QueryFeature(
+                                datasource_id=f.datasource_id,
+                                datasource_name=f.datasource_name,
+                                feature_id=f.feature_id,
+                                feature_name=f.name,
+                            ) for f in datasource.features]
+                        )
+                    ]
+                ),
+                model=Model(name='model', strategy=''),
+            )
 
-        assert res.status_code == 200
+            res = client.post(
+                '/workbench/artifact/submit',
+                json=artifact.dict(),
+                headers=headers(self.wb_token),
+            )
 
-        status = ArtifactStatus(**json.loads(res.content))
+            assert res.status_code == 200
 
-        artifact_id = status.artifact_id
+            status = ArtifactStatus(**json.loads(res.content))
 
-        assert status.status is not None
-        assert artifact_id is not None
-        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
+            artifact_id = status.artifact_id
 
-        res = self.client.get(f'/workbench/artifact/status/{artifact_id}', headers=headers(self.wb_token))
+            assert status.status is not None
+            assert artifact_id is not None
+            assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-        assert res.status_code == 200
+            res = client.get(f'/workbench/artifact/status/{artifact_id}', headers=headers(self.wb_token))
 
-        status = ArtifactStatus(**json.loads(res.content))
-        assert status.status is not None
-        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
+            assert res.status_code == 200
 
-        res = self.client.get(f'/workbench/artifact/{artifact_id}', headers=headers(self.wb_token))
+            status = ArtifactStatus(**json.loads(res.content))
+            assert status.status is not None
+            assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-        assert res.status_code == 200
+            res = client.get(f'/workbench/artifact/{artifact_id}', headers=headers(self.wb_token))
 
-        downloaded_artifact = Artifact(**json.loads(res.content))
+            assert res.status_code == 200
 
-        assert len(downloaded_artifact.dataset.queries) == 1
-        assert downloaded_artifact.dataset.queries[0].datasource_id == datasource_id
-        assert len(downloaded_artifact.dataset.queries[0].features) == 2
+            downloaded_artifact = Artifact(**json.loads(res.content))
 
-        shutil.rmtree(os.path.join(STORAGE_ARTIFACTS, artifact_id))
+            assert len(downloaded_artifact.dataset.queries) == 1
+            assert downloaded_artifact.dataset.queries[0].datasource_id == datasource_id
+            assert len(downloaded_artifact.dataset.queries[0].features) == 2
+
+            shutil.rmtree(os.path.join(STORAGE_ARTIFACTS, artifact_id))
+
+            with Session(self.engine) as session:
+                delete_job(session, client_id)
+                delete_artifact(session, downloaded_artifact.artifact_id)
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)

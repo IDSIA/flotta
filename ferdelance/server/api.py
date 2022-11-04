@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Request, status
+from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -9,7 +9,7 @@ from .routes.manager import manager_router
 from .routes.workbench import workbench_router
 from .routes.worker import worker_router
 from .startup import ServerStartup
-from ..database import get_db, SessionLocal, Session
+from ..database import DataBase, Base
 
 import logging
 
@@ -33,13 +33,32 @@ api = init_api()
 @api.on_event('startup')
 async def populate_database() -> None:
     """All operations marked as `on_event('startup')` are executed when the API are started."""
-    with SessionLocal() as db:
-        ss = ServerStartup(db)
-        ss.startup()
+    LOGGER.info('server startup procedure started')
+
+    inst = DataBase()
+
+    await inst.engine.connect()
+
+    async with inst.engine.begin() as conn:
+        LOGGER.info('database creation started')
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+        LOGGER.info('database creation completed')
+
+    async with inst.async_session() as session:
+        ss = ServerStartup(session)
+        await ss.startup()
+
+
+@api.on_event('shutdown')
+async def shutdown() -> None:
+    LOGGER.info('server shutdown procedure started')
+    inst = DataBase()
+    if inst.engine:
+        await inst.engine.dispose()
 
 
 @api.get("/")
-async def root(db: Session = Depends(get_db)):
+async def root():
     """This is the endpoint for the home page."""
     return 'Hi! 😀'
 

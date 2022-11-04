@@ -2,7 +2,6 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBasicCredentials, HTTPBearer
 
 from datetime import timedelta, datetime
-from sqlalchemy.orm import Session
 
 from ferdelance_shared.generate import (
     generate_asymmetric_key,
@@ -12,8 +11,8 @@ from ferdelance_shared.generate import (
     RSAPrivateKey,
 )
 
-from ..database import get_db
-from ..database.settings import KeyValueStore
+from ..database import get_session, AsyncSession
+from ..database.services import KeyValueStore
 from ..database.tables import ClientToken
 from ..database.services.client import ClientService
 
@@ -28,7 +27,7 @@ PUBLIC_KEY = 'SERVER_KEY_PUBLIC'
 PRIVATE_KEY = 'SERVER_KEY_PRIVATE'
 
 
-def generate_keys(db: Session) -> None:
+async def generate_keys(session: AsyncSession) -> None:
     """Initialization method for the generation of keys for the server.
     Requires to have the environment variable 'SERVER_MAIN_PASSWORD'.
 
@@ -42,21 +41,21 @@ def generate_keys(db: Session) -> None:
         LOGGER.fatal(f'Environment variable {MAIN_KEY} is missing.')
         raise ValueError(f'{MAIN_KEY} missing')
 
-    kvs = KeyValueStore(db)
+    kvs = KeyValueStore(session)
 
     try:
-        db_smp_key = kvs.get_str(MAIN_KEY)
+        db_smp_key = await kvs.get_str(MAIN_KEY)
 
         if db_smp_key != SMP_VALUE:
             LOGGER.fatal(f'Environment variable {MAIN_KEY} invalid: please set the correct password!')
             raise Exception(f'{MAIN_KEY} invalid')
 
     except ValueError:
-        kvs.put_str(MAIN_KEY, SMP_VALUE)
+        await kvs.put_str(MAIN_KEY, SMP_VALUE)
         LOGGER.info(f'Application initialization, Environment variable {MAIN_KEY} saved in storage')
 
     try:
-        kvs.get_bytes(PRIVATE_KEY)
+        await kvs.get_bytes(PRIVATE_KEY)
         LOGGER.info('Keys are already available')
         return
 
@@ -72,13 +71,13 @@ def generate_keys(db: Session) -> None:
     private_bytes: bytes = bytes_from_private_key(private_key)
     public_bytes: bytes = bytes_from_public_key(public_key)
 
-    kvs.put_bytes(PRIVATE_KEY, private_bytes)
-    kvs.put_bytes(PUBLIC_KEY, public_bytes)
+    await kvs.put_bytes(PRIVATE_KEY, private_bytes)
+    await kvs.put_bytes(PUBLIC_KEY, public_bytes)
 
     LOGGER.info('Keys generation completed')
 
 
-def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: Session = Depends(get_db)) -> str:
+async def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> str:
     """Check if the given token exists in the database.
 
     :param db:
@@ -90,9 +89,9 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: S
     """
     token: str = credentials.credentials  # type: ignore
 
-    cs: ClientService = ClientService(db)
+    cs: ClientService = ClientService(session)
 
-    client_token: ClientToken = cs.get_client_token_by_token(token)
+    client_token: ClientToken | None = await cs.get_client_token_by_token(token)
 
     # TODO: add expiration to token, and also an endpoint to update the token using an expired one
 
@@ -100,7 +99,7 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: S
         LOGGER.warning('received token does not exist in database')
         raise HTTPException(401, 'Invalid access token')
 
-    client_id = client_token.client_id
+    client_id = str(client_token.client_id)
 
     if not client_token.valid:
         LOGGER.warning('received invalid token')
@@ -108,7 +107,7 @@ def check_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), db: S
 
     if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < datetime.now(client_token.creation_time.tzinfo):
         LOGGER.warning(f'client_id={client_id}: received expired token: invalidating')
-        cs.invalidate_all_tokens(client_id)
+        await cs.invalidate_all_tokens(client_id)
         # allow access only for a single time, since the token update has priority
 
     LOGGER.debug(f'client_id={client_id}: received valid token')

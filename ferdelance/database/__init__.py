@@ -1,30 +1,61 @@
-from typing import Generator
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from __future__ import annotations
+from typing import AsyncGenerator, Any
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
+from sqlalchemy.orm import sessionmaker, registry
+from sqlalchemy.orm.decl_api import DeclarativeMeta
 
 import os
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 
-Base = declarative_base()
+mapper_registry = registry()
 
 
-def SessionLocal(database_url: str | None = None) -> Session:
-    if not database_url:
-        database_url = os.environ.get('DATABASE_URL', None)
+class Base(metaclass=DeclarativeMeta):
+    __abstract__ = True
 
-    assert database_url is not None
+    registry = mapper_registry
+    metadata = mapper_registry.metadata
 
-    engine = create_engine(database_url)
-    session_maker = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    return session_maker()
+    __init__ = mapper_registry.constructor
 
 
-def get_db() -> Generator[Session, None, None]:
-    """This is a generator to get a session to the database through SQLAlchemy."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+class DataBase:
+    def __init__(self) -> None:
+        self.database_url: str | None
+        self.engine: AsyncEngine
+        self.async_session_factory: Any
+        self.async_session: Any
+
+    def __new__(cls: type[DataBase]) -> DataBase:
+        if not hasattr(cls, 'instance'):
+            LOGGER.debug('Database singleton creation')
+            cls.instance = super(DataBase, cls).__new__(cls)
+
+            DB_HOST = os.environ.get('DB_HOST', None)
+            DB_USER = os.environ.get('DB_USER', None)
+            DB_PASS = os.environ.get('DB_PASS', None)
+            DB_SCHEMA = os.environ.get('DB_SCHEMA', None)
+
+            assert DB_HOST is not None
+            assert DB_USER is not None
+            assert DB_PASS is not None
+            assert DB_SCHEMA is not None
+
+            cls.instance.database_url = f'postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_SCHEMA}'
+
+            cls.instance.engine = create_async_engine(cls.instance.database_url)
+            cls.instance.async_session = sessionmaker(bind=cls.instance.engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False)
+
+            LOGGER.info('DataBase connection established')
+
+        return cls.instance
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    db = DataBase()
+    async with db.async_session() as session:
+        yield session

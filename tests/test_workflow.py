@@ -1,4 +1,18 @@
-from .utils import setup_test_client, setup_test_database, setup_rsa_keys, teardown_test_database, create_client, headers, bytes_from_public_key
+from ferdelance.server.api import api
+
+from .utils import (
+    setup_test_database,
+    setup_rsa_keys,
+    create_client,
+    headers,
+    bytes_from_public_key
+)
+from .crud import (
+    delete_client,
+    Session,
+)
+
+from fastapi.testclient import TestClient
 
 import logging
 import random
@@ -20,36 +34,32 @@ class TestWorkflowClass:
         """
         LOGGER.info('setting up')
 
-        self.client = setup_test_client()
+        self.engine = setup_test_database()
 
-        self.db_string, self.db_string_no_db = setup_test_database()
         self.private_key = setup_rsa_keys()
         self.public_key = self.private_key.public_key()
         self.public_key_bytes = bytes_from_public_key(self.public_key)
-
-        self.client_1, self.token_1, self.server_key = create_client(self.client, self.private_key)
 
         random.seed(42)
 
         LOGGER.info('setup completed')
 
-    def teardown_class(self):
-        LOGGER.info('tearing down')
-
-        teardown_test_database(self.db_string_no_db)
-
-        LOGGER.info('teardown completed')
-
     def test_workflow_update_client(self):
         LOGGER.info('start workflow')
         LOGGER.info('add new version of the client')
 
-        update_response = self.client.post('/client/update', json={'payload': ''}, headers=headers(self.token_1))
+        with TestClient(api) as client:
+            client_id, token, _ = create_client(client, self.private_key)
 
-        LOGGER.info(f'{update_response}')
+            update_response = client.post('/client/update', json={'payload': ''}, headers=headers(token))
 
-        # assert update_response.status_code == 200
+            LOGGER.info(f'{update_response}')
 
-        # TODO
+            # assert update_response.status_code == 200
 
-        LOGGER.info('')
+            # TODO
+
+            LOGGER.info('')
+
+            with Session(self.engine) as session:
+                delete_client(session, client_id)
