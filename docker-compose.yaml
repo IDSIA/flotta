@@ -45,7 +45,10 @@ services:
     image: idsia.ferdelance.server
     container_name: worker
     environment:
-      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
+      - DB_HOST=${DATABASE_HOST}
+      - DB_USER=${DATABASE_USER}
+      - DB_PASS=${DATABASE_PASS}
+      - DB_SCHEMA=${DATABASE_SCHEMA}
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
     networks:
@@ -59,7 +62,10 @@ services:
     image: idsia.ferdelance.server
     container_name: server
     environment:
-      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
+      - DB_HOST=${DATABASE_HOST}
+      - DB_USER=${DATABASE_USER}
+      - DB_PASS=${DATABASE_PASS}
+      - DB_SCHEMA=${DATABASE_SCHEMA}
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
