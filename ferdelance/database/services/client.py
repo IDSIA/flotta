@@ -96,7 +96,8 @@ class ClientService(DBSessionService):
         return token
 
     async def invalidate_all_tokens(self, client_id: str) -> None:
-        tokens = await self.session.scalars(select(ClientToken).where(ClientToken.client_id == client_id))
+        res = await self.session.scalars(select(ClientToken).where(ClientToken.client_id == client_id))
+        tokens: list[ClientToken] = res.all()
 
         for token in tokens:
             token.valid = False

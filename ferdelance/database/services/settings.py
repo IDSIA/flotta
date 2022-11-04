@@ -9,15 +9,20 @@ import base64
 import os
 
 
-KEY_TOKEN_EXPIRATION = 'TOKEN_EXPIRATION'
+KEY_CLIENT_TOKEN_EXPIRATION = 'TOKEN_CLIENT_EXPIRATION'
+KEY_USER_TOKEN_EXPIRATION = 'TOKEN_USER_EXPIRATION'
 
 
 async def setup_settings(session: AsyncSession) -> None:
 
-    TOKEN_EXPIRATION = os.environ.get('TOKEN_EXPIRATION', str(parse('90 day')))
+    CLIENT_TOKEN_EXPIRATION = os.environ.get(KEY_CLIENT_TOKEN_EXPIRATION, str(parse('90 day')))
+    USER_TOKEN_EXPIRATION = os.environ.get(KEY_USER_TOKEN_EXPIRATION, str(parse('30 day')))
 
     kvs = KeyValueStore(session)
-    await kvs.put_str(KEY_TOKEN_EXPIRATION, TOKEN_EXPIRATION)
+    await kvs.put_str(KEY_CLIENT_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)
+
+    kvs = KeyValueStore(session)
+    await kvs.put_str(KEY_USER_TOKEN_EXPIRATION, USER_TOKEN_EXPIRATION)
 
 
 def build_settings_cipher() -> Fernet:

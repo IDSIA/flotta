@@ -15,6 +15,7 @@ class Setting(Base):
 class Client(Base):
     """Table used to keep track of current clients."""
     __tablename__ = 'clients'
+
     client_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
 
@@ -52,6 +53,31 @@ class ClientToken(Base):
 
     client_id = Column(String, ForeignKey('clients.client_id'))
     client = relationship('Client')
+
+
+class User(Base):
+    """Table used to keep track of current workbenches' users."""
+    __tablename__ = 'users'
+
+    user_id = Column(String, primary_key=True, index=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    public_key = Column(String, index=True)
+    active = Column(Boolean, default=True)
+    left = Column(Boolean, default=False)
+
+
+class UserToken(Base):
+    """Table that collects all used tokens for the users."""
+    __tablename__ = 'user_tokens'
+
+    token_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+    expiration_time = Column(Float, nullable=True)
+    token = Column(String, nullable=False, index=True, unique=True)
+    valid = Column(Boolean, default=True)
+
+    user_id = Column(String, ForeignKey('users.user_id'))
+    user = relationship('User')
 
 
 class ClientEvent(Base):
