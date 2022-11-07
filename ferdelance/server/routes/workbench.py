@@ -29,6 +29,8 @@ from ferdelance_shared.schemas import (
     Feature,
     ArtifactStatus,
     Artifact,
+    WorkbenchClientList,
+    WorkbenchClientDataSourceList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
 )
@@ -65,6 +67,7 @@ async def wb_connect(join_data: WorkbenchJoinRequest, session: AsyncSession = De
         )
 
         user = await us.create_user(user)
+        user_token = await us.create_user_token(user_token)
 
         LOGGER.info(f'user_id={user.user_id}: created new user')
 
@@ -82,7 +85,7 @@ async def wb_connect(join_data: WorkbenchJoinRequest, session: AsyncSession = De
 
     wjd = WorkbenchJoinData(
         id=user.user_id,
-        token=user_token,
+        token=user_token.token,
         public_key=public_key
     )
 
@@ -100,9 +103,11 @@ async def wb_get_client_list(session: AsyncSession = Depends(get_session), user_
 
     clients: list[Client] = await cs.get_client_list()
 
-    client_ids = [c.client_id for c in clients if c.active is True]
+    wcl = WorkbenchClientList(
+        client_ids=[c.client_id for c in clients if c.active is True]
+    )
 
-    return await ss.server_encrypt_response(client_ids)
+    return await ss.server_encrypt_response(wcl.dict())
 
 
 @workbench_router.get('/workbench/client/{req_client_id}', response_class=Response)
@@ -142,9 +147,11 @@ async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), u
 
     LOGGER.info(f'found {len(ds_session)} datasource(s)')
 
-    ds_ids = [ds.datasource_id for ds in ds_session if ds.removed is False]
+    wcdsl = WorkbenchClientDataSourceList(
+        datasource_ids=[ds.datasource_id for ds in ds_session if ds.removed is False]
+    )
 
-    return await ss.server_encrypt_response(ds_ids)
+    return await ss.server_encrypt_response(wcdsl.dict())
 
 
 @workbench_router.get('/workbench/datasource/{ds_id}', response_class=Response)

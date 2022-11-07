@@ -99,7 +99,7 @@ class SecurityService(DBSessionService):
     async def set_user(self, user_id: str) -> None:
         self.client_id = None
         self.client = None
-        self.user_id = None
+        self.user_id = user_id
         self.user = await self.get_user()
 
     async def get_server_public_key(self) -> RSAPublicKey:
