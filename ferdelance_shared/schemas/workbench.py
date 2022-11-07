@@ -11,3 +11,11 @@ class WorkbenchJoinData(BaseModel):
     id: str
     token: str
     public_key: str
+
+
+class WorkbenchClientList(BaseModel):
+    client_ids: list[str]
+
+
+class WorkbenchClientDataSourceList(BaseModel):
+    datasource_ids: list[str]
