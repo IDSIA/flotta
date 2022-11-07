@@ -7,5 +7,5 @@ ferdelance:
   datasource:
     - name: california1
       type: csv
-      path: "/ferdelance/data/california_housing.MedIncHigh.csv"
+      path: "/ferdelance/data/california_housing.MedInc1.csv"
       kind: file
