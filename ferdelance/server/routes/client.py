@@ -61,7 +61,7 @@ async def client_join(request: Request, client: ClientJoinRequest, session: Asyn
     LOGGER.info('new client join request')
 
     cs: ClientService = ClientService(session)
-    ss: SecurityService = SecurityService(session, None)
+    ss: SecurityService = SecurityService(session)
 
     try:
         if request.client is None:
@@ -137,7 +137,9 @@ async def client_update(request: Request, session: AsyncSession = Depends(get_se
     """
     acs: ActionService = ActionService(session)
     cs: ClientService = ClientService(session)
-    ss: SecurityService = SecurityService(session, client_id)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.set_client(client_id)
 
     await cs.create_client_event(client_id, 'update')
 
@@ -166,7 +168,9 @@ async def client_update_files(request: Request, session: AsyncSession = Depends(
 
     cas: ClientAppService = ClientAppService(session)
     cs: ClientService = ClientService(session)
-    ss: SecurityService = SecurityService(session, client_id)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.set_client(client_id)
 
     await cs.create_client_event(client_id, 'update files')
 
@@ -200,7 +204,9 @@ async def client_update_metadata(request: Request, session: AsyncSession = Depen
 
     cs: ClientService = ClientService(session)
     dss: DataSourceService = DataSourceService(session)
-    ss: SecurityService = SecurityService(session, client_id)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.set_client(client_id)
 
     await cs.create_client_event(client_id, 'update metadata')
 
@@ -234,8 +240,9 @@ async def client_get_task(request: Request, session: AsyncSession = Depends(get_
 
     cs: ClientService = ClientService(session)
     jm: JobManagementService = JobManagementService(session)
-    ss: SecurityService = SecurityService(session, client_id)
+    ss: SecurityService = SecurityService(session)
 
+    await ss.set_client(client_id)
     await cs.create_client_event(client_id, 'schedule task')
 
     body = await request.body()
@@ -261,12 +268,13 @@ async def client_get_task(request: Request, session: AsyncSession = Depends(get_
 async def client_post_task(request: Request, artifact_id: str, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
     LOGGER.info(f'client_id={client_id}: complete work on artifact_id={artifact_id}')
 
-    ss: SecurityService = SecurityService(session, client_id)
+    ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
     ms: ModelService = ModelService(session)
 
     model_session: Model = await ms.create_local_model(artifact_id, client_id)
 
+    await ss.set_client(client_id)
     await ss.server_stream_decrypt_file(request, model_session.path)
 
     await jm.client_local_model_completed(artifact_id, client_id)
@@ -276,8 +284,10 @@ async def client_post_task(request: Request, artifact_id: str, session: AsyncSes
 
 @client_router.post('/client/metrics')
 async def client_post_metrics(request: Request, session: AsyncSession = Depends(get_session), client_id: str = Depends(check_client_token)):
-    ss: SecurityService = SecurityService(session, client_id)
+    ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
+
+    await ss.set_client(client_id)
 
     body = await request.body()
     data = await ss.server_decrypt_json_content(body)

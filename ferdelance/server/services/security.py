@@ -32,13 +32,18 @@ PRIVATE_KEY = 'SERVER_KEY_PRIVATE'
 
 
 class SecurityService(DBSessionService):
-    def __init__(self, db: AsyncSession, client_id: str | None) -> None:
+    def __init__(self, db: AsyncSession) -> None:
         super().__init__(db)
 
         self.kvs: KeyValueStore = KeyValueStore(db)
         self.cs: ClientService = ClientService(db)
-        self.client_id: str | None = client_id
+        self.us: UserService = UserService(db)
+
+        self.client_id: str | None = None
         self.client: Client | None = None
+
+        self.user_id: str | None = None
+        self.user: User | None = None
 
     async def generate_client_token(self, system: str, mac_address: str, node: str, client_id: str = '') -> ClientToken:
         """Generates a client token with the data received from the client."""
@@ -85,6 +90,18 @@ class SecurityService(DBSessionService):
             expiration_time=exp_time,
         )
 
+    async def set_client(self, client_id: str) -> None:
+        self.client_id = client_id
+        self.client = await self.get_client()
+        self.user_id = None
+        self.user = None
+
+    async def set_user(self, user_id: str) -> None:
+        self.client_id = None
+        self.client = None
+        self.user_id = None
+        self.user = await self.get_user()
+
     async def get_server_public_key(self) -> RSAPublicKey:
         """
         :return:
@@ -119,15 +136,38 @@ class SecurityService(DBSessionService):
 
         return self.client
 
-    async def get_client_public_key(self) -> RSAPublicKey:
-        client = await self.get_client()
+    async def get_user(self) -> User:
+        if self.user_id is None:
+            raise ValueError('user_id is missing for security service')
 
-        key_bytes: bytes = decode_from_transfer(client.public_key).encode('utf8')
+        if self.user is None:
+            self.user: User | None = await self.us.get_user_by_id(self.user_id)
+
+        if self.user is None:
+            raise ValueError(f'could not get user for user_id={self.client_id}')
+
+        return self.user
+
+    async def get_public_key(self) -> RSAPublicKey:
+        key_str: str | None = None
+
+        if self.user_id is not None:
+            user = await self.get_user()
+            key_str = user.public_key
+
+        if self.client_id is not None:
+            client = await self.get_client()
+            key_str = client.public_key
+
+        if key_str is None:
+            raise ValueError('user_id or client_id is missing for security service')
+
+        key_bytes: bytes = decode_from_transfer(key_str).encode('utf8')
         public_key: RSAPublicKey = public_key_from_bytes(key_bytes)
         return public_key
 
     async def server_encrypt(self, content: str) -> str:
-        client_public_key: RSAPublicKey = await self.get_client_public_key()
+        client_public_key: RSAPublicKey = await self.get_public_key()
         return encrypt(client_public_key, content)
 
     async def server_decrypt(self, content: str) -> str:
@@ -135,11 +175,11 @@ class SecurityService(DBSessionService):
         return decrypt(server_private_key, content)
 
     async def server_encrypt_content(self, content: str) -> bytes:
-        client_public_key: RSAPublicKey = await self.get_client_public_key()
+        client_public_key: RSAPublicKey = await self.get_public_key()
         enc = HybridEncrypter(client_public_key)
         return enc.encrypt(content)
 
-    async def server_encrypt_response(self, content: dict[str, Any]) -> Response:
+    async def server_encrypt_response(self, content: dict[str, Any] | list[Any]) -> Response:
         data = await self.server_encrypt_content(json.dumps(content))
         return Response(content=data)
 
@@ -154,7 +194,7 @@ class SecurityService(DBSessionService):
 
     async def server_stream_encrypt_file(self, path: str) -> StreamingResponse:
         """Used to stream encrypt data from a file, using less memory."""
-        client_public_key: RSAPublicKey = await self.get_client_public_key()
+        client_public_key: RSAPublicKey = await self.get_public_key()
 
         enc = HybridEncrypter(client_public_key)
 
@@ -179,7 +219,7 @@ class SecurityService(DBSessionService):
 
     async def server_stream_encrypt(self, content: str) -> Iterator[bytes]:
         """Used to encrypt small data that can be kept in memory."""
-        public_key = await self.get_client_public_key()
+        public_key = await self.get_public_key()
 
         enc = HybridEncrypter(public_key)
 

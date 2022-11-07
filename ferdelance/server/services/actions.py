@@ -53,7 +53,7 @@ class ActionService(DBSessionService):
         :return:
             The 'update_token' action and a string with the new token.
         """
-        ss: SecurityService = SecurityService(self.session, None)
+        ss: SecurityService = SecurityService(self.session)
         ss.client = client
         token: ClientToken = await ss.generate_client_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
         await self.cs.invalidate_all_tokens(client.client_id)

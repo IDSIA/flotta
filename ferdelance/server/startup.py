@@ -22,7 +22,7 @@ class ServerStartup(DBSessionService):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
         self.cs: ClientService = ClientService(session)
-        self.ss: SecurityService = SecurityService(session, None)
+        self.ss: SecurityService = SecurityService(session)
 
     async def init_directories(self) -> None:
         LOGGER.info('directory initialization')
