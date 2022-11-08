@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from .artifacts import DataSource
+
 
 class WorkbenchJoinRequest(BaseModel):
     """Data sent by the workbench to join the server."""
@@ -17,5 +19,9 @@ class WorkbenchClientList(BaseModel):
     client_ids: list[str]
 
 
-class WorkbenchClientDataSourceList(BaseModel):
+class WorkbenchDataSourceIdList(BaseModel):
     datasource_ids: list[str]
+
+
+class WorkbenchDataSourceList(BaseModel):
+    datasources: list[DataSource]

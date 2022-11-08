@@ -31,7 +31,8 @@ __all__ = [
     'WorkbenchJoinRequest',
     'WorkbenchJoinData',
     'WorkbenchClientList',
-    'WorkbenchClientDataSourceList',
+    'WorkbenchDataSourceIdList',
+    'WorkbenchDataSourceList',
 ]
 
 from .client import (
@@ -71,5 +72,6 @@ from .workbench import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchClientList,
-    WorkbenchClientDataSourceList,
+    WorkbenchDataSourceIdList,
+    WorkbenchDataSourceList,
 )
