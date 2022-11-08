@@ -30,7 +30,8 @@ from ferdelance_shared.schemas import (
     ArtifactStatus,
     Artifact,
     WorkbenchClientList,
-    WorkbenchClientDataSourceList,
+    WorkbenchDataSourceIdList,
+    WorkbenchDataSourceList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
 )
@@ -146,11 +147,11 @@ async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), u
 
     LOGGER.info(f'found {len(ds_session)} datasource(s)')
 
-    wcdsl = WorkbenchClientDataSourceList(
+    wdsl = WorkbenchDataSourceIdList(
         datasource_ids=[ds.datasource_id for ds in ds_session if ds.removed is False]
     )
 
-    return await ss.server_encrypt_response(wcdsl.dict())
+    return await ss.server_encrypt_response(wdsl.dict())
 
 
 @workbench_router.get('/workbench/datasource/{ds_id}', response_class=Response)
@@ -180,19 +181,19 @@ async def wb_get_client_datasource(ds_id: str, session: AsyncSession = Depends(g
     return await ss.server_encrypt_response(ds.dict())
 
 
-@workbench_router.get('/workbench/datasource/name/{ds_id}', response_class=Response)
-async def wb_get_client_datasource_by_name(ds_id: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested details on datasource_name={ds_id}')
+@workbench_router.get('/workbench/datasource/name/{ds_name}', response_class=Response)
+async def wb_get_client_datasource_by_name(ds_name: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user_id}: requested details on datasource_name={ds_name}')
 
     dss: DataSourceService = DataSourceService(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.set_user(user_id)
 
-    ds_dbs: list[ClientDataSource] = await dss.get_datasource_by_name(ds_id)
+    ds_dbs: list[ClientDataSource] = await dss.get_datasource_by_name(ds_name)
 
     if not ds_dbs:
-        LOGGER.warning(f'datasource_id={ds_id} not found in database or has been removed')
+        LOGGER.warning(f'datasource_id={ds_name} not found in database or has been removed')
         raise HTTPException(404)
 
     ret_ds: list[DataSource] = []
@@ -208,7 +209,11 @@ async def wb_get_client_datasource_by_name(ds_id: str, session: AsyncSession = D
             features=fs,
         ))
 
-    return ss.server_encrypt_response([r.dict() for r in ret_ds])
+    wdsl = WorkbenchDataSourceList(
+        datasources=ret_ds
+    )
+
+    return ss.server_encrypt_response(wdsl.dict())
 
 
 @workbench_router.post('/workbench/artifact/submit', response_class=Response)

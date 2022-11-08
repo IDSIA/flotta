@@ -179,7 +179,7 @@ class SecurityService(DBSessionService):
         enc = HybridEncrypter(client_public_key)
         return enc.encrypt(content)
 
-    async def server_encrypt_response(self, content: dict[str, Any] | list[Any]) -> Response:
+    async def server_encrypt_response(self, content: dict[str, Any]) -> Response:
         data = await self.server_encrypt_content(json.dumps(content))
         return Response(content=data)
 

@@ -13,7 +13,7 @@ from ferdelance_shared.schemas import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchClientList,
-    WorkbenchClientDataSourceList,
+    WorkbenchDataSourceIdList,
 )
 from ferdelance_shared.models import Model
 from ferdelance_shared.status import ArtifactJobStatus
@@ -203,8 +203,8 @@ class TestWorkbenchClass:
 
             assert res.status_code == 200
 
-            wcdsl = WorkbenchClientDataSourceList(**get_payload(self.wb_private_key, res.content))
-            ds_list = wcdsl.datasource_ids
+            wdsl = WorkbenchDataSourceIdList(**get_payload(self.wb_private_key, res.content))
+            ds_list = wdsl.datasource_ids
 
             assert len(ds_list) == 1
 
