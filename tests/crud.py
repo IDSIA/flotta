@@ -7,6 +7,8 @@ from ferdelance.database.tables import (
     ClientToken,
     Job,
     Model,
+    UserToken,
+    User,
 )
 
 from sqlalchemy.orm import Session
@@ -17,6 +19,13 @@ def get_client_by_id(session: Session, client_id: str) -> Client | None:
     return session.execute(
         select(Client)
         .where(Client.client_id == client_id)
+    ).scalar_one_or_none()
+
+
+def get_user_by_id(session: Session, user_id: str) -> User | None:
+    return session.execute(
+        select(User)
+        .where(User.user_id == user_id)
     ).scalar_one_or_none()
 
 
@@ -50,6 +59,15 @@ def delete_client(session: Session, client_id: str) -> None:
     session.commit()
 
 
+def delete_user(session: Session, user_id: str) -> None:
+    session.execute(
+        delete(UserToken).where(UserToken.user_id == user_id)
+    )
+    session.execute(
+        delete(User).where(User.user_id == user_id)
+    )
+
+
 def delete_datasource(session: Session, datasource_id: str | None = None, client_id: str | None = None) -> None:
     if datasource_id is None and client_id is not None:
         datasource_id = session.scalar(select(ClientDataSource.datasource_id).where(ClientDataSource.client_id == client_id))
@@ -64,7 +82,7 @@ def delete_datasource(session: Session, datasource_id: str | None = None, client
 
 
 def delete_job(session: Session, client_id: str) -> None:
-    session.execute(delete(Job).where(Job.client_id == Job.client_id))
+    session.execute(delete(Job).where(Job.client_id == client_id))
     session.commit()
 
 

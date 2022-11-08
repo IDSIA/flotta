@@ -127,7 +127,6 @@ async def wb_get_user_detail(req_client_id: str, session: AsyncSession = Depends
 
     cd = ClientDetails(
         client_id=client.client_id,
-        created_at=client.creation_time,
         version=client.version
     )
 
