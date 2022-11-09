@@ -8,6 +8,7 @@ from ferdelance.database.tables import (
 )
 from ferdelance.server.api import api
 
+from ferdelance_shared.exchange import Exchange
 from ferdelance_shared.schemas import (
     Artifact,
     ArtifactStatus,
@@ -21,19 +22,15 @@ from ferdelance_shared.status import JobStatus
 
 from .utils import (
     setup_test_database,
-    setup_rsa_keys,
-    bytes_from_public_key,
     create_client,
     get_metadata,
     send_metadata,
-    headers,
 )
 from .crud import (
     delete_artifact,
     delete_client,
     delete_datasource,
     delete_job,
-
 )
 
 from fastapi.testclient import TestClient
@@ -56,16 +53,15 @@ class TestWorkersClass:
 
         self.engine = setup_test_database()
 
-        self.private_key = setup_rsa_keys()
-        self.public_key = self.private_key.public_key()
-        self.public_key_bytes = bytes_from_public_key(self.public_key)
+        self.exc = Exchange()
+        self.exc.generate_key()
 
-    def test_endpoints(self):
-        with TestClient(api) as client:
-            client_id, token, server_key = create_client(client, self.private_key)
+    def test_worker_endpoints(self):
+        with TestClient(api) as server:
+            client_id = create_client(server, self.exc)
 
             metadata: Metadata = get_metadata()
-            upload_response: Response = send_metadata(client, token, server_key, metadata)
+            upload_response: Response = send_metadata(server, self.exc, metadata)
 
             assert upload_response.status_code == 200
 
@@ -81,10 +77,12 @@ class TestWorkersClass:
                 assert worker_token is not None
                 assert isinstance(worker_token, str)
 
+                self.exc.set_token(worker_token)
+
                 # test artifact not found
-                res = client.get(
+                res = server.get(
                     f'/worker/artifact/{uuid.uuid4()}',
-                    headers=headers(worker_token),
+                    headers=self.exc.headers(),
                 )
 
                 assert res.status_code == 404
@@ -116,9 +114,9 @@ class TestWorkersClass:
                 )
 
                 # test artifact submit
-                res = client.post(
+                res = server.post(
                     '/worker/artifact',
-                    headers=headers(worker_token),
+                    headers=self.exc.headers(),
                     json=artifact.dict()
                 )
 
@@ -140,9 +138,9 @@ class TestWorkersClass:
                 assert os.path.exists(art_db.path)
 
                 # test artifact get
-                res = client.get(
+                res = server.get(
                     f'/worker/artifact/{status.artifact_id}',
-                    headers=headers(worker_token),
+                    headers=self.exc.headers(),
                 )
 
                 assert res.status_code == 200
@@ -172,9 +170,9 @@ class TestWorkersClass:
                 with open(model_path, 'wb') as f:
                     pickle.dump(model, f)
 
-                res = client.post(
+                res = server.post(
                     f'/worker/model/{artifact.artifact_id}',
-                    headers=headers(worker_token),
+                    headers=self.exc.headers(),
                     files={'file': open(model_path, 'rb')}
                 )
 
@@ -187,9 +185,9 @@ class TestWorkersClass:
                 model_id = models[0].model_id
 
                 # test model get
-                res = client.get(
+                res = server.get(
                     f'/worker/model/{model_id}',
-                    headers=headers(worker_token),
+                    headers=self.exc.headers(),
                 )
 
                 assert res.status_code == 200

@@ -17,17 +17,13 @@ from ferdelance_shared.schemas import (
 )
 from ferdelance_shared.models import Model
 from ferdelance_shared.status import ArtifactJobStatus
+from ferdelance_shared.exchange import Exchange
 
 from .utils import (
-    headers,
     setup_test_database,
-    setup_rsa_keys,
     create_client,
-    bytes_from_public_key,
     get_metadata,
     send_metadata,
-    get_payload,
-    create_payload,
 )
 from .crud import (
     get_user_by_id,
@@ -43,8 +39,6 @@ from .crud import (
 from fastapi.testclient import TestClient
 
 from requests import Response
-
-from base64 import b64encode
 
 import json
 import logging
@@ -71,12 +65,12 @@ class TestWorkbenchClass:
         self.engine = setup_test_database()
 
         # this is for client
-        self.client_private_key = setup_rsa_keys()
-        self.client_public_key = self.client_private_key.public_key()
+        self.cl_exc = Exchange()
+        self.cl_exc.generate_key()
 
         # this is for workbench
-        self.wb_private_key = setup_rsa_keys()
-        self.wb_public_key = self.wb_private_key.public_key()
+        self.wb_exc = Exchange()
+        self.wb_exc.generate_key()
 
         random.seed(42)
 
@@ -84,18 +78,16 @@ class TestWorkbenchClass:
 
     def connect(self, server: TestClient) -> tuple[str, str]:
         # this is to have a client
-        client_id, token, self.server_key = create_client(server, self.client_private_key)
+        client_id = create_client(server, self.cl_exc)
 
         metadata: Metadata = get_metadata()
-        upload_response: Response = send_metadata(server, token, self.server_key, metadata)
+        upload_response: Response = send_metadata(server, self.cl_exc, metadata)
 
         assert upload_response.status_code == 200
 
         # this is for connect a new workbench
-        public_key = bytes_from_public_key(self.wb_public_key)
-
         wjr = WorkbenchJoinRequest(
-            public_key=b64encode(public_key).decode('utf8')
+            public_key=self.wb_exc.transfer_public_key()
         )
 
         res = server.post(
@@ -105,11 +97,12 @@ class TestWorkbenchClass:
 
         res.raise_for_status()
 
-        wjd = WorkbenchJoinData(**get_payload(self.wb_private_key, res.content))
-        self.wb_token = wjd.token
-        wb_id = wjd.id
+        wjd = WorkbenchJoinData(**self.wb_exc.get_payload(res.content))
 
-        return client_id, wb_id
+        self.wb_exc.set_remote_key(wjd.public_key)
+        self.wb_exc.set_token(wjd.token)
+
+        return client_id, wjd.id
 
     def test_workbench_connect(self):
         with TestClient(api) as server:
@@ -136,7 +129,7 @@ class TestWorkbenchClass:
 
             res = server.get(
                 '/workbench',
-                headers=headers(self.wb_token)
+                headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
@@ -153,12 +146,12 @@ class TestWorkbenchClass:
 
             res = server.get(
                 '/workbench/client/list',
-                headers=headers(self.wb_token)
+                headers=self.wb_exc.headers(),
             )
 
             res.raise_for_status()
 
-            wcl = WorkbenchClientList(**get_payload(self.wb_private_key, res.content))
+            wcl = WorkbenchClientList(**self.wb_exc.get_payload(res.content))
             client_list = wcl.client_ids
 
             assert len(client_list) == 1
@@ -177,12 +170,12 @@ class TestWorkbenchClass:
 
             res = server.get(
                 f'/workbench/client/{client_id}',
-                headers=headers(self.wb_token)
+                headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
 
-            cd = ClientDetails(**get_payload(self.wb_private_key, res.content))
+            cd = ClientDetails(**self.wb_exc.get_payload(res.content))
 
             assert cd.client_id == client_id
             assert cd.version == 'test'
@@ -198,12 +191,12 @@ class TestWorkbenchClass:
 
             res = server.get(
                 '/workbench/datasource/list',
-                headers=headers(self.wb_token)
+                headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
 
-            wdsl = WorkbenchDataSourceIdList(**get_payload(self.wb_private_key, res.content))
+            wdsl = WorkbenchDataSourceIdList(**self.wb_exc.get_payload(res.content))
             ds_list = wdsl.datasource_ids
 
             assert len(ds_list) == 1
@@ -212,12 +205,12 @@ class TestWorkbenchClass:
 
             res = server.get(
                 f'/workbench/datasource/{datasource_id}',
-                headers=headers(self.wb_token)
+                headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
 
-            datasource: DataSource = DataSource(**get_payload(self.wb_private_key, res.content))
+            datasource: DataSource = DataSource(**self.wb_exc.get_payload(res.content))
 
             assert len(datasource.features) == 2
             assert datasource.n_records == 1000
@@ -251,13 +244,13 @@ class TestWorkbenchClass:
 
             res = server.post(
                 '/workbench/artifact/submit',
-                data=create_payload(self.server_key, json.dumps(artifact.dict())),
-                headers=headers(self.wb_token),
+                data=self.wb_exc.create_payload(artifact.dict()),
+                headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
 
-            status = ArtifactStatus(**get_payload(self.wb_private_key, res.content))
+            status = ArtifactStatus(**self.wb_exc.get_payload(res.content))
 
             artifact_id = status.artifact_id
 
@@ -265,20 +258,27 @@ class TestWorkbenchClass:
             assert artifact_id is not None
             assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-            res = server.get(f'/workbench/artifact/status/{artifact_id}', headers=headers(self.wb_token))
+            res = server.get(
+                f'/workbench/artifact/status/{artifact_id}',
+                headers=self.wb_exc.headers(),
+            )
 
             assert res.status_code == 200
 
-            status = ArtifactStatus(**get_payload(self.wb_private_key, res.content))
+            status = ArtifactStatus(**self.wb_exc.get_payload(res.content))
             assert status.status is not None
             assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-            res = server.get(f'/workbench/artifact/{artifact_id}', headers=headers(self.wb_token))
+            res = server.get(
+                f'/workbench/artifact/{artifact_id}',
+                headers=self.wb_exc.headers(),
+            )
 
             assert res.status_code == 200
 
-            downloaded_artifact = Artifact(**get_payload(self.wb_private_key, res.content))
+            downloaded_artifact = Artifact(**self.wb_exc.get_payload(res.content))
 
+            assert downloaded_artifact.artifact_id is not None
             assert len(downloaded_artifact.dataset.queries) == 1
             assert downloaded_artifact.dataset.queries[0].datasource_id == datasource_id
             assert len(downloaded_artifact.dataset.queries[0].features) == 2

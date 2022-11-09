@@ -1,9 +1,7 @@
 from ferdelance.database.tables import (
-    Artifact as ArtifactDB,
     Client,
     ClientApp,
     ClientDataSource,
-    ClientEvent,
     ClientFeature,
     ClientToken,
     Job,
@@ -27,22 +25,17 @@ from ferdelance_shared.schemas import (
     UpdateExecute,
     UpdateToken,
     WorkbenchJoinData,
+    WorkbenchJoinRequest,
 )
 from ferdelance_shared.models import Model
 from ferdelance_shared.operations import Operations
+from ferdelance_shared.exchange import Exchange
 
 from .utils import (
     setup_test_database,
-    setup_rsa_keys,
     create_client,
-    headers,
-    bytes_from_public_key,
-    get_payload,
-    create_payload,
-    decrypt_stream_response,
     get_metadata,
     send_metadata,
-    RSAPublicKey,
 )
 from .crud import (
     delete_client,
@@ -56,7 +49,6 @@ from .crud import (
 
 from fastapi.testclient import TestClient
 
-from base64 import b64encode
 from requests import Response
 from sqlalchemy import select, update, delete, func
 from sqlalchemy.orm import Session
@@ -87,37 +79,35 @@ class TestClientClass:
 
         self.engine = setup_test_database()
 
-        self.private_key = setup_rsa_keys()
-        self.public_key = self.private_key.public_key()
-        self.public_key_bytes = bytes_from_public_key(self.public_key)
+        self.exc = Exchange()
+        self.exc.generate_key()
 
         random.seed(42)
 
         LOGGER.info('setup completed')
 
-    def get_client_update(self, client: TestClient, token: str, server_key: RSAPublicKey, payload: str | None = None) -> tuple[int, str, Any]:
-        if payload is None:
-            payload = json.dumps(ClientUpdate(action=Action.DO_NOTHING.name).dict())
+    def get_client_update(self, client: TestClient) -> tuple[int, str, Any]:
+        payload = ClientUpdate(action=Action.DO_NOTHING.name)
 
         response = client.get(
             '/client/update',
-            data=create_payload(server_key, payload),
-            headers=headers(token)
+            data=self.exc.create_payload(payload.dict()),
+            headers=self.exc.headers()
         )
 
         if response.status_code != 200:
             return response.status_code, '', None
 
-        response_payload = get_payload(self.private_key, response.content)
+        response_payload = self.exc.get_payload(response.content)
 
         assert 'action' in response_payload
 
         return response.status_code, response_payload['action'], response_payload
 
-    def test_read_home(self):
+    def test_client_read_home(self):
         """Generic test to check if the home works."""
         with TestClient(api) as client:
-            client_id, _, _ = create_client(client, self.private_key)
+            client_id = create_client(client, self.exc)
 
             response = client.get('/')
 
@@ -142,7 +132,7 @@ class TestClientClass:
         """
 
         with TestClient(api) as client:
-            client_id, token, _ = create_client(client, self.private_key)
+            client_id = create_client(client, self.exc)
 
             with Session(self.engine) as session:
                 db_client: Client | None = get_client_by_id(session, client_id)
@@ -153,7 +143,7 @@ class TestClientClass:
                 db_token: ClientToken | None = get_token_by_id(session, client_id)
 
                 assert db_token is not None
-                assert db_token.token == token
+                assert db_token.token == self.exc.token
                 assert db_token.valid
 
                 db_events: list[str] = get_client_events(session, client_id)
@@ -167,8 +157,7 @@ class TestClientClass:
         """This test will send twice the access information and expect the second time to receive a 403 error."""
 
         with TestClient(api) as client:
-            client_id, _, _ = create_client(client, self.private_key)
-            public_key = bytes_from_public_key(self.public_key)
+            client_id = create_client(client, self.exc)
 
             with Session(self.engine) as session:
                 client_db = get_client_by_id(session, client_id)
@@ -179,13 +168,13 @@ class TestClientClass:
                     system=client_db.machine_system,
                     mac_address=client_db.machine_mac_address,
                     node=client_db.machine_node,
-                    public_key=b64encode(public_key).decode('utf8'),
+                    public_key=self.exc.transfer_public_key(),
                     version='test',
                 )
 
             response = client.post(
                 '/client/join',
-                json=data.dict()
+                json=data.dict(),
             )
 
             assert response.status_code == 403
@@ -197,9 +186,9 @@ class TestClientClass:
         """This will test the endpoint for updates."""
 
         with TestClient(api) as client:
-            client_id, token, server_key = create_client(client, self.private_key)
+            client_id = create_client(client, self.exc)
 
-            status_code, action, _ = self.get_client_update(client, token, server_key)
+            status_code, action, _ = self.get_client_update(client)
 
             assert status_code == 200
             assert Action[action] == Action.DO_NOTHING
@@ -217,11 +206,11 @@ class TestClientClass:
     def test_client_leave(self):
         """This will test the endpoint for leave a client."""
         with TestClient(api) as client:
-            client_id, token, server_key = create_client(client, self.private_key)
+            client_id = create_client(client, self.exc)
 
             response_leave = client.post(
                 '/client/leave',
-                headers=headers(token)
+                headers=self.exc.headers()
             )
 
             LOGGER.info(f'response_leave={response_leave}')
@@ -229,7 +218,7 @@ class TestClientClass:
             assert response_leave.status_code == 200
 
             # cannot get other updates
-            status_code, _, _ = self.get_client_update(client, token, server_key)
+            status_code, _, _ = self.get_client_update(client)
 
             assert status_code == 403
 
@@ -251,7 +240,7 @@ class TestClientClass:
     def test_client_update_token(self):
         """This will test the failure and update of a token."""
         with TestClient(api) as client:
-            client_id, token, server_key = create_client(client, self.private_key)
+            client_id = create_client(client, self.exc)
 
             with Session(self.engine) as session:
                 # expire token
@@ -264,7 +253,7 @@ class TestClientClass:
 
                 LOGGER.info('expiration_time for token set to 0')
 
-                status_code, action, data = self.get_client_update(client, token, server_key)
+                status_code, action, data = self.get_client_update(client)
 
                 assert 'action' in data
                 assert Action[action] == Action.UPDATE_TOKEN
@@ -286,11 +275,12 @@ class TestClientClass:
 
                 LOGGER.info('expiration_time for token set to 24h')
 
-                status_code, _, _ = self.get_client_update(client, token, server_key)
+                status_code, _, _ = self.get_client_update(client)
 
                 assert status_code == 403
 
-                status_code, action, data = self.get_client_update(client, new_token, server_key)
+                self.exc.set_token(new_token)
+                status_code, action, data = self.get_client_update(client)
 
                 assert status_code == 200
                 assert 'action' in data
@@ -302,7 +292,7 @@ class TestClientClass:
     def test_client_update_app(self):
         """This will test the upload of a new (fake) app, and the update process."""
         with TestClient(api) as client:
-            client_id, token, server_key = create_client(client, self.private_key)
+            client_id = create_client(client, self.exc)
 
             with Session(self.engine) as session:
                 client_db = get_client_by_id(session, client_id)
@@ -369,7 +359,7 @@ class TestClientClass:
                 assert newest_version.version == version_app
 
                 # update request
-                status_code, action, data = self.get_client_update(client, token, server_key)
+                status_code, action, data = self.get_client_update(client)
 
                 assert status_code == 200
                 assert Action[action] == Action.UPDATE_CLIENT
@@ -380,18 +370,18 @@ class TestClientClass:
 
                 download_app = DownloadApp(name=update_client_app.name, version=update_client_app.version)
 
-                assert server_key is not None
+                assert self.exc.remote_key is not None
 
                 # download new client
                 with client.get(
                     '/client/download/application',
-                    data=create_payload(server_key, json.dumps(download_app.dict())),
-                    headers=headers(token),
+                    data=self.exc.create_payload(download_app.dict()),
+                    headers=self.exc.headers(),
                     stream=True,
                 ) as stream:
                     assert stream.status_code == 200
 
-                    content, checksum = decrypt_stream_response(stream, self.private_key)
+                    content, checksum = self.exc.stream_response(stream)
 
                     assert update_client_app.checksum == checksum
                     assert json.loads(content) == {'version': version_app}
@@ -416,14 +406,12 @@ class TestClientClass:
 
     def test_update_metadata(self):
         with TestClient(api) as client:
-            client_id, token, server_key = create_client(client, self.private_key)
+            client_id = create_client(client, self.exc)
 
             assert client_id is not None
-            assert token is not None
-            assert server_key is not None
 
             metadata: Metadata = get_metadata()
-            upload_response: Response = send_metadata(client, token, server_key, metadata)
+            upload_response: Response = send_metadata(client, self.exc, metadata)
 
             assert upload_response.status_code == 200
 
@@ -452,16 +440,15 @@ class TestClientClass:
             delete_datasource(session, ds_db.datasource_id)
             delete_client(session, client_id)
 
-    def test_task_get(self):
-        with TestClient(api) as client:
-            client_id, token, server_key = create_client(client, self.private_key)
+    def test_client_task_get(self):
+        with TestClient(api) as server:
+            client_id = create_client(server, self.exc)
 
             with Session(self.engine) as session:
                 LOGGER.info('setup metadata for client')
 
                 metadata: Metadata = get_metadata()
-                ds_name = metadata.datasources[0].name
-                upload_response: Response = send_metadata(client, token, server_key, metadata)
+                upload_response: Response = send_metadata(server, self.exc, metadata)
 
                 assert upload_response.status_code == 200
 
@@ -516,19 +503,34 @@ class TestClientClass:
 
                 LOGGER.info('submit artifact')
 
-                res = client.get('/workbench/connect')
-                res.raise_for_status()
-                wb_token = WorkbenchJoinData(**res.json()).token
+                wb_exc = Exchange()
+                wb_exc.generate_key()
 
-                submit_response = client.post(
+                wjr = WorkbenchJoinRequest(
+                    public_key=wb_exc.transfer_public_key()
+                )
+
+                res = server.post(
+                    '/workbench/connect',
+                    data=json.dumps(wjr.dict())
+                )
+
+                res.raise_for_status()
+
+                wjd = WorkbenchJoinData(**wb_exc.get_payload(res.content))
+
+                wb_exc.set_remote_key(wjd.public_key)
+                wb_exc.set_token(wjd.token)
+
+                submit_response = server.post(
                     '/workbench/artifact/submit',
-                    json=artifact.dict(),
-                    headers=headers(wb_token),
+                    data=wb_exc.create_payload(artifact.dict()),
+                    headers=wb_exc.headers(),
                 )
 
                 assert submit_response.status_code == 200
 
-                artifact_status = ArtifactStatus(**submit_response.json())
+                artifact_status = ArtifactStatus(**wb_exc.get_payload(submit_response.content))
 
                 n = session.scalar(select(func.count()).select_from(Job))
                 assert n == 1
@@ -540,7 +542,7 @@ class TestClientClass:
 
                 LOGGER.info('update client')
 
-                status_code, action, data = self.get_client_update(client, token, server_key)
+                status_code, action, data = self.get_client_update(server)
 
                 assert status_code == 200
                 assert Action[action] == Action.EXECUTE
@@ -551,15 +553,15 @@ class TestClientClass:
 
                 LOGGER.info('get task for client')
 
-                with client.get(
+                with server.get(
                     '/client/task/',
-                    data=create_payload(server_key, json.dumps(update_execute.dict())),
-                    headers=headers(token),
+                    data=self.exc.create_payload(update_execute.dict()),
+                    headers=self.exc.headers(),
                     stream=True,
                 ) as task_response:
                     assert task_response.status_code == 200
 
-                    content = get_payload(self.private_key, task_response.content)
+                    content = self.exc.get_payload(task_response.content)
 
                     assert 'artifact_id' in content
                     assert 'model' in content
