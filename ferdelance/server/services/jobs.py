@@ -7,7 +7,7 @@ from ...database.services import (
     ModelService,
     ClientService
 )
-from ...database.tables import Client
+from ...database.schemas import Client
 from ...worker.tasks import aggregation
 from ...config import STORAGE_ARTIFACTS
 from ..exceptions import ArtifactDoesNotExists, TaskDoesNotExists

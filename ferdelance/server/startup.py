@@ -1,11 +1,11 @@
 from . import security
 from .. import __version__
 from ..config import STORAGE_ARTIFACTS, STORAGE_CLIENTS, STORAGE_MODELS
-from ..database.services.core import DBSessionService, AsyncSession
+from ..database.services import DBSessionService, AsyncSession
 from ..database.services.client import ClientService
 from ..database.services.settings import setup_settings
-from ..database.tables import Client, ClientToken
-from ..server.services import SecurityService
+from ..database.tables import ClientToken
+from ..server.services import SecurityService, TokenService
 
 from sqlalchemy import select
 
@@ -23,6 +23,7 @@ class ServerStartup(DBSessionService):
         super().__init__(session)
         self.cs: ClientService = ClientService(session)
         self.ss: SecurityService = SecurityService(session)
+        self.ts: TokenService = TokenService(session)
 
     async def init_directories(self) -> None:
         LOGGER.info('directory initialization')
@@ -36,34 +37,30 @@ class ServerStartup(DBSessionService):
     async def create_client(self, type: str, ip_address: str = '', system: str = '', node: int | None = None) -> None:
         LOGGER.info(f'creating client {type}')
 
-        res = await self.session.execute(select(Client).where(Client.type == type).limit(1))
-        entry_exists = res.scalar_one_or_none()
-
-        if entry_exists is not None:
-            LOGGER.warning(f'client already exists for type={type} ip_address={ip_address} system={system}')
-            return
-
         if node is None:
             node = uuid.uuid4().int
 
         node_str: str = str(node)[:12]
         mac_address: str = ':'.join(re.findall('..', f'{node:012x}'[:12]))
 
-        client_token: ClientToken = await self.ss.generate_client_token(system, mac_address, node_str)
+        try:
+            client_token: ClientToken = await self.ts.generate_client_token(system, mac_address, node_str)
 
-        client = Client(
-            client_id=client_token.client_id,
-            version=__version__,
-            public_key='',
-            machine_system=system,
-            machine_mac_address=mac_address,
-            machine_node=node_str,
-            ip_address=ip_address,
-            type=type,
-        )
+            await self.cs.create_client(
+                client_id=client_token.client_id,
+                version=__version__,
+                public_key='',
+                machine_system=system,
+                machine_mac_address=mac_address,
+                machine_node=node_str,
+                ip_address=ip_address,
+                type=type
+            )
+            await self.cs.create_client_token(client_token)
 
-        await self.cs.create_client(client)
-        await self.cs.create_client_token(client_token)
+        except ValueError:
+            LOGGER.warning(f'client already exists for type={type} ip_address={ip_address} system={system}')
+            return
 
         LOGGER.info(f'client {type} created')
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
 import sqlalchemy.orm.exc as sqlex
+from sqlalchemy.exc import SQLAlchemyError
 
 from ...database import get_session, AsyncSession
 from ...database.services import (
@@ -10,16 +11,16 @@ from ...database.services import (
     DataSourceService,
     UserService,
 )
+from ...database.schemas import Client, User
 from ...database.tables import (
-    Client,
     ClientDataSource,
     Model,
-    User,
     UserToken,
 )
 from ..services import (
     JobManagementService,
-    SecurityService
+    SecurityService,
+    TokenService,
 )
 from ..security import check_user_token
 
@@ -35,6 +36,7 @@ from ferdelance_shared.schemas import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
 )
+from ferdelance_shared.decode import decode_from_transfer
 
 import logging
 import os
@@ -51,56 +53,65 @@ async def wb_home():
 
 
 @workbench_router.post('/workbench/connect', response_class=Response)
-async def wb_connect(join_data: WorkbenchJoinRequest, session: AsyncSession = Depends(get_session)):
+async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends(get_session)):
     LOGGER.info('new workbench connected')
 
     us: UserService = UserService(session)
     ss: SecurityService = SecurityService(session)
+    ts: TokenService = TokenService(session)
 
-    user: User | None = await us.get_user_by_key(join_data.public_key)
+    try:
+        user_public_key = decode_from_transfer(data.public_key)
 
-    if user is None:
-        # creating new user
-        user_token: UserToken | None = await ss.generate_user_token()
-        user = User(
-            user_id=user_token.user_id,
-            public_key=join_data.public_key,
+        user: User = await us.get_user_by_key(user_public_key)
+
+        if user is None:
+            # creating new user
+            user_token: UserToken | None = await ts.generate_user_token()
+            user = await us.create_user(
+                user_id=user_token.user_id,
+                public_key=user_public_key,
+            )
+            user_token = await us.create_user_token(user_token)
+
+            LOGGER.info(f'user_id={user.user_id}: created new user')
+
+        else:
+            user_token: UserToken | None = await us.get_user_token_by_user_id(user.user_id)
+
+            if user_token is None:
+                raise HTTPException(403, 'Invalid user access')
+
+        LOGGER.info(f'user_id={user.user_id}: new workbench connected')
+
+        await ss.setup(user.public_key)
+
+        wjd = WorkbenchJoinData(
+            id=user.user_id,
+            token=user_token.token,
+            public_key=ss.get_server_public_key()
         )
 
-        user = await us.create_user(user)
-        user_token = await us.create_user_token(user_token)
+        return ss.create_response(wjd.dict())
 
-        LOGGER.info(f'user_id={user.user_id}: created new user')
+    except SQLAlchemyError as e:
+        LOGGER.exception(e)
+        LOGGER.exception('Database error')
+        raise HTTPException(500, 'Internal error')
 
-    else:
-        user_token: UserToken | None = await us.get_user_token_by_user_id(user.user_id)
-
-        if user_token is None:
-            raise HTTPException(403, 'Invalid user access')
-
-    await ss.set_user(user.user_id)
-
-    public_key = await ss.get_server_public_key_str()
-
-    LOGGER.info(f'user_id={user.user_id}: new workbench connected')
-
-    wjd = WorkbenchJoinData(
-        id=user.user_id,
-        token=user_token.token,
-        public_key=public_key
-    )
-
-    return await ss.server_encrypt_response(wjd.dict())
+    except ValueError as e:
+        LOGGER.exception(e)
+        raise HTTPException(403, 'Invalid client data')
 
 
 @workbench_router.get('/workbench/client/list', response_class=Response)
-async def wb_get_client_list(session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested a list of clients')
+async def wb_get_client_list(session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}: requested a list of clients')
 
     cs: ClientService = ClientService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.set_user(user_id)
+    await ss.setup(user.user_id)
 
     clients: list[Client] = await cs.get_client_list()
 
@@ -108,21 +119,21 @@ async def wb_get_client_list(session: AsyncSession = Depends(get_session), user_
         client_ids=[c.client_id for c in clients if c.active is True]
     )
 
-    return await ss.server_encrypt_response(wcl.dict())
+    return ss.create_response(wcl.dict())
 
 
 @workbench_router.get('/workbench/client/{req_client_id}', response_class=Response)
-async def wb_get_user_detail(req_client_id: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested details on client_id={req_client_id}')
+async def wb_get_user_detail(req_client_id: str, session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}: requested details on client_id={req_client_id}')
 
     cs: ClientService = ClientService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.set_user(user_id)
+    await ss.setup(user.public_key)
 
-    client: Client | None = await cs.get_client_by_id(req_client_id)
+    client: Client = await cs.get_client_by_id(req_client_id)
 
-    if client is None or client.active is False:
+    if client.active is False:
         LOGGER.warning(f'client_id={req_client_id} not found in database or is not active')
         raise HTTPException(404)
 
@@ -131,17 +142,17 @@ async def wb_get_user_detail(req_client_id: str, session: AsyncSession = Depends
         version=client.version
     )
 
-    return await ss.server_encrypt_response(cd.dict())
+    return ss.create_response(cd.dict())
 
 
 @workbench_router.get('/workbench/datasource/list', response_class=Response)
-async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested a list of available data source')
+async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}: requested a list of available data source')
 
     dss: DataSourceService = DataSourceService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.set_user(user_id)
+    await ss.setup(user.public_key)
 
     ds_session: list[ClientDataSource] = await dss.get_datasource_list()
 
@@ -151,17 +162,17 @@ async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), u
         datasource_ids=[ds.datasource_id for ds in ds_session if ds.removed is False]
     )
 
-    return await ss.server_encrypt_response(wdsl.dict())
+    return ss.create_response(wdsl.dict())
 
 
 @workbench_router.get('/workbench/datasource/{ds_id}', response_class=Response)
-async def wb_get_client_datasource(ds_id: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested details on datasource_id={ds_id}')
+async def wb_get_client_datasource(ds_id: str, session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}: requested details on datasource_id={ds_id}')
 
     dss: DataSourceService = DataSourceService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.set_user(user_id)
+    await ss.setup(user.public_key)
 
     ds_session: ClientDataSource | None = await dss.get_datasource_by_id(ds_id)
 
@@ -178,17 +189,17 @@ async def wb_get_client_datasource(ds_id: str, session: AsyncSession = Depends(g
         features=fs,
     )
 
-    return await ss.server_encrypt_response(ds.dict())
+    return ss.create_response(ds.dict())
 
 
 @workbench_router.get('/workbench/datasource/name/{ds_name}', response_class=Response)
-async def wb_get_client_datasource_by_name(ds_name: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested details on datasource_name={ds_name}')
+async def wb_get_client_datasource_by_name(ds_name: str, session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}: requested details on datasource_name={ds_name}')
 
     dss: DataSourceService = DataSourceService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.set_user(user_id)
+    await ss.setup(user.user_id)
 
     ds_dbs: list[ClientDataSource] = await dss.get_datasource_by_name(ds_name)
 
@@ -213,28 +224,27 @@ async def wb_get_client_datasource_by_name(ds_name: str, session: AsyncSession =
         datasources=ret_ds
     )
 
-    return ss.server_encrypt_response(wdsl.dict())
+    return ss.create_response(wdsl.dict())
 
 
 @workbench_router.post('/workbench/artifact/submit', response_class=Response)
-async def wb_post_artifact_submit(request: Request, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}:  submitted a new artifact')
+async def wb_post_artifact_submit(request: Request, session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}:  submitted a new artifact')
 
     try:
         jms: JobManagementService = JobManagementService(session)
         ss: SecurityService = SecurityService(session)
 
-        await ss.set_user(user_id)
+        await ss.setup(user.public_key)
 
-        body = await request.body()
-        data = await ss.server_decrypt_json_content(body)
+        data = await ss.read_request(request)
         artifact = Artifact(**data)
 
         status = await jms.submit_artifact(artifact)
 
         LOGGER.info(f'submitted artifact got artifact_id={status.artifact_id}')
 
-        return await ss.server_encrypt_response(status.dict())
+        return ss.create_response(status.dict())
 
     except ValueError as e:
         LOGGER.error('Artifact already exists')
@@ -243,13 +253,13 @@ async def wb_post_artifact_submit(request: Request, session: AsyncSession = Depe
 
 
 @workbench_router.get('/workbench/artifact/status/{artifact_id}', response_class=Response)
-async def wb_get_artifact_status(artifact_id: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}:  requested status of artifact_id={artifact_id}')
+async def wb_get_artifact_status(artifact_id: str, session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}:  requested status of artifact_id={artifact_id}')
 
     ars: ArtifactService = ArtifactService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.set_user(user_id)
+    await ss.setup(user.user_id)
 
     artifact_session = await ars.get_artifact(artifact_id)
 
@@ -264,22 +274,22 @@ async def wb_get_artifact_status(artifact_id: str, session: AsyncSession = Depen
         status=artifact_session.status,
     )
 
-    return await ss.server_encrypt_response(status.dict())
+    return ss.create_response(status.dict())
 
 
 @workbench_router.get('/workbench/artifact/{artifact_id}', response_class=Response)
-async def wb_get_artifact(artifact_id: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested details on artifact_id={artifact_id}')
+async def wb_get_artifact(artifact_id: str, session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}: requested details on artifact_id={artifact_id}')
 
     try:
         jms: JobManagementService = JobManagementService(session)
         ss: SecurityService = SecurityService(session)
 
-        await ss.set_user(user_id)
+        await ss.setup(user.public_key)
 
         artifact = await jms.get_artifact(artifact_id)
 
-        return await ss.server_encrypt_response(artifact.dict())
+        return ss.create_response(artifact.dict())
 
     except ValueError as e:
         LOGGER.error(f'{e}')
@@ -287,14 +297,14 @@ async def wb_get_artifact(artifact_id: str, session: AsyncSession = Depends(get_
 
 
 @workbench_router.get('/workbench/model/{artifact_id}', response_class=FileResponse)
-async def wb_get_model(artifact_id: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested aggregate model for artifact_id={artifact_id}')
+async def wb_get_model(artifact_id: str, session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}: requested aggregate model for artifact_id={artifact_id}')
 
     try:
         ars: ArtifactService = ArtifactService(session)
         ss: SecurityService = SecurityService(session)
 
-        await ss.set_user(user_id)
+        await ss.setup(user.user_id)
 
         model_session: Model = await ars.get_aggregated_model(artifact_id)
 
@@ -303,7 +313,7 @@ async def wb_get_model(artifact_id: str, session: AsyncSession = Depends(get_ses
         if not os.path.exists(model_path):
             raise ValueError(f'model_id={model_session.model_id} not found at path={model_path}')
 
-        return await ss.server_stream_encrypt_file(model_path)
+        return ss.encrypt_file(model_path)
 
     except ValueError as e:
         LOGGER.warning(str(e))
@@ -319,14 +329,14 @@ async def wb_get_model(artifact_id: str, session: AsyncSession = Depends(get_ses
 
 
 @workbench_router.get('/workbench/model/partial/{artifact_id}/{builder_user_id}', response_class=FileResponse)
-async def wb_get_partial_model(artifact_id: str, builder_user_id: str, session: AsyncSession = Depends(get_session), user_id: str = Depends(check_user_token)):
-    LOGGER.info(f'user_id={user_id}: requested partial model for artifact_id={artifact_id} from user_id={builder_user_id}')
+async def wb_get_partial_model(artifact_id: str, builder_user_id: str, session: AsyncSession = Depends(get_session), user: User = Depends(check_user_token)):
+    LOGGER.info(f'user_id={user.user_id}: requested partial model for artifact_id={artifact_id} from user_id={builder_user_id}')
 
     try:
         ars: ArtifactService = ArtifactService(session)
         ss: SecurityService = SecurityService(session)
 
-        await ss.set_user(user_id)
+        await ss.setup(user.user_id)
 
         model_session: Model = await ars.get_partial_model(artifact_id, builder_user_id)
 
@@ -335,7 +345,7 @@ async def wb_get_partial_model(artifact_id: str, builder_user_id: str, session: 
         if not os.path.exists(model_path):
             raise ValueError(f'partial model_id={model_session.model_id} not found at path={model_path}')
 
-        return await ss.server_stream_encrypt_file(model_path)
+        return ss.encrypt_file(model_path)
 
     except ValueError as e:
         LOGGER.warning(str(e))

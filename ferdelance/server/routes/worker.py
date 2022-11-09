@@ -6,7 +6,8 @@ from ferdelance.database.tables import Model
 from ...config import FILE_CHUNK_SIZE
 from ...database import get_session, AsyncSession
 from ...database.services import ModelService, ClientService
-from ...database.tables import Model, Client
+from ...database.schemas import Client
+from ...database.tables import Model
 from ..services import JobManagementService
 from ..security import check_client_token
 

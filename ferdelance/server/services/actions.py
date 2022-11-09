@@ -1,4 +1,5 @@
-from ...database.tables import Client, ClientApp, ClientToken, Job
+from ...database.tables import ClientApp, ClientToken, Job
+from ...database.schemas import Client
 from ...database.services import (
     DBSessionService,
     AsyncSession,
@@ -7,13 +8,14 @@ from ...database.services import (
     JobService,
 )
 
-from .security import SecurityService
+from .tokens import TokenService
 
 from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import UpdateClientApp, UpdateExecute, UpdateNothing, UpdateToken
 
 from sqlalchemy import select, func
 from typing import Any
+
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -53,9 +55,9 @@ class ActionService(DBSessionService):
         :return:
             The 'update_token' action and a string with the new token.
         """
-        ss: SecurityService = SecurityService(self.session)
-        ss.client = client
-        token: ClientToken = await ss.generate_client_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
+        ts: TokenService = TokenService(self.session)
+
+        token: ClientToken = await ts.generate_client_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
         await self.cs.invalidate_all_tokens(client.client_id)
         await self.cs.create_client_token(token)
 
