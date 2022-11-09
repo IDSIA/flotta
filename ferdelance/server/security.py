@@ -3,18 +3,12 @@ from fastapi.security import HTTPBasicCredentials, HTTPBearer
 
 from datetime import timedelta, datetime
 
-from ferdelance_shared.generate import (
-    generate_asymmetric_key,
-    bytes_from_private_key,
-    bytes_from_public_key,
-    RSAPublicKey,
-    RSAPrivateKey,
-)
+from ferdelance_shared.exchange import Exchange
 
 from ..database import get_session, AsyncSession
-from ..database.services import KeyValueStore
+from ..database.services import KeyValueStore, ClientService, UserService
+from ..database.schemas import Client, User
 from ..database.tables import ClientToken, UserToken
-from ..database.services import ClientService, UserService
 
 import logging
 import os
@@ -38,10 +32,11 @@ async def generate_keys(session: AsyncSession) -> None:
     SMP_VALUE = os.environ.get(MAIN_KEY, None)
 
     if SMP_VALUE is None:
-        LOGGER.fatal(f'Environment variable {MAIN_KEY} is missing.')
+        LOGGER.critical(f'Environment variable {MAIN_KEY} is missing.')
         raise ValueError(f'{MAIN_KEY} missing')
 
     kvs = KeyValueStore(session)
+    e = Exchange()
 
     try:
         db_smp_key = await kvs.get_str(MAIN_KEY)
@@ -65,11 +60,10 @@ async def generate_keys(session: AsyncSession) -> None:
     # generate new keys
     LOGGER.info('Keys generation started')
 
-    private_key: RSAPrivateKey = generate_asymmetric_key()
-    public_key: RSAPublicKey = private_key.public_key()
+    e.generate_key()
 
-    private_bytes: bytes = bytes_from_private_key(private_key)
-    public_bytes: bytes = bytes_from_public_key(public_key)
+    private_bytes: bytes = e.get_private_key_bytes()
+    public_bytes: bytes = e.get_public_key_bytes()
 
     await kvs.put_bytes(PRIVATE_KEY, private_bytes)
     await kvs.put_bytes(PUBLIC_KEY, public_bytes)
@@ -77,7 +71,7 @@ async def generate_keys(session: AsyncSession) -> None:
     LOGGER.info('Keys generation completed')
 
 
-async def check_client_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> str:
+async def check_client_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> Client:
     """Checks if the given client token exists in the database.
 
     :param credentials:
@@ -112,10 +106,22 @@ async def check_client_token(credentials: HTTPBasicCredentials = Depends(HTTPBea
 
     LOGGER.debug(f'client_id={client_id}: received valid token')
 
-    return client_id
+    try:
+
+        client = await cs.get_client_by_id(client_id)
+
+        if client.left or not client.active:
+            LOGGER.warning('Client that left or has been deactivated tried to connect!')
+            raise HTTPException(403, 'Permission denied')
+
+        return client
+
+    except ValueError as e:
+        LOGGER.warning(f'valid token does not have client! {e}')
+        raise HTTPException(403, 'Permission denied')
 
 
-async def check_user_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> str:
+async def check_user_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> User:
     """Checks if the given user token exists in the database.
 
     :param credentials:
@@ -150,4 +156,14 @@ async def check_user_token(credentials: HTTPBasicCredentials = Depends(HTTPBeare
 
     LOGGER.debug(f'user_id={user_id}: received valid token')
 
-    return user_id
+    try:
+        user = await us.get_user_by_id(user_id)
+
+        if user.left or not user.active:
+            LOGGER.warning('User that left or has been deactivated tried to connect!')
+            raise HTTPException(403, 'Permission denied')
+
+        return user
+    except ValueError as e:
+        LOGGER.warning(f'valid token does not have user! {e}')
+        raise HTTPException(403, 'Permission denied')
