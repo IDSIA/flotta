@@ -1,5 +1,3 @@
-from ferdelance_shared.encode import HybridEncrypter
-from ferdelance_shared.decode import HybridDecrypter
 from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import (
     ClientJoinData,
@@ -12,7 +10,7 @@ from ferdelance_shared.schemas import (
 )
 from ferdelance_shared.models import Metrics
 
-from requests import Response, post, get
+from requests import post, get
 
 from ..config import Config
 
@@ -29,64 +27,6 @@ class RouteService:
 
     def __init__(self, config: Config) -> None:
         self.config = config
-
-    def headers(self) -> dict[str, str]:
-        """Utility method to build the headers for secure requests to the server.
-
-        :return:
-            A dictionary with the `Authorization` header.
-        """
-        return {
-            'Authorization': f'Bearer {self.config.client_token}'
-        }
-
-    def create_payload(self, content: dict) -> bytes:
-        """Encrypt the given payload to send to the server.
-
-        :return:
-            A dictionary with encrypted data to use in the `payload` arguments of a POST request.
-        """
-        print('pk', self.config.server_public_key)
-        data = json.dumps(content)
-        enc = HybridEncrypter(self.config.server_public_key)
-        print('enc obj', enc)
-        return enc.encrypt(data)
-
-    def get_payload(self, content: bytes) -> dict:
-        """Extract the content of a payload received from the server.
-
-        :return:
-            A decrypted json from the `payload` key received from the server.
-        """
-        return json.loads(HybridDecrypter(self.config.private_key).decrypt(content))
-
-    def decrypt_stream_to_file(self, stream: Response, out_path: str) -> str:
-        """Decrypt an incoming stream of data using a local private key, computes the checksum and save the content to disk.
-
-        :param stream:
-            Stream to read from.
-        :param out_path:
-            Path on the disk to save the payload to.
-        :return:
-            Checksum of the received data.
-        """
-        dec = HybridDecrypter(self.config.private_key)
-
-        dec.decrypt_stream_to_file(stream.iter_content(), out_path)
-
-        return dec.get_checksum()
-
-    def decrypt_stream_response(self, stream: Response) -> tuple[str, str]:
-        """Decrypt an incoming stream of data using a local private key and computes the checksum.
-
-        :param stream:
-            Stream to read from.
-        :return:
-            A tuple containing the decrypted data and a checksum of the received data.
-        """
-        dec = HybridDecrypter(self.config.private_key)
-        data = dec.decrypt_stream(stream.iter_content())
-        return data, dec.get_checksum()
 
     def join(self, system: str, mac_address: str, node: str, encoded_public_key: str, version: str) -> ClientJoinData:
         """Send a join request to the server.
@@ -120,12 +60,12 @@ class RouteService:
 
         res.raise_for_status()
 
-        return ClientJoinData(**self.get_payload(res.content))
+        return ClientJoinData(**self.config.exc.get_payload(res.content))
 
     def leave(self) -> None:
         res = post(
             f'{self.config.server}/client/leave',
-            headers=self.headers(),
+            headers=self.config.exc.headers(),
         )
 
         res.raise_for_status()
@@ -139,22 +79,15 @@ class RouteService:
     def send_metadata(self) -> None:
         LOGGER.info('sending metadata to remote')
 
-        # Metadata = I metadati di ogni datasource = Lista di MetaDataSource
-        # MetaDataSource = metadati di datasource = Lista di MetaFeature
-        # MetaFeature = name, dtype, v_*, per ogni feature
-
         metadata: Metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
 
         res = post(
             f'{self.config.server}/client/update/metadata',
-            data=self.create_payload(metadata.dict()),
-            headers=self.headers(),
+            data=self.config.exc.create_payload(metadata.dict()),
+            headers=self.config.exc.headers(),
         )
 
         res.raise_for_status()
-
-        # metadata: list[DataSource] = [DataSource(**ds) for ds in self.get_payload(res.content)]
-        # LOGGER.info(f"-------\n{metadata}\n-------")
 
         LOGGER.info('metadata uploaded successful')
 
@@ -165,13 +98,13 @@ class RouteService:
 
         res = get(
             f'{self.config.server}/client/update',
-            data=self.create_payload(content),
-            headers=self.headers(),
+            data=self.config.exc.create_payload(content),
+            headers=self.config.exc.headers(),
         )
 
         res.raise_for_status()
 
-        data = self.get_payload(res.content)
+        data = self.config.exc.get_payload(res.content)
 
         return Action[data['action']], data
 
@@ -180,13 +113,13 @@ class RouteService:
 
         res = get(
             f'{self.config.server}/client/task',
-            data=self.create_payload(task.dict()),
-            headers=self.headers(),
+            data=self.config.exc.create_payload(task.dict()),
+            headers=self.config.exc.headers(),
         )
 
         res.raise_for_status()
 
-        return Artifact(**self.get_payload(res.content))
+        return Artifact(**self.config.exc.get_payload(res.content))
 
     def get_new_client(self, data: UpdateClientApp):
         expected_checksum = data.checksum
@@ -194,8 +127,8 @@ class RouteService:
 
         with post(
             f'{self.config.server}/client/download/application',
-            data=self.create_payload(download_app.dict()),
-            headers=self.headers(),
+            data=self.config.exc.create_payload(download_app.dict()),
+            headers=self.config.exc.headers(),
             stream=True,
         ) as stream:
             if not stream.ok:
@@ -203,7 +136,7 @@ class RouteService:
                 return 'update'
 
             path_file: str = os.path.join(self.config.workdir, data.name)
-            checksum: str = self.decrypt_stream_to_file(stream, path_file)
+            checksum: str = self.config.exc.stream_response_to_file(stream, path_file)
 
             if checksum != expected_checksum:
                 LOGGER.error('Checksum mismatch: received invalid data!')
@@ -215,21 +148,14 @@ class RouteService:
                 f.write(path_file)
 
     def post_model(self, artifact_id: str, path_in: str):
-
         path_out = f'{path_in}.enc'
 
-        enc = HybridEncrypter(self.config.server_public_key)
-        with open(path_out, 'wb') as w:
-            w.write(enc.start())
-            with open(path_in, 'rb') as r:
-                while content := r.read():
-                    w.write(enc.update(content))
-                w.write(enc.end())
+        self.config.exc.encrypt_file_for_remote(path_in, path_out)
 
         res = post(
             f'{self.config.server}/client/task/{artifact_id}',
             data=open(path_out, 'rb'),
-            headers=self.headers(),
+            headers=self.config.exc.headers(),
         )
 
         if os.path.exists(path_out):
@@ -242,8 +168,8 @@ class RouteService:
     def post_metrics(self, metrics: Metrics):
         res = post(
             f'{self.config.server}/client/metrics',
-            data=self.create_payload(metrics.dict()),
-            headers=self.headers(),
+            data=self.config.exc.create_payload(metrics.dict()),
+            headers=self.config.exc.headers(),
         )
 
         res.raise_for_status()
