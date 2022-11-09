@@ -1,5 +1,6 @@
 from .core import DBSessionService, AsyncSession
 
+from ..schemas import Client as ItemClient
 from ..tables import Client, ClientEvent, ClientToken
 
 from sqlalchemy import select
@@ -9,12 +10,43 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
+def item(client: Client) -> ItemClient:
+    return ItemClient(
+        client_id=client.client_id,
+
+        version=client.version,
+        public_key=client.public_key,
+
+        machine_mac_address=client.machine_mac_address,
+        machine_system=client.machine_system,
+        machine_node=client.machine_node,
+
+        type=client.type,
+
+        active=client.active,
+        blacklisted=client.blacklisted,
+        left=client.left,
+        ip_address=client.ip_address,
+    )
+
+
 class ClientService(DBSessionService):
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def create_client(self, client: Client) -> Client:
+    async def create_client(self, client_id: str, version: str, public_key: str, machine_system: str, machine_mac_address: str, machine_node: str, ip_address: str, type: str = 'CLIENT') -> ItemClient:
+        client = Client(
+            client_id=client_id,
+            version=version,
+            public_key=public_key,
+            machine_system=machine_system,
+            machine_mac_address=machine_mac_address,
+            machine_node=machine_node,
+            ip_address=ip_address,
+            type=type,
+        )
+
         LOGGER.info(f'client_id={client.client_id}: creating new client with version={client.version} mac_address={client.machine_mac_address} node={client.machine_node} type={client.type}')
 
         res = await self.session.execute(
@@ -34,7 +66,7 @@ class ClientService(DBSessionService):
         await self.session.commit()
         await self.session.refresh(client)
 
-        return client
+        return item(client)
 
     async def update_client(self, client_id: str, version: str = '') -> None:
         if not version:
@@ -61,21 +93,29 @@ class ClientService(DBSessionService):
 
         await self.session.commit()
 
-    async def get_client_by_id(self, client_id: str) -> Client | None:
-        res = await self.session.execute(select(Client).where(Client.client_id == client_id))
-        return res.scalar_one_or_none()
+    async def get_client_by_id(self, client_id: str) -> ItemClient:
+        res = await self.session.execute(
+            select(Client).where(Client.client_id == client_id)
+        )
+        return item(res.scalar_one())
 
-    async def get_client_list(self) -> list[Client]:
+    async def get_client_by_key(self, public_key: str) -> ItemClient:
+        res = await self.session.execute(
+            select(Client).where(Client.public_key == public_key)
+        )
+        return item(res.scalar_one())
+
+    async def get_client_list(self) -> list[ItemClient]:
         res = await self.session.scalars(select(Client).where(Client.type == 'CLIENT'))
-        return res.all()
+        return [item(c) for c in res.all()]
 
-    async def get_client_by_token(self, token: str) -> Client:
+    async def get_client_by_token(self, token: str) -> ItemClient:
         res = await self.session.execute(
             select(Client)
             .join(ClientToken, Client.client_id == ClientToken.token_id)
             .where(ClientToken.token == token)
         )
-        return res.scalar_one()
+        return item(res.scalar_one())
 
     async def create_client_token(self, token: ClientToken) -> ClientToken:
         LOGGER.info(f'client_id={token.client_id}: creating new token')
