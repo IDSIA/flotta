@@ -55,6 +55,21 @@ class Exchange:
             self.private_key = private_key_from_bytes(pk_bytes)
             self.public_key = self.private_key.public_key()
 
+    def load_remote_key(self, path: str) -> None:
+        """Load a remote public key from disk.
+
+        :param path:
+            Location of the remote key on disk to load from.
+        :raise:
+            ValueError if the path does not exists.
+        """
+        if not os.path.exists(path):
+            raise ValueError(f'SSH key file {path} does not exists')
+
+        with open(path, 'rb') as f:
+            rk_bytes: bytes = f.read()
+            self.remote_key = public_key_from_bytes(rk_bytes)
+
     def save_private_key(self, path: str) -> None:
         """Save the stored private key to disk.
 
@@ -91,6 +106,25 @@ class Exchange:
 
         with open(os.path.join(path, 'rsa_id'), 'wb') as f:
             pk_bytes: bytes = bytes_from_public_key(self.public_key)
+            f.write(pk_bytes)
+
+    def save_remote_key(self, path: str) -> None:
+        """Save the stored remote public key to disk.
+
+        :param path:
+            Location of the private key to save to.
+        :raise:
+            ValueError if the path already exists or the remote key
+            is not available.
+        """
+        if os.path.exists(path):
+            raise ValueError(f'destination path {path} already exists')
+
+        if self.remote_key is None:
+            raise ValueError('cannot save: no public key available')
+
+        with open(os.path.join(path, 'rsa_id'), 'wb') as f:
+            pk_bytes: bytes = bytes_from_public_key(self.remote_key)
             f.write(pk_bytes)
 
     def set_key_bytes(self, private_key_bytes: bytes) -> None:
@@ -330,3 +364,72 @@ class Exchange:
         dec.decrypt_stream_to_file(stream.iter_content(), path)
 
         return dec.get_checksum()
+
+    def encrypt_file_for_remote(self, path_in: str, path_out: str) -> None:
+        """Encrypt a file from disk to another file on disk. This file can be sent 
+        to the remote host.
+
+        :param path_in:
+            Source file to encrypt.
+        :param path_out:
+            Destination path of the encrypted file.
+        :raise:
+            ValueError if there is no remote key available.
+        """
+
+        if self.remote_key is None:
+            raise ValueError('No remote key available')
+
+        enc = HybridEncrypter(self.remote_key)
+        with open(path_out, 'wb') as w:
+            w.write(enc.start())
+            with open(path_in, 'rb') as r:
+                while content := r.read():
+                    w.write(enc.update(content))
+                w.write(enc.end())
+
+    def encrypt_file(self, path_in: str, path_out: str) -> None:
+        """Encrypt a file from disk to another file on disk. This file can be decrypted 
+        only with a private key.
+
+        :param path_in:
+            Source file to encrypt.
+        :param path_out:
+            Destination path of the decrypted file.
+        :raise:
+            ValueError if there is no public key available.
+        """
+
+        if self.public_key is None:
+            raise ValueError('No public key available')
+
+        enc = HybridEncrypter(self.public_key)
+        with open(path_out, 'wb') as w:
+            w.write(enc.start())
+            with open(path_in, 'rb') as r:
+                while content := r.read():
+                    w.write(enc.update(content))
+                w.write(enc.end())
+
+    def decrypt_file(self, path_in: str, path_out: str) -> None:
+        """Decrypt a file from disk to another file on disk. This file can must be  
+        encrypted with a valid public key.
+
+        :param path_in:
+            Source file to decrypt.
+        :param path_out:
+            Destination path of the decrypted file.
+        :raise:
+            ValueError if there is no private key available.
+        """
+
+        if self.private_key is None:
+            raise ValueError('No private key available')
+
+        enc = HybridDecrypter(self.private_key)
+        with open(path_out, 'wb') as w:
+            w.write(enc.start())
+            with open(path_in, 'rb') as r:
+                while content := r.read():
+                    w.write(enc.update(content))
+                w.write(enc.end())
