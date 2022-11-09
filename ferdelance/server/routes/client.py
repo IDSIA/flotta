@@ -45,11 +45,10 @@ from fastapi import (
 )
 from fastapi.responses import Response
 
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, NoResultFound
 from typing import Any
 
 import logging
-import json
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,9 +79,12 @@ async def client_join(request: Request, data: ClientJoinRequest, session: AsyncS
     try:
         client_public_key = decode_from_transfer(data.public_key)
 
-        client: Client | None = await cs.get_client_by_key(client_public_key)
+        try:
+            client: Client = await cs.get_client_by_key(client_public_key)
 
-        if client is None:
+            raise HTTPException(403, 'Invalid client data')
+
+        except NoResultFound:
             # create new client
             client_token: ClientToken = await ts.generate_client_token(
                 data.system,
@@ -99,19 +101,12 @@ async def client_join(request: Request, data: ClientJoinRequest, session: AsyncS
                 machine_node=data.node,
                 ip_address=ip_address,
             )
+
             client_token = await cs.create_client_token(client_token)
 
             LOGGER.info(f'client_id={client.client_id}: created new client')
 
             await cs.create_client_event(client.client_id, 'creation')
-
-        else:
-            token: ClientToken | None = await cs.get_client_token_by_client_id(client.client_id)
-
-            if token is None:
-                raise HTTPException(403, 'Invalid user access')
-
-            client_token: ClientToken = token
 
         LOGGER.info(f'client_id={client.client_id}: created new client')
 

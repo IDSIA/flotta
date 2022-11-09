@@ -7,8 +7,6 @@ from ..database.services.settings import setup_settings
 from ..database.tables import ClientToken
 from ..server.services import SecurityService, TokenService
 
-from sqlalchemy import select
-
 import aiofiles.os
 import logging
 import platform

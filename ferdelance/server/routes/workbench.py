@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
-import sqlalchemy.orm.exc as sqlex
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
 
 from ...database import get_session, AsyncSession
 from ...database.services import (
@@ -63,9 +62,15 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
     try:
         user_public_key = decode_from_transfer(data.public_key)
 
-        user: User = await us.get_user_by_key(user_public_key)
+        try:
+            user: User = await us.get_user_by_key(user_public_key)
 
-        if user is None:
+            user_token: UserToken | None = await us.get_user_token_by_user_id(user.user_id)
+
+            if user_token is None:
+                raise HTTPException(403, 'Invalid user access')
+
+        except NoResultFound:
             # creating new user
             user_token: UserToken | None = await ts.generate_user_token()
             user = await us.create_user(
@@ -75,12 +80,6 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
             user_token = await us.create_user_token(user_token)
 
             LOGGER.info(f'user_id={user.user_id}: created new user')
-
-        else:
-            user_token: UserToken | None = await us.get_user_token_by_user_id(user.user_id)
-
-            if user_token is None:
-                raise HTTPException(403, 'Invalid user access')
 
         LOGGER.info(f'user_id={user.user_id}: new workbench connected')
 
@@ -111,7 +110,7 @@ async def wb_get_client_list(session: AsyncSession = Depends(get_session), user:
     cs: ClientService = ClientService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.setup(user.user_id)
+    await ss.setup(user.public_key)
 
     clients: list[Client] = await cs.get_client_list()
 
@@ -199,7 +198,7 @@ async def wb_get_client_datasource_by_name(ds_name: str, session: AsyncSession =
     dss: DataSourceService = DataSourceService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.setup(user.user_id)
+    await ss.setup(user.public_key)
 
     ds_dbs: list[ClientDataSource] = await dss.get_datasource_by_name(ds_name)
 
@@ -259,7 +258,7 @@ async def wb_get_artifact_status(artifact_id: str, session: AsyncSession = Depen
     ars: ArtifactService = ArtifactService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.setup(user.user_id)
+    await ss.setup(user.public_key)
 
     artifact_session = await ars.get_artifact(artifact_id)
 
@@ -304,7 +303,7 @@ async def wb_get_model(artifact_id: str, session: AsyncSession = Depends(get_ses
         ars: ArtifactService = ArtifactService(session)
         ss: SecurityService = SecurityService(session)
 
-        await ss.setup(user.user_id)
+        await ss.setup(user.public_key)
 
         model_session: Model = await ars.get_aggregated_model(artifact_id)
 
@@ -319,11 +318,11 @@ async def wb_get_model(artifact_id: str, session: AsyncSession = Depends(get_ses
         LOGGER.warning(str(e))
         raise HTTPException(404)
 
-    except sqlex.NoResultFound as _:
+    except NoResultFound as _:
         LOGGER.warning(f'no aggregated model found for artifact_id={artifact_id}')
         raise HTTPException(404)
 
-    except sqlex.MultipleResultsFound as _:
+    except MultipleResultsFound as _:
         LOGGER.error(f'multiple aggregated models found for artifact_id={artifact_id}')  # TODO: do we want to allow this?
         raise HTTPException(500)
 
@@ -336,7 +335,7 @@ async def wb_get_partial_model(artifact_id: str, builder_user_id: str, session: 
         ars: ArtifactService = ArtifactService(session)
         ss: SecurityService = SecurityService(session)
 
-        await ss.setup(user.user_id)
+        await ss.setup(user.public_key)
 
         model_session: Model = await ars.get_partial_model(artifact_id, builder_user_id)
 

@@ -3,7 +3,7 @@ from .core import DBSessionService, AsyncSession
 
 from ferdelance_shared.status import JobStatus
 
-import sqlalchemy.orm.exc as sqlex
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from sqlalchemy import select, func
 
 from datetime import datetime
@@ -67,11 +67,11 @@ class JobService(DBSessionService):
 
             return job
 
-        except sqlex.NoResultFound:
+        except NoResultFound:
             LOGGER.error(f'Could not terminate a job that does not exists or has not started yet with artifact_id={artifact_id} client_id={client_id}')
             raise ValueError(f'Job in status RUNNING not found for artifact_id={artifact_id} client_id={client_id}')
 
-        except sqlex.MultipleResultsFound:
+        except MultipleResultsFound:
             LOGGER.error(f'Multiple jobs have been started for artifact_id={artifact_id} client_id={client_id}')
             raise ValueError(f'Multiple job in status RUNNING found for artifact_id={artifact_id} client_id={client_id}')
 
