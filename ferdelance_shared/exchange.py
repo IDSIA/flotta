@@ -85,7 +85,7 @@ class Exchange:
         if self.private_key is None:
             raise ValueError('cannot save: no private key available')
 
-        with open(os.path.join(path, 'rsa_id'), 'wb') as f:
+        with open(path, 'wb') as f:
             pk_bytes: bytes = bytes_from_private_key(self.private_key)
             f.write(pk_bytes)
 
@@ -104,7 +104,7 @@ class Exchange:
         if self.public_key is None:
             raise ValueError('cannot save: no public key available')
 
-        with open(os.path.join(path, 'rsa_id'), 'wb') as f:
+        with open(path, 'wb') as f:
             pk_bytes: bytes = bytes_from_public_key(self.public_key)
             f.write(pk_bytes)
 
@@ -123,7 +123,7 @@ class Exchange:
         if self.remote_key is None:
             raise ValueError('cannot save: no public key available')
 
-        with open(os.path.join(path, 'rsa_id'), 'wb') as f:
+        with open(path, 'wb') as f:
             pk_bytes: bytes = bytes_from_public_key(self.remote_key)
             f.write(pk_bytes)
 
