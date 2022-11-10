@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ferdelance.client.services.actions import Action
+from .action import Action
 
 
 @dataclass

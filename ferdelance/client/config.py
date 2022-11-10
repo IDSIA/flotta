@@ -1,5 +1,5 @@
 from ferdelance_shared.schemas import DataSource
-from ferdelance_shared.generate import RSAPrivateKey, RSAPublicKey, private_key_from_bytes, public_key_from_bytes
+from ferdelance_shared.exchange import Exchange
 
 from .. import __version__
 from .datasources import DataSourceFile, DataSourceDB
@@ -26,11 +26,9 @@ class Config:
 
         self.heartbeat: float = heartbeat
 
-        self.private_key: RSAPrivateKey
-
         self.client_id: str
-        self.client_token: str
-        self.server_public_key: RSAPublicKey
+
+        self.exc: Exchange = Exchange()
 
         self.datasources_list: list[dict[str, str]] = datasources
         self.datasources: dict[str, DataSourceFile | DataSourceDB] = dict()
@@ -67,8 +65,9 @@ class Config:
                         raise ConfigError()
 
                     self.client_id = props['client_id']
-                    self.client_token = props['client_token']
                     self.server = props['server']
+
+                    self.exc.set_token(props['client_token'])
 
                     if self.heartbeat == None:
                         self.heartbeat = props['heartbeat']
@@ -83,9 +82,7 @@ class Config:
 
             if os.path.exists(self.path_private_key):
                 LOGGER.info(f'private key found at {self.path_private_key}')
-                with open(self.path_private_key, 'rb') as f:
-                    data = f.read()
-                    self.private_key = private_key_from_bytes(data)
+                self.exc.load_key(self.path_private_key)
             else:
                 LOGGER.info(f'private key not found at {self.path_private_key}')
                 raise ConfigError('pk', 'join')
@@ -95,14 +92,13 @@ class Config:
 
                 if os.path.exists(self.path_server_key):
                     LOGGER.info(f'reading server key from {self.path_server_key}')
-                    with open(self.path_server_key, 'rb') as f:
-                        data = f.read()
-                        self.server_public_key = public_key_from_bytes(data)
+                    self.exc.load_remote_key(self.path_server_key)
+
                 else:
                     LOGGER.info(f'reading server key not found at {self.path_server_key}')
                     raise ConfigError('join')
 
-                if self.client_id is None or self.client_token is None or not os.path.exists(self.path_joined):
+                if self.client_id is None or self.exc.token is None or not os.path.exists(self.path_joined):
                     LOGGER.info(f'client not joined')
                     raise ConfigError('join')
 
@@ -128,7 +124,7 @@ class Config:
                 'datasources': self.datasources_list,
 
                 'client_id': self.client_id,
-                'client_token': self.client_token,
+                'client_token': self.exc.token,
 
                 'path_joined': self.path_joined,
                 'path_server_key': self.path_server_key,

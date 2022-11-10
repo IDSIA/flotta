@@ -1,11 +1,4 @@
 from ferdelance import __version__
-from ferdelance_shared.generate import (
-    generate_asymmetric_key,
-    bytes_from_private_key,
-    bytes_from_public_key,
-    public_key_from_str,
-)
-from ferdelance_shared.decode import decode_from_transfer
 from ferdelance_shared.actions import Action
 from ferdelance_shared.schemas import ClientJoinData
 
@@ -14,7 +7,6 @@ from .config import Config, ConfigError
 from .services.actions import ActionService
 from .services.routes import RouteService
 
-from base64 import b64encode
 from getmac import get_mac_address
 from time import sleep
 
@@ -73,16 +65,12 @@ class FerdelanceClient:
 
                 if item == 'pk':
                     LOGGER.info('private key does not exist: creating a new one')
-                    self.config.private_key = generate_asymmetric_key()
-
-                    with open(self.config.path_private_key, 'wb') as f:
-                        f.write(bytes_from_private_key(self.config.private_key))
+                    self.config.exc.generate_key()
+                    self.config.exc.save_private_key(self.config.path_private_key)
 
                 if item == 'join':
                     routes_service = RouteService(self.config)
                     LOGGER.info('collecting system info')
-
-                    public_key_bytes: bytes = bytes_from_public_key(self.config.private_key.public_key())
 
                     machine_system: str = platform.system()
                     machine_mac_address: str = get_mac_address() or ''
@@ -98,18 +86,17 @@ class FerdelanceClient:
                             system=machine_system,
                             mac_address=machine_mac_address,
                             node=machine_node,
-                            encoded_public_key=b64encode(public_key_bytes).decode('utf8'),
+                            encoded_public_key=self.config.exc.transfer_public_key(),
                             version=__version__
                         )
 
                         LOGGER.info('client join successful')
 
                         self.config.client_id = data.id
-                        self.config.client_token = data.token
-                        self.config.server_public_key = public_key_from_str(decode_from_transfer(data.public_key))
+                        self.config.exc.set_token(data.token)
+                        self.config.exc.set_remote_key(data.public_key)
 
-                        with open(self.config.path_server_key, 'wb') as f:
-                            f.write(bytes_from_public_key(self.config.server_public_key))
+                        self.config.exc.save_remote_key(self.config.path_server_key)
 
                         open(self.config.path_joined, 'a').close()
                     except requests.HTTPError as e:
