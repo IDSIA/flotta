@@ -1,16 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from ferdelance.database.tables import Model
-
 from ...config import FILE_CHUNK_SIZE
 from ...database import get_session, AsyncSession
 from ...database.services import ModelService, ClientService
-from ...database.tables import Model, Client
+from ...database.schemas import Client
+from ...database.tables import Model
 from ..services import JobManagementService
-from ..security import check_token
+from ..security import check_client_token
 
 from ferdelance_shared.schemas import Artifact, ArtifactStatus
+
+from sqlalchemy.exc import NoResultFound
 
 import aiofiles
 import logging
@@ -22,20 +23,20 @@ LOGGER = logging.getLogger(__name__)
 worker_router = APIRouter()
 
 
-async def check_access(session: AsyncSession = Depends(get_session), client_id: str = Depends(check_token)) -> Client:
+async def check_access(session: AsyncSession = Depends(get_session), client: Client = Depends(check_client_token)) -> Client:
     cs: ClientService = ClientService(session)
 
-    client = await cs.get_client_by_id(client_id)
+    try:
+        client_db = await cs.get_client_by_id(client.client_id)
 
-    if client is None:
-        LOGGER.warning(f'client_id={client_id} not found')
+        if client_db.type != 'WORKER':
+            LOGGER.warning(f'client of type={client_db.type} cannot access this route')
+            raise HTTPException(403)
+
+        return client
+    except NoResultFound:
+        LOGGER.warning(f'client_id={client.client_id} not found')
         raise HTTPException(403)
-
-    if client.type != 'WORKER':
-        LOGGER.warning(f'client of type={client.type} cannot access the route')
-        raise HTTPException(403)
-
-    return client
 
 
 @worker_router.post('/worker/artifact', response_model=ArtifactStatus)

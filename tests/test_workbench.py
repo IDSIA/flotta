@@ -10,26 +10,30 @@ from ferdelance_shared.schemas import (
     Metadata,
     Query,
     QueryFeature,
+    WorkbenchJoinRequest,
     WorkbenchJoinData,
+    WorkbenchClientList,
+    WorkbenchDataSourceIdList,
 )
 from ferdelance_shared.models import Model
 from ferdelance_shared.status import ArtifactJobStatus
+from ferdelance_shared.exchange import Exchange
 
 from .utils import (
-    headers,
     setup_test_database,
-    setup_rsa_keys,
     create_client,
-    bytes_from_public_key,
     get_metadata,
     send_metadata,
 )
 from .crud import (
+    get_user_by_id,
+    get_client_by_id,
     delete_artifact,
     delete_client,
     Session,
     delete_datasource,
     delete_job,
+    delete_user,
 )
 
 from fastapi.testclient import TestClient
@@ -60,56 +64,95 @@ class TestWorkbenchClass:
 
         self.engine = setup_test_database()
 
-        self.private_key = setup_rsa_keys()
-        self.public_key = self.private_key.public_key()
-        self.public_key_bytes = bytes_from_public_key(self.public_key)
+        # this is for client
+        self.cl_exc = Exchange()
+        self.cl_exc.generate_key()
+
+        # this is for workbench
+        self.wb_exc = Exchange()
+        self.wb_exc.generate_key()
 
         random.seed(42)
 
         LOGGER.info('setup completed')
 
-    def connect(self, client: TestClient) -> str:
-        client_id, token, server_key = create_client(client, self.private_key)
-
-        res = client.get('/workbench/connect')
-
-        res.raise_for_status()
-
-        self.wb_token = WorkbenchJoinData(**res.json()).token
+    def connect(self, server: TestClient) -> tuple[str, str]:
+        # this is to have a client
+        client_id = create_client(server, self.cl_exc)
 
         metadata: Metadata = get_metadata()
-        upload_response: Response = send_metadata(client, token, server_key, metadata)
+        upload_response: Response = send_metadata(server, self.cl_exc, metadata)
 
         assert upload_response.status_code == 200
 
-        return client_id
+        # this is for connect a new workbench
+        wjr = WorkbenchJoinRequest(
+            public_key=self.wb_exc.transfer_public_key()
+        )
 
-    def test_read_workbench_home(self):
+        res = server.post(
+            '/workbench/connect',
+            data=json.dumps(wjr.dict())
+        )
+
+        res.raise_for_status()
+
+        wjd = WorkbenchJoinData(**self.wb_exc.get_payload(res.content))
+
+        self.wb_exc.set_remote_key(wjd.public_key)
+        self.wb_exc.set_token(wjd.token)
+
+        return client_id, wjd.id
+
+    def test_workbench_connect(self):
+        with TestClient(api) as server:
+            client_id, wb_id = self.connect(server)
+
+            assert client_id is not None
+            assert wb_id is not None
+
+            with Session(self.engine) as session:
+                uid = get_user_by_id(session, wb_id)
+                cid = get_client_by_id(session, client_id)
+
+                assert uid is not None
+                assert cid is not None
+
+                delete_datasource(session, client_id=client_id)
+                delete_client(session, client_id)
+                delete_user(session, wb_id)
+
+    def test_workbench_read_home(self):
         """Generic test to check if the home works."""
-        with TestClient(api) as client:
-            client_id = self.connect(client)
+        with TestClient(api) as server:
+            client_id, wb_id = self.connect(server)
 
-            response = client.get('/workbench', headers=headers(self.wb_token))
+            res = server.get(
+                '/workbench',
+                headers=self.wb_exc.headers(),
+            )
 
-            assert response.status_code == 200
-            assert response.content.decode('utf8') == '"Workbench 🔧"'
+            assert res.status_code == 200
+            assert res.content.decode('utf8') == '"Workbench 🔧"'
 
             with Session(self.engine) as session:
                 delete_datasource(session, client_id=client_id)
                 delete_client(session, client_id)
+                delete_user(session, wb_id)
 
-    def test_client_list(self):
-        with TestClient(api) as client:
-            client_id = self.connect(client)
+    def test_workbench_list_client(self):
+        with TestClient(api) as server:
+            client_id, wb_id = self.connect(server)
 
-            res = client.get(
+            res = server.get(
                 '/workbench/client/list',
-                headers=headers(self.wb_token)
+                headers=self.wb_exc.headers(),
             )
 
-            assert res.status_code == 200
+            res.raise_for_status()
 
-            client_list = json.loads(res.content)
+            wcl = WorkbenchClientList(**self.wb_exc.get_payload(res.content))
+            client_list = wcl.client_ids
 
             assert len(client_list) == 1
             assert 'SERVER' not in client_list
@@ -119,19 +162,20 @@ class TestWorkbenchClass:
             with Session(self.engine) as session:
                 delete_datasource(session, client_id=client_id)
                 delete_client(session, client_id)
+                delete_user(session, wb_id)
 
-    def test_client_detail(self):
-        with TestClient(api) as client:
-            client_id = self.connect(client)
+    def test_workbench_detail_client(self):
+        with TestClient(api) as server:
+            client_id, wb_id = self.connect(server)
 
-            res = client.get(
+            res = server.get(
                 f'/workbench/client/{client_id}',
-                headers=headers(self.wb_token)
+                headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
 
-            cd = ClientDetails(**json.loads(res.content))
+            cd = ClientDetails(**self.wb_exc.get_payload(res.content))
 
             assert cd.client_id == client_id
             assert cd.version == 'test'
@@ -139,29 +183,34 @@ class TestWorkbenchClass:
             with Session(self.engine) as session:
                 delete_datasource(session, client_id=client_id)
                 delete_client(session, client_id)
+                delete_user(session, wb_id)
 
     def test_workflow_submit(self):
-        with TestClient(api) as client:
-            client_id = self.connect(client)
+        with TestClient(api) as server:
+            client_id, wb_id = self.connect(server)
 
-            res = client.get(
+            res = server.get(
                 '/workbench/datasource/list',
-                headers=headers(self.wb_token)
+                headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
 
-            ds_list = json.loads(res.content)
+            wdsl = WorkbenchDataSourceIdList(**self.wb_exc.get_payload(res.content))
+            ds_list = wdsl.datasource_ids
 
             assert len(ds_list) == 1
 
             datasource_id = ds_list[0]
 
-            res = client.get(f'/workbench/datasource/{datasource_id}', headers=headers(self.wb_token))
+            res = server.get(
+                f'/workbench/datasource/{datasource_id}',
+                headers=self.wb_exc.headers(),
+            )
 
             assert res.status_code == 200
 
-            datasource: DataSource = DataSource(**json.loads(res.content))
+            datasource: DataSource = DataSource(**self.wb_exc.get_payload(res.content))
 
             assert len(datasource.features) == 2
             assert datasource.n_records == 1000
@@ -193,15 +242,15 @@ class TestWorkbenchClass:
                 model=Model(name='model', strategy=''),
             )
 
-            res = client.post(
+            res = server.post(
                 '/workbench/artifact/submit',
-                json=artifact.dict(),
-                headers=headers(self.wb_token),
+                data=self.wb_exc.create_payload(artifact.dict()),
+                headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
 
-            status = ArtifactStatus(**json.loads(res.content))
+            status = ArtifactStatus(**self.wb_exc.get_payload(res.content))
 
             artifact_id = status.artifact_id
 
@@ -209,20 +258,27 @@ class TestWorkbenchClass:
             assert artifact_id is not None
             assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-            res = client.get(f'/workbench/artifact/status/{artifact_id}', headers=headers(self.wb_token))
+            res = server.get(
+                f'/workbench/artifact/status/{artifact_id}',
+                headers=self.wb_exc.headers(),
+            )
 
             assert res.status_code == 200
 
-            status = ArtifactStatus(**json.loads(res.content))
+            status = ArtifactStatus(**self.wb_exc.get_payload(res.content))
             assert status.status is not None
             assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-            res = client.get(f'/workbench/artifact/{artifact_id}', headers=headers(self.wb_token))
+            res = server.get(
+                f'/workbench/artifact/{artifact_id}',
+                headers=self.wb_exc.headers(),
+            )
 
             assert res.status_code == 200
 
-            downloaded_artifact = Artifact(**json.loads(res.content))
+            downloaded_artifact = Artifact(**self.wb_exc.get_payload(res.content))
 
+            assert downloaded_artifact.artifact_id is not None
             assert len(downloaded_artifact.dataset.queries) == 1
             assert downloaded_artifact.dataset.queries[0].datasource_id == datasource_id
             assert len(downloaded_artifact.dataset.queries[0].features) == 2
@@ -234,3 +290,4 @@ class TestWorkbenchClass:
                 delete_artifact(session, downloaded_artifact.artifact_id)
                 delete_datasource(session, client_id=client_id)
                 delete_client(session, client_id)
+                delete_user(session, wb_id)

@@ -6,7 +6,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class TestClientClass:
+class TestEventClass:
 
     def test_startup_api(self):
         with TestClient(api) as _:

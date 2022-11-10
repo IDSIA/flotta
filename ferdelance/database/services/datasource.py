@@ -1,6 +1,8 @@
 from .core import DBSessionService, AsyncSession
 
+from ..schemas import Client as ItemClient
 from ..tables import ClientDataSource, ClientFeature, Client
+from .client import item
 
 from ferdelance_shared.schemas import Metadata, MetaDataSource, MetaFeature
 
@@ -210,7 +212,7 @@ class DataSourceService(DBSessionService):
         )
         return res.all()
 
-    async def get_client_by_datasource_id(self, ds_id: str) -> Client:
+    async def get_client_by_datasource_id(self, ds_id: str) -> ItemClient:
         res = await self.session.execute(
             select(Client)
             .join(
@@ -219,7 +221,7 @@ class DataSourceService(DBSessionService):
             )
             .where(ClientDataSource.datasource_id == ds_id, ClientDataSource.removed == False)
         )
-        return res.scalar_one()
+        return item(res.scalar_one())
 
     async def get_features_by_datasource(self, ds: ClientDataSource) -> list[ClientFeature]:
         res = await self.session.scalars(

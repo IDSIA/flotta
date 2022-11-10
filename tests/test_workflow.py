@@ -1,11 +1,10 @@
+from ferdelance_shared.exchange import Exchange
+
 from ferdelance.server.api import api
 
 from .utils import (
     setup_test_database,
-    setup_rsa_keys,
     create_client,
-    headers,
-    bytes_from_public_key
 )
 from .crud import (
     delete_client,
@@ -36,9 +35,8 @@ class TestWorkflowClass:
 
         self.engine = setup_test_database()
 
-        self.private_key = setup_rsa_keys()
-        self.public_key = self.private_key.public_key()
-        self.public_key_bytes = bytes_from_public_key(self.public_key)
+        self.exc = Exchange()
+        self.exc.generate_key()
 
         random.seed(42)
 
@@ -49,9 +47,9 @@ class TestWorkflowClass:
         LOGGER.info('add new version of the client')
 
         with TestClient(api) as client:
-            client_id, token, _ = create_client(client, self.private_key)
+            client_id = create_client(client, self.exc)
 
-            update_response = client.post('/client/update', json={'payload': ''}, headers=headers(token))
+            update_response = client.post('/client/update', json={'payload': ''}, headers=self.exc.headers())
 
             LOGGER.info(f'{update_response}')
 

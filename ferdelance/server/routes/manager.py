@@ -12,11 +12,11 @@ from ...database.services import (
     ClientService,
     JobService,
 )
+from ...database.schemas import Client
 from ...database.tables import (
     ClientApp,
     Artifact,
     Model,
-    Client,
 )
 from ..schemas.manager import (
     ManagerUploadClientMetadataRequest,
@@ -28,7 +28,6 @@ from ...config import (
     STORAGE_ARTIFACTS,
 )
 
-from typing import Any
 from sqlalchemy import select
 from uuid import uuid4
 

@@ -5,11 +5,7 @@ from ferdelance.database.tables import Client, Artifact
 
 from ferdelance_shared.status import JobStatus
 
-from .utils import (
-    setup_test_database,
-    setup_rsa_keys,
-    bytes_from_public_key,
-)
+from .utils import setup_test_database
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,10 +32,6 @@ class TestJobsClass:
 
         self.engine = setup_test_database()
 
-        self.private_key = setup_rsa_keys()
-        self.public_key = self.private_key.public_key()
-        self.public_key_bytes = bytes_from_public_key(self.public_key)
-
         random.seed(42)
 
         self.server_key = None
@@ -48,7 +40,7 @@ class TestJobsClass:
         LOGGER.info('setup completed')
 
     @pytest.mark.asyncio
-    async def test_next_job(self):
+    async def test_jobs_next(self):
         artifact_id_1: str = 'artifact1'
         artifact_id_2: str = 'artifact2'
         client_id_1: str = 'client1'
