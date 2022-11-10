@@ -21,7 +21,6 @@ class ClientJoinData(BaseModel):
 
 class ClientDetails(BaseModel):
     client_id: str
-    created_at: datetime
     version: str
 
 

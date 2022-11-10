@@ -28,7 +28,11 @@ __all__ = [
     'Artifact',
     'ArtifactStatus',
 
+    'WorkbenchJoinRequest',
     'WorkbenchJoinData',
+    'WorkbenchClientList',
+    'WorkbenchDataSourceIdList',
+    'WorkbenchDataSourceList',
 ]
 
 from .client import (
@@ -65,5 +69,9 @@ from .artifacts import (
 )
 
 from .workbench import (
-    WorkbenchJoinData
+    WorkbenchJoinRequest,
+    WorkbenchJoinData,
+    WorkbenchClientList,
+    WorkbenchDataSourceIdList,
+    WorkbenchDataSourceList,
 )
