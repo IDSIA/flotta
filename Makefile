@@ -14,7 +14,7 @@ reload:
 logs:
 	docker-compose logs -f 
 
-nuke:
+clean:
 	docker-compose down
 	docker volume rm federated-learning-client_ferdelance-client-data
 	rm -rf ./workdir/*

@@ -28,7 +28,7 @@ class Config:
 
         self.client_id: str
 
-        self.exc: Exchange
+        self.exc: Exchange = Exchange()
 
         self.datasources_list: list[dict[str, str]] = datasources
         self.datasources: dict[str, DataSourceFile | DataSourceDB] = dict()
