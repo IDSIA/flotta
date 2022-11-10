@@ -1,7 +1,17 @@
 # %%
 from ferdelance_workbench.context import Context
-from ferdelance_workbench.artifacts import Artifact, ArtifactStatus, Dataset, Query, DataSource
-from ferdelance_workbench.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier, ParametersRandomForestClassifier
+from ferdelance_workbench.artifacts import (
+    Artifact,
+    ArtifactStatus,
+    Dataset,
+    Query,
+    DataSource,
+)
+from ferdelance_shared.models import (
+    FederatedRandomForestClassifier,
+    StrategyRandomForestClassifier,
+    ParametersRandomForestClassifier,
+)
 
 import numpy as np
 
@@ -14,7 +24,6 @@ ctx = Context('http://ferdelance.artemis.idsia.ch')
 for c in ctx.list_clients():
     dc = ctx.detail_client(c)
     print(dc.client_id)
-    print('- creation time: ', dc.created_at)
     print('- client version:', dc.version)
 
 # %% ask the context for available metadata

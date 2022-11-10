@@ -39,6 +39,9 @@ class QueryFilter(BaseQueryFilter):
     def __hash__(self) -> int:
         return hash((self.feature, self.operation, self.parameter))
 
+    def __str__(self) -> str:
+        return f'Filter({self.feature} {self.operation} {self.parameter})'
+
 
 class QueryTransformer(BaseQueryTransformer):
 
@@ -54,6 +57,9 @@ class QueryTransformer(BaseQueryTransformer):
     def __hash__(self) -> int:
         return hash((self.feature, self.name))
 
+    def __str__(self) -> str:
+        return f'{self.name}({self.feature})'
+
 
 class QueryFeature(BaseQueryFeature):
 
@@ -68,6 +74,9 @@ class QueryFeature(BaseQueryFeature):
 
     def __hash__(self) -> int:
         return hash((self.datasource_id, self.feature_id))
+
+    def __str__(self) -> str:
+        return f'{self.feature_name}@{self.datasource_name}'
 
 
 class Feature(BaseFeature):
@@ -182,6 +191,9 @@ class Feature(BaseFeature):
 
     def __hash__(self) -> int:
         return hash((self.datasource_id, self.feature_id, self.name, self.dtype))
+
+    def __str__(self) -> str:
+        return f'{self.name}@{self.datasource_name}'
 
 
 class Query(BaseQuery):

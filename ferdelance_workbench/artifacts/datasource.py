@@ -60,4 +60,4 @@ class DataSource(BaseDataSource):
             if f:
                 return f
 
-        raise ValueError('Feature not found in this datasource')
+        raise ValueError(f'Feature "{str(key)}" not found in this datasource')
