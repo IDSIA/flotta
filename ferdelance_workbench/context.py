@@ -49,13 +49,29 @@ class Context:
 
         if ssh_key_path is None:
             if generate_keys:
-                self.exc.generate_key()
-                self.exc.save_private_key(os.path.join(DATA_DIR, 'rsa_id'))
+                ssh_key_path = os.path.join(DATA_DIR, 'rsa_id')
+
+                if os.path.exists(ssh_key_path):
+                    LOGGER.debug(f'loading private key from {ssh_key_path}')
+
+                    self.exc.load_key(ssh_key_path)
+
+                else:
+                    LOGGER.debug(f'generating and saving private key to {ssh_key_path}')
+
+                    self.exc.generate_key()
+                    self.exc.save_private_key(ssh_key_path)
 
             else:
-                self.exc.load_key(os.path.join(HOME, '.ssh', 'rsa_id'))
+                ssh_key_path = os.path.join(HOME, '.ssh', 'rsa_id')
+
+                LOGGER.debug(f'loading private key from {ssh_key_path}')
+
+                self.exc.load_key(ssh_key_path)
 
         else:
+            LOGGER.debug(f'loading private key from {ssh_key_path}')
+
             self.exc.load_key(ssh_key_path)
 
         wjr = WorkbenchJoinRequest(
@@ -63,13 +79,13 @@ class Context:
         )
 
         res = requests.post(
-            '/workbench/connect',
+            f'{self.server}/workbench/connect',
             data=json.dumps(wjr.dict())
         )
 
         res.raise_for_status()
 
-        data = WorkbenchJoinData(**res.json())
+        data = WorkbenchJoinData(**self.exc.get_payload(res.content))
 
         self.workbench_id: str = data.id
 
