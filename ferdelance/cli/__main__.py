@@ -9,17 +9,25 @@ This is related to manage projects, users, clients, etc. As an example:
     - clean space     
     - regenerate server ssh key
 """
+import asyncio
 
-from ferdelance.cli.base import CLIParser
-from ferdelance.cli.models import models_cli_suite
+from .base import CLIParser
+from .models import models_cli_suite
 
-parser: CLIParser = CLIParser(
-    prog="Ferdelance Admin CLI",
-    description="Command Line Interface to administrate the server",
-)
 
-parser.add_command_suite(models_cli_suite)
+async def main() -> None:
 
-parser.parse_args()
+    parser: CLIParser = CLIParser(
+        prog="Ferdelance Admin CLI",
+        description="Command Line Interface to administrate the server",
+    )
 
-print(parser.selected_command)
+    parser.add_command_suite(models_cli_suite)
+
+    parser.parse_args()
+
+    await parser.selected_command.function(**parser.args)
+
+
+if __name__ == "__main__":
+    loop = asyncio.run(main())

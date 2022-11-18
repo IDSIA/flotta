@@ -3,7 +3,7 @@
 
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
-from typing import Any, Callable, List, Type
+from typing import Any, Callable, Dict, List, Type
 
 
 def command_not_implemented():
@@ -64,6 +64,7 @@ class CLIParser:
         self.suites: List[CLICommandSuite] = []
         self.selected_suite: CLICommandSuite = None
         self.selected_command: CLICommand = None
+        self.args = Dict[str, Any]
 
     def add_command_suite(self, command_suite: CLICommandSuite) -> None:
 
@@ -107,3 +108,7 @@ class CLIParser:
 
         self.selected_suite = selected_suite
         self.selected_command = selected_command
+        self.args = {
+            sca.var_name: getattr(args, sca.var_name)
+            for sca in self.selected_command.arguments
+        }

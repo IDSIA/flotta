@@ -15,7 +15,12 @@ python -m cli model create --artifact-id --client-id --aggregate
 ```
 """
 
-from ferdelance.cli.base import CLIArgument, CLICommand, CLICommandSuite
+from ..base import CLIArgument, CLICommand, CLICommandSuite
+from .functions import models_list
+
+#
+#   ARGUMENTS
+#
 
 artifact_id: CLIArgument = CLIArgument(
     dash_string="--artifact-id",
@@ -24,8 +29,8 @@ artifact_id: CLIArgument = CLIArgument(
     help="Artifact ID",
 )
 
-client_id: CLIArgument = CLIArgument(
-    dash_string="--client-id", var_name="client_id", var_type=str, help="Client ID"
+model_id: CLIArgument = CLIArgument(
+    dash_string="--model-id", var_name="model_id", var_type=str, help="Model ID"
 )
 
 aggregate: CLIArgument = CLIArgument(
@@ -36,13 +41,21 @@ aggregate: CLIArgument = CLIArgument(
     help="Create local model or aggregated model",
 )
 
+#
+#   COMMANDS
+#
+
 list_command: CLICommand = CLICommand(
-    command="list", arguments=[artifact_id, client_id]
+    command="list", arguments=[artifact_id, model_id], function=models_list
 )
 create_command: CLICommand = CLICommand(
     command="create",
-    arguments=[artifact_id, client_id, aggregate],
+    arguments=[artifact_id, model_id, aggregate],
 )
+
+#
+#   SUITE
+#
 
 
 models_cli_suite: CLICommandSuite = CLICommandSuite(
