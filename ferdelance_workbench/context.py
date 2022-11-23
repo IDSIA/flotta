@@ -1,10 +1,10 @@
-from ferdelance_workbench.artifacts import (
-    ClientDetails,
+from ferdelance_shared.artifacts import (
     DataSource,
     Artifact,
     ArtifactStatus,
 )
 from ferdelance_shared.schemas import (
+    ClientDetails,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchDataSourceList,
