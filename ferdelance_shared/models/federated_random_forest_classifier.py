@@ -50,7 +50,6 @@ class ParametersRandomForestClassifier(BaseModel):
 
 
 class FederatedRandomForestClassifier(GenericModel):
-    name: str = 'FederatedRandomForestClassifier'
 
     def __init__(self, strategy: StrategyRandomForestClassifier | None = None, parameters: ParametersRandomForestClassifier = ParametersRandomForestClassifier(), load: str | None = None) -> None:
         super().__init__()
@@ -124,14 +123,7 @@ class FederatedRandomForestClassifier(GenericModel):
             raise ValueError('Cannot build model with no strategy assigned')
 
         return Model(
-            name=self.name,
+            name=self.__class__.__name__,
             strategy=self.strategy.name,
             parameters=self.parameters.dict()
-        )
-
-    @staticmethod
-    def from_model(model: Model) -> FederatedRandomForestClassifier:
-        return FederatedRandomForestClassifier(
-            strategy=StrategyRandomForestClassifier[model.strategy],
-            parameters=ParametersRandomForestClassifier(**model.parameters),
         )
