@@ -12,22 +12,6 @@ __all__ = [
     'UpdateNothing',
     'DownloadApp',
 
-    'BaseFeature',
-    'Feature',
-    'MetaFeature',
-    'BaseDataSource',
-    'DataSource',
-    'MetaDataSource',
-    'Metadata',
-    'QueryFeature',
-    'QueryFilter',
-    'QueryTransformer',
-    'Query',
-    'Dataset',
-    'BaseArtifact',
-    'Artifact',
-    'ArtifactStatus',
-
     'WorkbenchJoinRequest',
     'WorkbenchJoinData',
     'WorkbenchClientList',
@@ -49,23 +33,6 @@ from .updates import (
     UpdateExecute,
     UpdateNothing,
     DownloadApp,
-)
-from .artifacts import (
-    BaseFeature,
-    Feature,
-    MetaFeature,
-    BaseDataSource,
-    DataSource,
-    MetaDataSource,
-    Metadata,
-    QueryFeature,
-    QueryFilter,
-    QueryTransformer,
-    Query,
-    Dataset,
-    BaseArtifact,
-    Artifact,
-    ArtifactStatus,
 )
 
 from .workbench import (

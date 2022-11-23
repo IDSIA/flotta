@@ -12,6 +12,7 @@ __all__ = [
     'QueryFilter',
     'QueryTransformer',
     'Query',
+
     'Dataset',
 
     'BaseArtifact',
@@ -19,11 +20,6 @@ __all__ = [
     'ArtifactStatus',
 ]
 
-from .features import (
-    BaseFeature,
-    Feature,
-    MetaFeature,
-)
 from .datasources import (
     BaseDataSource,
     DataSource,
@@ -35,6 +31,11 @@ from .queries import (
     QueryFilter,
     QueryTransformer,
     Query,
+    BaseFeature,
+    Feature,
+    MetaFeature,
+)
+from .datasets import (
     Dataset,
 )
 from .artifacts import (

@@ -1,11 +1,11 @@
 from pydantic import BaseModel
-from .queries import Dataset
+from .datasets import Dataset
 from ..models import Model
 
 
 class BaseArtifact(BaseModel):
     """Basic structure for artifact"""
-    artifact_id: str | None
+    artifact_id: str | None = None
 
 
 class Artifact(BaseArtifact):
