@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 from pydantic import BaseModel
 from ..operations import Operations
 
@@ -67,7 +68,7 @@ class QueryTransformer(BaseModel):
     """Query transformation to apply to the feature from the workbench."""
     feature: QueryFeature
     name: str
-    parameters: str
+    parameters: dict[str, Any]
 
     def __eq__(self, other: QueryTransformer) -> bool:
         if not isinstance(other, QueryTransformer):
