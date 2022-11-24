@@ -1,9 +1,11 @@
 from __future__ import annotations
 from typing import Any
 from pydantic import BaseModel
-from ..operations import Operations
+from .operations import Operations
 
 from datetime import datetime
+
+from pandas import DataFrame, to_datetime
 
 
 def is_numeric(other) -> bool:
@@ -46,6 +48,40 @@ class QueryFilter(BaseModel):
     feature: QueryFeature
     operation: str
     parameter: str
+
+    def __call__(self, df: DataFrame) -> DataFrame:
+        feature: str = self.feature.feature_name
+        op: Operations = Operations[self.operation]
+        parameter: str = self.parameter
+
+        if op == Operations.NUM_LESS_THAN:
+            return df[df[feature] < float(parameter)]
+        if op == Operations.NUM_LESS_EQUAL:
+            return df[df[feature] <= float(parameter)]
+        if op == Operations.NUM_GREATER_THAN:
+            return df[df[feature] > float(parameter)]
+        if op == Operations.NUM_GREATER_EQUAL:
+            return df[df[feature] >= float(parameter)]
+        if op == Operations.NUM_EQUALS:
+            return df[df[feature] == float(parameter)]
+        if op == Operations.NUM_NOT_EQUALS:
+            return df[df[feature] != float(parameter)]
+
+        if op == Operations.OBJ_LIKE:
+            return df[df[feature] == parameter]
+        if op == Operations.OBJ_NOT_LIKE:
+            return df[df[feature] != parameter]
+
+        if op == Operations.TIME_BEFORE:
+            return df[df[feature] < to_datetime(parameter)]
+        if op == Operations.TIME_AFTER:
+            return df[df[feature] > to_datetime(parameter)]
+        if op == Operations.TIME_EQUALS:
+            return df[df[feature] == to_datetime(parameter)]
+        if op == Operations.TIME_NOT_EQUALS:
+            return df[df[feature] != to_datetime(parameter)]
+
+        raise ValueError(f'Unsupported operation "{self.operation}" ')
 
     def __eq__(self, other: QueryFilter) -> bool:
         if not isinstance(other, QueryFilter):
