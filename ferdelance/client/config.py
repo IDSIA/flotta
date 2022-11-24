@@ -1,4 +1,4 @@
-from ferdelance_shared.schemas import DataSource
+from ferdelance_shared.artifacts import DataSource
 from ferdelance_shared.exchange import Exchange
 
 from .. import __version__
