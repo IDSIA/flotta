@@ -6,6 +6,7 @@ from ...database.tables import Model
 
 
 async def models_list(**kwargs) -> pd.DataFrame:
+
     artifact_id = kwargs.get("artifact_id", None)
     model_id = kwargs.get("client_id", None)
 
