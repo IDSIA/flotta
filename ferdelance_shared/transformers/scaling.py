@@ -22,7 +22,7 @@ class FederatedMinMaxScaler(GenericTransformer):
                  ) -> None:
         super().__init__()
 
-        self.scaler = MinMaxScaler(feature_range=feature_range)
+        self.scaler: MinMaxScaler = MinMaxScaler(feature_range=feature_range)
 
         self.features_in: list[str] = convert_features_to_list(features_in)
         self.features_out: list[str] = convert_features_to_list(features_out)
@@ -53,7 +53,7 @@ class FederatedMinMaxScaler(GenericTransformer):
         return super().aggregate()
 
     def fit(self, df: pd.DataFrame) -> None:
-        self.scaler.fit(df)
+        self.scaler.fit(df[self.features_in])
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         df[self.features_out] = self.scaler.transform(df[self.features_in])
