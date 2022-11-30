@@ -77,6 +77,9 @@ class DataSource(BaseDataSource):
 
         raise ValueError(f'Feature "{str(key)}" not found in this datasource')
 
+    def __str__(self) -> str:
+        return super().__str__() + f'client_id={self.client_id} features=[{self.features}]'
+
 
 class MetaDataSource(BaseDataSource):
     """Information on data source stored in the client."""

@@ -102,7 +102,8 @@ class QueryFilter(BaseModel):
 
 class QueryTransformer(BaseModel):
     """Query transformation to apply to the feature from the workbench."""
-    feature: QueryFeature
+    features_in: QueryFeature | list[QueryFeature] | str | list[str]
+    features_out: QueryFeature | list[QueryFeature] | str | list[str]
     name: str
     parameters: dict[str, Any]
 
@@ -111,15 +112,16 @@ class QueryTransformer(BaseModel):
             return False
 
         return (
-            self.feature == other.feature and
+            self.features_in == other.features_in and
+            self.features_out == other.features_out and
             self.name == other.name
         )
 
     def __hash__(self) -> int:
-        return hash((self.feature, self.name))
+        return hash((self.features_in, self.features_out, self.name))
 
     def __str__(self) -> str:
-        return f'{self.name}({self.feature})'
+        return f'{self.name}({self.features_in} -> {self.features_out})'
 
 
 class BaseFeature(BaseModel):
@@ -329,7 +331,7 @@ class Query(BaseModel):
 
         self.features = [f for f in self.features if f != feature]
         self.filters = [f for f in self.filters if f.feature != feature]
-        self.transformers = [f for f in self.transformers if f.feature != feature]
+        self.transformers = [f for f in self.transformers if f.features_in != feature]
 
     def remove_filter(self, filter: QueryFilter) -> None:
         if filter.feature.datasource_id != self.datasource_id:
