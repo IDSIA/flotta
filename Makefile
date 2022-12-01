@@ -11,6 +11,27 @@ reload:
 	docker-compose build
 	docker-compose up -d
 
+#
+#
+#
+
+build-dev:
+	docker-compose -f docker-compose-dev.yaml build
+
+start-dev:
+	docker-compose -f docker-compose-dev.yaml up -d
+
+stop-dev:
+	docker-compose -f docker-compose-dev.yaml down
+
+reload-dev:
+	docker-compose -f docker-compose-dev.yaml build
+	docker-compose -f docker-compose-dev.yaml up -d
+
+#
+#
+#
+
 logs:
 	docker-compose logs -f server worker
 

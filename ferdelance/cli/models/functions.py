@@ -14,6 +14,10 @@ async def models_list(**kwargs) -> pd.DataFrame:
 
     ms = ModelService(session)
 
+    print("===============================")
+    print(ms)
+    print("===============================")
+
     if artifact_id is not None:
         model_sessions: list[Model] = await ms.get_models_by_artifact_id(artifact_id)
     elif model_id is not None:
