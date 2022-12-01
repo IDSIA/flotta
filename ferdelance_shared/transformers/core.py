@@ -2,13 +2,15 @@ from typing import Any
 
 from ..artifacts.queries import QueryTransformer, QueryFeature
 
+from io import BufferedReader
+
 import pandas as pd
 import pickle
 
 
 class Transformer:
 
-    def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str],) -> None:
+    def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None, features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None) -> None:
         self.name: str = name
         self.features_in: list[str] = convert_features_to_list(features_in)
         self.features_out: list[str] = convert_features_to_list(features_out)
@@ -18,6 +20,15 @@ class Transformer:
 
     def params(self) -> dict[str, Any]:
         return dict()
+
+    def _load(self, f: BufferedReader) -> dict[str, Any]:
+        data = pickle.load(f)
+
+        self.name = data['name']
+        self.features_in = data['features_in']
+        self.features_out = data['features_out']
+
+        return data
 
     def dict(self) -> dict[str, Any]:
         return {
@@ -47,7 +58,9 @@ class Transformer:
         return QueryTransformer(**self.dict())
 
 
-def convert_features_to_list(features: QueryFeature | list[QueryFeature] | str | list[str]) -> list[str]:
+def convert_features_to_list(features: QueryFeature | list[QueryFeature] | str | list[str] | None = None) -> list[str]:
+    if features is None:
+        return list()
     if isinstance(features, str):
         features = [features]
     elif isinstance(features, QueryFeature):

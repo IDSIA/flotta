@@ -31,10 +31,7 @@ class FederatedMinMaxScaler(Transformer):
 
     def load(self, path: str) -> None:
         with open(path, 'rb') as f:
-            data = pickle.load(f)
-            self.name = data['name']
-            self.features_in = data['features_in']
-            self.features_out = data['features_out']
+            data = self._load(f)
             self.feature_range = data['feature_range']
             self.scaler = data['scaler']
 
