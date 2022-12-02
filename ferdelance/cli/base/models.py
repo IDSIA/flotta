@@ -20,8 +20,8 @@ class CLIArgument:
     default: Any = None
     help: str = None
 
-    def __eq__(self, __o: object) -> bool:
-        return self.dash_string == __o.dash_string
+    def __eq__(self, other: object) -> bool:
+        return self.dash_string == other.dash_string
 
     def __hash__(self):
         return hash(self.dash_string)
@@ -66,23 +66,21 @@ class CLIParser:
         self.selected_command: CLICommand = None
         self.args = Dict[str, Any]
 
-    def add_command_suite(self, command_suite: CLICommandSuite) -> None:
+        self.avail_args_set: set = set()
 
-        args_set: set = set()
+    def add_command_suite(self, command_suite: CLICommandSuite) -> None:
 
         for command in command_suite.commands:
             for arg in command.arguments:
-                args_set.add(arg)
-
-        for arg in args_set:
-            self.parser.add_argument(
-                arg.dash_string,
-                dest=arg.var_name,
-                type=arg.var_type,
-                default=arg.default,
-                help=arg.help,
-            )
-
+                if arg.dash_string not in self.avail_args_set:
+                    self.avail_args_set.add(arg.dash_string)
+                    self.parser.add_argument(
+                        arg.dash_string,
+                        dest=arg.var_name,
+                        type=arg.var_type,
+                        default=arg.default,
+                        help=arg.help,
+                    )
         self.suites.append(command_suite)
 
     def parse_args(

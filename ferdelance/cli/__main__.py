@@ -11,7 +11,8 @@ This is related to manage projects, users, clients, etc. As an example:
 """
 import asyncio
 
-from .base import CLIParser
+from .artifacts import artifacts_cli_suite
+from .base.models import CLIParser
 from .models import models_cli_suite
 
 
@@ -23,6 +24,7 @@ async def main() -> None:
     )
 
     parser.add_command_suite(models_cli_suite)
+    parser.add_command_suite(artifacts_cli_suite)
 
     parser.parse_args()
 
