@@ -16,7 +16,8 @@ class FederatedMinMaxScaler(Transformer):
     def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], feature_range: tuple = (0, 1)) -> None:
         super().__init__(FederatedMinMaxScaler.__name__, features_in, features_out)
 
-        self.scaler: MinMaxScaler = MinMaxScaler(feature_range=feature_range)
+        self.transformer: MinMaxScaler = MinMaxScaler(feature_range=feature_range)
+
         self.feature_range: tuple[float, float] = feature_range
 
     def params(self) -> dict[str, Any]:
@@ -26,14 +27,14 @@ class FederatedMinMaxScaler(Transformer):
 
     def dict(self) -> dict[str, Any]:
         return super().dict() | {
-            'scaler': self.scaler,
+            'transformer': self.transformer,
         }
 
     def fit(self, df: pd.DataFrame) -> None:
-        self.scaler.fit(df[self.features_in])
+        self.transformer.fit(df[self.features_in])
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        df[self.features_out] = self.scaler.transform(df[self.features_in])
+        df[self.features_out] = self.transformer.transform(df[self.features_in])
         return df
 
     def aggregate(self) -> None:

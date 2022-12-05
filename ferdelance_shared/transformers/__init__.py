@@ -8,6 +8,10 @@ __all__ = [
 
     'FederatedMinMaxScaler',
     'FederatedStandardScaler',
+
+    'FederatedKBinsDiscretizer',
+    'FederatedBinarizer',
+    'FederatedLabelBinarizer',
 ]
 
 from ferdelance_shared.artifacts import QueryTransformer
@@ -22,6 +26,11 @@ from .pipelines import FederatedPipeline
 from .scaling import (
     FederatedMinMaxScaler,
     FederatedStandardScaler,
+)
+from .discrete import (
+    FederatedKBinsDiscretizer,
+    FederatedBinarizer,
+    FederatedLabelBinarizer,
 )
 
 
