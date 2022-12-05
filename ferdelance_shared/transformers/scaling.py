@@ -25,18 +25,6 @@ class FederatedMinMaxScaler(Transformer):
             'feature_range': self.feature_range,
         }
 
-    def dict(self) -> dict[str, Any]:
-        return super().dict() | {
-            'transformer': self.transformer,
-        }
-
-    def fit(self, df: pd.DataFrame) -> None:
-        self.transformer.fit(df[self.features_in])
-
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        df[self.features_out] = self.transformer.transform(df[self.features_in])
-        return df
-
     def aggregate(self) -> None:
         # TODO
         return super().aggregate()
@@ -56,18 +44,6 @@ class FederatedStandardScaler(Transformer):
             'with_mean': self.with_mean,
             'with_std': self.with_std,
         }
-
-    def dict(self) -> dict[str, Any]:
-        return super().dict() | {
-            'scaler': self.scaler,
-        }
-
-    def fit(self, df: pd.DataFrame) -> None:
-        self.scaler.fit(df[self.features_in])
-
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        df[self.features_out] = self.scaler.transform(df[self.features_in])
-        return df
 
     def aggregate(self) -> None:
         # TODO

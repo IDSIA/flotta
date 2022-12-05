@@ -19,6 +19,8 @@ class Transformer:
         self.features_in: list[str] = convert_features_to_list(features_in)
         self.features_out: list[str] = convert_features_to_list(features_out)
 
+        self.transformer: Any = None
+
         if len(self.features_in) != len(self.features_out):
             raise ValueError('Input and output features are not of the same length')
 
@@ -48,6 +50,7 @@ class Transformer:
             'features_in': self.features_in,
             'features_out': self.features_out,
             'parameters': self.params(),
+            'transformer': self.transformer,
         }
 
     def aggregate(self) -> None:
@@ -60,7 +63,7 @@ class Transformer:
         :param df:
             Input data used to train the transformer.
         """
-        raise NotImplementedError()
+        self.transformer.fit(df[self.features_in])
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Method used to transform input data in output data. The transformation need to
@@ -71,7 +74,8 @@ class Transformer:
         :return:
             The transformed data (same as input after the execution of this method).
         """
-        raise NotImplementedError()
+        df[self.features_out] = self.transformer.transform(df[self.features_in])
+        return df
 
     def build(self) -> QueryTransformer:
         """Convert a Transformer in a QueryTransformer representation that can be sent
