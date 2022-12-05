@@ -8,7 +8,6 @@ from ..artifacts import (
 from sklearn.preprocessing import MinMaxScaler
 
 import pandas as pd
-import pickle
 
 
 class FederatedMinMaxScaler(Transformer):
@@ -28,12 +27,6 @@ class FederatedMinMaxScaler(Transformer):
         return super().dict() | {
             'scaler': self.scaler,
         }
-
-    def load(self, path: str) -> None:
-        with open(path, 'rb') as f:
-            data = self._load(f)
-            self.feature_range = data['feature_range']
-            self.scaler = data['scaler']
 
     def fit(self, df: pd.DataFrame) -> None:
         self.scaler.fit(df[self.features_in])

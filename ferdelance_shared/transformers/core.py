@@ -21,29 +21,13 @@ class Transformer:
     def params(self) -> dict[str, Any]:
         return dict()
 
-    def _load(self, f: BufferedReader) -> dict[str, Any]:
-        data = pickle.load(f)
-
-        self.name = data['name']
-        self.features_in = data['features_in']
-        self.features_out = data['features_out']
-
-        return data
-
     def dict(self) -> dict[str, Any]:
         return {
+            'name': self.name,
             'features_in': self.features_in,
             'features_out': self.features_out,
-            'name': self.name,
             'parameters': self.params(),
         }
-
-    def save(self, path: str) -> None:
-        with open(path, 'wb') as f:
-            pickle.dump(self.dict(), f)
-
-    def load(self, path: str) -> None:
-        raise NotImplementedError()
 
     def aggregate(self) -> None:
         raise NotImplementedError()
@@ -71,3 +55,13 @@ def convert_features_to_list(features: QueryFeature | list[QueryFeature] | str |
             f_list.append(f.feature_name if isinstance(f, QueryFeature) else f)
         features = f_list
     return features
+
+
+def save(obj: Transformer, path: str) -> None:
+    with open(path, 'wb') as f:
+        pickle.dump(obj, f)
+
+
+def load(path: str) -> Any:
+    with open(path, 'rb') as f:
+        return pickle.load(f)
