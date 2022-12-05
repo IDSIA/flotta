@@ -19,11 +19,6 @@ class FederatedPipeline(Transformer):
             ]
         }
 
-    def load(self, path: str) -> None:
-        with open(path, 'rb') as f:
-            data = self._load(f)
-            self.stages = data['stages']  # TODO: this is wrong and each stage should be able to 'recreate' themselves
-
     def fit(self, df: pd.DataFrame) -> None:
         for stage in self.stages:
             stage.fit(df)
