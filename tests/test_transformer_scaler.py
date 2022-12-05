@@ -1,4 +1,8 @@
-from ferdelance_shared.transformers.scaling import FederatedMinMaxScaler
+from ferdelance_shared.transformers import (
+    FederatedMinMaxScaler,
+    save,
+    load,
+)
 from ferdelance_shared.artifacts import QueryTransformer
 
 from sklearn.preprocessing import MinMaxScaler
@@ -10,7 +14,7 @@ PATH_DIR = os.path.abspath(os.path.dirname(__file__))
 PATH_CALIFORNIA = os.path.join(PATH_DIR, 'california.csv')
 
 
-class TestTransformers:
+class TestTransformerScaler:
 
     def test_build_query_transformer(self):
         fmms = FederatedMinMaxScaler('Latitude', 'Latitude2', (0.5, 2.0))
@@ -56,3 +60,31 @@ class TestTransformers:
         assert df_a['Latitude_scaled'].mean() == df_b['Latitude_scaled'].mean()
         assert df_a['Longitude_scaled'].sum() == df_b['Longitude_scaled'].sum()
         assert df_a['Longitude_scaled'].mean() == df_b['Longitude_scaled'].mean()
+
+    def test_save_and_reload(self):
+        df = pd.read_csv(PATH_CALIFORNIA)
+        df_a = df.copy()
+        df_b = df.copy()
+
+        fmms = FederatedMinMaxScaler('Latitude', 'Latitude_scaled')
+        fmms.fit(df)
+
+        TF_PATH = os.path.join('.', 'mms.transformer')
+
+        save(fmms, TF_PATH)
+
+        loaded: FederatedMinMaxScaler = load(TF_PATH)
+
+        assert isinstance(loaded, FederatedMinMaxScaler)
+        assert fmms.name == loaded.name
+        assert fmms.features_in == loaded.features_in
+        assert fmms.features_out == loaded.features_out
+        assert fmms.params() == loaded.params()
+
+        df_a = fmms.transform(df_a)
+        df_b = loaded.transform(df_b)
+
+        assert df_a['Latitude_scaled'].sum() == df_b['Latitude_scaled'].sum()
+        assert df_a['Latitude_scaled'].mean() == df_b['Latitude_scaled'].mean()
+
+        os.remove(TF_PATH)
