@@ -3,8 +3,11 @@ __all__ = [
     'save',
     'load',
     'Transformer',
+
     'FederatedPipeline',
+
     'FederatedMinMaxScaler',
+    'FederatedStandardScaler',
 ]
 
 from ferdelance_shared.artifacts import QueryTransformer
@@ -16,7 +19,10 @@ from .core import (
 )
 
 from .pipelines import FederatedPipeline
-from .scaling import FederatedMinMaxScaler
+from .scaling import (
+    FederatedMinMaxScaler,
+    FederatedStandardScaler,
+)
 
 
 import pandas as pd

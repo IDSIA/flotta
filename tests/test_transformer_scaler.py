@@ -16,11 +16,11 @@ PATH_CALIFORNIA = os.path.join(PATH_DIR, 'california.csv')
 
 class TestTransformerScaler:
 
+    # TODO: test for FederatedStandardScaler
+
     def test_build_query_transformer(self):
         fmms = FederatedMinMaxScaler('Latitude', 'Latitude2', (0.5, 2.0))
         qt: QueryTransformer = fmms.build()
-
-        print(qt.dict())
 
         assert qt.name == FederatedMinMaxScaler.__name__
         assert qt.features_in == fmms.features_in
