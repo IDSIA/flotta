@@ -2,13 +2,17 @@ from typing import Any
 
 from ..artifacts.queries import QueryTransformer, QueryFeature
 
-from io import BufferedReader
-
 import pandas as pd
 import pickle
 
 
 class Transformer:
+    """Basic class that defines a transformer. A transformer is an object that can transform
+    input data. This transformation is used as a pre-processing that need to be applied 
+    before the input data can be used by a FederatedModel.
+
+    For a pipeline, a sequence of transformations, check the FederatedPipeline class.
+    """
 
     def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None, features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None) -> None:
         self.name: str = name
@@ -19,9 +23,26 @@ class Transformer:
             raise ValueError('Input and output features are not of the same length')
 
     def params(self) -> dict[str, Any]:
+        """Utility method to convert to dictionary any input parameter for the transformer.
+        This excludes `name`, `features_in`, and `features_out`.
+
+        All classes that extend the Transformer class need to implement this method by 
+        including the parameters required to build the transformer.
+
+        :return:
+            A dictionary with all the input parameters for creating a transformer.
+        """
         return dict()
 
     def dict(self) -> dict[str, Any]:
+        """Converts the transformer in a dictionary representation. This include the trained model.
+
+        All classes that extend the Transformer class need to implement this method by 
+        including the trained or trainable object and internal states.
+
+        :return:
+            A dictionary with the description of all internal data of a transformer.
+        """
         return {
             'name': self.name,
             'features_in': self.features_in,
@@ -30,19 +51,47 @@ class Transformer:
         }
 
     def aggregate(self) -> None:
+        """Method used to aggregate multiple transformers trained on different clients."""
         raise NotImplementedError()
 
     def fit(self, df: pd.DataFrame) -> None:
+        """Method to fit a transformer on the locally available data.
+
+        :param df:
+            Input data used to train the transformer.
+        """
         raise NotImplementedError()
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Method used to transform input data in output data. The transformation need to
+        be applied on the data, this is always an inplace transformation.
+
+        :param df:
+            Input data to be transformed.
+        :return:
+            The transformed data (same as input after the execution of this method).
+        """
         raise NotImplementedError()
 
     def build(self) -> QueryTransformer:
+        """Convert a Transformer in a QueryTransformer representation that can be sent
+        to an aggregation server from a Workbench.
+
+        :return:
+            The QueryTransformer representation associated with this transformer.
+        """
         return QueryTransformer(**self.dict())
 
 
 def convert_features_to_list(features: QueryFeature | list[QueryFeature] | str | list[str] | None = None) -> list[str]:
+    """Sanitize the input list of features in a list of string.
+
+    :param features:
+        List of features. These can be a QueryFeature, a list of QueryFeature, a string, ora a list of string.
+
+    :return:
+        The input converted in a list of string.
+    """
     if features is None:
         return list()
     if isinstance(features, str):

@@ -12,6 +12,11 @@ class FederatedPipeline(Transformer):
 
         self.stages: list[Transformer] = stages
 
+    def params(self) -> dict[str, Any]:
+        return super().params() | {
+            'stages_params': [s.params() for s in self.stages]
+        }
+
     def dict(self) -> dict[str, Any]:
         return super().dict() | {
             'stages': [

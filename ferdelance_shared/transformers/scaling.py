@@ -1,9 +1,7 @@
 from typing import Any
 
 from .core import Transformer
-from ..artifacts import (
-    QueryFeature,
-)
+from ..artifacts import QueryFeature
 
 from sklearn.preprocessing import MinMaxScaler
 
