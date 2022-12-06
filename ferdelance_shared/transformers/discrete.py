@@ -10,8 +10,6 @@ from sklearn.preprocessing import (
     OneHotEncoder,
 )
 
-import pandas as pd
-
 # TODO: test these classes
 
 
@@ -87,7 +85,7 @@ class FederatedOneHotEncoder(Transformer):
     """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html#sklearn.preprocessing.OneHotEncoder"""
 
     def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], categories: str | list[str] = 'auto', drop=None, sparse: bool = True, handle_unknown: str = 'error', min_frequency=None, max_categories=None) -> None:
-        super().__init__(FederatedLabelBinarizer.__name__, features_in, features_out)
+        super().__init__(FederatedOneHotEncoder.__name__, features_in, features_out)
 
         self.transformer: OneHotEncoder = OneHotEncoder(
             categories=categories,
