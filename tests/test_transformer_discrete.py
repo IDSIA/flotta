@@ -67,3 +67,57 @@ class TestTransformerDiscretizer:
         assert qt.parameters['handle_unknown'] == 'ignore'
         assert qt.parameters['min_frequency'] == 1
         assert qt.parameters['max_categories'] == 3
+
+    def test_kbin_one_feature(self):
+        df = pd.read_csv(PATH_CALIFORNIA)
+
+        fkbd = FederatedKBinsDiscretizer('HouseAge', 'HouseAgeBin', 10, random_state=42)
+
+        fkbd.fit(df)
+        df = fkbd.transform(df)
+
+        assert df.shape[1] == 9
+
+        x = df[['HouseAgeBin']].groupby('HouseAgeBin').size()
+
+        assert x.shape[0] == 10
+
+    def test_bin_one_feature(self):
+        df = pd.read_csv(PATH_CALIFORNIA)
+
+        fb = FederatedBinarizer('AveRooms', 'MoreThanThree', 3.0)
+
+        fb.fit(df)
+        df = fb.transform(df)
+
+        assert df.shape[1] == 9
+        assert df[['MoreThanThree']].sum()[0] == 20185.0
+
+    def test_kbin_two_feature(self):
+        df = pd.read_csv(PATH_CALIFORNIA)
+
+        fkbd = FederatedKBinsDiscretizer(['HouseAge', 'Population'], ['HouseAgeBin', 'PopulationBin'], 3, random_state=42)
+
+        fkbd.fit(df)
+        df = fkbd.transform(df)
+
+        assert df.shape[1] == 10
+
+        x = df[['HouseAgeBin']].groupby('HouseAgeBin').size()
+        y = df[['PopulationBin']].groupby('PopulationBin').size()
+
+        assert x.shape[0] == 3
+        assert y.shape[0] == 3
+
+    def test_bin_two_feature(self):
+        df = pd.read_csv(PATH_CALIFORNIA)
+
+        fb = FederatedBinarizer(['AveRooms', 'AveBedrms'], ['ThreeOrMoreRooms', 'ThreeOrMoreBedrooms'], 3.0)
+
+        fb.fit(df)
+        df = fb.transform(df)
+
+        assert df.shape[1] == 10
+
+        assert df[['ThreeOrMoreRooms']].sum()[0] == 20185.0
+        assert df[['ThreeOrMoreBedrooms']].sum()[0] == 107.0
