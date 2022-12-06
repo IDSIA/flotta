@@ -35,7 +35,7 @@ class FederatedStandardScaler(Transformer):
     def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], with_mean: bool = True, with_std: bool = True) -> None:
         super().__init__(FederatedStandardScaler.__name__, features_in, features_out)
 
-        self.scaler: StandardScaler = StandardScaler(with_mean=with_mean, with_std=with_std)
+        self.transformer: StandardScaler = StandardScaler(with_mean=with_mean, with_std=with_std)
         self.with_mean: bool = with_mean
         self.with_std: bool = with_std
 
