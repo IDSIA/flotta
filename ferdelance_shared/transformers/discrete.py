@@ -16,20 +16,19 @@ from sklearn.preprocessing import (
 class FederatedKBinsDiscretizer(Transformer):
     """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.KBinsDiscretizer.html#sklearn.preprocessing.KBinsDiscretizer"""
 
-    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], n_bins: int = 5, encode: str = 'ordinal', strategy='uniform', random_state=None) -> None:
+    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], n_bins: int = 5, strategy='uniform', random_state=None) -> None:
         super().__init__(FederatedKBinsDiscretizer.__name__, features_in, features_out)
 
-        self.transformer: KBinsDiscretizer = KBinsDiscretizer(n_bins=n_bins, encode=encode, strategy=strategy, random_state=random_state)
+        # encode is fixed to ordinal because there is a One-hot-encoder transformer
+        self.transformer: KBinsDiscretizer = KBinsDiscretizer(n_bins=n_bins, encode='ordinal', strategy=strategy, random_state=random_state)
 
         self.n_bins: int = n_bins
-        self.encode: str = encode
         self.strategy: str = strategy
         self.random_state = random_state
 
     def params(self) -> dict[str, Any]:
         return super().params() | {
             'n_bins': self.n_bins,
-            'encode': self.encode,
             'strategy': self.strategy,
             'random_state': self.random_state,
         }
@@ -84,7 +83,7 @@ class FederatedLabelBinarizer(Transformer):
 class FederatedOneHotEncoder(Transformer):
     """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html#sklearn.preprocessing.OneHotEncoder"""
 
-    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], categories: str | list[str] = 'auto', drop=None, sparse: bool = True, handle_unknown: str = 'error', min_frequency=None, max_categories=None) -> None:
+    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], categories: str | list = 'auto', drop=None, sparse: bool = True, handle_unknown: str = 'error', min_frequency=None, max_categories=None) -> None:
         super().__init__(FederatedOneHotEncoder.__name__, features_in, features_out)
 
         self.transformer: OneHotEncoder = OneHotEncoder(

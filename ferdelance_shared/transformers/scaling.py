@@ -30,8 +30,6 @@ class FederatedMinMaxScaler(Transformer):
 
 class FederatedStandardScaler(Transformer):
 
-    # TODO: test this class
-
     def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], with_mean: bool = True, with_std: bool = True) -> None:
         super().__init__(FederatedStandardScaler.__name__, features_in, features_out)
 
