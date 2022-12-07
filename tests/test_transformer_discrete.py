@@ -3,12 +3,8 @@ from ferdelance_shared.transformers import (
     FederatedBinarizer,
     FederatedLabelBinarizer,
     FederatedOneHotEncoder,
-    save,
-    load,
 )
 from ferdelance_shared.artifacts import QueryTransformer
-
-from sklearn.preprocessing import KBinsDiscretizer, Binarizer, LabelBinarizer, OneHotEncoder
 
 import pandas as pd
 import os
@@ -50,20 +46,18 @@ class TestTransformerDiscretizer:
         assert qt.parameters['pos_label'] == 9
 
     def test_ohe_build(self):
-        fmms = FederatedOneHotEncoder('HouseAge', 'HouseAgeBinary', categories=[1, 2, 3], drop='first', sparse=False, handle_unknown='ignore', min_frequency=1, max_categories=3)
+        fmms = FederatedOneHotEncoder('HouseAge', 'HouseAgeBinary', categories=[1, 2, 3], drop='first', handle_unknown='ignore', min_frequency=1, max_categories=3)
         qt: QueryTransformer = fmms.build()
 
-        assert len(qt.parameters) == 6
+        assert len(qt.parameters) == 5
         assert 'categories' in qt.parameters
         assert 'drop' in qt.parameters
-        assert 'sparse' in qt.parameters
         assert 'handle_unknown' in qt.parameters
         assert 'min_frequency' in qt.parameters
         assert 'max_categories' in qt.parameters
 
         assert qt.parameters['categories'] == [1, 2, 3]
         assert qt.parameters['drop'] == 'first'
-        assert qt.parameters['sparse'] == False
         assert qt.parameters['handle_unknown'] == 'ignore'
         assert qt.parameters['min_frequency'] == 1
         assert qt.parameters['max_categories'] == 3
@@ -73,7 +67,6 @@ class TestTransformerDiscretizer:
 
         fkbd = FederatedKBinsDiscretizer('HouseAge', 'HouseAgeBin', 10, random_state=42)
 
-        fkbd.fit(df)
         df = fkbd.transform(df)
 
         assert df.shape[1] == 9
@@ -87,37 +80,21 @@ class TestTransformerDiscretizer:
 
         fb = FederatedBinarizer('AveRooms', 'MoreThanThree', 3.0)
 
-        fb.fit(df)
         df = fb.transform(df)
 
         assert df.shape[1] == 9
         assert df[['MoreThanThree']].sum()[0] == 20185.0
 
-    def test_kbin_two_feature(self):
+    def test_lbin_one_feature(self):
         df = pd.read_csv(PATH_CALIFORNIA)
 
-        fkbd = FederatedKBinsDiscretizer(['HouseAge', 'Population'], ['HouseAgeBin', 'PopulationBin'], 3, random_state=42)
-
-        fkbd.fit(df)
-        df = fkbd.transform(df)
-
-        assert df.shape[1] == 10
-
-        x = df[['HouseAgeBin']].groupby('HouseAgeBin').size()
-        y = df[['PopulationBin']].groupby('PopulationBin').size()
-
-        assert x.shape[0] == 3
-        assert y.shape[0] == 3
-
-    def test_bin_two_feature(self):
-        df = pd.read_csv(PATH_CALIFORNIA)
-
-        fb = FederatedBinarizer(['AveRooms', 'AveBedrms'], ['ThreeOrMoreRooms', 'ThreeOrMoreBedrooms'], 3.0)
-
-        fb.fit(df)
+        fb = FederatedBinarizer('HouseAge', 'HouseAgeBin', 30.0)
         df = fb.transform(df)
 
-        assert df.shape[1] == 10
+        flb = FederatedLabelBinarizer('HouseAgeBin', 'HouseAgeLabel', -1, 1)
+        df = flb.transform(df)
 
-        assert df[['ThreeOrMoreRooms']].sum()[0] == 20185.0
-        assert df[['ThreeOrMoreBedrooms']].sum()[0] == 107.0
+        # TODO: what if we binarize more columns or more values?
+
+        assert df.shape[1] == 10
+        assert df[['HouseAgeLabel']].sum()[0] == -1650

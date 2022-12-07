@@ -45,7 +45,6 @@ class TestTransformerScaler:
         df_a[['Latitude_scaled']] = mms.transform(df_a[['Latitude']])
 
         fmms = FederatedMinMaxScaler('Latitude', 'Latitude_scaled')
-        fmms.fit(df_b)
         df_b = fmms.transform(df_b)
 
         assert df_a['Latitude_scaled'].sum() == df_b['Latitude_scaled'].sum()
@@ -60,7 +59,6 @@ class TestTransformerScaler:
         df_a[['Latitude_scaled']] = ssc.transform(df_a[['Latitude']])
 
         fssc = FederatedStandardScaler('Latitude', 'Latitude_scaled')
-        fssc.fit(df_b)
         df_b = fssc.transform(df_b)
 
         assert df_a['Latitude_scaled'].sum() == df_b['Latitude_scaled'].sum()
@@ -75,7 +73,6 @@ class TestTransformerScaler:
         df_a[['Latitude_scaled', 'Longitude_scaled']] = mms.transform(df_a[['Latitude', 'Longitude']])
 
         fmms = FederatedMinMaxScaler(['Latitude', 'Longitude'], ['Latitude_scaled', 'Longitude_scaled'])
-        fmms.fit(df_b)
         df_b = fmms.transform(df_b)
 
         assert df_a['Latitude_scaled'].sum() == df_b['Latitude_scaled'].sum()
@@ -92,7 +89,6 @@ class TestTransformerScaler:
         df_a[['Latitude_scaled', 'Longitude_scaled']] = ssc.transform(df_a[['Latitude', 'Longitude']])
 
         fssc = FederatedStandardScaler(['Latitude', 'Longitude'], ['Latitude_scaled', 'Longitude_scaled'])
-        fssc.fit(df_b)
         df_b = fssc.transform(df_b)
 
         assert df_a['Latitude_scaled'].sum() == df_b['Latitude_scaled'].sum()
@@ -106,7 +102,6 @@ class TestTransformerScaler:
         df_b = df.copy()
 
         fmms = FederatedMinMaxScaler('Latitude', 'Latitude_scaled')
-        fmms.fit(df)
 
         TF_PATH = os.path.join('.', 'mms.transformer')
 
@@ -134,7 +129,6 @@ class TestTransformerScaler:
         df_b = df.copy()
 
         fssc = FederatedStandardScaler('Latitude', 'Latitude_scaled')
-        fssc.fit(df)
 
         TF_PATH = os.path.join('.', 'mms.transformer')
 
