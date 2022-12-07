@@ -6,8 +6,17 @@ import pandas as pd
 
 
 class FederatedPipeline(Transformer):
+    """A pipeline that can be used to group sequence of Transformers. 
+    The stages of the pipeline will be applied in sequence to the input data.
+
+    A pipeline can also be nested inside another pipeline.
+    """
 
     def __init__(self, stages: list[Transformer]) -> None:
+        """
+        :param stages:
+            List of all the stages that will be used by this pipeline.
+        """
         super().__init__(FederatedPipeline.__name__)
 
         self.stages: list[Transformer] = stages

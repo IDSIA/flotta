@@ -64,10 +64,19 @@ class Transformer:
         """Method used to transform input data in output data. The transformation need to
         be applied on the data, this is always an inplace transformation.
 
+        This basic method of all transformers will both fit and then use the transformer.
+        The fitting part will be executed only once. Multiple call to the same transformer
+        will apply the already fitted transformer.
+
+        If a transformer need to override this method, remember to check for and assign 
+        the `self.fitted` field to distingue between the first call to this method and 
+        other future calls.
+
         :param df:
             Input data to be transformed.
         :return:
-            The transformed data (same as input after the execution of this method).
+            The transformed data. The transformation is inplace: in the input `df` param
+            and the returned object are are the same.
         """
         if not self.fitted:
             self.transformer.fit(df[self.features_in])
