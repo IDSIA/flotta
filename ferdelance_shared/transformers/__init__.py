@@ -15,6 +15,9 @@ __all__ = [
     'FederatedOneHotEncoder',
 
     'FederatedSimpleImputer',
+
+    'FederatedDrop',
+    'FederatedRename',
 ]
 
 from ferdelance_shared.artifacts import QueryTransformer
@@ -41,6 +44,10 @@ from .discrete import (
 from .imputation import (
     FederatedSimpleImputer,
 )
+from .utils import (
+    FederatedDrop,
+    FederatedRename,
+)
 
 
 import pandas as pd
@@ -56,7 +63,5 @@ def apply_transformer(query_transformer: QueryTransformer, df: pd.DataFrame) -> 
     c = globals()[query_transformer.name]
 
     transformer: Transformer = c(query_transformer.parameters)
-
-    transformer.fit(df)
 
     return transformer.transform(df)

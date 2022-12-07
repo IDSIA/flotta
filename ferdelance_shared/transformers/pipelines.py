@@ -24,10 +24,6 @@ class FederatedPipeline(Transformer):
             ]
         }
 
-    def fit(self, df: pd.DataFrame) -> None:
-        for stage in self.stages:
-            stage.fit(df)
-
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         for stage in self.stages:
             df = stage.transform(df)

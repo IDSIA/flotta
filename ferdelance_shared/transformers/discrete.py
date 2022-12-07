@@ -10,14 +10,20 @@ from sklearn.preprocessing import (
     OneHotEncoder,
 )
 
+import pandas as pd
+
 # TODO: test these classes
 
 
 class FederatedKBinsDiscretizer(Transformer):
-    """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.KBinsDiscretizer.html#sklearn.preprocessing.KBinsDiscretizer"""
+    """Wrapper of scikit-learn KBinsDiscretizer. The difference is that this version
+    forces the ordinal encoding of the categories and works on a single features.
+    For one-hot-encoding check the FederatedOneHotEncoder transformer.
 
-    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], n_bins: int = 5, strategy='uniform', random_state=None) -> None:
-        super().__init__(FederatedKBinsDiscretizer.__name__, features_in, features_out)
+    Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.KBinsDiscretizer.html#sklearn.preprocessing.KBinsDiscretizer"""
+
+    def __init__(self, feature_in: QueryFeature | str, feature_out: QueryFeature | str, n_bins: int = 5, strategy='uniform', random_state=None) -> None:
+        super().__init__(FederatedKBinsDiscretizer.__name__, feature_in, feature_out)
 
         # encode is fixed to ordinal because there is a One-hot-encoder transformer
         self.transformer: KBinsDiscretizer = KBinsDiscretizer(n_bins=n_bins, encode='ordinal', strategy=strategy, random_state=random_state)
@@ -39,10 +45,17 @@ class FederatedKBinsDiscretizer(Transformer):
 
 
 class FederatedBinarizer(Transformer):
-    """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.Binarizer.html#sklearn.preprocessing.Binarizer"""
+    """Wrapper of scikit-learn Binarizer. The difference is that this version forces 
+    to work with a single features.    
 
-    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], threshold: float = 0) -> None:
-        super().__init__(FederatedBinarizer.__name__, features_in, features_out)
+    Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.Binarizer.html#sklearn.preprocessing.Binarizer"""
+
+    def __init__(self, feature_in: QueryFeature | str, feature_out: QueryFeature | str, threshold: float = 0) -> None:
+        """
+        :param threshold:
+            If the threshold is zero, the mean value will be used.
+        """
+        super().__init__(FederatedBinarizer.__name__, feature_in, feature_out)
 
         self.transformer: Binarizer = Binarizer(threshold=threshold)
 
@@ -52,6 +65,18 @@ class FederatedBinarizer(Transformer):
         return super().params() | {
             'threshold': self.threshold,
         }
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        if not self.fitted:
+            if self.threshold == 0:
+                self.threshold = df[self.features_in].mean()[0]
+                self.transformer: Binarizer = Binarizer(threshold=self.threshold)
+
+            self.transformer.fit(df[self.features_in])
+            self.fitted = True
+
+        df[self.features_out] = self.transformer.transform(df[self.features_in])
+        return df
 
     def aggregate(self) -> None:
         # TODO
@@ -83,13 +108,13 @@ class FederatedLabelBinarizer(Transformer):
 class FederatedOneHotEncoder(Transformer):
     """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html#sklearn.preprocessing.OneHotEncoder"""
 
-    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], categories: str | list = 'auto', drop=None, sparse: bool = True, handle_unknown: str = 'error', min_frequency=None, max_categories=None) -> None:
-        super().__init__(FederatedOneHotEncoder.__name__, features_in, features_out)
+    def __init__(self, features_in: QueryFeature | str, features_out: QueryFeature | list[QueryFeature] | str | list[str], categories: str | list = 'auto', drop=None, handle_unknown: str = 'error', min_frequency=None, max_categories=None) -> None:
+        super().__init__(FederatedOneHotEncoder.__name__, features_in, features_out, False)
 
         self.transformer: OneHotEncoder = OneHotEncoder(
             categories=categories,
             drop=drop,
-            sparse=sparse,
+            sparse=False,
             handle_unknown=handle_unknown,
             min_frequency=min_frequency,
             max_categories=max_categories
@@ -97,7 +122,6 @@ class FederatedOneHotEncoder(Transformer):
 
         self.categories: str | list[str] = categories
         self.drop = drop
-        self.sparse: bool = sparse
         self.handle_unknown: str = handle_unknown
         self.min_frequency = min_frequency
         self.max_categories = max_categories
@@ -106,11 +130,30 @@ class FederatedOneHotEncoder(Transformer):
         return super().params() | {
             'categories': self.categories,
             'drop': self.drop,
-            'sparse': self.sparse,
             'handle_unknown': self.handle_unknown,
             'min_frequency': self.min_frequency,
             'max_categories': self.max_categories,
         }
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        if not self.fitted:
+            self.transformer.fit(df[self.features_in])
+
+            cats_found = self.transformer.categories_[0]
+
+            if self.categories == 'auto':
+                self.features_out = [
+                    f'{self.features_in[0]}_{c}' for c in range(len(cats_found))
+                ]
+            elif len(self.categories) < len(cats_found):
+                self.features_out += [
+                    f'{self.features_in[0]}_{c}' for c in range(len(self.categories), len(cats_found))
+                ]
+
+            self.fitted = True
+
+        df[self.features_out] = self.transformer.transform(df[self.features_in])
+        return df
 
     def aggregate(self) -> None:
         # TODO

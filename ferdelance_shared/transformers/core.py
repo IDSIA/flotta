@@ -14,14 +14,16 @@ class Transformer:
     For a pipeline, a sequence of transformations, check the FederatedPipeline class.
     """
 
-    def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None, features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None) -> None:
+    def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None, features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None, check_for_len: bool = True) -> None:
         self.name: str = name
         self.features_in: list[str] = convert_features_to_list(features_in)
         self.features_out: list[str] = convert_features_to_list(features_out)
 
         self.transformer: Any = None
 
-        if len(self.features_in) != len(self.features_out):
+        self.fitted: bool = False
+
+        if check_for_len and len(self.features_in) != len(self.features_out):
             raise ValueError('Input and output features are not of the same length')
 
     def params(self) -> dict[str, Any]:
@@ -51,19 +53,12 @@ class Transformer:
             'features_out': self.features_out,
             'parameters': self.params(),
             'transformer': self.transformer,
+            'fit': self.fitted,
         }
 
     def aggregate(self) -> None:
         """Method used to aggregate multiple transformers trained on different clients."""
         raise NotImplementedError()
-
-    def fit(self, df: pd.DataFrame) -> None:
-        """Method to fit a transformer on the locally available data.
-
-        :param df:
-            Input data used to train the transformer.
-        """
-        self.transformer.fit(df[self.features_in])
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Method used to transform input data in output data. The transformation need to
@@ -74,6 +69,10 @@ class Transformer:
         :return:
             The transformed data (same as input after the execution of this method).
         """
+        if not self.fitted:
+            self.transformer.fit(df[self.features_in])
+            self.fitted = True
+
         df[self.features_out] = self.transformer.transform(df[self.features_in])
         return df
 
