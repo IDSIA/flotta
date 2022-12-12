@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from .artifacts import DataSource
+from ..artifacts import DataSource
 
 
 class WorkbenchJoinRequest(BaseModel):
