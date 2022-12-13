@@ -1,7 +1,8 @@
-from ferdelance_shared.schemas import Artifact, UpdateExecute
-from ferdelance_shared.operations import Operations
+from ferdelance_shared.schemas import UpdateExecute
+from ferdelance_shared.artifacts import Artifact
+from ferdelance_shared.transformers import apply_transformer
+from ferdelance_shared.models import model_creator
 from ...config import Config
-from ...models import model_creator
 from ..routes import RouteService
 from .action import Action
 
@@ -79,50 +80,23 @@ class ExecuteAction(Action):
             # FILTER
             LOGGER.info(f"datasource_id={query.datasource_name}: filtering")
 
-            df_filtered = datasource.copy()
+            df = datasource.copy()
 
             for query_filter in query.filters:
+                df = query_filter(df)
 
-                # TODO: accumulate all filters in single huge boolean vector
-
-                feature: str = query_filter.feature.feature_name
-                operation: Operations = Operations[query_filter.operation]
-                parameter: str = query_filter.parameter
-
-                apply_filter = {
-                    Operations.NUM_LESS_THAN: lambda df: df[df[feature] < float(parameter)],
-                    Operations.NUM_LESS_EQUAL: lambda df: df[df[feature] <= float(parameter)],
-                    Operations.NUM_GREATER_THAN: lambda df: df[df[feature] > float(parameter)],
-                    Operations.NUM_GREATER_EQUAL: lambda df: df[df[feature] >= float(parameter)],
-                    Operations.NUM_EQUALS: lambda df: df[df[feature] == float(parameter)],
-                    Operations.NUM_NOT_EQUALS: lambda df: df[df[feature] != float(parameter)],
-
-                    Operations.OBJ_LIKE: lambda df: df[df[feature] == parameter],
-                    Operations.OBJ_NOT_LIKE: lambda df: df[df[feature] != parameter],
-
-                    Operations.TIME_BEFORE: lambda df: df[df[feature] < pd.to_datetime(parameter)],
-                    Operations.TIME_AFTER: lambda df: df[df[feature] > pd.to_datetime(parameter)],
-                    Operations.TIME_EQUALS: lambda df: df[df[feature] == pd.to_datetime(parameter)],
-                    Operations.TIME_NOT_EQUALS: lambda df: df[df[feature] != pd.to_datetime(parameter)],
-                }
-
-                df_filtered = apply_filter[operation](df_filtered)
-
-                LOGGER.info(f"Applying {operation}({parameter}) on {feature}")
-
-                LOGGER.info(f'filtered data shape: {df_filtered.shape}')
+            LOGGER.info(f'filtered data shape: {df.shape}')
 
             # TRANSFORM
             LOGGER.info(f"datasource_id={query.datasource_name}: transforming")
 
-            # TODO
+            for query_transform in query.transformers:
+                df = apply_transformer(query_transform, df)
 
             # TERMINATE
             LOGGER.info(f"datasource_id={query.datasource_name}: terminated")
 
-            # TODO
-
-            dfs.append(df_filtered)
+            dfs.append(df)
 
         df_dataset = pd.concat(dfs)
 

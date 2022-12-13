@@ -1,5 +1,5 @@
 from pathlib import Path
-from ferdelance_shared.schemas import MetaDataSource, MetaFeature
+from ferdelance_shared.artifacts import MetaDataSource, MetaFeature
 
 from .datasource import DataSource
 

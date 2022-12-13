@@ -11,7 +11,7 @@ RUN python -m pip install --upgrade pip
 # copy and install shared library
 COPY federated-learning-shared/ /federated-learning-shared/
 
-RUN pip install --no-cache-dir /federated-learning-shared/
+RUN pip install --no-cache-dir "/federated-learning-shared/[ml]"
 
 # copy config file and install dependencies
 COPY setup.cfg /
