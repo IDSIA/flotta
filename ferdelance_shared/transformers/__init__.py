@@ -13,6 +13,7 @@ __all__ = [
     'FederatedBinarizer',
     'FederatedLabelBinarizer',
     'FederatedOneHotEncoder',
+    'FederatedClamp',
 
     'FederatedSimpleImputer',
 
@@ -35,6 +36,7 @@ from .pipelines import (
 from .scaling import (
     FederatedMinMaxScaler,
     FederatedStandardScaler,
+    FederatedClamp,
 )
 from .discrete import (
     FederatedKBinsDiscretizer,

@@ -3,8 +3,6 @@ from ..artifacts import QueryFeature
 
 import pandas as pd
 
-# TODO: test this class
-
 
 class FederatedDrop(Transformer):
     """Drop a features by deleting the column(s) in the input data."""
