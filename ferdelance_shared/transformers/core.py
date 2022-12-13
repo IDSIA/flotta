@@ -39,10 +39,7 @@ class Transformer:
         return dict()
 
     def dict(self) -> dict[str, Any]:
-        """Converts the transformer in a dictionary representation. This include the trained model.
-
-        All classes that extend the Transformer class need to implement this method by 
-        including the trained or trainable object and internal states.
+        """Converts the transformer in a dictionary of its input parameters.
 
         :return:
             A dictionary with the description of all internal data of a transformer.
@@ -52,8 +49,6 @@ class Transformer:
             'features_in': self.features_in,
             'features_out': self.features_out,
             'parameters': self.params(),
-            'transformer': self.transformer,
-            'fit': self.fitted,
         }
 
     def aggregate(self) -> None:

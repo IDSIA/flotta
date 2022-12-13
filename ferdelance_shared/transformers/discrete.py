@@ -22,8 +22,8 @@ class FederatedKBinsDiscretizer(Transformer):
 
     Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.KBinsDiscretizer.html#sklearn.preprocessing.KBinsDiscretizer"""
 
-    def __init__(self, feature_in: QueryFeature | str, feature_out: QueryFeature | str, n_bins: int = 5, strategy='uniform', random_state=None) -> None:
-        super().__init__(FederatedKBinsDiscretizer.__name__, feature_in, feature_out)
+    def __init__(self, features_in: QueryFeature | str, features_out: QueryFeature | str, n_bins: int = 5, strategy='uniform', random_state=None) -> None:
+        super().__init__(FederatedKBinsDiscretizer.__name__, features_in, features_out)
 
         # encode is fixed to ordinal because there is a One-hot-encoder transformer
         self.transformer: KBinsDiscretizer = KBinsDiscretizer(n_bins=n_bins, encode='ordinal', strategy=strategy, random_state=random_state)
@@ -50,12 +50,12 @@ class FederatedBinarizer(Transformer):
 
     Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.Binarizer.html#sklearn.preprocessing.Binarizer"""
 
-    def __init__(self, feature_in: QueryFeature | str, feature_out: QueryFeature | str, threshold: float = 0) -> None:
+    def __init__(self, features_in: QueryFeature | str, features_out: QueryFeature | str, threshold: float = 0) -> None:
         """
         :param threshold:
             If the threshold is zero, the mean value will be used.
         """
-        super().__init__(FederatedBinarizer.__name__, feature_in, feature_out)
+        super().__init__(FederatedBinarizer.__name__, features_in, features_out)
 
         self.transformer: Binarizer = Binarizer(threshold=threshold)
 

@@ -19,7 +19,7 @@ class FederatedMinMaxScaler(Transformer):
         """
         :param features_in:
             Name of the input feature or list of feature to scale down.
-        :param feature_out:
+        :param features_out:
             Name of the output feature or list of features that have been scaled down. This
             list is a one-to-one match with the features_in parameter.
         :param feature_range:
@@ -54,7 +54,7 @@ class FederatedStandardScaler(Transformer):
         """
         :param features_in:
             Name of the input feature or list of feature to scale down.
-        :param feature_out:
+        :param features_out:
             Name of the output feature or list of features that have been scaled down. This
             list is a one-to-one match with the features_in parameter.
         :param with_mean:
