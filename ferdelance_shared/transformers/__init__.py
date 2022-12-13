@@ -20,6 +20,7 @@ __all__ = [
     'FederatedRename',
 ]
 
+from typing import Any
 from ferdelance_shared.artifacts import QueryTransformer
 
 from .core import (
@@ -49,6 +50,7 @@ from .utils import (
     FederatedRename,
 )
 
+from inspect import signature
 
 import pandas as pd
 import logging
@@ -56,12 +58,40 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def apply_transformer(query_transformer: QueryTransformer, df: pd.DataFrame) -> pd.DataFrame:
-
-    # TODO: this need testing
-
+def rebuild_transformer(query_transformer: QueryTransformer) -> Transformer:
     c = globals()[query_transformer.name]
 
-    transformer: Transformer = c(query_transformer.parameters)
+    p = query_transformer.params()
+    params = {v: p[v] for v in signature(c).parameters}
+
+    return c(**params)
+
+
+def rebuild_pipeline(query_transformer: QueryTransformer) -> FederatedPipeline:
+
+    stages = []
+
+    params = query_transformer.params()
+
+    for stage in params['stages']:
+        qt = QueryTransformer(**stage)
+
+        if stage['name'] == 'FederatedPipeline':
+            transformer = rebuild_pipeline(qt)
+        else:
+            transformer = rebuild_transformer(qt)
+
+        stages.append(transformer)
+
+    return FederatedPipeline(stages)
+
+
+def apply_transformer(query_transformer: QueryTransformer, df: pd.DataFrame) -> pd.DataFrame:
+
+    if query_transformer.name == 'FederatedPipeline':
+        transformer = rebuild_pipeline(query_transformer)
+
+    else:
+        transformer = rebuild_transformer(query_transformer)
 
     return transformer.transform(df)

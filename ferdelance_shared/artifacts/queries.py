@@ -107,6 +107,12 @@ class QueryTransformer(BaseModel):
     name: str
     parameters: dict[str, Any]
 
+    def params(self) -> dict[str, Any]:
+        return {
+            'features_in': self.features_in,
+            'features_out': self.features_out,
+        } | self.parameters
+
     def __eq__(self, other: QueryTransformer) -> bool:
         if not isinstance(other, QueryTransformer):
             return False

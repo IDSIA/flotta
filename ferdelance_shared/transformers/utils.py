@@ -11,7 +11,7 @@ class FederatedDrop(Transformer):
 
     def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str]) -> None:
         """
-        :param feature_in:
+        :param features_in:
             List of feature to be dropped by this transformer. Only a feature that exists
             in the underling DataFrame will be dropped, otherwise it will be ignored:
         """
