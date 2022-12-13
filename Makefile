@@ -27,5 +27,5 @@ recreate:
 	python -m venv Ferdelance_env
 
 dev:
-	pip install federated-learning-shared/
+	pip install federated-learning-shared/[ml]
 	pip install -e ".[test]"
