@@ -11,13 +11,21 @@ reload:
 	docker-compose build
 	docker-compose up -d
 
-logs:
+logs-server:
 	docker-compose logs -f server worker
 
-clear:
+logs-client:
+	docker-compose logs -f 
+
+clean-server:
 	docker-compose down
 	docker volume rm federated-learning-server_ferdelance-db-data
 	docker volume rm federated-learning-server_ferdelance-server-data
+
+clean-client:
+	docker-compose down
+	docker volume rm federated-learning-client_ferdelance-client-data
+	rm -rf ./workdir/*
 
 create:
 	python -m venv Ferdelance_env
@@ -27,5 +35,4 @@ recreate:
 	python -m venv Ferdelance_env
 
 dev:
-	pip install federated-learning-shared/
 	pip install -e ".[test]"

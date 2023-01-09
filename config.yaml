@@ -1,0 +1,31 @@
+ferdelance:
+  client:
+    server: http://localhost:8080
+    workdir: ./workdir
+    heartbeat: 10.0
+
+  datasource:
+    - name: source1
+      type: csv
+      path: data/file1.csv
+      kind: file
+
+    - name: source2
+      type: tsv
+      path: data/file2.tsv
+      kind: file
+
+    - name: source3
+      type: tsv
+      path: data/file3.tsv
+      kind: file
+
+    # - name: database1
+    #   type: sqlite
+    #   conn: sqlite.db
+    #   kind: db
+
+    # - name: database2
+    #   type: postgres
+    #   conn: postgresql://user:password@localhost:5432
+    #   kind: db
