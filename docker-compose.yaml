@@ -1,0 +1,113 @@
+version: '3.3'
+
+networks:
+  ferdelance:
+  www:
+    external: true
+
+volumes:
+  ferdelance-server-data:
+  ferdelance-client-1-data:
+  ferdelance-client-2-data:
+  ferdelance-db-data:
+
+services:
+
+  database:
+    image: postgres
+    container_name: database
+    environment:
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASS}
+      - POSTGRES_DB=${DATABASE_SCHEMA}
+    ports:
+      - 5432:5432
+    volumes:
+      - ferdelance-db-data:/var/lib/postgresql/data
+    networks:
+      - ferdelance
+
+  rabbitmq:
+    image: rabbitmq
+    container_name: rabbitmq
+    networks:
+      - ferdelance
+    command: rabbitmq-server
+
+  redis:
+    image: redis
+    container_name: redis
+    networks:
+      - ferdelance
+    command: redis-server
+
+  worker: 
+    image: idsia.ferdelance.server
+    container_name: worker
+    environment:
+      - DB_HOST=${DATABASE_HOST}
+      - DB_USER=${DATABASE_USER}
+      - DB_PASS=${DATABASE_PASS}
+      - DB_SCHEMA=${DATABASE_SCHEMA}
+      - CELERY_BROKER_URL=pyamqp://rabbitmq/
+      - CELERY_BACKEND_URL=redis://redis/
+    networks:
+      - ferdelance
+    command: --target worker
+    depends_on:
+      - redis
+      - rabbitmq
+ 
+  server: 
+    image: idsia.ferdelance.server
+    container_name: server
+    environment:
+      - DB_HOST=${DATABASE_HOST}
+      - DB_USER=${DATABASE_USER}
+      - DB_PASS=${DATABASE_PASS}
+      - DB_SCHEMA=${DATABASE_SCHEMA}
+      - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
+      - CELERY_BROKER_URL=pyamqp://rabbitmq/
+      - CELERY_BACKEND_URL=redis://redis/
+    volumes: 
+      - ferdelance-server-data:/ferdelance/storage
+    networks:
+      - www
+      - ferdelance
+    command: --target server
+    depends_on:
+      - database
+      - worker
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ferdelance.entrypoints=web"
+      - "traefik.http.routers.ferdelance.rule=Host(`ferdelance.${DOMAIN}`)"
+      - "traefik.http.services.ferdelance.loadbalancer.server.port=1456"
+
+  client1:
+    image: idsia.ferdelance.client
+    container_name: client1
+    environment:
+      - FDL_SERVER=http://server:1456
+    volumes: 
+      - ferdelance-client-1-data:/ferdelance/workdir
+      - ./config.1.yaml:/ferdelance/config.yaml
+      - ./data:/ferdelance/data
+    networks:
+      - ferdelance
+    depends_on:
+      - server
+
+  client2:
+    image: idsia.ferdelance.client
+    container_name: client2
+    environment:
+      - FDL_SERVER=http://server:1456
+    volumes: 
+      - ferdelance-client-2-data:/ferdelance/workdir
+      - ./config.2.yaml:/ferdelance/config.yaml
+      - ./data:/ferdelance/data
+    networks:
+      - ferdelance
+    depends_on:
+      - server

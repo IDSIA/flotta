@@ -27,3 +27,5 @@ logs/
 *.log
 workbench.py
 *workdir
+*.model
+data/

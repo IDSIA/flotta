@@ -30,9 +30,15 @@ clean-client:
 create:
 	python -m venv Ferdelance_env
 
+delete:
+	rm -rf Ferdelance_env
+
 recreate:
 	rm -rf Ferdelance_env
 	python -m venv Ferdelance_env
 
 dev:
 	pip install -e ".[test]"
+
+test:
+	python tests/test_distributed.py
