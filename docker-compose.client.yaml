@@ -1,0 +1,26 @@
+version: '3.3'
+
+networks:
+  ferdelance:
+
+
+volumes:
+  ferdelance-client-data:
+
+
+services:
+  client:
+    image: idsia.ferdelance.client
+    container_name: ferdelance-client
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - FDL_SERVER=$SERVER
+      - FDL_HEARTBEAT=10.0
+    volumes:
+      - ferdelance-client-data:/ferdelance/workdir
+      - ./config.yaml:/ferdelance/config.yaml
+      - ./data:/ferdelance/data
+    networks:
+      - ferdelance
