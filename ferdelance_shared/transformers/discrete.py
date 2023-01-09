@@ -108,7 +108,7 @@ class FederatedLabelBinarizer(Transformer):
 class FederatedOneHotEncoder(Transformer):
     """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html#sklearn.preprocessing.OneHotEncoder"""
 
-    def __init__(self, features_in: QueryFeature | str, features_out: QueryFeature | list[QueryFeature] | str | list[str], categories: str | list = 'auto', drop=None, handle_unknown: str = 'error', min_frequency=None, max_categories=None) -> None:
+    def __init__(self, features_in: QueryFeature | str, features_out: QueryFeature | list[QueryFeature] | str | list[str] = [], categories: str | list = 'auto', drop=None, handle_unknown: str = 'error', min_frequency=None, max_categories=None) -> None:
         super().__init__(FederatedOneHotEncoder.__name__, features_in, features_out, False)
 
         self.transformer: OneHotEncoder = OneHotEncoder(

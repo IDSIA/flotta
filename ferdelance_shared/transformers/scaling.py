@@ -8,6 +8,8 @@ from sklearn.preprocessing import (
     StandardScaler,
 )
 
+import pandas as pd
+
 
 class FederatedMinMaxScaler(Transformer):
     """Wrapper of scikit-learn MinMaxScaler.
@@ -81,6 +83,40 @@ class FederatedStandardScaler(Transformer):
             'with_mean': self.with_mean,
             'with_std': self.with_std,
         }
+
+    def aggregate(self) -> None:
+        # TODO
+        return super().aggregate()
+
+
+class FederatedClamp(Transformer):
+    """Fix the values of one or more columns to a given interval if their values are outside of the interval itself."""
+
+    # TODO: test this!
+
+    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], min_value: float | None = None, max_value: float | None = None) -> None:
+        super().__init__(FederatedClamp.__name__, features_in, features_out)
+
+        if min_value is not None and max_value is not None and min_value > max_value:
+            min_value, max_value = max_value, min_value
+
+        self.min_value: float | None = min_value
+        self.max_value: float | None = max_value
+
+    def params(self) -> dict[str, Any]:
+        return super().params() | {
+            'min_value': self.min_value,
+            'max_value': self.max_value,
+        }
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        if self.min_value is not None:
+            df[self.features_out] = df[self.features_in].where(df[self.features_in] < self.min_value, self.min_value)
+
+        if self.max_value is not None:
+            df[self.features_out] = df[self.features_in].where(df[self.features_in] > self.max_value, self.max_value)
+
+        return df
 
     def aggregate(self) -> None:
         # TODO

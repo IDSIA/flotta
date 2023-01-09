@@ -304,7 +304,10 @@ class Query(BaseModel):
 
         self.filters.append(filter)
 
-    def __add__(self, other: Feature | QueryFeature | QueryFilter) -> Query:
+    def add_transformer(self, transformer: QueryTransformer) -> None:
+        self.transformers.append(transformer)
+
+    def __add__(self, other: Feature | QueryFeature | QueryFilter | QueryTransformer) -> Query:
         if isinstance(other, Feature | QueryFeature):
             q = self.copy()
             q.add_feature(other)
@@ -315,7 +318,12 @@ class Query(BaseModel):
             q.add_filter(other)
             return q
 
-        raise ValueError('only Feature or QueryFeature objects can be added to Query objects')
+        if isinstance(other, QueryTransformer):
+            q = self.copy()
+            q.add_transformer(other)
+            return q
+
+        raise ValueError('Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects')
 
     def __iadd__(self, other: QueryFeature | Feature | QueryFilter) -> Query:
         if isinstance(other, Feature | QueryFeature):
@@ -326,7 +334,11 @@ class Query(BaseModel):
             self.add_filter(other)
             return self
 
-        raise ValueError('only Feature or QueryFeature objects can be added to Query objects')
+        if isinstance(other, QueryTransformer):
+            self.add_transformer(other)
+            return self
+
+        raise ValueError('Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects')
 
     def remove_feature(self, feature: Feature | QueryFeature) -> None:
         if isinstance(feature, Feature):
