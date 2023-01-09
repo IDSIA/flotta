@@ -3,7 +3,7 @@ from fastapi.security import HTTPBasicCredentials, HTTPBearer
 
 from datetime import timedelta, datetime
 
-from ferdelance_shared.exchange import Exchange
+from ferdelance.shared.exchange import Exchange
 
 from ..database import get_session, AsyncSession
 from ..database.services import KeyValueStore, ClientService, UserService

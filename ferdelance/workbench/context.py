@@ -1,9 +1,9 @@
-from ferdelance_shared.artifacts import (
+from ferdelance.shared.artifacts import (
     DataSource,
     Artifact,
     ArtifactStatus,
 )
-from ferdelance_shared.schemas import (
+from ferdelance.shared.schemas import (
     ClientDetails,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
@@ -11,7 +11,7 @@ from ferdelance_shared.schemas import (
     WorkbenchDataSourceIdList,
     WorkbenchClientList,
 )
-from ferdelance_shared.exchange import Exchange
+from ferdelance.shared.exchange import Exchange
 
 import json
 import logging

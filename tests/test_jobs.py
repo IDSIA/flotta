@@ -3,7 +3,7 @@ from ferdelance.database.tables import *
 from ferdelance.database.services import JobService
 from ferdelance.database.tables import Client, Artifact
 
-from ferdelance_shared.status import JobStatus
+from ferdelance.shared.status import JobStatus
 
 from .utils import setup_test_database
 

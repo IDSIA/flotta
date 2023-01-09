@@ -1,7 +1,7 @@
 from ..tables import Job
 from .core import DBSessionService, AsyncSession
 
-from ferdelance_shared.status import JobStatus
+from ferdelance.shared.status import JobStatus
 
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from sqlalchemy import select, func

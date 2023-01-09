@@ -1,4 +1,4 @@
-from ferdelance_shared.artifacts import MetaDataSource
+from ferdelance.shared.artifacts import MetaDataSource
 
 import pandas as pd
 

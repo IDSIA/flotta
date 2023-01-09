@@ -1,5 +1,5 @@
-from ferdelance_shared.transformers import Transformer
-from ferdelance_shared.artifacts import QueryTransformer, QueryFeature
+from ferdelance.shared.transformers import Transformer
+from ferdelance.shared.artifacts import QueryTransformer, QueryFeature
 
 
 class TestTransformer:

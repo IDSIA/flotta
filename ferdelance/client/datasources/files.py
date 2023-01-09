@@ -1,5 +1,5 @@
 from pathlib import Path
-from ferdelance_shared.artifacts import MetaDataSource, MetaFeature
+from ferdelance.shared.artifacts import MetaDataSource, MetaFeature
 
 from .datasource import DataSource
 
@@ -35,7 +35,7 @@ class DataSourceFile(DataSource):
 
             if feature in df_desc:
                 f = MetaFeature(
-                    name=feature,
+                    name=str(feature),
                     dtype=dtype,
                     v_mean=df_desc[feature]['mean'],
                     v_std=df_desc[feature]['std'],
@@ -48,7 +48,7 @@ class DataSourceFile(DataSource):
                 )
             else:
                 f = MetaFeature(
-                    name=feature,
+                    name=str(feature),
                     dtype=dtype,
                     v_mean=None,
                     v_std=None,

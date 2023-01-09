@@ -1,5 +1,5 @@
-from ferdelance_shared.schemas import Artifact
-from ferdelance_shared.models import FederatedRandomForestClassifier
+from ferdelance.shared.artifacts import Artifact
+from ferdelance.shared.models import FederatedRandomForestClassifier
 
 from ..celery import worker
 

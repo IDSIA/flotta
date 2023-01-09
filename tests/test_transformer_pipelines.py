@@ -1,4 +1,4 @@
-from ferdelance_shared.transformers import (
+from ferdelance.shared.transformers import (
     FederatedDrop,
     FederatedRename,
     FederatedPipeline,

@@ -1,4 +1,4 @@
-from ferdelance_shared.schemas import UpdateToken
+from ferdelance.shared.schemas import UpdateToken
 
 from ...config import Config
 from .action import Action

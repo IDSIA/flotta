@@ -25,17 +25,19 @@ from ..exceptions import (
     TaskDoesNotExists
 )
 
-from ferdelance_shared.schemas import (
-    ClientJoinRequest,
-    ClientJoinData,
-    DownloadApp,
+from ferdelance.shared.artifacts import (
     MetaFeature,
     Metadata,
     MetaDataSource,
+)
+from ferdelance.shared.schemas import (
+    ClientJoinRequest,
+    ClientJoinData,
+    DownloadApp,
     UpdateExecute,
 )
-from ferdelance_shared.models import Metrics
-from ferdelance_shared.decode import decode_from_transfer
+from ferdelance.shared.models import Metrics
+from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import (
     APIRouter,

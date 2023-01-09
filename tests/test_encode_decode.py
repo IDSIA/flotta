@@ -1,15 +1,15 @@
-from ferdelance_shared.generate import (
+from ferdelance.shared.generate import (
     generate_asymmetric_key,
     RSAPrivateKey,
     RSAPublicKey
 )
-from ferdelance_shared.encode import (
+from ferdelance.shared.encode import (
     encode_to_transfer,
     encrypt,
     generate_hybrid_encryption_key,
     HybridEncrypter,
 )
-from ferdelance_shared.decode import (
+from ferdelance.shared.decode import (
     decode_from_transfer,
     decrypt,
     decrypt_hybrid_key,

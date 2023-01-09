@@ -12,9 +12,9 @@ from ...worker.tasks import aggregation
 from ...config import STORAGE_ARTIFACTS
 from ..exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
-from ferdelance_shared.models import Metrics
-from ferdelance_shared.schemas import Artifact, ArtifactStatus
-from ferdelance_shared.status import JobStatus, ArtifactJobStatus
+from ferdelance.shared.models import Metrics
+from ferdelance.shared.artifacts import Artifact, ArtifactStatus
+from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
 from uuid import uuid4
 

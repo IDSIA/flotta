@@ -4,7 +4,7 @@ from ..schemas import Client as ItemClient
 from ..tables import ClientDataSource, ClientFeature, Client
 from .client import item
 
-from ferdelance_shared.schemas import Metadata, MetaDataSource, MetaFeature
+from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
 
 from sqlalchemy import select
 from datetime import datetime

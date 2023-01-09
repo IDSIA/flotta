@@ -1,5 +1,5 @@
 # %%
-from ferdelance_workbench.context import Context
+from ferdelance.workbench.context import Context
 from ferdelance_shared.artifacts import (
     Artifact,
     ArtifactStatus,

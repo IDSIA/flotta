@@ -5,8 +5,8 @@ from .execute import ExecuteAction
 from .update_client import UpdateClientAction
 from .update_token import UpdateTokenAction
 from .controller import ClientActionController
-from ferdelance_shared.actions import Action as ActionType
-from ferdelance_shared.schemas import (
+from ferdelance.shared.actions import Action as ActionType
+from ferdelance.shared.schemas import (
     UpdateToken,
     UpdateExecute,
     UpdateClientApp,

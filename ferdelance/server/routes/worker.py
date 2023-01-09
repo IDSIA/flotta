@@ -9,7 +9,7 @@ from ...database.tables import Model
 from ..services import JobManagementService
 from ..security import check_client_token
 
-from ferdelance_shared.schemas import Artifact, ArtifactStatus
+from ferdelance.shared.artifacts import Artifact, ArtifactStatus
 
 from sqlalchemy.exc import NoResultFound
 

@@ -1,16 +1,16 @@
-from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import (
+from ferdelance.shared.actions import Action
+from ferdelance.shared.schemas import (
     ClientJoinData,
     ClientJoinRequest,
     UpdateExecute,
     UpdateClientApp,
     DownloadApp,
 )
-from ferdelance_shared.artifacts import (
+from ferdelance.shared.artifacts import (
     Metadata,
     Artifact,
 )
-from ferdelance_shared.models import Metrics
+from ferdelance.shared.models import Metrics
 
 from requests import post, get
 

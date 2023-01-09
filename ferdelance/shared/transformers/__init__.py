@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 from typing import Any
-from ferdelance_shared.artifacts import QueryTransformer
+from ferdelance.shared.artifacts import QueryTransformer
 
 from .core import (
     Transformer,

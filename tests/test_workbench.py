@@ -1,23 +1,25 @@
 from ferdelance.config import STORAGE_ARTIFACTS
 from ferdelance.server.api import api
 
-from ferdelance_shared.schemas import (
+from ferdelance.shared.artifacts import (
     Artifact,
     ArtifactStatus,
-    ClientDetails,
     Dataset,
     DataSource,
     Metadata,
     Query,
     QueryFeature,
+)
+from ferdelance.shared.schemas import (
+    ClientDetails,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
 )
-from ferdelance_shared.models import Model
-from ferdelance_shared.status import ArtifactJobStatus
-from ferdelance_shared.exchange import Exchange
+from ferdelance.shared.models import Model
+from ferdelance.shared.status import ArtifactJobStatus
+from ferdelance.shared.exchange import Exchange
 
 from .utils import (
     setup_test_database,

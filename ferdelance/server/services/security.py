@@ -1,9 +1,9 @@
 from fastapi import Request
 from fastapi.responses import StreamingResponse, Response
 
-from ferdelance_shared.exchange import Exchange
+from ferdelance.shared.exchange import Exchange
 
-from ferdelance_shared.decode import HybridDecrypter
+from ferdelance.shared.decode import HybridDecrypter
 
 from ...database.services import (
     DBSessionService,

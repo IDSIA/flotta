@@ -1,10 +1,10 @@
-from ferdelance_shared.transformers import (
+from ferdelance.shared.transformers import (
     FederatedKBinsDiscretizer,
     FederatedBinarizer,
     FederatedLabelBinarizer,
     FederatedOneHotEncoder,
 )
-from ferdelance_shared.artifacts import QueryTransformer
+from ferdelance.shared.artifacts import QueryTransformer
 
 import pandas as pd
 import os

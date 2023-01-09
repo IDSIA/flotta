@@ -1,7 +1,7 @@
-from ferdelance_shared.transformers import (
+from ferdelance.shared.transformers import (
     FederatedSimpleImputer,
 )
-from ferdelance_shared.artifacts import QueryTransformer
+from ferdelance.shared.artifacts import QueryTransformer
 
 from sklearn.impute import SimpleImputer
 

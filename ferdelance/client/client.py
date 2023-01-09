@@ -1,6 +1,6 @@
 from ferdelance import __version__
-from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import ClientJoinData
+from ferdelance.shared.actions import Action
+from ferdelance.shared.schemas import ClientJoinData
 
 from .datasources import DataSourceDB, DataSourceFile
 from .config import Config, ConfigError

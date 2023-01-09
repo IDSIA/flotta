@@ -1,4 +1,4 @@
-from ferdelance_shared.transformers import (
+from ferdelance.shared.transformers import (
     apply_transformer,
     FederatedPipeline,
     FederatedKBinsDiscretizer,
@@ -7,7 +7,7 @@ from ferdelance_shared.transformers import (
     FederatedLabelBinarizer,
     FederatedRename,
 )
-from ferdelance_shared.artifacts import QueryTransformer
+from ferdelance.shared.artifacts import QueryTransformer
 
 import pandas as pd
 import os

@@ -1,4 +1,4 @@
-from ferdelance_shared.exchange import Exchange
+from ferdelance.shared.exchange import Exchange
 
 from ferdelance.server.api import api
 

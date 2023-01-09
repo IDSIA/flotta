@@ -1,4 +1,4 @@
-from ferdelance_shared.status import ArtifactJobStatus
+from ferdelance.shared.status import ArtifactJobStatus
 from sqlalchemy import func, select
 
 from ..tables import Artifact, Model

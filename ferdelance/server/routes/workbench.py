@@ -23,19 +23,21 @@ from ..services import (
 )
 from ..security import check_user_token
 
-from ferdelance_shared.schemas import (
-    ClientDetails,
+from ferdelance.shared.artifacts import (
     DataSource,
     Feature,
     ArtifactStatus,
     Artifact,
+)
+from ferdelance.shared.schemas import (
+    ClientDetails,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchDataSourceList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
 )
-from ferdelance_shared.decode import decode_from_transfer
+from ferdelance.shared.decode import decode_from_transfer
 
 import logging
 import os

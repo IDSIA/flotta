@@ -1,9 +1,9 @@
-from ferdelance_workbench.context import Context
-from ferdelance_workbench.artifacts import (
+from ferdelance.workbench.context import Context
+from ferdelance.shared.artifacts import (
     Artifact,
     Dataset,
 )
-from ferdelance_workbench.models import (
+from ferdelance.shared.models import (
     FederatedRandomForestClassifier,
     StrategyRandomForestClassifier,
     ParametersRandomForestClassifier,

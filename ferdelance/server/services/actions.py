@@ -10,8 +10,8 @@ from ...database.services import (
 
 from .tokens import TokenService
 
-from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import UpdateClientApp, UpdateExecute, UpdateNothing, UpdateToken
+from ferdelance.shared.actions import Action
+from ferdelance.shared.schemas import UpdateClientApp, UpdateExecute, UpdateNothing, UpdateToken
 
 from sqlalchemy import select, func
 from typing import Any

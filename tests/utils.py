@@ -1,10 +1,12 @@
-from ferdelance_shared.exchange import Exchange
-from ferdelance_shared.schemas import (
-    ClientJoinRequest,
-    ClientJoinData,
+from ferdelance.shared.exchange import Exchange
+from ferdelance.shared.artifacts import (
     Metadata,
     MetaDataSource,
     MetaFeature,
+)
+from ferdelance.shared.schemas import (
+    ClientJoinRequest,
+    ClientJoinData,
 )
 
 from sqlalchemy import create_engine

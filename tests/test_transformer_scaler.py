@@ -1,10 +1,10 @@
-from ferdelance_shared.transformers import (
+from ferdelance.shared.transformers import (
     FederatedMinMaxScaler,
     FederatedStandardScaler,
     save,
     load,
 )
-from ferdelance_shared.artifacts import QueryTransformer
+from ferdelance.shared.artifacts import QueryTransformer
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 

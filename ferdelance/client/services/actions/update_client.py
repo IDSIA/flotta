@@ -1,4 +1,4 @@
-from ferdelance_shared.schemas import UpdateClientApp
+from ferdelance.shared.schemas import UpdateClientApp
 
 from ...config import Config
 from ..routes import RouteService

@@ -9,27 +9,29 @@ from ferdelance.database.tables import (
 from ferdelance.server.api import api
 from ferdelance.config import STORAGE_ARTIFACTS
 
-from ferdelance_shared.actions import Action
-from ferdelance_shared.schemas import (
+from ferdelance.shared.actions import Action
+from ferdelance.shared.artifacts import (
     Artifact,
     ArtifactStatus,
-    ClientUpdate,
-    ClientJoinRequest,
     Dataset,
-    DownloadApp,
     Metadata,
     Query,
     QueryFeature,
     QueryFilter,
+)
+from ferdelance.shared.schemas import (
+    ClientUpdate,
+    ClientJoinRequest,
+    DownloadApp,
     UpdateClientApp,
     UpdateExecute,
     UpdateToken,
     WorkbenchJoinData,
     WorkbenchJoinRequest,
 )
-from ferdelance_shared.models import Model
-from ferdelance_shared.operations import Operations
-from ferdelance_shared.exchange import Exchange
+from ferdelance.shared.models import Model
+from ferdelance.shared.artifacts.operations import Operations
+from ferdelance.shared.exchange import Exchange
 
 from .utils import (
     setup_test_database,
