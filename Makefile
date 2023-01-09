@@ -38,7 +38,7 @@ recreate:
 	python -m venv Ferdelance_env
 
 dev:
-	pip install -e ".[test]"
+	pip install -e ".[dev]"
 
 test:
 	python tests/test_distributed.py
