@@ -9,18 +9,22 @@ ENV PATH="/opt/venv/bin:${PATH}"
 RUN python -m pip install --upgrade pip
 
 # copy and install shared library
-COPY federated-learning-shared/ /federated-learning-shared/
+COPY . /ferdelance
 
-RUN pip install --no-cache-dir "/federated-learning-shared/[ml]"
-
-# copy config file and install dependencies
-COPY setup.cfg /
-
-RUN cd / && \
-    python -c "import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['options']['install_requires'])" | xargs pip install
+RUN pip install --no-cache-dir "/ferdelance[client]"
 
 # Installation stage
 FROM python:3.10-slim-buster AS base
+
+# install unzip package
+RUN apt-get update -y && \
+    apt-get upgrade -y && \
+    apt-get -y autoremove && \
+    apt-get clean
+RUN apt-get install -y p7zip \
+    zip \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
 
 # copy built virtual environment to base
 COPY --from=builder /opt/venv /opt/venv
@@ -30,9 +34,8 @@ ENV PATH="/opt/venv/bin:${PATH}"
 # create and populate workdir
 WORKDIR /ferdelance
 
-COPY . /ferdelance
+COPY ./script/client.sh /ferdelance
 
-# install application
-RUN pip install --no-cache-dir .
+RUN chmod +x /ferdelance/client.sh
 
-CMD ["/bin/bash", "ferdelance_client.sh"]
+CMD ["/bin/bash", "client.sh"]
