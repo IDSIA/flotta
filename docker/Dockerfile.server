@@ -9,15 +9,9 @@ ENV PATH="/opt/venv/bin:${PATH}"
 RUN python -m pip install --upgrade pip
 
 # copy and install shared library
-COPY federated-learning-shared/ /federated-learning-shared/
+COPY . /ferdelance
 
-RUN pip install --no-cache-dir /federated-learning-shared/
-
-# copy config file and install dependencies
-COPY setup.cfg /
-
-RUN cd / && \
-    python -c "import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['options']['install_requires'])" | xargs pip install
+RUN pip install --no-cache-dir "/ferdelance[server]"
 
 # Installation stage
 FROM python:3.10-slim-buster AS base
@@ -32,10 +26,11 @@ WORKDIR /ferdelance
 
 COPY . /ferdelance
 
-# install application
-RUN pip install --no-cache-dir .
+COPY ./script/server.sh /ferdelance
 
-ENTRYPOINT ["/bin/bash", "./starter.sh"]
+RUN chmod +x /ferdelance/server.sh
+
+ENTRYPOINT ["/bin/bash", "server.sh"]
 
 # This image is used for 3 different containers with 3 different commands, they will be provided at compose level.
 # CMD ["uvicorn", "ferdelance.server.api:api", "--host", "0.0.0.0", "--port", "1456"]

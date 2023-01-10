@@ -25,8 +25,18 @@ clean-client:
 	rm -rf ./workdir/*
 
 # docker management server
+start-server:
+	docker-compose -f docker/docker-compose.server.yaml up -d
+
+stop-server:
+	docker-compose -f docker/docker-compose.server.yaml down
+
+reload-server:
+	docker-compose -f docker/docker-compose.server.yaml build
+	docker-compose -f docker/docker-compose.server.yaml up -d
+
 logs-server:
-	docker-compose -f docker/docker-compose.client.yaml logs -f server worker
+	docker-compose -f docker/docker-compose.server.yaml logs -f server worker
 
 clean-server:
 	docker-compose down
