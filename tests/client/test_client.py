@@ -33,13 +33,13 @@ from ferdelance.shared.models import Model
 from ferdelance.shared.artifacts.operations import Operations
 from ferdelance.shared.exchange import Exchange
 
-from .utils import (
+from ..server.utils import (
     setup_test_database,
     create_client,
     get_metadata,
     send_metadata,
 )
-from .crud import (
+from ..server.crud import (
     delete_client,
     get_client_by_id,
     get_token_by_id,
