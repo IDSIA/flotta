@@ -1,12 +1,6 @@
 #!/bin/bash
 
 # config
-VIRTUAL_ENV="Ferdelance_env"
-
-# TODO: include whole environment in application installer instead of searching for a local python and venv
-
-# fake virtual env activation
-PATH="$VIRTUAL_ENV/bin:$PATH"
 PYTHON="python"
 
 # python executable

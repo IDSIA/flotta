@@ -1,32 +1,49 @@
-build:
-	docker-compose build
+# docker build 
+build-client:
+	docker-compose -f docker/docker-compose.client.yaml build
 
-start:
-	docker-compose up -d
+build-server:
+	docker-compose -f docker/docker-compose.server.yaml build
 
-stop:
-	docker-compose down
+# docker management client
+start-client:
+	docker-compose -f docker/docker-compose.client.yaml up -d
 
-reload:
-	docker-compose build
-	docker-compose up -d
+stop-client:
+	docker-compose -f docker/docker-compose.client.yaml down
 
-logs-server:
-	docker-compose logs -f server worker
+reload-client:
+	docker-compose -f docker/docker-compose.client.yaml build
+	docker-compose -f docker/docker-compose.client.yaml up -d
 
 logs-client:
-	docker-compose logs -f 
+	docker-compose -f docker/docker-compose.client.yaml logs -f 
+
+clean-client:
+	docker-compose -f docker/docker-compose.client.yaml down
+	docker volume rm federated-learning-client_ferdelance-client-data
+	rm -rf ./workdir/*
+
+# docker management server
+start-server:
+	docker-compose -f docker/docker-compose.server.yaml up -d
+
+stop-server:
+	docker-compose -f docker/docker-compose.server.yaml down
+
+reload-server:
+	docker-compose -f docker/docker-compose.server.yaml build
+	docker-compose -f docker/docker-compose.server.yaml up -d
+
+logs-server:
+	docker-compose -f docker/docker-compose.server.yaml logs -f server worker
 
 clean-server:
 	docker-compose down
 	docker volume rm federated-learning-server_ferdelance-db-data
 	docker volume rm federated-learning-server_ferdelance-server-data
 
-clean-client:
-	docker-compose down
-	docker volume rm federated-learning-client_ferdelance-client-data
-	rm -rf ./workdir/*
-
+# development
 create:
 	python -m venv Ferdelance_env
 
@@ -41,4 +58,4 @@ dev:
 	pip install -e ".[dev]"
 
 test:
-	python tests/test_distributed.py
+	pytest

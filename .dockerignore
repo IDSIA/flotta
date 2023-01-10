@@ -18,13 +18,16 @@ docs/_build
 **/tests
 **/*env
 
-storage
 *workdir
 
 *.yaml
 *.md
 *.csv
 *.tsv
+*.model
 
-docker-compose.yaml
-Makefile
+docker/*
+examples/*
+storage/*
+tests/*
+workdir/*

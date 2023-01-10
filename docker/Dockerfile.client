@@ -1,0 +1,41 @@
+# Build stage
+FROM python:3.10 AS builder
+
+# install virtual environment
+RUN python -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:${PATH}"
+
+RUN python -m pip install --upgrade pip
+
+# copy and install shared library
+COPY . /ferdelance
+
+RUN pip install --no-cache-dir "/ferdelance[client]"
+
+# Installation stage
+FROM python:3.10-slim-buster AS base
+
+# install unzip package
+RUN apt-get update -y && \
+    apt-get upgrade -y && \
+    apt-get -y autoremove && \
+    apt-get clean
+RUN apt-get install -y p7zip \
+    zip \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# copy built virtual environment to base
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:${PATH}"
+
+# create and populate workdir
+WORKDIR /ferdelance
+
+COPY ./script/client.sh /ferdelance
+
+RUN chmod +x /ferdelance/client.sh
+
+CMD ["/bin/bash", "client.sh"]

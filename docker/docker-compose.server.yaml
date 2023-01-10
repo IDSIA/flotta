@@ -92,8 +92,8 @@ services:
   server:
     image: idsia.ferdelance.server
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.server
     environment:
       - DB_HOST=${DATABASE_HOST}
       - DB_USER=${DATABASE_USER}
