@@ -10,6 +10,8 @@ from ..database.services import KeyValueStore, ClientService, UserService
 from ..database.schemas import Client, User
 from ..database.tables import ClientToken, UserToken
 
+from ..config import conf
+
 import logging
 import os
 
@@ -29,7 +31,7 @@ async def generate_keys(session: AsyncSession) -> None:
         Current session to the database.
     """
 
-    SMP_VALUE = os.environ.get(MAIN_KEY, None)
+    SMP_VALUE = conf.SERVER_MAIN_PASSWORD
 
     if SMP_VALUE is None:
         LOGGER.critical(f'Environment variable {MAIN_KEY} is missing.')

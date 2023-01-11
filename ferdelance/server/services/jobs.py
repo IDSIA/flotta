@@ -9,7 +9,7 @@ from ...database.services import (
 )
 from ...database.schemas import Client
 from ...worker.tasks import aggregation
-from ...config import STORAGE_ARTIFACTS
+from ...config import conf
 from ..exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
 from ferdelance.shared.models import Metrics
@@ -38,7 +38,7 @@ class JobManagementService(DBSessionService):
         self.ms: ModelService = ModelService(session)
 
     async def storage_dir(self, artifact_id) -> str:
-        out_dir = os.path.join(STORAGE_ARTIFACTS, artifact_id)
+        out_dir = os.path.join(conf.STORAGE_ARTIFACTS, artifact_id)
         await aos.makedirs(out_dir, exist_ok=True)
         return out_dir
 

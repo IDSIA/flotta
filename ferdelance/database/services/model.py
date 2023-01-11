@@ -1,6 +1,6 @@
 from .core import DBSessionService, AsyncSession
 from ..tables import Model
-from ...config import STORAGE_ARTIFACTS
+from ...config import conf
 
 from sqlalchemy import select
 from uuid import uuid4
@@ -14,7 +14,7 @@ class ModelService(DBSessionService):
         super().__init__(session)
 
     def storage_dir(self, artifact_id) -> str:
-        out_dir = os.path.join(STORAGE_ARTIFACTS, artifact_id)
+        out_dir = os.path.join(conf.STORAGE_ARTIFACTS, artifact_id)
         os.makedirs(out_dir, exist_ok=True)
         return out_dir
 

@@ -5,7 +5,10 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngin
 from sqlalchemy.orm import sessionmaker, registry
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 
-import os
+from urllib.parse import quote_plus
+
+from ferdelance.config import conf
+
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -35,17 +38,7 @@ class DataBase:
             LOGGER.debug('Database singleton creation')
             cls.instance = super(DataBase, cls).__new__(cls)
 
-            DB_HOST = os.environ.get('DB_HOST', None)
-            DB_USER = os.environ.get('DB_USER', None)
-            DB_PASS = os.environ.get('DB_PASS', None)
-            DB_SCHEMA = os.environ.get('DB_SCHEMA', None)
-
-            assert DB_HOST is not None
-            assert DB_USER is not None
-            assert DB_PASS is not None
-            assert DB_SCHEMA is not None
-
-            cls.instance.database_url = f'postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_SCHEMA}'
+            cls.instance.database_url = conf.db_connection_url()
 
             cls.instance.engine = create_async_engine(cls.instance.database_url)
             cls.instance.async_session = sessionmaker(bind=cls.instance.engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False)

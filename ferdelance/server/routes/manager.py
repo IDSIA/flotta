@@ -22,11 +22,7 @@ from ..schemas.manager import (
     ManagerUploadClientMetadataRequest,
     ManagerUploadClientResponse,
 )
-from ...config import (
-    FILE_CHUNK_SIZE,
-    STORAGE_CLIENTS,
-    STORAGE_ARTIFACTS,
-)
+from ...config import conf
 
 from sqlalchemy import select
 from uuid import uuid4
@@ -51,14 +47,14 @@ async def manager_upload_client(file: UploadFile, session: AsyncSession = Depend
 
     LOGGER.info(f'app_id={app_id} uploading new client filename={filename}')
 
-    os.makedirs(STORAGE_CLIENTS, exist_ok=True)
+    os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
 
-    path = os.path.join(STORAGE_CLIENTS, filename)
+    path = os.path.join(conf.STORAGE_CLIENTS, filename)
 
     checksum = hashlib.sha256()
 
     async with aiofiles.open(path, 'wb') as out_file:
-        while content := await file.read(FILE_CHUNK_SIZE):
+        while content := await file.read(conf.FILE_CHUNK_SIZE):
             checksum.update(content)
             await out_file.write(content)
 
@@ -106,12 +102,12 @@ async def manager_upload_client_metadata(metadata: ManagerUploadClientMetadataRe
 
 @manager_router.post('/manager/upload/artifact')
 async def manager_upload_artifact(file: UploadFile, session: AsyncSession = Depends(get_session)):
-    os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
+    os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
 
-    path = os.path.join(STORAGE_ARTIFACTS, file.filename)
+    path = os.path.join(conf.STORAGE_ARTIFACTS, file.filename)
 
     async with aiofiles.open(path, 'wb') as out_file:
-        while content := await file.read(FILE_CHUNK_SIZE):
+        while content := await file.read(conf.FILE_CHUNK_SIZE):
             await out_file.write(content)
 
     artifact: Artifact = Artifact(

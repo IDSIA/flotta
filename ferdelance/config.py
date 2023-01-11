@@ -1,10 +1,60 @@
+from pydantic import BaseModel
+from sqlalchemy.engine import URL
 import os
 
-STORAGE_ARTIFACTS: str = str(os.path.join('.', 'storage', 'artifacts'))
-STORAGE_CLIENTS: str = str(os.path.join('.', 'storage', 'clients'))
-STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
 
-FILE_CHUNK_SIZE: int = 4096
+class Configuration(BaseModel):
+    STANDALONE: bool = False
+
+    SERVER_MAIN_PASSWORD: str | None = os.environ.get('SERVER_MAIN_PASSWORD', None)
+
+    DB_USER: str | None = os.environ.get('DB_USER', None)
+    DB_PASS: str | None = os.environ.get('DB_PASS', None)
+
+    DB_DIALECT: str = os.environ.get('DB_PROTOCOL', 'postgresql')
+    DB_PORT: int = int(os.environ.get('DB_PORT', '5432'))
+    DB_HOST: str | None = os.environ.get('DB_HOST', None)
+
+    DB_SCHEMA: str = os.environ.get('DB_SCHEMA', 'ferdelance')
+
+    DB_MEMORY: bool = False
+
+    STORAGE_ARTIFACTS: str = str(os.path.join('.', 'storage', 'artifacts'))
+    STORAGE_CLIENTS: str = str(os.path.join('.', 'storage', 'clients'))
+    STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
+
+    FILE_CHUNK_SIZE: int = 4096
+
+    def db_connection_url(self) -> str | None:
+        if self.DB_MEMORY:
+            return 'sqlite+aiosqlite://'
+
+        dialect = self.DB_DIALECT.lower()
+
+        assert self.DB_HOST is not None
+
+        if dialect == 'sqlite':
+            # in this case host is an absolute path
+            return str(URL.create(f'sqlite+aiosqlite://{self.DB_HOST}'))
+
+        if dialect == 'postgresql':
+            assert self.DB_USER is not None
+            assert self.DB_PASS is not None
+            assert self.DB_PORT is not None
+
+            return str(URL.create(
+                'postgresql+asyncpg',
+                self.DB_USER,
+                self.DB_PASS,
+                self.DB_HOST,
+                self.DB_PORT,
+                self.DB_HOST,
+            ))
+
+        raise ValueError(f'dialect {dialect} is not supported')
+
+
+conf: Configuration = Configuration()
 
 LOGGING_CONFIG = {
     'version': 1,

@@ -1,6 +1,6 @@
 from . import security
 from .. import __version__
-from ..config import STORAGE_ARTIFACTS, STORAGE_CLIENTS, STORAGE_MODELS
+from ..config import conf
 from ..database.services import DBSessionService, AsyncSession
 from ..database.services.client import ClientService
 from ..database.services.settings import setup_settings
@@ -26,9 +26,9 @@ class ServerStartup(DBSessionService):
     async def init_directories(self) -> None:
         LOGGER.info('directory initialization')
 
-        await aiofiles.os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
-        await aiofiles.os.makedirs(STORAGE_CLIENTS, exist_ok=True)
-        await aiofiles.os.makedirs(STORAGE_MODELS, exist_ok=True)
+        await aiofiles.os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
+        await aiofiles.os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
+        await aiofiles.os.makedirs(conf.STORAGE_MODELS, exist_ok=True)
 
         LOGGER.info('directory initialization completed')
 

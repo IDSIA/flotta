@@ -1,12 +1,8 @@
 """Implementation of the CLI features regarding models
 """
 
-from pathlib import Path
-from uuid import uuid4
-
 import pandas as pd
 
-from ...config import STORAGE_ARTIFACTS
 from ...database import DataBase
 from ...database.services import ModelService
 from ...database.tables import Model

@@ -1,5 +1,5 @@
 from ferdelance.database import Base
-from ferdelance.config import STORAGE_ARTIFACTS, STORAGE_CLIENTS, STORAGE_MODELS
+from ferdelance.config import conf
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import close_all_sessions
@@ -45,9 +45,9 @@ def database_create():
         with conn.begin():
             Base.metadata.create_all(conn, checkfirst=True)
 
-            os.makedirs(STORAGE_ARTIFACTS, exist_ok=True)
-            os.makedirs(STORAGE_CLIENTS, exist_ok=True)
-            os.makedirs(STORAGE_MODELS, exist_ok=True)
+            os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
+            os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
+            os.makedirs(conf.STORAGE_MODELS, exist_ok=True)
 
     print('\nsetup module completed\n')
 
