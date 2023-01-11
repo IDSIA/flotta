@@ -1,47 +1,47 @@
 # docker build 
 build-client:
-	docker-compose -f docker/docker-compose.client.yaml build
+	docker-compose -f docker-compose.client.yaml -p ferdelance build
 
 build-server:
-	docker-compose -f docker/docker-compose.server.yaml build
+	docker-compose -f docker-compose.server.yaml -p ferdelance build
 
 # docker management client
 start-client:
-	docker-compose -f docker/docker-compose.client.yaml up -d
+	docker-compose -f docker-compose.client.yaml -p ferdelance up -d
 
 stop-client:
-	docker-compose -f docker/docker-compose.client.yaml down
+	docker-compose -f docker-compose.client.yaml -p ferdelance down
 
 reload-client:
-	docker-compose -f docker/docker-compose.client.yaml build
-	docker-compose -f docker/docker-compose.client.yaml up -d
+	docker-compose -f docker-compose.client.yaml -p ferdelance build
+	docker-compose -f docker-compose.client.yaml -p ferdelance up -d
 
 logs-client:
-	docker-compose -f docker/docker-compose.client.yaml logs -f 
+	docker-compose -f docker-compose.client.yaml -p ferdelance logs -f 
 
 clean-client:
-	docker-compose -f docker/docker-compose.client.yaml down
-	docker volume rm federated-learning-client_ferdelance-client-data
+	docker-compose -f docker-compose.client.yaml -p ferdelance down
+	docker volume rm ferdelance_ferdelance-client-data
 	rm -rf ./workdir/*
 
 # docker management server
 start-server:
-	docker-compose -f docker/docker-compose.server.yaml up -d
+	docker-compose -f docker-compose.server.yaml -p ferdelance up -d
 
 stop-server:
-	docker-compose -f docker/docker-compose.server.yaml down
+	docker-compose -f docker-compose.server.yaml -p ferdelance down
 
 reload-server:
-	docker-compose -f docker/docker-compose.server.yaml build
-	docker-compose -f docker/docker-compose.server.yaml up -d
+	docker-compose -f docker-compose.server.yaml -p ferdelance build
+	docker-compose -f docker-compose.server.yaml -p ferdelance up -d
 
 logs-server:
-	docker-compose -f docker/docker-compose.server.yaml logs -f server worker
+	docker-compose -f docker-compose.server.yaml -p ferdelance logs -f server worker
 
 clean-server:
 	docker-compose down
-	docker volume rm federated-learning-server_ferdelance-db-data
-	docker volume rm federated-learning-server_ferdelance-server-data
+	docker volume rm ferdelance_ferdelance-db-data
+	docker volume rm ferdelance_ferdelance-server-data
 
 # development
 create:
