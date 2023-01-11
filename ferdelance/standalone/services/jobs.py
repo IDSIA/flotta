@@ -1,21 +1,19 @@
+from ferdelance.config import conf
+from ferdelance.database import AsyncSession
+from ferdelance.database.schemas import Client
+from ferdelance.server.services import JobManagementService
 from ferdelance.shared.artifacts import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.server.services import JobManagementService
-from ferdelance.config import conf
-from ferdelance.database import AsyncSession
+from ferdelance.shared.status import ArtifactJobStatus
 
-from multiprocessing import Pool
+from uuid import uuid4
 
 import logging
 
+
 LOGGER = logging.getLogger(__name__)
-
-
-pool = Pool(conf.STANDALONE_WORKERS)
-
-LOGGER.info('yay')
 
 
 class JobManagementLocalService(JobManagementService):
@@ -24,9 +22,31 @@ class JobManagementLocalService(JobManagementService):
         super().__init__(session)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        # TODO
-        LOGGER.info('standalone: submit artifact')
-        raise NotImplementedError()
+        artifact.artifact_id = str(uuid4())
+
+        try:
+            path = await self.dump_artifact(artifact)
+
+            artifact_db = await self.ars.create_artifact(artifact.artifact_id, path, ArtifactJobStatus.SCHEDULED.name)
+
+            client_ids = set()
+
+            for query in artifact.dataset.queries:
+                client: Client = await self.dss.get_client_by_datasource_id(query.datasource_id)
+
+                if client.client_id in client_ids:
+                    continue
+
+                await self.js.schedule_job(artifact.artifact_id, client.client_id)
+
+                client_ids.add(client.client_id)
+
+            return ArtifactStatus(
+                artifact_id=artifact.artifact_id,
+                status=artifact_db.status,
+            )
+        except ValueError as e:
+            raise e
 
     async def client_local_model_start(self, artifact_id: str, client_id: str) -> Artifact:
         # TODO

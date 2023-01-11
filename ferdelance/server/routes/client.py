@@ -86,7 +86,8 @@ async def client_join(request: Request, data: ClientJoinRequest, session: AsyncS
 
             raise HTTPException(403, 'Invalid client data')
 
-        except NoResultFound:
+        except NoResultFound as e:
+            LOGGER.info('joining new client')
             # create new client
             client_token: ClientToken = await ts.generate_client_token(
                 data.system,

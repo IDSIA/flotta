@@ -1,11 +1,10 @@
 from ferdelance import __version__
+from ferdelance.client.datasources import DataSourceDB, DataSourceFile
+from ferdelance.client.config import Config, ConfigError
+from ferdelance.client.services.actions import ActionService
+from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action
 from ferdelance.shared.schemas import ClientJoinData
-
-from .datasources import DataSourceDB, DataSourceFile
-from .config import Config, ConfigError
-from .services.actions import ActionService
-from .services.routes import RouteService
 
 from getmac import get_mac_address
 from time import sleep
@@ -22,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 
 class FerdelanceClient:
 
-    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float = -1.0, leave: bool = False, datasources: list[dict[str, str]] = list()) -> None:
+    def __init__(self, server: str = 'http://localhost:8080', workdir: str = 'workdir', heartbeat: float = -1.0, leave: bool = False, datasources: list[dict[str, str]] = list(), machine_mac_addres: str | None = None, machine_node: str | None = None) -> None:
         # possible states are: work, exit, update, install
         self.status: Action = Action.INIT
 
@@ -36,6 +35,9 @@ class FerdelanceClient:
         self.flag_leave: bool = leave
         self.setup_completed: bool = False
         self.stop: bool = False
+
+        self.machine_mac_address = machine_mac_addres
+        self.machine_node = machine_node
 
     def beat(self):
         LOGGER.debug(f'waiting for {self.config.heartbeat}')
@@ -73,8 +75,9 @@ class FerdelanceClient:
                     LOGGER.info('collecting system info')
 
                     machine_system: str = platform.system()
-                    machine_mac_address: str = get_mac_address() or ''
-                    machine_node: str = str(uuid.getnode())
+
+                    machine_mac_address: str = self.machine_mac_address or get_mac_address() or ''
+                    machine_node: str = self.machine_node or str(uuid.getnode())
 
                     LOGGER.info(f'system info: machine_system={machine_system}')
                     LOGGER.info(f'system info: machine_mac_address={machine_mac_address}')

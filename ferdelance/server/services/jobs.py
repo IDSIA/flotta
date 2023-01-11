@@ -1,5 +1,6 @@
-from typing import Protocol
-from ...database.services import (
+from ferdelance.config import conf
+from ferdelance.database.schemas import Client
+from ferdelance.database.services import (
     DBSessionService,
     AsyncSession,
     ArtifactService,
@@ -8,14 +9,14 @@ from ...database.services import (
     ModelService,
     ClientService
 )
-from ...database.schemas import Client
-from ...worker.tasks import aggregation
-from ...config import conf
-from ..exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
-from ferdelance.shared.models import Metrics
+from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
+
 from ferdelance.shared.artifacts import Artifact, ArtifactStatus
+from ferdelance.shared.models import Metrics
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
+
+from ferdelance.worker.tasks import aggregation
 
 from uuid import uuid4
 
