@@ -1,3 +1,4 @@
+from typing import Protocol
 from ...database.services import (
     DBSessionService,
     AsyncSession,

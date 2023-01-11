@@ -1,10 +1,15 @@
-from pydantic import BaseModel
 from sqlalchemy.engine import URL
+from pydantic import BaseModel
+from pytimeparse import parse
+
 import os
+
+cpu_count = os.cpu_count()
 
 
 class Configuration(BaseModel):
     STANDALONE: bool = False
+    STANDALONE_WORKERS: int = 1 if cpu_count is None else cpu_count - 1
 
     SERVER_MAIN_PASSWORD: str | None = os.environ.get('SERVER_MAIN_PASSWORD', None)
 
@@ -24,6 +29,9 @@ class Configuration(BaseModel):
     STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
 
     FILE_CHUNK_SIZE: int = 4096
+
+    CLIENT_TOKEN_EXPIRATION = os.environ.get('TOKEN_CLIENT_EXPIRATION', str(parse('90 day')))
+    USER_TOKEN_EXPIRATION = os.environ.get('TOKEN_USER_EXPIRATION', str(parse('30 day')))
 
     def db_connection_url(self) -> str | None:
         if self.DB_MEMORY:

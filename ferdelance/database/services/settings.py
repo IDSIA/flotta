@@ -3,7 +3,6 @@ from ..tables import Setting
 from ...config import conf
 
 from cryptography.fernet import Fernet
-from pytimeparse import parse
 from sqlalchemy import select, update
 
 import base64
@@ -16,8 +15,8 @@ KEY_USER_TOKEN_EXPIRATION = 'TOKEN_USER_EXPIRATION'
 
 async def setup_settings(session: AsyncSession) -> None:
 
-    CLIENT_TOKEN_EXPIRATION = os.environ.get(KEY_CLIENT_TOKEN_EXPIRATION, str(parse('90 day')))
-    USER_TOKEN_EXPIRATION = os.environ.get(KEY_USER_TOKEN_EXPIRATION, str(parse('30 day')))
+    CLIENT_TOKEN_EXPIRATION = conf.CLIENT_TOKEN_EXPIRATION
+    USER_TOKEN_EXPIRATION = conf.USER_TOKEN_EXPIRATION
 
     kvs = KeyValueStore(session)
     await kvs.put_str(KEY_CLIENT_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)
