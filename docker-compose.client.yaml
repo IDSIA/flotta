@@ -13,7 +13,7 @@ services:
     image: idsia.ferdelance.client
     container_name: ferdelance-client
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile.client
     environment:
       - FDL_SERVER=$SERVER
