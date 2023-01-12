@@ -6,6 +6,7 @@ from multiprocessing import Process
 
 import logging
 import random
+import shutil
 import signal
 import time
 import uvicorn
@@ -35,9 +36,14 @@ def run_client():
     signal.signal(signal.SIGINT, main_signal_handler)
     signal.signal(signal.SIGTERM, main_signal_handler)
 
-    client.run()
+    exit_code = client.run()
 
-    LOGGER.info('terminate client')
+    LOGGER.info(f'terminated application with exit_code={exit_code}')
+
+    if conf.DB_MEMORY:
+        # remove workdir since after shutdown the database content will be lost
+        shutil.rmtree(client.config.workdir)
+        LOGGER.info(f'client workdir={client.config.workdir} removed')
 
 
 if __name__ == '__main__':

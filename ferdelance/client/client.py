@@ -149,8 +149,12 @@ class FerdelanceClient:
         LOGGER.info('stopping application')
         self.stop = True
 
-    def run(self) -> None:
-        """Main loop where the client contact the server for updates."""
+    def run(self) -> int:
+        """Main loop where the client contact the server for updates.
+
+        :return:
+            Exit code to use
+        """
         action_service = ActionService(self.config)
         routes_service = RouteService(self.config)
 
@@ -178,7 +182,7 @@ class FerdelanceClient:
 
                     if self.status == Action.CLIENT_UPDATE:
                         LOGGER.info('update application and dependencies')
-                        sys.exit(1)
+                        return 1
 
                 except ValueError as e:
                     # TODO: discriminate between bad and acceptable exceptions
@@ -198,19 +202,19 @@ class FerdelanceClient:
                     LOGGER.exception(e)
 
                     # TODO what to do in this case?
-                    sys.exit(2)
+                    return 2
 
                 self.beat()
 
         except ConfigError as e:
             LOGGER.error('could not complete setup')
             LOGGER.exception(e)
-            sys.exit(2)
+            return 2
 
         except Exception as e:
             LOGGER.error('Unknown error')
             LOGGER.exception(e)
-            sys.exit(2)
+            return 2
 
         if self.stop:
-            sys.exit(2)
+            return 2
