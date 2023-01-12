@@ -5,16 +5,9 @@ from typing import Any, AsyncGenerator
 import os
 import logging
 from ferdelance.config import conf
-from urllib.parse import quote_plus
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 from sqlalchemy.orm import sessionmaker, registry
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
-
-<< << << < HEAD
-
-
-== == == =
->>>>>> > main
 
 
 LOGGER = logging.getLogger(__name__)

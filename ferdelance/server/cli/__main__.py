@@ -11,15 +11,11 @@ This is related to manage projects, users, clients, etc. As an example:
 """
 import asyncio
 
-from dotenv import load_dotenv
-
 from .artifacts import artifacts_cli_suite
 from .base import CLIParser
 from .clients import clients_cli_suite
 from .jobs import jobs_cli_suite
 from .models import models_cli_suite
-
-load_dotenv()
 
 
 async def main() -> None:

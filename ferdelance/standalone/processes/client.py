@@ -1,3 +1,4 @@
+from typing import Any
 from ferdelance.config import conf
 from ferdelance.client import FerdelanceClient
 
@@ -14,6 +15,11 @@ LOGGER = logging.getLogger(__name__)
 
 class LocalClient(Process):
 
+    def __init__(self, args: dict[str, Any]) -> None:
+        super().__init__()
+
+        self.args = args
+
     def run(self):
         time.sleep(3)  # this will give the server time to start
 
@@ -24,7 +30,12 @@ class LocalClient(Process):
 
         server_url = conf.server_url()
 
-        client = FerdelanceClient(server_url, heartbeat=1, machine_mac_addres=mac_address, machine_node=node)
+        workdir = self.args['workdir']
+        heartbeat = self.args['heartbeat']
+        leave = self.args['leave']
+        datasources = self.args['datasources']
+
+        client = FerdelanceClient(server_url, workdir, heartbeat, leave, datasources, mac_address, node)
 
         def main_signal_handler(signum, frame):
             """This handler is used to gracefully stop when ctrl-c is hit in the terminal."""

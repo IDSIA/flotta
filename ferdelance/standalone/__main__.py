@@ -1,3 +1,4 @@
+from ferdelance.client.arguments import setup_arguments
 from ferdelance.config import conf
 from ferdelance.standalone.processes import (
     LocalWorker,
@@ -14,6 +15,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
+    client_args = setup_arguments()
+
     LOGGER.info('standalone application starting')
 
     conf.STANDALONE = True
@@ -30,7 +33,7 @@ if __name__ == '__main__':
 
     server_process = LocalServer()
     worker_process = LocalWorker()
-    client_process = LocalClient()
+    client_process = LocalClient(client_args)
 
     server_process.start()
     worker_process.start()

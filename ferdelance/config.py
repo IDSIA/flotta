@@ -2,9 +2,13 @@ from sqlalchemy.engine import URL
 from pydantic import BaseModel
 from pytimeparse import parse
 
+from dotenv import load_dotenv
+
 import os
 
 cpu_count = os.cpu_count()
+
+load_dotenv()
 
 
 class Configuration(BaseModel):
@@ -23,7 +27,7 @@ class Configuration(BaseModel):
     DB_USER: str | None = os.environ.get('DB_USER', None)
     DB_PASS: str | None = os.environ.get('DB_PASS', None)
 
-    DB_DIALECT: str = os.environ.get('DB_PROTOCOL', 'postgresql')
+    DB_DIALECT: str = os.environ.get('DB_DIALECT', 'postgresql')
     DB_PORT: int = int(os.environ.get('DB_PORT', '5432'))
     DB_HOST: str | None = os.environ.get('DB_HOST', None)
 
@@ -43,7 +47,7 @@ class Configuration(BaseModel):
     def server_url(self) -> str:
         return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
 
-    def db_connection_url(self) -> str | None:
+    def db_connection_url(self) -> str:
         if self.DB_MEMORY:
             return 'sqlite+aiosqlite://'
 
@@ -53,7 +57,7 @@ class Configuration(BaseModel):
 
         if dialect == 'sqlite':
             # in this case host is an absolute path
-            return str(URL.create(f'sqlite+aiosqlite://{self.DB_HOST}'))
+            return f'sqlite+aiosqlite://{self.DB_HOST}'
 
         if dialect == 'postgresql':
             assert self.DB_USER is not None
