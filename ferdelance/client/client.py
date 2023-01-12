@@ -1,6 +1,6 @@
 from ferdelance import __version__
-from ferdelance.client.datasources import DataSourceDB, DataSourceFile
 from ferdelance.client.config import Config, ConfigError
+from ferdelance.client.datasources import DataSourceDB, DataSourceFile
 from ferdelance.client.services.actions import ActionService
 from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action
@@ -218,3 +218,5 @@ class FerdelanceClient:
 
         if self.stop:
             return 2
+
+        return 0
