@@ -1,12 +1,12 @@
 from __future__ import annotations
-from typing import AsyncGenerator, Any
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
-from sqlalchemy.orm import sessionmaker, registry
-from sqlalchemy.orm.decl_api import DeclarativeMeta
-
-import os
 import logging
+import os
+from typing import Any, AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.orm import registry, sessionmaker
+from sqlalchemy.orm.decl_api import DeclarativeMeta
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,26 +31,32 @@ class DataBase:
         self.async_session: Any
 
     def __new__(cls: type[DataBase]) -> DataBase:
-        if not hasattr(cls, 'instance'):
-            LOGGER.debug('Database singleton creation')
+        if not hasattr(cls, "instance"):
+            LOGGER.debug("Database singleton creation")
             cls.instance = super(DataBase, cls).__new__(cls)
 
-            DB_HOST = os.environ.get('DB_HOST', None)
-            DB_USER = os.environ.get('DB_USER', None)
-            DB_PASS = os.environ.get('DB_PASS', None)
-            DB_SCHEMA = os.environ.get('DB_SCHEMA', None)
+            DATABASE_HOST = os.environ.get("DATABASE_HOST", None)
+            DATABASE_USER = os.environ.get("DATABASE_USER", None)
+            DATABASE_PASS = os.environ.get("DATABASE_PASS", None)
+            DATABASE_SCHEMA = os.environ.get("DATABASE_SCHEMA", None)
 
-            assert DB_HOST is not None
-            assert DB_USER is not None
-            assert DB_PASS is not None
-            assert DB_SCHEMA is not None
+            assert DATABASE_HOST is not None
+            assert DATABASE_USER is not None
+            assert DATABASE_PASS is not None
+            assert DATABASE_SCHEMA is not None
 
-            cls.instance.database_url = f'postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_SCHEMA}'
+            cls.instance.database_url = f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASS}@{DATABASE_HOST}/{DATABASE_SCHEMA}"
 
             cls.instance.engine = create_async_engine(cls.instance.database_url)
-            cls.instance.async_session = sessionmaker(bind=cls.instance.engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False)
+            cls.instance.async_session = sessionmaker(
+                bind=cls.instance.engine,
+                class_=AsyncSession,
+                expire_on_commit=False,
+                autocommit=False,
+                autoflush=False,
+            )
 
-            LOGGER.info('DataBase connection established')
+            LOGGER.info("DataBase connection established")
 
         return cls.instance
 

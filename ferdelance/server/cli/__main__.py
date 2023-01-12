@@ -11,13 +11,19 @@ This is related to manage projects, users, clients, etc. As an example:
 """
 import asyncio
 
+from dotenv import load_dotenv
+
 from .artifacts import artifacts_cli_suite
-from .base.models import CLIParser
+from .base import CLIParser
+from .clients import clients_cli_suite
+from .jobs import jobs_cli_suite
 from .models import models_cli_suite
+
+load_dotenv()
 
 
 async def main() -> None:
-
+    """Execute CLI command"""
     parser: CLIParser = CLIParser(
         prog="Ferdelance Admin CLI",
         description="Command Line Interface to administrate the server",
@@ -25,6 +31,8 @@ async def main() -> None:
 
     parser.add_command_suite(models_cli_suite)
     parser.add_command_suite(artifacts_cli_suite)
+    parser.add_command_suite(jobs_cli_suite)
+    parser.add_command_suite(clients_cli_suite)
 
     parser.parse_args()
 

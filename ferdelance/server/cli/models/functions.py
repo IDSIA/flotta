@@ -1,21 +1,17 @@
 """Implementation of the CLI features regarding models
 """
 
-from pathlib import Path
-from uuid import uuid4
-
 import pandas as pd
 
-from ...config import STORAGE_ARTIFACTS
-from ...database import DataBase
-from ...database.services import ModelService
-from ...database.tables import Model
+from ....database import DataBase
+from ....database.services import ModelService
+from ....database.tables import Model
 
 
 async def models_list(**kwargs) -> pd.DataFrame:
     """Print model list, with or without filters on ARTIFACT_ID, MODEL_ID"""
     artifact_id = kwargs.get("artifact_id", None)
-    model_id = kwargs.get("client_id", None)
+    model_id = kwargs.get("model_id", None)
 
     db = DataBase()
     async with db.async_session() as session:
