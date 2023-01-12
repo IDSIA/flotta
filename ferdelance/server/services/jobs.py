@@ -134,6 +134,9 @@ class JobManagementService(DBSessionService):
             model=artifact.model,
         )
 
+    def _start_aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> None:
+        aggregation.delay(token, artifact_id, model_ids)
+
     async def client_local_model_completed(self, artifact_id: str, client_id: str) -> None:
         LOGGER.info(f'client_id={client_id}: started aggregation request')
 
@@ -160,13 +163,18 @@ class JobManagementService(DBSessionService):
         LOGGER.info(f'All {total} job(s) completed, starting aggregation')
 
         token = await self.cs.get_token_by_client_type('WORKER')
+
+        if token is None:
+            LOGGER.error('Cannot aggregate: no worker available')
+            return
+
         models = await self.ms.get_models_by_artifact_id(artifact_id)
 
         model_ids: list[str] = [m.model_id for m in models]
 
         await self.ars.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
 
-        aggregation.delay(token, artifact_id, model_ids)
+        self._start_aggregation(token, artifact_id, model_ids)
 
     async def aggregation_completed(self, artifact_id: str) -> None:
         LOGGER.info(f'aggregation completed for artifact_id={artifact_id}')

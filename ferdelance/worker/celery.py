@@ -1,4 +1,4 @@
-from ..config import LOGGING_CONFIG
+from ferdelance.config import LOGGING_CONFIG, conf as config
 
 from celery import Celery
 from celery.signals import worker_ready, worker_init, worker_shutdown, celeryd_init, after_setup_logger
@@ -40,10 +40,9 @@ def config_worker_init(sender=None, conf=None, instance=None, **kwargs):
 
 @worker_ready.connect
 def config_worker_ready(sender=None, conf=None, instance=None, **kwargs):
-    server_url = os.environ.get('SERVER_URL', 'http://server').rstrip('/')
-    server_port = os.environ.get('SERVER_PORT', '1456')
+    server_url = config.server_url()
 
-    LOGGER.info(f'configured server: {server_url}:{server_port}')
+    LOGGER.info(f'configured server: {server_url}')
     LOGGER.info('worker ready to accept tasks')
 
 

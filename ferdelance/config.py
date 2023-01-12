@@ -8,10 +8,17 @@ cpu_count = os.cpu_count()
 
 
 class Configuration(BaseModel):
-    STANDALONE: bool = False
-    STANDALONE_WORKERS: int = 1 if cpu_count is None else cpu_count - 1
+    STANDALONE: bool = 'TRUE' == os.environ.get('STANDALONE', 'False').upper()
+    STANDALONE_WORKERS: int = int(os.environ.get('STANDALONE_WORKERS', 1 if cpu_count is None else cpu_count - 1))
 
     SERVER_MAIN_PASSWORD: str | None = os.environ.get('SERVER_MAIN_PASSWORD', None)
+    SERVER_PROTOCOL: str = os.environ.get('SERVER_PROTOCOL', 'http://')
+    SERVER_INTERFACE: str = os.environ.get('SERVER_INTERFACE', 'localhost')
+    SERVER_PORT: int = int(os.environ.get('SERVER_PORT', 1456))
+
+    WORKER_SERVER_PROTOCOL: str = os.environ.get('WORKER_SERVER_PROTOCOL', SERVER_PROTOCOL)
+    WORKER_SERVER_HOST: str = os.environ.get('WORKER_SERVER_HOST', SERVER_INTERFACE)
+    WORKER_SERVER_PORT: int = int(os.environ.get('WORKER_SERVER_PORT', SERVER_PORT))
 
     DB_USER: str | None = os.environ.get('DB_USER', None)
     DB_PASS: str | None = os.environ.get('DB_PASS', None)
@@ -22,16 +29,19 @@ class Configuration(BaseModel):
 
     DB_SCHEMA: str = os.environ.get('DB_SCHEMA', 'ferdelance')
 
-    DB_MEMORY: bool = False
+    DB_MEMORY: bool = 'TRUE' == os.environ.get('DB_MEMORY', 'False').upper()
 
     STORAGE_ARTIFACTS: str = str(os.path.join('.', 'storage', 'artifacts'))
     STORAGE_CLIENTS: str = str(os.path.join('.', 'storage', 'clients'))
     STORAGE_MODELS: str = str(os.path.join('.', 'storage', 'models'))
 
-    FILE_CHUNK_SIZE: int = 4096
+    FILE_CHUNK_SIZE: int = int(os.environ.get('FILE_CHUNK_SIZE', 4096))
 
     CLIENT_TOKEN_EXPIRATION = os.environ.get('TOKEN_CLIENT_EXPIRATION', str(parse('90 day')))
     USER_TOKEN_EXPIRATION = os.environ.get('TOKEN_USER_EXPIRATION', str(parse('30 day')))
+
+    def server_url(self) -> str:
+        return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
 
     def db_connection_url(self) -> str | None:
         if self.DB_MEMORY:

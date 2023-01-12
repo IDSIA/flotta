@@ -1,49 +1,16 @@
 from ferdelance.config import conf
-from ferdelance.server.api import api
+from ferdelance.standalone.processes import (
+    LocalWorker,
+    LocalClient,
+    LocalServer,
+)
 
-from ferdelance.client import FerdelanceClient
-from multiprocessing import Process
+from multiprocessing import Queue
+from multiprocessing.managers import BaseManager
 
 import logging
-import random
-import shutil
-import signal
-import time
-import uvicorn
-
 
 LOGGER = logging.getLogger(__name__)
-
-
-def run_server():
-    uvicorn.run(api, host='0.0.0.0', port=1456)
-
-
-def run_client():
-    time.sleep(3)  # this will give the server time to start
-
-    LOGGER.info('starting client')
-
-    mac_address: str = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-    node: str = str(1000000000000 + int(random.uniform(0, 1.0) * 1000000000))
-
-    client = FerdelanceClient('http://localhost:1456', heartbeat=1, machine_mac_addres=mac_address, machine_node=node)
-
-    def main_signal_handler(signum, frame):
-        """This handler is used to gracefully stop when ctrl-c is hit in the terminal."""
-        client.stop_loop()
-
-    signal.signal(signal.SIGINT, main_signal_handler)
-    signal.signal(signal.SIGTERM, main_signal_handler)
-
-    exit_code = client.run()
-
-    LOGGER.info(f'terminated application with exit_code={exit_code}')
-
-    if conf.DB_MEMORY:
-        # remove workdir since after shutdown the database content will be lost
-        shutil.rmtree(client.config.workdir)
-        LOGGER.info(f'client workdir={client.config.workdir} removed')
 
 
 if __name__ == '__main__':
@@ -53,14 +20,26 @@ if __name__ == '__main__':
     conf.SERVER_MAIN_PASSWORD = '7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1'  # this is a dummy key
     conf.DB_DIALECT = 'sqlite'
     conf.DB_MEMORY = True
+    conf.SERVER_INTERFACE = '0.0.0.0'
 
-    server_process = Process(target=run_server)
-    client_process = Process(target=run_client)
+    aggregation_queue = Queue()
+
+    manager = BaseManager(address=('', 14560))
+    manager.register('get_queue', callable=lambda: aggregation_queue)
+    manager.start()
+
+    server_process = LocalServer()
+    worker_process = LocalWorker()
+    client_process = LocalClient()
 
     server_process.start()
+    worker_process.start()
     client_process.start()
 
     server_process.join()
+    worker_process.join()
     client_process.join()
+
+    manager.shutdown()
 
     LOGGER.info('standalone application terminated')

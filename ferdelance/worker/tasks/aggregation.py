@@ -1,10 +1,9 @@
+from ferdelance.config import conf
 from ferdelance.shared.artifacts import Artifact
 from ferdelance.shared.models import FederatedRandomForestClassifier
-
-from ..celery import worker
+from ferdelance.worker.celery import worker
 
 import logging
-import os
 import pickle
 import requests
 
@@ -15,22 +14,11 @@ def headers(token):
     return {'Authorization': f'Bearer {token}'}
 
 
-@worker.task(
-    ignore_result=False,
-    bind=True,
-)
-def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> None:
+def aggregate(token: str, artifact_id: str, model_ids: list[str]):
     try:
-        task_id: str = str(self.request.id)
-
-        server_url = os.environ.get('SERVER_URL', 'http://server').rstrip('/')
-        server_port = os.environ.get('SERVER_PORT', '1456')
-
-        server = f'{server_url}:{server_port}'
+        server = conf.server_url()
 
         LOGGER.debug(f'using server {server}')
-
-        LOGGER.info(f'beginning aggregation task={task_id} for artifact_id={artifact_id}')
 
         res = requests.get(
             f'{server}/worker/artifact/{artifact_id}',
@@ -80,3 +68,15 @@ def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> Non
     except requests.HTTPError as e:
         LOGGER.error(f'{e}')
         LOGGER.exception(e)
+
+
+@worker.task(
+    ignore_result=False,
+    bind=True,
+)
+def aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> None:
+    task_id: str = str(self.request.id)
+
+    LOGGER.info(f'beginning aggregation task={task_id} for artifact_id={artifact_id}')
+
+    aggregate(token, artifact_id, model_ids)

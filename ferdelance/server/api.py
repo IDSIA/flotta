@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 import uvicorn
 
+from ferdelance.config import conf
 from .routes.client import client_router
 from .routes.manager import manager_router
 from .routes.workbench import workbench_router
@@ -72,4 +73,4 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 if __name__ == '__main__':
-    uvicorn.run(api, host='localhost', port=1456)
+    uvicorn.run(api, host=conf.SERVER_INTERFACE, port=conf.SERVER_PORT)
