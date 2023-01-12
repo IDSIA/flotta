@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Type
 
 
 def command_not_implemented():
-    raise NotImplementedError()
+    raise NotImplementedError("This command has not been implemented.")
 
 
 @dataclass
@@ -69,7 +69,11 @@ class CLIParser:
         self.avail_args_set: set = set()
 
     def add_command_suite(self, command_suite: CLICommandSuite) -> None:
+        """Prepare the parser to receive all arguments in suite commands
 
+        Args:
+            command_suite (CLICommandSuite): The suite object
+        """
         for command in command_suite.commands:
             for arg in command.arguments:
                 if arg.dash_string not in self.avail_args_set:
@@ -86,7 +90,12 @@ class CLIParser:
     def parse_args(
         self,
     ) -> None:
+        """Parse command line arguments with argparse and identify which action has to be performed with which arguments
 
+        Raises:
+            ValueError: If the entity is not among the ones supported by added suites
+            ValueError: If the command is not among supported commands of the entity selected suite
+        """
         args: Namespace = self.parser.parse_args()
 
         selected_suite: CLICommandSuite = next(
@@ -110,3 +119,29 @@ class CLIParser:
             sca.var_name: getattr(args, sca.var_name)
             for sca in self.selected_command.arguments
         }
+
+
+@dataclass
+class CLIArgs:
+    ARTIFACT_ID: CLIArgument = CLIArgument(
+        dash_string="--artifact-id",
+        var_name="artifact_id",
+        var_type=str,
+        help="Artifact ID",
+    )
+
+    MODEL_ID: CLIArgument = CLIArgument(
+        dash_string="--model-id", var_name="model_id", var_type=str, help="Model ID"
+    )
+
+    CLIENT_ID: CLIArgument = CLIArgument(
+        dash_string="--client-id", var_name="client_id", var_type=str, help="Client ID"
+    )
+
+    AGGREGATE: CLIArgument = CLIArgument(
+        dash_string="--aggregate",
+        var_name="aggregate",
+        var_type=bool,
+        default=False,
+        help="Create local model or aggregated model",
+    )

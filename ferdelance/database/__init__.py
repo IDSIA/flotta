@@ -1,15 +1,21 @@
 from __future__ import annotations
-from typing import AsyncGenerator, Any
-
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
-from sqlalchemy.orm import sessionmaker, registry
-from sqlalchemy.orm.decl_api import DeclarativeMeta
-
-from urllib.parse import quote_plus
-
-from ferdelance.config import conf
-
+from sqlalchemy.orm import registry, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from typing import Any, AsyncGenerator
+import os
 import logging
+from ferdelance.config import conf
+from urllib.parse import quote_plus
+from sqlalchemy.orm.decl_api import DeclarativeMeta
+from sqlalchemy.orm import sessionmaker, registry
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
+
+<< << << < HEAD
+
+
+== == == =
+>>>>>> > main
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,16 +40,22 @@ class DataBase:
         self.async_session: Any
 
     def __new__(cls: type[DataBase]) -> DataBase:
-        if not hasattr(cls, 'instance'):
-            LOGGER.debug('Database singleton creation')
+        if not hasattr(cls, "instance"):
+            LOGGER.debug("Database singleton creation")
             cls.instance = super(DataBase, cls).__new__(cls)
 
             cls.instance.database_url = conf.db_connection_url()
 
             cls.instance.engine = create_async_engine(cls.instance.database_url)
-            cls.instance.async_session = sessionmaker(bind=cls.instance.engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False)
+            cls.instance.async_session = sessionmaker(
+                bind=cls.instance.engine,
+                class_=AsyncSession,
+                expire_on_commit=False,
+                autocommit=False,
+                autoflush=False,
+            )
 
-            LOGGER.info('DataBase connection established')
+            LOGGER.info("DataBase connection established")
 
         return cls.instance
 

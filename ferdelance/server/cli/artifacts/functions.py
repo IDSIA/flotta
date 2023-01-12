@@ -3,9 +3,9 @@
 
 import pandas as pd
 
-from ...database import DataBase
-from ...database.services import ArtifactService
-from ...database.tables import Artifact
+from ....database import DataBase
+from ....database.services import ArtifactService
+from ....database.tables import Artifact
 
 
 async def get_artifacts_list(**kwargs) -> pd.DataFrame:
