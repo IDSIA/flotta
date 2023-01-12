@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from ...config import FILE_CHUNK_SIZE
+from ...config import conf
 from ...database import get_session, AsyncSession
 from ...database.services import ModelService, ClientService
 from ...database.schemas import Client
@@ -76,7 +76,7 @@ async def post_model(file: UploadFile, artifact_id: str, session: AsyncSession =
         model_session = await ms.create_model_aggregated(artifact_id, client.client_id)
 
         async with aiofiles.open(model_session.path, 'wb') as out_file:
-            while content := await file.read(FILE_CHUNK_SIZE):
+            while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
         await js.aggregation_completed(artifact_id)

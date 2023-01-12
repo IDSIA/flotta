@@ -3,26 +3,26 @@ from fastapi.responses import FileResponse, Response
 
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
 
-from ...database import get_session, AsyncSession
-from ...database.services import (
+from ferdelance.database import get_session, AsyncSession
+from ferdelance.database.services import (
     ArtifactService,
     ClientService,
     DataSourceService,
     UserService,
 )
-from ...database.schemas import Client, User
-from ...database.tables import (
+from ferdelance.database.schemas import Client, User
+from ferdelance.database.tables import (
     ClientDataSource,
     Model,
     UserToken,
 )
-from ..services import (
+from ferdelance.server.services import (
     JobManagementService,
     SecurityService,
     TokenService,
 )
-from ..security import check_user_token
-
+from ferdelance.standalone.services import JobManagementLocalService
+from ferdelance.server.security import check_user_token
 from ferdelance.shared.artifacts import (
     DataSource,
     Feature,
@@ -38,6 +38,7 @@ from ferdelance.shared.schemas import (
     WorkbenchJoinData,
 )
 from ferdelance.shared.decode import decode_from_transfer
+from ferdelance.config import conf
 
 import logging
 import os
@@ -46,6 +47,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 workbench_router = APIRouter()
+
+
+def job_manager(session: AsyncSession) -> JobManagementService:
+    if conf.STANDALONE:
+        return JobManagementLocalService(session)
+    return JobManagementService(session)
 
 
 @workbench_router.get('/workbench/')
@@ -233,7 +240,7 @@ async def wb_post_artifact_submit(request: Request, session: AsyncSession = Depe
     LOGGER.info(f'user_id={user.user_id}:  submitted a new artifact')
 
     try:
-        jms: JobManagementService = JobManagementService(session)
+        jms: JobManagementService = job_manager(session)
         ss: SecurityService = SecurityService(session)
 
         await ss.setup(user.public_key)
@@ -283,7 +290,7 @@ async def wb_get_artifact(artifact_id: str, session: AsyncSession = Depends(get_
     LOGGER.info(f'user_id={user.user_id}: requested details on artifact_id={artifact_id}')
 
     try:
-        jms: JobManagementService = JobManagementService(session)
+        jms: JobManagementService = job_manager(session)
         ss: SecurityService = SecurityService(session)
 
         await ss.setup(user.public_key)

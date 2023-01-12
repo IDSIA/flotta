@@ -1,12 +1,21 @@
 from __future__ import annotations
-
-import logging
-import os
-from typing import Any, AsyncGenerator
-
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import registry, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from typing import Any, AsyncGenerator
+import os
+import logging
+from ferdelance.config import conf
+from urllib.parse import quote_plus
 from sqlalchemy.orm.decl_api import DeclarativeMeta
+from sqlalchemy.orm import sessionmaker, registry
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
+
+<< << << < HEAD
+
+
+== == == =
+>>>>>> > main
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,17 +44,7 @@ class DataBase:
             LOGGER.debug("Database singleton creation")
             cls.instance = super(DataBase, cls).__new__(cls)
 
-            DATABASE_HOST = os.environ.get("DATABASE_HOST", None)
-            DATABASE_USER = os.environ.get("DATABASE_USER", None)
-            DATABASE_PASS = os.environ.get("DATABASE_PASS", None)
-            DATABASE_SCHEMA = os.environ.get("DATABASE_SCHEMA", None)
-
-            assert DATABASE_HOST is not None
-            assert DATABASE_USER is not None
-            assert DATABASE_PASS is not None
-            assert DATABASE_SCHEMA is not None
-
-            cls.instance.database_url = f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASS}@{DATABASE_HOST}/{DATABASE_SCHEMA}"
+            cls.instance.database_url = conf.db_connection_url()
 
             cls.instance.engine = create_async_engine(cls.instance.database_url)
             cls.instance.async_session = sessionmaker(

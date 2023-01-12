@@ -12,9 +12,10 @@ from ferdelance.shared.artifacts import (
 )
 from ferdelance.shared.models import Metrics
 
-from requests import post, get
+from requests import post, get, Session
+from requests.adapters import HTTPAdapter, Retry
 
-from ..config import Config
+from ferdelance.client.config import Config
 
 import logging
 import json
@@ -55,7 +56,13 @@ class RouteService:
             version=version,
         )
 
-        res = post(
+        s = Session()
+
+        retries = Retry(total=5, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+
+        s.mount('http://', HTTPAdapter(max_retries=retries))
+
+        res = s.post(
             f'{self.config.server}/client/join',
             data=json.dumps(join_data.dict())
         )

@@ -1,4 +1,4 @@
-from ferdelance.config import STORAGE_ARTIFACTS
+from ferdelance.config import conf
 from ferdelance.server.api import api
 
 from ferdelance.shared.artifacts import (
@@ -285,7 +285,7 @@ class TestWorkbenchClass:
             assert downloaded_artifact.dataset.queries[0].datasource_id == datasource_id
             assert len(downloaded_artifact.dataset.queries[0].features) == 2
 
-            shutil.rmtree(os.path.join(STORAGE_ARTIFACTS, artifact_id))
+            shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
 
             with Session(self.engine) as session:
                 delete_job(session, client_id)

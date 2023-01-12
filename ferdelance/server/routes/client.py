@@ -25,19 +25,19 @@ from ..exceptions import (
     TaskDoesNotExists
 )
 
-from ferdelance.shared.artifacts import (
+from ...shared.artifacts import (
     MetaFeature,
     Metadata,
     MetaDataSource,
 )
-from ferdelance.shared.schemas import (
+from ...shared.schemas import (
     ClientJoinRequest,
     ClientJoinData,
     DownloadApp,
     UpdateExecute,
 )
-from ferdelance.shared.models import Metrics
-from ferdelance.shared.decode import decode_from_transfer
+from ...shared.models import Metrics
+from ...shared.decode import decode_from_transfer
 
 from fastapi import (
     APIRouter,
@@ -86,7 +86,8 @@ async def client_join(request: Request, data: ClientJoinRequest, session: AsyncS
 
             raise HTTPException(403, 'Invalid client data')
 
-        except NoResultFound:
+        except NoResultFound as e:
+            LOGGER.info('joining new client')
             # create new client
             client_token: ClientToken = await ts.generate_client_token(
                 data.system,

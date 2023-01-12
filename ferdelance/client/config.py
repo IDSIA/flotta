@@ -1,8 +1,7 @@
+from ferdelance import __version__
+from ferdelance.client.datasources import DataSourceFile, DataSourceDB
 from ferdelance.shared.artifacts import DataSource
 from ferdelance.shared.exchange import Exchange
-
-from .. import __version__
-from .datasources import DataSourceFile, DataSourceDB
 
 import logging
 import os

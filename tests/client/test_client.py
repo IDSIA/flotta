@@ -7,7 +7,7 @@ from ferdelance.database.tables import (
     Job,
 )
 from ferdelance.server.api import api
-from ferdelance.config import STORAGE_ARTIFACTS
+from ferdelance.config import conf
 
 from ferdelance.shared.actions import Action
 from ferdelance.shared.artifacts import (
@@ -579,7 +579,7 @@ class TestClientClass:
 
                 # cleanup
                 LOGGER.info('cleaning up')
-                shutil.rmtree(os.path.join(STORAGE_ARTIFACTS, artifact_status.artifact_id))
+                shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_status.artifact_id))
 
                 delete_job(session, job.client_id)
                 delete_artifact(session, artifact_status.artifact_id)

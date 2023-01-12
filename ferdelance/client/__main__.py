@@ -38,7 +38,7 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, main_signal_handler)
     signal.signal(signal.SIGTERM, main_signal_handler)
 
-    client.run()
+    exit_code = client.run()
 
-    LOGGER.info('terminate application')
-    sys.exit(0)
+    LOGGER.info(f'terminated application with exit_code={exit_code}')
+    sys.exit(exit_code)

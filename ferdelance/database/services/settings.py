@@ -1,8 +1,8 @@
 from .core import DBSessionService, AsyncSession
 from ..tables import Setting
+from ...config import conf
 
 from cryptography.fernet import Fernet
-from pytimeparse import parse
 from sqlalchemy import select, update
 
 import base64
@@ -15,8 +15,8 @@ KEY_USER_TOKEN_EXPIRATION = 'TOKEN_USER_EXPIRATION'
 
 async def setup_settings(session: AsyncSession) -> None:
 
-    CLIENT_TOKEN_EXPIRATION = os.environ.get(KEY_CLIENT_TOKEN_EXPIRATION, str(parse('90 day')))
-    USER_TOKEN_EXPIRATION = os.environ.get(KEY_USER_TOKEN_EXPIRATION, str(parse('30 day')))
+    CLIENT_TOKEN_EXPIRATION = conf.CLIENT_TOKEN_EXPIRATION
+    USER_TOKEN_EXPIRATION = conf.USER_TOKEN_EXPIRATION
 
     kvs = KeyValueStore(session)
     await kvs.put_str(KEY_CLIENT_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)
@@ -26,12 +26,12 @@ async def setup_settings(session: AsyncSession) -> None:
 
 
 def build_settings_cipher() -> Fernet:
-    smp: str | None = os.environ.get('SERVER_MAIN_PASSWORD')
+    server_main_password: str | None = conf.SERVER_MAIN_PASSWORD
 
-    assert smp is not None
+    assert server_main_password is not None
 
-    smp0 = smp[:32].encode('utf-8')
-    smp1 = smp[-32:].encode('utf-8')
+    smp0 = server_main_password[:32].encode('utf-8')
+    smp1 = server_main_password[-32:].encode('utf-8')
     smp2 = base64.b64encode(bytes(a ^ b for a, b in zip(smp0, smp1)))
 
     return Fernet(smp2)

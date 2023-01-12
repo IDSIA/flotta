@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 import uvicorn
 
+from ferdelance.config import conf
 from .routes.client import client_router
 from .routes.manager import manager_router
 from .routes.workbench import workbench_router
@@ -37,16 +38,16 @@ async def populate_database() -> None:
 
     inst = DataBase()
 
-    await inst.engine.connect()
+    async with inst.engine.connect() as _:
 
-    async with inst.engine.begin() as conn:
-        LOGGER.info('database creation started')
-        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
-        LOGGER.info('database creation completed')
+        async with inst.engine.begin() as conn:
+            LOGGER.info('database creation started')
+            await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+            LOGGER.info('database creation completed')
 
-    async with inst.async_session() as session:
-        ss = ServerStartup(session)
-        await ss.startup()
+        async with inst.async_session() as session:
+            ss = ServerStartup(session)
+            await ss.startup()
 
 
 @api.on_event('shutdown')
@@ -72,4 +73,4 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 if __name__ == '__main__':
-    uvicorn.run(api, host='localhost', port=1456)
+    uvicorn.run(api, host=conf.SERVER_INTERFACE, port=conf.SERVER_PORT)
