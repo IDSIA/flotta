@@ -28,3 +28,4 @@ logs/
 *workdir
 *.model
 data/
+*sqlite.db

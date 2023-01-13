@@ -9,29 +9,16 @@ from ferdelance.shared.schemas import (
     ClientJoinData,
 )
 
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
-
 from fastapi.testclient import TestClient
 
 from requests import Response
-from typing import Any
 
 import random
 import json
 import logging
-import os
 
 
 LOGGER = logging.getLogger(__name__)
-
-
-def setup_test_database() -> Engine:
-    """
-    :return:
-        The engine that can be used to connect to the database.
-    """
-    return create_engine(os.environ.get('DATABASE_URL', ''))
 
 
 def create_client(client: TestClient, exc: Exchange) -> str:

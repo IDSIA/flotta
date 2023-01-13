@@ -26,11 +26,6 @@ LOG = logging.getLogger(__name__)
 
 class TestEncodeDecode:
 
-    def setup_method(self):
-        LOG.info('setting up')
-
-        random.seed(42)
-
     def _random_string(self, length: int) -> str:
         return ''.join(random.choice(string.ascii_letters) for _ in range(length))
 
