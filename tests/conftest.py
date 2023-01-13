@@ -1,13 +1,17 @@
 from ferdelance.config import conf
-from ferdelance.database import Base
+from ferdelance.database import Base, DataBase
 from ferdelance.shared.exchange import Exchange
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from typing import AsyncGenerator
 
 import logging
 import os
 import pytest
+import pytest_asyncio
 
 
 LOGGER = logging.getLogger(__name__)
@@ -41,15 +45,28 @@ def connection():
         try:
             yield conn
         finally:
-            Base.metadata.drop_all(engine)
+            Base.metadata.drop_all(conn)
 
     os.remove(db_path)
 
 
 @pytest.fixture()
 def session(connection):
-    with Session(bind=connection) as session:
+    with Session(connection) as session:
         yield session
+
+
+@pytest_asyncio.fixture()
+async def async_session() -> AsyncGenerator[AsyncSession, None]:
+    inst = DataBase()
+
+    async with inst.engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        try:
+            async with inst.session() as session:
+                yield session
+        finally:
+            await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture()
