@@ -2,42 +2,18 @@ from ferdelance.database import DataBase, Base
 from ferdelance.database.tables import *
 from ferdelance.database.services import JobService
 from ferdelance.database.tables import Client, Artifact
-
 from ferdelance.shared.status import JobStatus
-
-from .utils import setup_test_database
+from ferdelance.shared.exchange import Exchange
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
 import pytest
-import random
 
 LOGGER = logging.getLogger(__name__)
 
 
 class TestJobsClass:
-
-    def setup_class(self):
-        """Class setup. This will be executed once each test. The setup will:
-        - Create the client.
-        - Create a new database on the remote server specified by `DB_HOST`, `DB_USER`, and `DB_PASS` (all env variables.).
-            The name of the database is randomly generated using UUID4, if not supplied via `DB_SCHEMA` env variable.
-            The database will be used as the server's database.
-        - Populate this database with the required tables.
-        - Generate and save to the database the servers' keys using the hardcoded `SERVER_MAIN_PASSWORD`.
-        - Generate the local public/private keys to simulate a client application.
-        """
-        LOGGER.info('setting up')
-
-        self.engine = setup_test_database()
-
-        random.seed(42)
-
-        self.server_key = None
-        self.token = None
-
-        LOGGER.info('setup completed')
 
     @pytest.mark.asyncio
     async def test_jobs_next(self):
