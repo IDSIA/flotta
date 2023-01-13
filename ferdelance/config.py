@@ -47,25 +47,36 @@ class Configuration(BaseModel):
     def server_url(self) -> str:
         return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
 
-    def db_connection_url(self) -> str:
+    def db_connection_url(self, sync: bool = False) -> str:
+        driver = ''
+
         if self.DB_MEMORY:
-            return 'sqlite+aiosqlite://'
+            if not sync:
+                driver = '+aiosqlite'
+
+            return f'sqlite{driver}://'
 
         dialect = self.DB_DIALECT.lower()
 
         assert self.DB_HOST is not None
 
         if dialect == 'sqlite':
+            if not sync:
+                driver = '+aiosqlite'
+
             # in this case host is an absolute path
-            return f'sqlite+aiosqlite://{self.DB_HOST}'
+            return f'sqlite{driver}:///{self.DB_HOST}'
 
         if dialect == 'postgresql':
             assert self.DB_USER is not None
             assert self.DB_PASS is not None
             assert self.DB_PORT is not None
 
+            if not sync:
+                driver = '+asyncpg'
+
             return str(URL.create(
-                'postgresql+asyncpg',
+                f'postgresql{driver}',
                 self.DB_USER,
                 self.DB_PASS,
                 self.DB_HOST,
@@ -83,7 +94,7 @@ LOGGING_CONFIG = {
     'disable_existing_loggers': True,
     'formatters': {
         'standard': {
-            'format': '%(asctime)s %(levelname)8s %(name)-48s:%(lineno)-3s %(message)s'
+            'format': '%(asctime)s %(levelname)8s %(name)32s:%(lineno)-3s %(message)s'
         }
     },
     'handlers': {
@@ -116,6 +127,11 @@ LOGGING_CONFIG = {
         },
         'uvicorn': {
             'handlers': ['console_critical', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'aiosqlite': {
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },

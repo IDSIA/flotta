@@ -1,4 +1,3 @@
-from ferdelance.workbench.context import Context
 from ferdelance.shared.artifacts import (
     Artifact,
     Dataset,
@@ -8,17 +7,14 @@ from ferdelance.shared.models import (
     StrategyRandomForestClassifier,
     ParametersRandomForestClassifier,
 )
+from ferdelance.workbench.context import Context
 
-from dotenv import load_dotenv
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 
 import pandas as pd
 
 import time
 import os
-
-
-load_dotenv()
 
 
 def evaluate(model: FederatedRandomForestClassifier, x, y):

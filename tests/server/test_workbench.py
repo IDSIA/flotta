@@ -1,6 +1,5 @@
 from ferdelance.config import conf
 from ferdelance.server.api import api
-
 from ferdelance.shared.artifacts import (
     Artifact,
     ArtifactStatus,
@@ -10,6 +9,8 @@ from ferdelance.shared.artifacts import (
     Query,
     QueryFeature,
 )
+from ferdelance.shared.exchange import Exchange
+from ferdelance.shared.models import Model
 from ferdelance.shared.schemas import (
     ClientDetails,
     WorkbenchJoinRequest,
@@ -17,25 +18,17 @@ from ferdelance.shared.schemas import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
 )
-from ferdelance.shared.models import Model
 from ferdelance.shared.status import ArtifactJobStatus
-from ferdelance.shared.exchange import Exchange
 
-from .utils import (
-    setup_test_database,
+from tests.utils import (
     create_client,
     get_metadata,
     send_metadata,
 )
-from .crud import (
+from tests.crud import (
     get_user_by_id,
     get_client_by_id,
-    delete_artifact,
-    delete_client,
     Session,
-    delete_datasource,
-    delete_job,
-    delete_user,
 )
 
 from fastapi.testclient import TestClient
@@ -54,17 +47,10 @@ LOGGER = logging.getLogger(__name__)
 class TestWorkbenchClass:
 
     def setup_class(self):
-        """Class setup. This will be executed once each test. The setup will:
-        - Create a new database on the remote server specified by `DB_HOST`, `DB_USER`, and `DB_PASS` (all env variables.).
-            The name of the database is randomly generated using UUID4, if not supplied via `DB_SCHEMA` env variable.
-            The database will be used as the server's database.
-        - Populate this database with the required tables.
-        - Generate and save to the database the servers' keys using the hardcoded `SERVER_MAIN_PASSWORD`.
-        - Generate the local public/private keys to simulate a client application.
+        """This method will create two Exchange object, one to simulate the client 
+        and one to simulate the workbench.
         """
         LOGGER.info('setting up')
-
-        self.engine = setup_test_database()
 
         # this is for client
         self.cl_exc = Exchange()
@@ -73,8 +59,6 @@ class TestWorkbenchClass:
         # this is for workbench
         self.wb_exc = Exchange()
         self.wb_exc.generate_key()
-
-        random.seed(42)
 
         LOGGER.info('setup completed')
 
@@ -106,28 +90,23 @@ class TestWorkbenchClass:
 
         return client_id, wjd.id
 
-    def test_workbench_connect(self):
+    def test_workbench_connect(self, session):
         with TestClient(api) as server:
             client_id, wb_id = self.connect(server)
 
             assert client_id is not None
             assert wb_id is not None
 
-            with Session(self.engine) as session:
-                uid = get_user_by_id(session, wb_id)
-                cid = get_client_by_id(session, client_id)
+            uid = get_user_by_id(session, wb_id)
+            cid = get_client_by_id(session, client_id)
 
-                assert uid is not None
-                assert cid is not None
-
-                delete_datasource(session, client_id=client_id)
-                delete_client(session, client_id)
-                delete_user(session, wb_id)
+            assert uid is not None
+            assert cid is not None
 
     def test_workbench_read_home(self):
         """Generic test to check if the home works."""
         with TestClient(api) as server:
-            client_id, wb_id = self.connect(server)
+            self.connect(server)
 
             res = server.get(
                 '/workbench',
@@ -137,14 +116,9 @@ class TestWorkbenchClass:
             assert res.status_code == 200
             assert res.content.decode('utf8') == '"Workbench 🔧"'
 
-            with Session(self.engine) as session:
-                delete_datasource(session, client_id=client_id)
-                delete_client(session, client_id)
-                delete_user(session, wb_id)
-
-    def test_workbench_list_client(self):
+    def test_workbench_list_client(self, session):
         with TestClient(api) as server:
-            client_id, wb_id = self.connect(server)
+            self.connect(server)
 
             res = server.get(
                 '/workbench/client/list',
@@ -161,14 +135,9 @@ class TestWorkbenchClass:
             assert 'WORKER' not in client_list
             assert 'WORKBENCH' not in client_list
 
-            with Session(self.engine) as session:
-                delete_datasource(session, client_id=client_id)
-                delete_client(session, client_id)
-                delete_user(session, wb_id)
-
-    def test_workbench_detail_client(self):
+    def test_workbench_detail_client(self, session):
         with TestClient(api) as server:
-            client_id, wb_id = self.connect(server)
+            client_id, _ = self.connect(server)
 
             res = server.get(
                 f'/workbench/client/{client_id}',
@@ -182,14 +151,9 @@ class TestWorkbenchClass:
             assert cd.client_id == client_id
             assert cd.version == 'test'
 
-            with Session(self.engine) as session:
-                delete_datasource(session, client_id=client_id)
-                delete_client(session, client_id)
-                delete_user(session, wb_id)
-
-    def test_workflow_submit(self):
+    def test_workflow_submit(self, session):
         with TestClient(api) as server:
-            client_id, wb_id = self.connect(server)
+            self.connect(server)
 
             res = server.get(
                 '/workbench/datasource/list',
@@ -286,10 +250,3 @@ class TestWorkbenchClass:
             assert len(downloaded_artifact.dataset.queries[0].features) == 2
 
             shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
-
-            with Session(self.engine) as session:
-                delete_job(session, client_id)
-                delete_artifact(session, downloaded_artifact.artifact_id)
-                delete_datasource(session, client_id=client_id)
-                delete_client(session, client_id)
-                delete_user(session, wb_id)
