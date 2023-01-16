@@ -1,13 +1,14 @@
 from __future__ import annotations
-from sqlalchemy.orm import registry, sessionmaker
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from typing import Any, AsyncGenerator
-import os
-import logging
+
 from ferdelance.config import conf
+
+from typing import Any, AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 from sqlalchemy.orm import sessionmaker, registry
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
+
+import logging
 
 
 LOGGER = logging.getLogger(__name__)
@@ -52,8 +53,11 @@ class DataBase:
 
         return cls.instance
 
+    def session(self) -> AsyncSession:
+        return self.async_session()
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     db = DataBase()
-    async with db.async_session() as session:
+    async with db.session() as session:
         yield session
