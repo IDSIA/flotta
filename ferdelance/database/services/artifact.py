@@ -42,7 +42,7 @@ class ArtifactService(DBSessionService):
 
         return get_view(db_artifact)
 
-    async def get_artifact(self, artifact_id: str) -> ArtifactDB | None:
+    async def get_artifact(self, artifact_id: str) -> ArtifactView | None:
         query = await self.session.execute(
             select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1)
         )
