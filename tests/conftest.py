@@ -1,17 +1,19 @@
-import logging
-import os
-import shutil
-from typing import AsyncGenerator
-
-import pytest
-import pytest_asyncio
-from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+from typing import AsyncGenerator, Generator
 
 from ferdelance.config import conf
 from ferdelance.database import Base, DataBase
 from ferdelance.shared.exchange import Exchange
+
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+
+import logging
+import os
+import pytest
+import pytest_asyncio
+import shutil
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,51 +34,44 @@ os.environ["PATH_PRIVATE_KEY"] = os.environ.get(
 )
 
 
-def create_dirs():
+def create_dirs() -> None:
     os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
     os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
     os.makedirs(conf.STORAGE_MODELS, exist_ok=True)
 
+    if os.path.exists(db_path):
+        os.remove(db_path)
 
-def delete_dirs():
+
+def delete_dirs() -> None:
     shutil.rmtree(conf.STORAGE_ARTIFACTS)
     shutil.rmtree(conf.STORAGE_CLIENTS)
     shutil.rmtree(conf.STORAGE_MODELS)
 
-
-def create_db():
-    if os.path.exists(db_path):
-        os.remove(db_path)
-    engine = create_engine(conf.db_connection_url(True))
-    return engine
-
-
-def delete_db(conn):
-    Base.metadata.drop_all(conn)
     os.remove(db_path)
 
 
 @pytest.fixture()
-def connection():
+def connection() -> Generator[Connection, None, None]:
     """This will be executed once each test and it will create a new database on a sqlite local file.
     The database will be used as the server's database and it will be populate this database with the required tables.
     """
 
     create_dirs()
 
-    engine = create_db()
+    engine = create_engine(conf.db_connection_url(True))
 
     with engine.connect() as conn:
         Base.metadata.create_all(conn, checkfirst=True)
         try:
             yield conn
         finally:
-            delete_db(conn)
+            Base.metadata.drop_all(conn)
             delete_dirs()
 
 
 @pytest.fixture()
-def session(connection):
+def session(connection: Connection) -> Generator[Session, None, None]:
     with Session(connection) as session:
         yield session
 
@@ -99,7 +94,7 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture()
-def exchange():
+def exchange() -> Exchange:
     exc = Exchange()
     exc.generate_key()
 

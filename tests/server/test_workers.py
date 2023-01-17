@@ -40,9 +40,9 @@ LOGGER = logging.getLogger(__name__)
 
 class TestWorkersClass:
 
-    def test_worker_endpoints(self, session, exchange: Exchange):
+    def test_worker_endpoints(self, session: Session, exchange: Exchange):
         with TestClient(api) as server:
-            client_id = create_client(server, exchange)
+            create_client(server, exchange)
 
             metadata: Metadata = get_metadata()
             upload_response: Response = send_metadata(server, exchange, metadata)

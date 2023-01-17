@@ -28,17 +28,15 @@ from tests.utils import (
 from tests.crud import (
     get_user_by_id,
     get_client_by_id,
-    Session,
 )
 
 from fastapi.testclient import TestClient
-
 from requests import Response
+from sqlalchemy.orm import Session
 
 import json
 import logging
 import os
-import random
 import shutil
 
 LOGGER = logging.getLogger(__name__)
@@ -47,7 +45,7 @@ LOGGER = logging.getLogger(__name__)
 class TestWorkbenchClass:
 
     def setup_class(self):
-        """This method will create two Exchange object, one to simulate the client 
+        """This method will create two Exchange object, one to simulate the client
         and one to simulate the workbench.
         """
         LOGGER.info('setting up')
@@ -90,7 +88,7 @@ class TestWorkbenchClass:
 
         return client_id, wjd.id
 
-    def test_workbench_connect(self, session):
+    def test_workbench_connect(self, session: Session):
         with TestClient(api) as server:
             client_id, wb_id = self.connect(server)
 
@@ -103,7 +101,7 @@ class TestWorkbenchClass:
             assert uid is not None
             assert cid is not None
 
-    def test_workbench_read_home(self):
+    def test_workbench_read_home(self, session: Session):
         """Generic test to check if the home works."""
         with TestClient(api) as server:
             self.connect(server)
@@ -116,7 +114,7 @@ class TestWorkbenchClass:
             assert res.status_code == 200
             assert res.content.decode('utf8') == '"Workbench 🔧"'
 
-    def test_workbench_list_client(self, session):
+    def test_workbench_list_client(self, session: Session):
         with TestClient(api) as server:
             self.connect(server)
 
@@ -135,7 +133,7 @@ class TestWorkbenchClass:
             assert 'WORKER' not in client_list
             assert 'WORKBENCH' not in client_list
 
-    def test_workbench_detail_client(self, session):
+    def test_workbench_detail_client(self, session: Session):
         with TestClient(api) as server:
             client_id, _ = self.connect(server)
 
@@ -151,7 +149,7 @@ class TestWorkbenchClass:
             assert cd.client_id == client_id
             assert cd.version == 'test'
 
-    def test_workflow_submit(self, session):
+    def test_workflow_submit(self, session: Session):
         with TestClient(api) as server:
             self.connect(server)
 

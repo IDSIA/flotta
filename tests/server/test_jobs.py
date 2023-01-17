@@ -4,7 +4,6 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ferdelance.database.services import JobService
-from ferdelance.database.tables import *
 from ferdelance.database.tables import Artifact, Client
 from ferdelance.shared.status import JobStatus
 
