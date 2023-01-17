@@ -1,8 +1,8 @@
 import pandas as pd
 
-from ....database import DataBase
-from ....database.services import ClientService
-from ....database.tables import Client
+from ...database import DataBase
+from ...database.schemas import Client
+from ...database.services import ClientService
 
 
 async def list_clients(**kwargs) -> pd.DataFrame:
@@ -28,9 +28,18 @@ async def list_clients(**kwargs) -> pd.DataFrame:
         return result
 
 
-async def describe_client(**kwargs) -> pd.DataFrame:
-    """Describe single client"""
-    client_id = kwargs.get("client_id", None)
+async def describe_client(client_id: str, **kwargs) -> Client:
+    """Describe single client by printing its db record.
+
+    Args:
+        client_id (str): Unique ID of the client
+
+    Raises:
+        ValueError: if no client id is provided
+
+    Returns:
+        Client: the Client object
+    """
 
     if client_id is None:
         raise ValueError("Provide a Client ID")

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Type
 
 
-def command_not_implemented():
+async def command_not_implemented():
     raise NotImplementedError("This command has not been implemented.")
 
 
@@ -87,16 +87,14 @@ class CLIParser:
                     )
         self.suites.append(command_suite)
 
-    def parse_args(
-        self,
-    ) -> None:
+    def parse_args(self, command_line_args: List[str] = None) -> None:
         """Parse command line arguments with argparse and identify which action has to be performed with which arguments
 
         Raises:
             ValueError: If the entity is not among the ones supported by added suites
             ValueError: If the command is not among supported commands of the entity selected suite
         """
-        args: Namespace = self.parser.parse_args()
+        args: Namespace = self.parser.parse_args(command_line_args)
 
         selected_suite: CLICommandSuite = next(
             filter(lambda s: s.entity == args.entity, self.suites), None

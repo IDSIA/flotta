@@ -3,9 +3,9 @@
 
 import pandas as pd
 
-from ....database import DataBase
-from ....database.services import ArtifactService
-from ....database.tables import Artifact
+from ...database import DataBase
+from ...database.schemas import Artifact
+from ...database.services import ArtifactService
 
 
 async def get_artifacts_list(**kwargs) -> pd.DataFrame:
@@ -26,13 +26,11 @@ async def get_artifacts_list(**kwargs) -> pd.DataFrame:
         return result
 
 
-async def get_artifact_description(**kwargs) -> pd.DataFrame:
+async def get_artifact_description(artifact_id: str = None) -> Artifact:
     """Print artifacts list"""
 
-    artifact_id = kwargs.get("artifact_id", None)
-
     if artifact_id is None:
-        raise ValueError(f"artifact_id is None, must have a value")
+        raise ValueError("artifact_id is None, must have a value")
 
     db = DataBase()
     async with db.async_session() as session:
@@ -46,6 +44,6 @@ async def get_artifact_description(**kwargs) -> pd.DataFrame:
         if artifact is None:
             print(f"No artifact found with id {artifact_id}")
         else:
-            print(artifact.dict())
+            print(pd.Series(artifact.dict()))
 
         return artifact

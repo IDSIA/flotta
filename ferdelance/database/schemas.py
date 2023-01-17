@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -24,3 +27,29 @@ class User(BaseModel):
     public_key: str
     active: bool
     left: bool
+
+
+class Job(BaseModel):
+    job_id: str
+    artifact_id: str
+    client_id: str
+    status: str
+    creation_time: datetime
+    execution_time: Optional[datetime]
+    termination_time: Optional[datetime]
+
+
+class Artifact(BaseModel):
+    artifact_id: str
+    creation_time: datetime
+    path: str
+    status: str
+
+
+class Model(BaseModel):
+    model_id: str
+    creation_time: datetime
+    path: str
+    aggregated: bool
+    artifact_id: str
+    client_id: str

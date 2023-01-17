@@ -14,6 +14,7 @@ __pycache__
 
 *env
 .vscode/
+.idea
 
 *.tsv
 *.csv
