@@ -10,9 +10,10 @@ This is related to manage projects, users, clients, etc. As an example:
     - regenerate server ssh key
 """
 import asyncio
+from typing import List
 
 from .artifacts import artifacts_cli_suite
-from .base import CLIParser
+from .base import CLICommandSuite, CLIParser
 from .clients import clients_cli_suite
 from .jobs import jobs_cli_suite
 from .models import models_cli_suite
@@ -21,14 +22,19 @@ from .models import models_cli_suite
 async def main() -> None:
     """Execute CLI command"""
     parser: CLIParser = CLIParser(
-        prog="Ferdelance Admin CLI",
-        description="Command Line Interface to administrate the server",
+        prog="Ferdelance CLI",
+        description="Command Line Interface to administrate client/server",
     )
 
-    parser.add_command_suite(models_cli_suite)
-    parser.add_command_suite(artifacts_cli_suite)
-    parser.add_command_suite(jobs_cli_suite)
-    parser.add_command_suite(clients_cli_suite)
+    suites: List[CLICommandSuite] = [
+        models_cli_suite,
+        artifacts_cli_suite,
+        jobs_cli_suite,
+        clients_cli_suite,
+    ]
+
+    for suite in suites:
+        parser.add_command_suite(suite)
 
     parser.parse_args()
 

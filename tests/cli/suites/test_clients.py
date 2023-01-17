@@ -1,9 +1,9 @@
 import pandas as pd
 import pytest
 
+from ferdelance.cli.clients.functions import describe_client, list_clients
 from ferdelance.database import AsyncSession
 from ferdelance.database.tables import Client
-from ferdelance.server.cli.clients.functions import list_clients
 
 
 @pytest.mark.asyncio
@@ -41,4 +41,25 @@ async def test_list_clients(async_session: AsyncSession):
 
     assert len(res) == 2
 
-    assert False
+
+@pytest.mark.asyncio
+async def test_describe_client(async_session: AsyncSession):
+    async_session.add(
+        Client(
+            client_id="C1",
+            version="test",
+            public_key="1",
+            machine_system="1",
+            machine_mac_address="1",
+            machine_node="1",
+            ip_address="1",
+            type="CLIENT",
+        )
+    )
+
+    await async_session.commit()
+
+    res = await describe_client(client_id="C1")
+
+    assert res.client_id == "C1"
+    assert res.version == "test"
