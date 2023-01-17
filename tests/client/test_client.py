@@ -1,3 +1,5 @@
+from typing import Any
+
 from ferdelance.config import conf
 from ferdelance.database.tables import (
     Client,
@@ -47,7 +49,7 @@ from fastapi.testclient import TestClient
 
 from requests import Response
 from sqlalchemy import select, update, func
-from typing import Any
+from sqlalchemy.orm import Session
 
 import json
 import logging
@@ -87,7 +89,7 @@ class TestClientClass:
             assert response.status_code == 200
             assert response.content.decode('utf8') == '"Hi! 😀"'
 
-    def test_client_connect_successful(self, session, exchange: Exchange):
+    def test_client_connect_successful(self, session: Session, exchange: Exchange):
         """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
         - operative system
         - mac address
@@ -120,7 +122,7 @@ class TestClientClass:
             assert len(db_events) == 1
             assert db_events[0] == 'creation'
 
-    def test_client_already_exists(self, session, exchange: Exchange):
+    def test_client_already_exists(self, session: Session, exchange: Exchange):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
 
         with TestClient(api) as client:
@@ -146,7 +148,7 @@ class TestClientClass:
             assert response.status_code == 403
             assert response.json()['detail'] == 'Invalid client data'
 
-    def test_client_update(self, session, exchange: Exchange):
+    def test_client_update(self, session: Session, exchange: Exchange):
         """This will test the endpoint for updates."""
 
         with TestClient(api) as client:
@@ -164,7 +166,7 @@ class TestClientClass:
             assert 'update' in db_events
             assert f'action:{Action.DO_NOTHING.name}' in db_events
 
-    def test_client_leave(self, session, exchange: Exchange):
+    def test_client_leave(self, session: Session, exchange: Exchange):
         """This will test the endpoint for leave a client."""
         with TestClient(api) as client:
             client_id = create_client(client, exchange)
@@ -195,7 +197,7 @@ class TestClientClass:
             assert 'left' in db_events
             assert 'update' not in db_events
 
-    def test_client_update_token(self, session, exchange: Exchange):
+    def test_client_update_token(self, session: Session, exchange: Exchange):
         """This will test the failure and update of a token."""
         with TestClient(api) as client:
             client_id = create_client(client, exchange)
@@ -244,7 +246,7 @@ class TestClientClass:
             assert Action[action] == Action.DO_NOTHING
             assert len(data) == 1
 
-    def test_client_update_app(self, session, exchange: Exchange):
+    def test_client_update_app(self, session: Session, exchange: Exchange):
         """This will test the upload of a new (fake) app, and the update process."""
         with TestClient(api) as client:
             client_id = create_client(client, exchange)
@@ -350,7 +352,7 @@ class TestClientClass:
             if os.path.exists(path_fake_app):
                 os.remove(path_fake_app)
 
-    def test_update_metadata(self, session, exchange: Exchange):
+    def test_update_metadata(self, session: Session, exchange: Exchange):
         with TestClient(api) as client:
             client_id = create_client(client, exchange)
 
@@ -382,7 +384,7 @@ class TestClientClass:
             assert ds_fs[0].name == ds_features[0].name
             assert ds_fs[1].name == ds_features[1].name
 
-    def test_client_task_get(self, session, exchange: Exchange):
+    def test_client_task_get(self, session: Session, exchange: Exchange):
         with TestClient(api) as server:
             client_id = create_client(server, exchange)
 
