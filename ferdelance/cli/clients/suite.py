@@ -2,7 +2,7 @@
 """
 
 from ..base import CLIArgs, CLICommand, CLICommandSuite
-from .functions import describe_client, list_clients
+from .functions import delete_client, describe_client, list_clients
 
 #
 #   COMMANDS
@@ -24,6 +24,10 @@ descr_command: CLICommand = CLICommand(
     function=describe_client,
 )
 
+rm_command: CLICommand = CLICommand(
+    command="rm", arguments=[CLIArgs.CLIENT_ID], function=delete_client
+)
+
 #
 #   SUITE
 #
@@ -31,5 +35,5 @@ descr_command: CLICommand = CLICommand(
 
 clients_cli_suite: CLICommandSuite = CLICommandSuite(
     entity="clients",
-    commands=[list_command, descr_command],
+    commands=[list_command, descr_command, rm_command],
 )

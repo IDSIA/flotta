@@ -1,30 +1,30 @@
 # %%
-from ferdelance.workbench.context import Context
+import json
+
+import numpy as np
+
 from ferdelance.shared.artifacts import (
     Artifact,
     ArtifactStatus,
     Dataset,
-    Query,
     DataSource,
+    Query,
 )
 from ferdelance.shared.models import (
     FederatedRandomForestClassifier,
-    StrategyRandomForestClassifier,
     ParametersRandomForestClassifier,
+    StrategyRandomForestClassifier,
 )
-
-import numpy as np
-
-import json
+from ferdelance.workbench.context import Context
 
 # %% create the context
-ctx = Context('http://ferdelance.artemis.idsia.ch')
+ctx = Context("http://localhost:1456")
 
 # %% ask the context for available client
 for c in ctx.list_clients():
     dc = ctx.detail_client(c)
     print(dc.client_id)
-    print('- client version:', dc.version)
+    print("- client version:", dc.version)
 
 # %% ask the context for available metadata
 data_sources_id: list[str] = ctx.list_datasources()
@@ -34,7 +34,7 @@ ds: DataSource | None = None
 for ds_id in data_sources_id:
     ds = ctx.datasource_by_id(ds_id)
 
-    if ds.name == 'iris':
+    if ds.name == "iris":
         break
 
 assert ds is not None
@@ -50,13 +50,13 @@ for feature in q.features:
 
 
 # # add filters
-q = q[ds['variety'] < 2]
+q = q[ds["variety"] < 2]
 
 # %% create dataset
 d = Dataset(
     test_percentage=0.2,
     val_percentage=0.1,
-    label='variety',
+    label="variety",
 )
 d.add_query(q)
 
@@ -64,7 +64,7 @@ d.add_query(q)
 
 m = FederatedRandomForestClassifier(
     strategy=StrategyRandomForestClassifier.MERGE,
-    parameters=ParametersRandomForestClassifier(n_estimators=10)
+    parameters=ParametersRandomForestClassifier(n_estimators=10),
 )
 
 # %% create an artifact and deploy query, model, and strategy
