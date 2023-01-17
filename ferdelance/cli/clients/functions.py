@@ -57,3 +57,7 @@ async def describe_client(client_id: str, **kwargs) -> Client:
             print(pd.Series(client.dict()))
 
         return client
+
+
+async def delete_client(client_id: str = None):
+    print("7")

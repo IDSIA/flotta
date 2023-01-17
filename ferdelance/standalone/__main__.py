@@ -19,6 +19,7 @@ if __name__ == "__main__":
     conf.DB_DIALECT = "sqlite"
     # conf.DB_MEMORY = True
     conf.SERVER_INTERFACE = "0.0.0.0"
+    conf.STANDALONE_WORKERS = 7
 
     aggregation_queue = Queue()
 
