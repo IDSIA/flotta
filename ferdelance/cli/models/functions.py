@@ -1,36 +1,33 @@
 """Implementation of the CLI features regarding models
 """
 
+from typing import List
+
 import pandas as pd
 
 from ...database import DataBase
 from ...database.schemas import Model
 from ...database.services import ModelService
+from ..visualization import show_many, show_one
 
 
-async def models_list(artifact_id: str = None) -> pd.DataFrame:
+async def list_models(artifact_id: str = None) -> List[Model]:
     """Print model list, with or without filters on ARTIFACT_ID, MODEL_ID"""
     # TODO depending on 1:1, 1:n relations with artifacts arguments change or disappear
 
     db = DataBase()
     async with db.async_session() as session:
 
-        ms = ModelService(session)
+        model_service = ModelService(session)
 
         if artifact_id is not None:
-            model_sessions: list[Model] = await ms.get_models_by_artifact_id(
-                artifact_id
-            )
+            models: list[Model] = await model_service.get_models_by_artifact_id(artifact_id)
         else:
-            model_sessions: list[Model] = await ms.get_model_list()
+            models: list[Model] = await model_service.get_model_list()
 
-        model_list = [m.dict() for m in model_sessions]
+        show_many(models)
 
-        result: pd.DataFrame = pd.DataFrame(model_list)
-
-        print(result)
-
-        return result
+        return models
 
 
 async def describe_model(model_id: str = None) -> Model:
@@ -52,13 +49,13 @@ async def describe_model(model_id: str = None) -> Model:
     db = DataBase()
     async with db.async_session() as session:
 
-        ms = ModelService(session)
+        model_service = ModelService(session)
 
-        model: Model | None = await ms.get_model_by_id(model_id)
+        model: Model | None = await model_service.get_model_by_id(model_id)
 
         if model is None:
             print(f"No model found with id {model_id}")
         else:
-            print(pd.Series(model.dict()))
+            show_one(model)
 
         return model

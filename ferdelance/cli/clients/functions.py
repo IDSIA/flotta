@@ -1,34 +1,28 @@
+from typing import List
+
 import pandas as pd
 
 from ...database import DataBase
 from ...database.schemas import Client
 from ...database.services import ClientService
+from ..visualization import show_many, show_one
 
 
-async def list_clients(**kwargs) -> pd.DataFrame:
-    """Print Client list, with or without filters on client_ID, client_id"""
-    client_id = kwargs.get("client_id", None)
+async def list_clients() -> List[Client]:
+    """Print and return Client objects list
 
+    Returns:
+        List[Client]: List of Client objects
+    """
     db = DataBase()
     async with db.async_session() as session:
-
-        cs = ClientService(session)
-
-        if client_id is not None:
-            clients_session: list[Client] = [await cs.get_client_by_id(client_id)]
-        else:
-            clients_session: list[Client] = await cs.get_client_list()
-
-        clients_list = [c.dict() for c in clients_session]
-
-        result: pd.DataFrame = pd.DataFrame(clients_list)
-
-        print(result)
-
-        return result
+        client_service = ClientService(session)
+        clients: List[Client] = await client_service.get_client_list()
+        show_many(result=clients)
+        return clients
 
 
-async def describe_client(client_id: str, **kwargs) -> Client:
+async def describe_client(client_id: str) -> Client:
     """Describe single client by printing its db record.
 
     Args:
@@ -47,17 +41,13 @@ async def describe_client(client_id: str, **kwargs) -> Client:
     db = DataBase()
     async with db.async_session() as session:
 
-        cs = ClientService(session)
+        client_service = ClientService(session)
 
-        client: Client | None = await cs.get_client_by_id(client_id)
+        client: Client | None = await client_service.get_client_by_id(client_id)
 
         if client is None:
             print(f"No client found with id {client_id}")
         else:
-            print(pd.Series(client.dict()))
+            show_one(client)
 
         return client
-
-
-async def delete_client(client_id: str = None):
-    print("7")

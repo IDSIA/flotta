@@ -1,49 +1,51 @@
 """Implementation of the CLI features regarding artifacts
 """
 
+from typing import List
+
 import pandas as pd
 
 from ...database import DataBase
 from ...database.schemas import Artifact
 from ...database.services import ArtifactService
+from ..visualization import show_many, show_one
 
 
-async def get_artifacts_list(**kwargs) -> pd.DataFrame:
-    """Print artifacts list"""
+async def list_artifacts() -> List[Artifact]:
+    """Print and Return Artifact objects list
+
+    Returns:
+        List[Artifact]: List of Artifact objects
+    """
     db = DataBase()
     async with db.async_session() as session:
-
         artifact_service: ArtifactService = ArtifactService(session)
-
-        artifacts: list[Artifact] = await artifact_service.get_artifact_list()
-
-        artifact_list = [a.dict() for a in artifacts]
-
-        result: pd.DataFrame = pd.DataFrame(artifact_list)
-
-        print(result)
-
-        return result
+        artifacts: List[Artifact] = await artifact_service.get_artifact_list()
+        show_many(artifacts)
+        return artifacts
 
 
-async def get_artifact_description(artifact_id: str = None) -> Artifact:
-    """Print artifacts list"""
+async def describe_artifact(artifact_id: str) -> Artifact:
+    """Print and return a single Artifact object
 
+    Args:
+        artifact_id (str, optional): Which artifact to describe.
+
+    Raises:
+        ValueError: if no artifact id is provided
+
+    Returns:
+        Artifact: The Artifact object
+    """
     if artifact_id is None:
-        raise ValueError("artifact_id is None, must have a value")
+        raise ValueError("Provide an Artifact ID")
 
     db = DataBase()
     async with db.async_session() as session:
-
         artifact_service: ArtifactService = ArtifactService(session)
-
-        artifact: Artifact | None = await artifact_service.get_artifact(
-            artifact_id=artifact_id
-        )
-
+        artifact: Artifact | None = await artifact_service.get_artifact(artifact_id=artifact_id)
         if artifact is None:
             print(f"No artifact found with id {artifact_id}")
         else:
-            print(pd.Series(artifact.dict()))
-
+            show_one(artifact)
         return artifact
