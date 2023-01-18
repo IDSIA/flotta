@@ -1,7 +1,7 @@
 """Artifacts CLI suite
 """
 
-from ..base import CLIArgs, CLICommand, CLICommandSuite
+from ...base import CLIArgs, CLICommand, CLICommandSuite
 from .functions import describe_artifact, list_artifacts
 
 #
@@ -10,9 +10,7 @@ from .functions import describe_artifact, list_artifacts
 
 ls_command: CLICommand = CLICommand(command="ls", arguments=[], function=list_artifacts)
 
-descr_command: CLICommand = CLICommand(
-    command="descr", arguments=[CLIArgs.ARTIFACT_ID], function=describe_artifact
-)
+descr_command: CLICommand = CLICommand(command="descr", arguments=[CLIArgs.ARTIFACT_ID], function=describe_artifact)
 
 #
 #   SUITE

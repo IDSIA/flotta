@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ferdelance.cli.models.functions import describe_model, list_models
+from ferdelance.cli.suites.models.functions import describe_model, list_models
 from ferdelance.database.tables import Artifact, Client, Model
 
 

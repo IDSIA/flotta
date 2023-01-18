@@ -1,7 +1,7 @@
 """Models CLI suite
 """
 
-from ..base import CLIArgs, CLICommand, CLICommandSuite
+from ...base import CLIArgs, CLICommand, CLICommandSuite
 from .functions import list_models
 
 #

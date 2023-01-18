@@ -5,10 +5,10 @@ from typing import List
 
 import pandas as pd
 
-from ...database import DataBase
-from ...database.schemas import Artifact
-from ...database.services import ArtifactService
-from ..visualization import show_many, show_one
+from ....database import DataBase
+from ....database.schemas import Artifact
+from ....database.services import ArtifactService
+from ...visualization import show_many, show_one
 
 
 async def list_artifacts() -> List[Artifact]:

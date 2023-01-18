@@ -1,7 +1,7 @@
 """Clients CLI suite
 """
 
-from ..base import CLIArgs, CLICommand, CLICommandSuite
+from ...base import CLIArgs, CLICommand, CLICommandSuite
 from .functions import describe_client, list_clients
 
 #

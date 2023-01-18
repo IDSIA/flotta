@@ -12,11 +12,8 @@ This is related to manage projects, users, clients, etc. As an example:
 import asyncio
 from typing import List
 
-from .artifacts import artifacts_cli_suite
 from .base import CLICommandSuite, CLIParser
-from .clients import clients_cli_suite
-from .jobs import jobs_cli_suite
-from .models import models_cli_suite
+from .suites import artifacts_cli_suite, clients_cli_suite, jobs_cli_suite, models_cli_suite
 
 
 async def main() -> None:

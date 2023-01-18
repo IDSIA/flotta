@@ -2,10 +2,10 @@ from typing import List
 
 import pandas as pd
 
-from ...database import DataBase
-from ...database.schemas import Job
-from ...database.services import JobService
-from ..visualization import show_many
+from ....database import DataBase
+from ....database.schemas import Job
+from ....database.services import JobService
+from ...visualization import show_many
 
 
 async def list_jobs(artifact_id: str = None, client_id: str = None) -> List[Job]:

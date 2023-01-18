@@ -2,10 +2,10 @@ from typing import List
 
 import pandas as pd
 
-from ...database import DataBase
-from ...database.schemas import Client
-from ...database.services import ClientService
-from ..visualization import show_many, show_one
+from ....database import DataBase
+from ....database.schemas import Client
+from ....database.services import ClientService
+from ...visualization import show_many, show_one
 
 
 async def list_clients() -> List[Client]:

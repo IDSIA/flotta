@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from ferdelance.cli.jobs.functions import list_jobs
+from ferdelance.cli.suites.jobs.functions import list_jobs
 from ferdelance.database import AsyncSession
 from ferdelance.database.tables import Artifact, Client, Job
 

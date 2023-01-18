@@ -1,8 +1,7 @@
-import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ferdelance.cli.artifacts.functions import describe_artifact, list_artifacts
+from ferdelance.cli.suites.artifacts.functions import describe_artifact, list_artifacts
 from ferdelance.database.tables import Artifact
 
 

@@ -5,10 +5,10 @@ from typing import List
 
 import pandas as pd
 
-from ...database import DataBase
-from ...database.schemas import Model
-from ...database.services import ModelService
-from ..visualization import show_many, show_one
+from ....database import DataBase
+from ....database.schemas import Model
+from ....database.services import ModelService
+from ...visualization import show_many, show_one
 
 
 async def list_models(artifact_id: str = None) -> List[Model]:
