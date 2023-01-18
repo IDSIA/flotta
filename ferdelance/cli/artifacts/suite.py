@@ -2,21 +2,17 @@
 """
 
 from ..base import CLIArgs, CLICommand, CLICommandSuite
-from .functions import get_artifact_description, get_artifacts_list
+from .functions import describe_artifact, list_artifacts
 
 #
 #   COMMANDS
 #
 
-list_command: CLICommand = CLICommand(
-    command="ls", arguments=[], function=get_artifacts_list
-)
+ls_command: CLICommand = CLICommand(command="ls", arguments=[], function=list_artifacts)
 
-describe_command: CLICommand = CLICommand(
-    command="descr", arguments=[CLIArgs.ARTIFACT_ID], function=get_artifact_description
+descr_command: CLICommand = CLICommand(
+    command="descr", arguments=[CLIArgs.ARTIFACT_ID], function=describe_artifact
 )
-
-remove_command: CLICommand = CLICommand(command="rm", arguments=[CLIArgs.ARTIFACT_ID])
 
 #
 #   SUITE
@@ -25,5 +21,5 @@ remove_command: CLICommand = CLICommand(command="rm", arguments=[CLIArgs.ARTIFAC
 
 artifacts_cli_suite: CLICommandSuite = CLICommandSuite(
     entity="artifacts",
-    commands=[list_command, describe_command],
+    commands=[ls_command, descr_command],
 )

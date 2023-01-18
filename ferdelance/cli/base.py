@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Type
 
 
-async def command_not_implemented():
+async def function_not_implemented():
     raise NotImplementedError("This command has not been implemented.")
 
 
@@ -33,7 +33,7 @@ class CLICommand:
 
     command: str
     arguments: List[CLIArgument]
-    function: Callable = command_not_implemented
+    function: Callable = function_not_implemented
 
 
 @dataclass
