@@ -1,11 +1,7 @@
-import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ferdelance.cli.artifacts.functions import (
-    get_artifact_description,
-    get_artifacts_list,
-)
+from ferdelance.cli.suites.artifacts.functions import describe_artifact, list_artifacts
 from ferdelance.database.tables import Artifact
 
 
@@ -31,7 +27,7 @@ async def test_artifacts_ls(async_session: AsyncSession):
 
     await async_session.commit()
 
-    res: pd.DataFrame = await get_artifacts_list()
+    res = await list_artifacts()
 
     assert len(res) == 2
 
@@ -58,16 +54,16 @@ async def test_artifacts_description(async_session: AsyncSession):
 
     await async_session.commit()
 
-    res: Artifact = await get_artifact_description(artifact_id=artifact_id_1)
+    res: Artifact = await describe_artifact(artifact_id=artifact_id_1)
 
     assert res.artifact_id == "artifact1"
     assert res.path == "."
     assert res.status == ""
 
     with pytest.raises(ValueError) as e:
-        res = await get_artifact_description()
-    assert "artifact_id is None, must have a value" in str(e)
+        res = await describe_artifact(artifact_id=None)
+    assert "Provide an Artifact ID" in str(e)
 
-    res = await get_artifact_description(artifact_id="do_not_exist")
+    res = await describe_artifact(artifact_id="do_not_exist")
 
     assert res is None

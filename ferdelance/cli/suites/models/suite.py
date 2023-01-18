@@ -1,8 +1,8 @@
 """Models CLI suite
 """
 
-from ..base import CLIArgs, CLICommand, CLICommandSuite
-from .functions import models_list
+from ...base import CLIArgs, CLICommand, CLICommandSuite
+from .functions import list_models
 
 #
 #   COMMANDS
@@ -11,7 +11,7 @@ from .functions import models_list
 list_command: CLICommand = CLICommand(
     command="ls",
     arguments=[CLIArgs.ARTIFACT_ID, CLIArgs.MODEL_ID],
-    function=models_list,
+    function=list_models,
 )
 
 #

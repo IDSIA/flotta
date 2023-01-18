@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from ferdelance.cli.clients.functions import describe_client, list_clients
+from ferdelance.cli.suites.clients.functions import describe_client, list_clients
 from ferdelance.database import AsyncSession
 from ferdelance.database.tables import Client
 

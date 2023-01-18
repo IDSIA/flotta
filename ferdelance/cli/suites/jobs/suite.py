@@ -1,8 +1,8 @@
 """Jobs CLI suite
 """
 
-from ..base import CLIArgs, CLICommand, CLICommandSuite
-from .functions import get_jobs_list
+from ...base import CLIArgs, CLICommand, CLICommandSuite
+from .functions import list_jobs
 
 #
 #   COMMANDS
@@ -11,7 +11,7 @@ from .functions import get_jobs_list
 list_command: CLICommand = CLICommand(
     command="ls",
     arguments=[CLIArgs.ARTIFACT_ID, CLIArgs.CLIENT_ID],
-    function=get_jobs_list,
+    function=list_jobs,
 )
 
 #

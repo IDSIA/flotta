@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from ferdelance.cli.jobs.functions import get_jobs_list
+from ferdelance.cli.suites.jobs.functions import list_jobs
 from ferdelance.database import AsyncSession
 from ferdelance.database.tables import Artifact, Client, Job
 
@@ -28,18 +28,18 @@ async def test_jobs_list(async_session: AsyncSession):
 
     await async_session.commit()
 
-    res: pd.DataFrame = await get_jobs_list()
+    res: pd.DataFrame = await list_jobs()
 
     assert len(res) == 1
 
-    res: pd.DataFrame = await get_jobs_list(artifact_id="A1")
+    res: pd.DataFrame = await list_jobs(artifact_id="A1")
 
     assert len(res) == 1
 
-    res: pd.DataFrame = await get_jobs_list(client_id="C1")
+    res: pd.DataFrame = await list_jobs(client_id="C1")
 
     assert len(res) == 1
 
-    res: pd.DataFrame = await get_jobs_list(client_id="C7")
+    res: pd.DataFrame = await list_jobs(client_id="C7")
 
     assert len(res) == 0
