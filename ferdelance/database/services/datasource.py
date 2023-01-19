@@ -1,5 +1,5 @@
 from ferdelance.database.tables import DataSource, Feature
-from ferdelance.database.services.component import view, ComponentDB, ComponentView
+from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
 
@@ -60,9 +60,7 @@ class DataSourceService(DBSessionService):
                 ds_db.update_time = dt_now
 
                 # remove features assigned with this data source
-                x = await self.session.execute(
-                    select(Feature).where(Feature.datasource_id == ds_db.component_id)
-                )
+                x = await self.session.execute(select(Feature).where(Feature.datasource_id == ds_db.component_id))
 
                 features: list[Feature] = x.scalars().all()
 
@@ -97,7 +95,9 @@ class DataSourceService(DBSessionService):
 
         return ds_db
 
-    async def create_or_update_feature(self,ds: DataSource,f: MetaFeature,remove: bool = False,commit: bool = True) -> Feature:
+    async def create_or_update_feature(
+        self, ds: DataSource, f: MetaFeature, remove: bool = False, commit: bool = True
+    ) -> Feature:
         dt_now = datetime.now()
 
         res = await self.session.execute(
@@ -173,17 +173,11 @@ class DataSourceService(DBSessionService):
         return res.all()
 
     async def get_datasource_by_client_id(self, client_id: str) -> list[DataSource]:
-        res = await self.session.scalars(
-            select(DataSource)
-            .where(DataSource.component_id == client_id)
-        )
+        res = await self.session.scalars(select(DataSource).where(DataSource.component_id == client_id))
         return res.all()
 
     async def get_datasource_ids_by_client_id(self, client_id: str) -> list[str]:
-        res = await self.session.scalars(
-            select(DataSource.datasource_id)
-            .where(DataSource.component_id == client_id)
-        )
+        res = await self.session.scalars(select(DataSource.datasource_id).where(DataSource.component_id == client_id))
 
         return res.all()
 
@@ -198,13 +192,11 @@ class DataSourceService(DBSessionService):
 
     async def get_datasource_by_name(self, ds_name: str) -> list[DataSource]:
         res = await self.session.scalars(
-            select(DataSource).where(
-                DataSource.name == ds_name, DataSource.removed == False
-            )
+            select(DataSource).where(DataSource.name == ds_name, DataSource.removed == False)
         )
         return res.all()
 
-    async def get_client_by_datasource_id(self, ds_id: str) -> ComponentView:
+    async def get_client_by_datasource_id(self, ds_id: str) -> Client:
         res = await self.session.execute(
             select(ComponentDB)
             .join(DataSource, ComponentDB.component_id == DataSource.component_id)
@@ -213,7 +205,7 @@ class DataSourceService(DBSessionService):
                 DataSource.removed == False,
             )
         )
-        return view(res.scalar_one())
+        return viewClient(res.scalar_one())
 
     async def get_features_by_datasource(self, ds: DataSource) -> list[Feature]:
         res = await self.session.scalars(

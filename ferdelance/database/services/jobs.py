@@ -49,7 +49,9 @@ class JobService(DBSessionService):
         await self.session.commit()
         await self.session.refresh(job)
 
-        LOGGER.info(f"component_id={job.component_id}: started execution of job_id={job.job_id} artifact_id={job.artifact_id}")
+        LOGGER.info(
+            f"component_id={job.component_id}: started execution of job_id={job.job_id} artifact_id={job.artifact_id}"
+        )
 
         return view(job)
 
@@ -70,7 +72,9 @@ class JobService(DBSessionService):
             await self.session.commit()
             await self.session.refresh(job)
 
-            LOGGER.info(f"client_id={job.component_id}: completed execution of job_id={job.job_id} artifact_id={job.artifact_id}")
+            LOGGER.info(
+                f"client_id={job.component_id}: completed execution of job_id={job.job_id} artifact_id={job.artifact_id}"
+            )
 
             return view(job)
 
@@ -78,14 +82,10 @@ class JobService(DBSessionService):
             LOGGER.error(
                 f"Could not terminate a job that does not exists or has not started yet with artifact_id={artifact_id} client_id={client_id}"
             )
-            raise ValueError(
-                f"Job in status RUNNING not found for artifact_id={artifact_id} client_id={client_id}"
-            )
+            raise ValueError(f"Job in status RUNNING not found for artifact_id={artifact_id} client_id={client_id}")
 
         except MultipleResultsFound:
-            LOGGER.error(
-                f"Multiple jobs have been started for artifact_id={artifact_id} client_id={client_id}"
-            )
+            LOGGER.error(f"Multiple jobs have been started for artifact_id={artifact_id} client_id={client_id}")
             raise ValueError(
                 f"Multiple job in status RUNNING found for artifact_id={artifact_id} client_id={client_id}"
             )
@@ -110,9 +110,7 @@ class JobService(DBSessionService):
         return view(job)
 
     async def get_jobs_for_client(self, client_id: str) -> list[JobView]:
-        res = await self.session.scalars(
-            select(JobDB).where(JobDB.component_id == client_id)
-        )
+        res = await self.session.scalars(select(JobDB).where(JobDB.component_id == client_id))
         job_list = [view(j) for j in res.all()]
         return job_list
 
@@ -122,24 +120,18 @@ class JobService(DBSessionService):
         return job_list
 
     async def get_jobs_for_artifact(self, artifact_id: str) -> list[JobView]:
-        res = await self.session.scalars(
-            select(JobDB).where(JobDB.artifact_id == artifact_id)
-        )
+        res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
         job_list = [view(j) for j in res.all()]
         return job_list
 
     async def count_jobs_for_artifact(self, artifact_id: str) -> int:
         return await self.session.scalar(
-            select(func.count())
-            .select_from(JobDB)
-            .where(JobDB.artifact_id == artifact_id)
+            select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id)
         )
 
     async def count_jobs_by_status(self, artifact_id: str, status: JobStatus) -> int:
         return await self.session.scalar(
-            select(func.count())
-            .select_from(JobDB)
-            .where(JobDB.artifact_id == artifact_id, JobDB.status == status.name)
+            select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id, JobDB.status == status.name)
         )
 
     async def next_job_for_client(self, client_id: str) -> JobDB | None:

@@ -6,27 +6,34 @@ from pydantic import BaseModel
 
 class Component(BaseModel):
     component_id: str
+    type: str
+
+    public_key: str
+
+    active: bool
+    left: bool
+
+
+class Client(Component):
+    component_id: str
 
     version: str
-    public_key: str
 
     machine_system: str
     machine_mac_address: str
     machine_node: str
 
-    type: str
-
-    active: bool
     blacklisted: bool
-    left: bool
     ip_address: str
 
 
-class User(BaseModel):
-    user_id: str
-    public_key: str
-    active: bool
-    left: bool
+class Token(BaseModel):
+    token_id: int
+    component_id: str
+    token: str
+    creation_time: datetime
+    expiration_time: float
+    valid: bool
 
 
 class Job(BaseModel):

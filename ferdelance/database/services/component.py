@@ -1,25 +1,32 @@
-from ferdelance.database.schemas import Component as ComponentView, User
+from ferdelance.database.schemas import Component, Client, Token
 from ferdelance.database.tables import (
     Component as ComponentDB,
     Event,
-    Token,
+    Token as TokenDB,
     ComponentType,
 )
 from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.data import TYPE_CLIENT, TYPE_WORKBENCH
+from ferdelance.database.services.tokens import TokenService
+from ferdelance.database.data import TYPE_CLIENT
 
 from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
 
 import logging
 
 LOGGER = logging.getLogger(__name__)
 
 
-def view(component: ComponentDB) -> ComponentView:
-    return ComponentView(**component.__dict__)
+def view(component: ComponentDB) -> Component:
+    return Component(**component.__dict__)
 
-def viewUser(component: ComponentDB) -> User:
-    return User(**component.__dict__)
+
+def viewClient(component: ComponentDB) -> Client:
+    return Client(**component.__dict__)
+
+
+def viewToken(token: TokenDB) -> Token:
+    return Token(**token.__dict__)
 
 
 class ComponentService(DBSessionService):
@@ -28,36 +35,58 @@ class ComponentService(DBSessionService):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
+        self.ts: TokenService = TokenService(session)
+
     async def create_types(self, type_names: list[str]):
         dirty: bool = False
 
         for type_name in type_names:
-
-            res = await self.session.execute(
-                select(ComponentType).where(ComponentType.type == type_name).limit(1)
-            )
-
-            existing_type = res.scalar_one_or_none()
-            if existing_type is None:
+            try:
+                res = await self.session.execute(select(ComponentType).where(ComponentType.type == type_name).limit(1))
+                res.scalar_one()
+            except NoResultFound:
                 tn = ComponentType(type=type_name)
                 self.session.add(tn)
-                dirty =True
+                dirty = True
 
         if dirty:
             await self.session.commit()
 
     async def create_client(
         self,
-        client_id: str,
         version: str,
         public_key: str,
         machine_system: str,
         machine_mac_address: str,
         machine_node: str,
         ip_address: str,
-    ) -> ComponentView:
+    ) -> tuple[Client, Token]:
+        LOGGER.info(
+            f"creating new type={TYPE_CLIENT} version={version} mac_address={machine_mac_address} node={machine_node}"
+        )
+
+        res = await self.session.execute(
+            select(ComponentDB.component_id)
+            .where(
+                (ComponentDB.machine_mac_address == machine_mac_address) | (ComponentDB.machine_node == machine_node)
+            )
+            .limit(1)
+        )
+
+        existing_id: ComponentDB | None = res.scalar_one_or_none()
+
+        if existing_id is not None:
+            LOGGER.warning(f"A {TYPE_CLIENT} already exists with component_id={existing_id}")
+            raise ValueError("Client already exists")
+
+        token: TokenDB = await self.ts.generate_client_token(
+            system=machine_system,
+            mac_address=machine_mac_address,
+            node=machine_node,
+        )
+
         component = ComponentDB(
-            component_id=client_id,
+            component_id=token.component_id,
             version=version,
             public_key=public_key,
             machine_system=machine_system,
@@ -67,51 +96,41 @@ class ComponentService(DBSessionService):
             type=TYPE_CLIENT,
         )
 
-        LOGGER.info(
-            f"component_id={component.component_id}: creating new client version={component.version} mac_address={component.machine_mac_address} node={component.machine_node} type={component.type}"
-        )
-
-        res = await self.session.execute(
-            select(ComponentDB.component_id)
-            .where(
-                (ComponentDB.machine_mac_address == component.machine_mac_address)
-                | (ComponentDB.machine_node == component.machine_node)
-            )
-            .limit(1)
-        )
-        existing_client_id = res.scalar_one_or_none()
-        if existing_client_id is not None:
-            LOGGER.warning(f"client_id={existing_client_id}: client already exists")
-            raise ValueError("Client already exists")
-
         self.session.add(component)
+
+        await self.ts.create_token(token)
         await self.session.commit()
         await self.session.refresh(component)
 
-        return view(component)
+        return viewClient(component), viewToken(token)
 
-    async def create_user(self, user_id: str, public_key: str) -> User:
-        LOGGER.info(f"user_id={user_id}: creating new user")
+    async def create(self, type_name: str, public_key: str) -> tuple[Component, Token]:
+        LOGGER.info(f"creating new component type={type_name}")
 
         res = await self.session.execute(
-            select(User.user_id).where(User.public_key == public_key).limit(1)
+            select(ComponentDB.component_id).where(ComponentDB.public_key == public_key).limit(1)
         )
-        existing_user_id = res.scalar_one_or_none()
+        existing_user_id: ComponentDB | None = res.scalar_one_or_none()
 
         if existing_user_id is not None:
             LOGGER.warning(f"user_id={existing_user_id}: user already exists")
             raise ValueError("User already exists")
 
-        user = ComponentDB(
-            user_id=user_id,
+        token: TokenDB = await self.ts.generate_token()
+
+        component = ComponentDB(
+            component_id=token.component_id,
             public_key=public_key,
+            type=type_name,
         )
 
-        self.session.add(user)
-        await self.session.commit()
-        await self.session.refresh(user)
+        self.session.add(component)
 
-        return viewUser(user)
+        await self.ts.create_token(token)
+        await self.session.commit()
+        await self.session.refresh(component)
+
+        return view(component), viewToken(token)
 
     async def update_client(self, client_id: str, version: str = "") -> None:
         if not version:
@@ -128,7 +147,7 @@ class ComponentService(DBSessionService):
         LOGGER.info(f"client_id={client_id}: updated client version to {version}")
 
     async def client_leave(self, client_id: str) -> None:
-        await self.invalidate_all_tokens(client_id)
+        await self.invalidate_tokens(client_id)
 
         client: ComponentDB = await self.session.scalar(
             select(ComponentDB).where(ComponentDB.component_id == client_id)
@@ -138,97 +157,79 @@ class ComponentService(DBSessionService):
 
         await self.session.commit()
 
-    async def get_by_id(self, component_id: str) -> ComponentView:
-        res = await self.session.execute(
-            select(ComponentDB).where(ComponentDB.component_id == component_id)
-        )
+    async def get_by_id(self, component_id: str) -> Component:
+        """Can raise NoResultFound"""
+        res = await self.session.execute(select(ComponentDB).where(ComponentDB.component_id == component_id))
         return view(res.scalar_one())
 
-    async def get_by_key(self, public_key: str) -> ComponentView:
-        res = await self.session.execute(
-            select(ComponentDB).where(ComponentDB.public_key == public_key)
-        )
-        return view(res.scalar_one())
+    async def get_client_by_id(self, component_id: str) -> Client:
+        """Can raise NoResultFound"""
+        res = await self.session.execute(select(ComponentDB).where(ComponentDB.component_id == component_id))
+        return viewClient(res.scalar_one())
 
-    async def get_by_token(self, token: str) -> ComponentView:
+    async def get_by_key(self, public_key: str) -> Component:
+        """Can raise NoResultFound"""
+        res = await self.session.execute(select(ComponentDB).where(ComponentDB.public_key == public_key))
+
+        component: ComponentDB = res.scalar_one()
+
+        return view(component)
+
+    async def get_by_token(self, token: str) -> Component:
+        """Can raise NoResultFound"""
         res = await self.session.execute(
             select(ComponentDB)
-            .join(Token, ComponentDB.component_id == Token.token_id)
-            .where(Token.token == token)
+            .join(TokenDB, ComponentDB.component_id == TokenDB.token_id)
+            .where(TokenDB.token == token)
         )
-        return view(res.scalar_one())
 
-    async def list_components(self, component_type: str |None= None) -> list[ComponentView]:
+        component: ComponentDB = res.scalar_one()
 
-        stmt = select(ComponentDB)
-        if component_type is not None:
-            stmt = stmt.where(ComponentDB.type == component_type)
+        return view(component)
 
-        res = await self.session.scalars(stmt)
+    async def list_all(self) -> list[Component]:
+        res = await self.session.scalars(select(ComponentDB))
         return [view(c) for c in res.all()]
 
     async def list_clients(self):
-        return self.list(TYPE_CLIENT)
-
-    async def list_users(self):
-        return self.list(TYPE_WORKBENCH)
-
-    async def create_token(self, token: Token) -> Token:
-        LOGGER.info(f"component_id={token.component_id}: creating new token")
-
-        res = await self.session.execute(
-            select(Token).where(Token.token == token.token)
-        )
-
-        existing_token: Token | None = res.scalar_one_or_none()
-
-        if existing_token is not None:
-            LOGGER.warning(
-                f"component_id={existing_token.component_id}: a valid token already exists"
-            )
-            # TODO: check if we have more strong condition for this
-            return existing_token
-
-        self.session.add(token)
-        await self.session.commit()
-        await self.session.refresh(token)
-
-        return token
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type == TYPE_CLIENT))
+        return [viewClient(c) for c in res]
 
     async def invalidate_tokens(self, component_id: str) -> None:
-        res = await self.session.scalars(
-            select(Token).where(Token.component_id == component_id)
+        await self.ts.invalidate_tokens(component_id)
+
+    async def update_client_token(self, client: Client) -> Token:
+        token = await self.ts.update_client_token(
+            client.machine_system,
+            client.machine_mac_address,
+            client.machine_node,
+            client.component_id,
         )
-        tokens: list[Token] = res.all()
+        return viewToken(token)
 
-        for token in tokens:
-            token.valid = False
+    async def get_component_id_by_token(self, token_str: str) -> str:
+        res = await self.session.scalars(select(TokenDB).where(TokenDB.token == token_str))
+        token: TokenDB = res.one()
 
-        await self.session.commit()
+        return str(token.component_id)
 
-    async def get_component_id_by_token(self, token: str) -> str | None:
-        res = await self.session.scalars(select(Token).where(Token.token == token))
-        client_token: Token | None = res.one_or_none()
+    async def get_token_by_token(self, token: str) -> Token:
+        """Can raise NoResultFound"""
+        res = await self.session.execute(select(TokenDB).where(TokenDB.token == token))
+        return res.scalar_one()
 
-        if client_token is None:
-            return None
-
-        return str(client_token.component_id)
-
-    async def get_token_by_token(self, token: str) -> Token | None:
-        res = await self.session.execute(select(Token).where(Token.token == token))
-        return res.scalar_one_or_none()
-
-    async def get_token_by_component_id(self, client_id: str) -> Token | None:
+    async def get_token_by_component_id(self, client_id: str) -> Token:
+        """Can raise NoResultFound"""
         res = await self.session.execute(
-            select(Token).where(Token.component_id == client_id, Token.valid == True)
+            select(TokenDB).where(TokenDB.component_id == client_id, TokenDB.valid == True)
         )
-        return res.scalar_one_or_none()
+        return res.scalar_one()
 
     async def get_token_by_client_type(self, client_type: str) -> str | None:
-        client_token: Token | None = await self.session.scalar(
-            select(Token)
-            .join(ComponentDB, ComponentDB.component_id == Token.component_id)
+        # TODO: remove this
+        client_token: TokenDB | None = await self.session.scalar(
+            select(TokenDB)
+            .join(ComponentDB, ComponentDB.component_id == TokenDB.component_id)
             .where(ComponentDB.type == client_type)
             .limit(1)
         )
@@ -250,8 +251,5 @@ class ComponentService(DBSessionService):
         return session_event
 
     async def get_events(self, component_id: str) -> list[Event]:
-        res = await self.session.scalars(
-            select(Event).where(Event.component_id == component_id)
-        )
+        res = await self.session.scalars(select(Event).where(Event.component_id == component_id))
         return res.all()
-

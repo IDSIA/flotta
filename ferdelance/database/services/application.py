@@ -10,9 +10,6 @@ class ApplicationService(DBSessionService):
 
     async def get_newest_app(self) -> Application | None:
         result = await self.session.execute(
-            select(Application)
-            .where(Application.active)
-            .order_by(Application.creation_time.desc())
-            .limit(1)
+            select(Application).where(Application.active).order_by(Application.creation_time.desc()).limit(1)
         )
         return result.scalar_one_or_none()

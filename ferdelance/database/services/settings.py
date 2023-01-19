@@ -47,18 +47,14 @@ class KeyValueStore(DBSessionService):
         value = value.decode("utf8")
 
         # check that entry exists
-        res = await self.session.execute(
-            select(Setting).where(Setting.key == key).limit(1)
-        )
+        res = await self.session.execute(select(Setting).where(Setting.key == key).limit(1))
         db_setting: Setting | None = res.scalar_one_or_none()
 
         if db_setting is None:
             db_setting = Setting(key=key, value=value)
             self.session.add(db_setting)
         else:
-            await self.session.execute(
-                update(Setting).where(Setting.key == key).values(value=value)
-            )
+            await self.session.execute(update(Setting).where(Setting.key == key).values(value=value))
 
         await self.session.commit()
 
@@ -75,12 +71,10 @@ class KeyValueStore(DBSessionService):
         await self.put_str(key, value)
 
     async def get_bytes(self, key: str) -> bytes:
+        """Can raise NoResultFound"""
         res = await self.session.execute(select(Setting).where(Setting.key == key))
 
-        db_setting: Setting | None = res.scalar_one_or_none()
-
-        if db_setting is None:
-            raise ValueError(f"Nothing found in settings for key={key}")
+        db_setting: Setting = res.scalar_one()
 
         value = db_setting.value
         value = value.encode("utf8")
@@ -90,18 +84,21 @@ class KeyValueStore(DBSessionService):
         return value
 
     async def get_str(self, key: str) -> str:
+        """Can raise NoResultFound"""
         value = await self.get_bytes(key)
         value = value.decode("utf8")
 
         return value
 
     async def get_int(self, key: str) -> int:
+        """Can raise NoResultFound"""
         value = await self.get_str(key)
         value = int(value)
 
         return value
 
     async def get_float(self, key: str) -> float:
+        """Can raise NoResultFound"""
         value = await self.get_str(key)
         value = float(value)
 

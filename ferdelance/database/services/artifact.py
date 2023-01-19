@@ -20,15 +20,11 @@ class ArtifactService(DBSessionService):
         artifact_db_list = res.scalars().all()
         return [view(a) for a in artifact_db_list]
 
-    async def create_artifact(
-        self, artifact_id: str, path: str, status: str
-    ) -> ArtifactView:
+    async def create_artifact(self, artifact_id: str, path: str, status: str) -> ArtifactView:
         db_artifact = ArtifactDB(artifact_id=artifact_id, path=path, status=status)
 
         existing = await self.session.scalar(
-            select(func.count())
-            .select_from(ArtifactDB)
-            .where(ArtifactDB.artifact_id == artifact_id)
+            select(func.count()).select_from(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id)
         )
 
         if existing > 0:
@@ -41,17 +37,13 @@ class ArtifactService(DBSessionService):
         return view(db_artifact)
 
     async def get_artifact(self, artifact_id: str) -> ArtifactView | None:
-        query = await self.session.execute(
-            select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1)
-        )
+        query = await self.session.execute(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
         res = query.scalar_one_or_none()
         if res:
             return view(res)
         return res
 
-    async def update_status(
-        self, artifact_id: str, new_status: ArtifactJobStatus
-    ) -> None:
+    async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> None:
         artifact: ArtifactDB = await self.session.scalar(
             select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id)
         )
