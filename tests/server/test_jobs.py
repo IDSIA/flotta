@@ -34,26 +34,26 @@ async def test_jobs_next(async_session: AsyncSession):
 
     async_session.add(
         Component(
-            client_id=client_id_1,
+            component_id=client_id_1,
             version="test",
             public_key="1",
             machine_system="1",
             machine_mac_address="1",
             machine_node="1",
             ip_address="1",
-            type="CLIENT",
+            type_name="CLIENT",
         )
     )
     async_session.add(
         Component(
-            client_id=client_id_2,
+            component_id=client_id_2,
             version="test",
             public_key="2",
             machine_system="2",
             machine_mac_address="2",
             machine_node="2",
             ip_address="2",
-            type="CLIENT",
+            type_name="CLIENT",
         )
     )
 

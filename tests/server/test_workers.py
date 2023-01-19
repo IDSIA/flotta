@@ -1,3 +1,4 @@
+from ferdelance.database.data import TYPE_WORKER
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
     DataSource,
@@ -52,7 +53,7 @@ class TestWorkersClass:
                 select(Token.token)
                 .select_from(Token)
                 .join(Component, Component.component_id == Token.component_id)
-                .where(Component.type == "WORKER")
+                .where(Component.type_name == TYPE_WORKER)
                 .limit(1)
             ).scalar_one_or_none()
 

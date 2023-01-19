@@ -11,27 +11,27 @@ async def test_list_clients(async_session: AsyncSession):
 
     async_session.add(
         Component(
-            client_id="C1",
+            component_id="C1",
             version="test",
             public_key="1",
             machine_system="1",
             machine_mac_address="1",
             machine_node="1",
             ip_address="1",
-            type="CLIENT",
+            type_name="CLIENT",
         )
     )
 
     async_session.add(
         Component(
-            client_id="C2",
+            component_id="C2",
             version="test",
             public_key="2",
             machine_system="2",
             machine_mac_address="2",
             machine_node="2",
             ip_address="2",
-            type="CLIENT",
+            type_name="CLIENT",
         )
     )
 
@@ -46,14 +46,14 @@ async def test_list_clients(async_session: AsyncSession):
 async def test_describe_client(async_session: AsyncSession):
     async_session.add(
         Component(
-            client_id="C1",
+            component_id="C1",
             version="test",
             public_key="1",
             machine_system="1",
             machine_mac_address="1",
             machine_node="1",
             ip_address="1",
-            type="CLIENT",
+            type_name="CLIENT",
         )
     )
 
@@ -61,5 +61,5 @@ async def test_describe_client(async_session: AsyncSession):
 
     res = await describe_client(client_id="C1")
 
-    assert res.component_id == "C1"
+    assert res.client_id == "C1"
     assert res.version == "test"
