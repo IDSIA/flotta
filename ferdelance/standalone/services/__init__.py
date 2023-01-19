@@ -1,5 +1,5 @@
 __all__ = [
-    'JobManagementLocalService',
+    "JobManagementLocalService",
 ]
 
 from .jobs import JobManagementLocalService
