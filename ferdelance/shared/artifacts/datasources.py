@@ -10,6 +10,7 @@ from .queries import (
 
 class BaseDataSource(BaseModel):
     """Common information to all data sources."""
+
     n_records: int | None
     n_features: int | None
 
@@ -18,6 +19,7 @@ class BaseDataSource(BaseModel):
 
 class DataSource(BaseDataSource):
     """Information for the workbench."""
+
     client_id: str
     datasource_id: str
 
@@ -33,9 +35,7 @@ class DataSource(BaseDataSource):
 
     def all_features(self):
         return Query(
-            datasource_id=self.datasource_id,
-            datasource_name=self.name,
-            features=[f.qf() for f in self.features]
+            datasource_id=self.datasource_id, datasource_name=self.name, features=[f.qf() for f in self.features]
         )
 
     def __eq__(self, other: DataSource) -> bool:
@@ -50,13 +50,13 @@ class DataSource(BaseDataSource):
     def info(self) -> str:
         lines: list[str] = list()
 
-        lines.append(f'{self.datasource_id} {self.name} ({self.n_features}x{self.n_records})')
+        lines.append(f"{self.datasource_id} {self.name} ({self.n_features}x{self.n_records})")
 
         for df in self.features:
-            mean = .0 if df.v_mean is None else df.v_mean
-            lines.append(f'- {df.dtype:8} {df.name:32} {mean:.2}')
+            mean = 0.0 if df.v_mean is None else df.v_mean
+            lines.append(f"- {df.dtype:8} {df.name:32} {mean:.2}")
 
-        return f'\n'.join(lines)
+        return f"\n".join(lines)
 
     def features_dict(self) -> dict[str, QueryFeature]:
         return {f.name: f.qf() for f in self.features}
@@ -78,11 +78,12 @@ class DataSource(BaseDataSource):
         raise ValueError(f'Feature "{str(key)}" not found in this datasource')
 
     def __str__(self) -> str:
-        return super().__str__() + f'client_id={self.client_id} features=[{self.features}]'
+        return super().__str__() + f"client_id={self.client_id} features=[{self.features}]"
 
 
 class MetaDataSource(BaseDataSource):
     """Information on data source stored in the client."""
+
     removed: bool = False
 
     features: list[MetaFeature]
@@ -90,4 +91,5 @@ class MetaDataSource(BaseDataSource):
 
 class Metadata(BaseModel):
     """Information on data stored in the client."""
+
     datasources: list[MetaDataSource]

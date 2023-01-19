@@ -1,15 +1,10 @@
-from fastapi import Request
-from fastapi.responses import StreamingResponse, Response
-
+from ferdelance.database.services import DBSessionService, AsyncSession
+from ferdelance.database.services.settings import KeyValueStore
 from ferdelance.shared.exchange import Exchange
-
 from ferdelance.shared.decode import HybridDecrypter
 
-from ...database.services import (
-    DBSessionService,
-    AsyncSession,
-)
-from ...database.services.settings import KeyValueStore
+from fastapi import Request
+from fastapi.responses import StreamingResponse, Response
 
 from typing import Any, Iterator
 
@@ -19,9 +14,9 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-MAIN_KEY = 'SERVER_MAIN_PASSWORD'
-PUBLIC_KEY = 'SERVER_KEY_PUBLIC'
-PRIVATE_KEY = 'SERVER_KEY_PRIVATE'
+MAIN_KEY = "SERVER_MAIN_PASSWORD"
+PUBLIC_KEY = "SERVER_KEY_PUBLIC"
+PRIVATE_KEY = "SERVER_KEY_PRIVATE"
 
 
 class SecurityService(DBSessionService):
@@ -32,7 +27,7 @@ class SecurityService(DBSessionService):
         self.exc: Exchange = Exchange()
 
     async def setup(self, remote_key_str: str) -> None:
-        remote_key_bytes = remote_key_str.encode('utf8')
+        remote_key_bytes = remote_key_str.encode("utf8")
         private_bytes: bytes = await self.kvs.get_bytes(PRIVATE_KEY)
         self.exc.set_key_bytes(private_bytes)
         self.exc.set_remote_key_bytes(remote_key_bytes)
@@ -60,19 +55,16 @@ class SecurityService(DBSessionService):
 
     def encrypt_file(self, path: str) -> StreamingResponse:
         """Used to stream encrypt data from a file, using less memory."""
-        return StreamingResponse(
-            self.exc.stream_from_file(path),
-            media_type='application/octet-stream'
-        )
+        return StreamingResponse(self.exc.stream_from_file(path), media_type="application/octet-stream")
 
     async def stream_decrypt_file(self, request: Request, path: str) -> str:
         """Used to stream decrypt data to a file, using less memory."""
         if self.exc.private_key is None:
-            raise ValueError('Missing local private key, i exchange object initialized?')
+            raise ValueError("Missing local private key, i exchange object initialized?")
 
         dec = HybridDecrypter(self.exc.private_key)
 
-        async with aiofiles.open(path, 'wb') as f:
+        async with aiofiles.open(path, "wb") as f:
             await f.write(dec.start())
             async for content in request.stream():
                 await f.write(dec.update(content))
@@ -87,7 +79,7 @@ class SecurityService(DBSessionService):
     async def stream_decrypt(self, request: Request) -> tuple[str, str]:
         """Used to decrypt small data that can be kept in memory."""
         if self.exc.private_key is None:
-            raise ValueError('Missing local private key, i exchange object initialized?')
+            raise ValueError("Missing local private key, i exchange object initialized?")
 
         dec = HybridDecrypter(self.exc.private_key)
 

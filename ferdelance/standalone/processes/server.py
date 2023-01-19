@@ -6,7 +6,6 @@ from multiprocessing import Process
 import uvicorn
 
 
-class LocalServer (Process):
-
+class LocalServer(Process):
     def run(self) -> None:
         uvicorn.run(api, host=conf.SERVER_INTERFACE, port=conf.SERVER_PORT)

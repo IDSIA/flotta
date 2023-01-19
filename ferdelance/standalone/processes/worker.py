@@ -7,12 +7,11 @@ import signal
 
 
 class LocalWorker(Process):
-
     def __init__(self):
         super().__init__()
 
         # BaseManager.register('get_queue') TODO: maybe we need this? Already defined in the main...
-        self.m = BaseManager(address=('', 14560))
+        self.m = BaseManager(address=("", 14560))
         self.m.connect()
         self.task_queue: Queue = self.m.get_queue()
         self.stop = False

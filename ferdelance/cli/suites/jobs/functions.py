@@ -8,7 +8,7 @@ from ....database.services import JobService
 from ...visualization import show_many
 
 
-async def list_jobs(artifact_id: str = None, client_id: str = None) -> List[Job]:
+async def list_jobs(artifact_id: str | None = None, client_id: str | None = None) -> List[Job]:
     """Print and return Job List, with or without filters on ARTIFACT_ID, client_id
 
     Args:

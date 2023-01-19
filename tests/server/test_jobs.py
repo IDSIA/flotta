@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ferdelance.database.services import JobService
-from ferdelance.database.tables import Artifact, Client
+from ferdelance.database.tables import Artifact, Component
 from ferdelance.shared.status import JobStatus
 
 LOGGER = logging.getLogger(__name__)
@@ -33,27 +33,27 @@ async def test_jobs_next(async_session: AsyncSession):
     )
 
     async_session.add(
-        Client(
-            client_id=client_id_1,
+        Component(
+            component_id=client_id_1,
             version="test",
             public_key="1",
             machine_system="1",
             machine_mac_address="1",
             machine_node="1",
             ip_address="1",
-            type="CLIENT",
+            type_name="CLIENT",
         )
     )
     async_session.add(
-        Client(
-            client_id=client_id_2,
+        Component(
+            component_id=client_id_2,
             version="test",
             public_key="2",
             machine_system="2",
             machine_mac_address="2",
             machine_node="2",
             ip_address="2",
-            type="CLIENT",
+            type_name="CLIENT",
         )
     )
 
@@ -84,7 +84,7 @@ async def test_jobs_next(async_session: AsyncSession):
     assert sc_2.execution_time is None
     assert sc_3.execution_time is None
 
-    await js.stop_execution(job1.artifact_id, job1.client_id)
+    await js.stop_execution(job1.artifact_id, job1.component_id)
 
     await async_session.refresh(sc_1)
     await async_session.refresh(sc_2)

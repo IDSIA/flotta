@@ -1,16 +1,23 @@
-import os
-from uuid import uuid4
+from ferdelance.config import conf
+from ferdelance.database.schemas import Model as ModelView
+from ferdelance.database.tables import Model as ModelDB
+from ferdelance.database.services.core import AsyncSession, DBSessionService
 
 from sqlalchemy import select
+from uuid import uuid4
 
-from ...config import conf
-from ..schemas import Model as ModelView
-from ..tables import Model as ModelDB
-from .core import AsyncSession, DBSessionService
+import os
 
 
-def get_view(model: ModelDB) -> ModelView:
-    return ModelView(**model.__dict__)
+def view(model: ModelDB) -> ModelView:
+    return ModelView(
+        model_id=model.model_id,
+        creation_time=model.creation_time,
+        path=model.path,
+        aggregated=model.aggregated,
+        artifact_id=model.artifact_id,
+        client_id=model.component_id,
+    )
 
 
 class ModelService(DBSessionService):
@@ -22,9 +29,7 @@ class ModelService(DBSessionService):
         os.makedirs(out_dir, exist_ok=True)
         return out_dir
 
-    async def create_model_aggregated(
-        self, artifact_id: str, client_id: str
-    ) -> ModelView:
+    async def create_model_aggregated(self, artifact_id: str, client_id: str) -> ModelView:
         model_id: str = str(uuid4())
 
         filename = f"{artifact_id}.{model_id}.AGGREGATED.model"
@@ -34,7 +39,7 @@ class ModelService(DBSessionService):
             model_id=model_id,
             path=out_path,
             artifact_id=artifact_id,
-            client_id=client_id,
+            component_id=client_id,
             aggregated=True,
         )
 
@@ -42,7 +47,7 @@ class ModelService(DBSessionService):
         await self.session.commit()
         await self.session.refresh(model_db)
 
-        return model_db
+        return view(model_db)
 
     async def create_local_model(self, artifact_id: str, client_id) -> ModelView:
         model_id: str = str(uuid4())
@@ -50,11 +55,11 @@ class ModelService(DBSessionService):
         filename = f"{artifact_id}.{client_id}.{model_id}.model"
         out_path = os.path.join(self.storage_dir(artifact_id), filename)
 
-        model_db = Model(
+        model_db = ModelDB(
             model_id=model_id,
             path=out_path,
             artifact_id=artifact_id,
-            client_id=client_id,
+            component_id=client_id,
             aggregated=False,
         )
 
@@ -62,28 +67,34 @@ class ModelService(DBSessionService):
         await self.session.commit()
         await self.session.refresh(model_db)
 
-        return model_db
+        return view(model_db)
 
-    async def get_model_by_id(self, model_id: str) -> ModelView | None:
-        query = await self.session.execute(
-            select(ModelDB).where(ModelDB.model_id == model_id).limit(1)
-        )
-        res: ModelDB | None = query.scalar_one_or_none()
-
-        if res:
-            return get_view(res)
-        return res
+    async def get_model_by_id(self, model_id: str) -> ModelView:
+        """Can raise NoResultFound"""
+        query = await self.session.execute(select(ModelDB).where(ModelDB.model_id == model_id).limit(1))
+        res: ModelDB = query.scalar_one()
+        return view(res)
 
     async def get_models_by_artifact_id(self, artifact_id: str) -> list[ModelView]:
-        query = await self.session.execute(
-            select(ModelDB).where(ModelDB.artifact_id == artifact_id)
-        )
+        query = await self.session.execute(select(ModelDB).where(ModelDB.artifact_id == artifact_id))
         res = query.scalars().all()
-        model_list = [get_view(m) for m in res]
+        model_list = [view(m) for m in res]
         return model_list
 
     async def get_model_list(self) -> list[ModelView]:
         query = await self.session.execute(select(ModelDB))
         res = query.scalars().all()
-        model_list = [get_view(m) for m in res]
+        model_list = [view(m) for m in res]
         return model_list
+
+    async def get_aggregated_model(self, artifact_id: str) -> ModelView:
+        """Can raise NoResultFound"""
+        res = await self.session.execute(select(ModelDB).where(ModelDB.artifact_id == artifact_id, ModelDB.aggregated))
+        return view(res.scalar_one())
+
+    async def get_partial_model(self, artifact_id: str, client_id: str) -> ModelView:
+        """Can raise NoResultFound"""
+        res = await self.session.execute(
+            select(ModelDB).where(ModelDB.artifact_id == artifact_id, ModelDB.component_id == client_id)
+        )
+        return view(res.scalar_one())
