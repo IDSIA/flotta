@@ -1,4 +1,4 @@
-from ferdelance.database.tables import Application, Job
+from ferdelance.database.tables import Application, Job, Token as TokenDB
 from ferdelance.database.schemas import Client, Token
 from ferdelance.database.services import (
     DBSessionService,
@@ -39,10 +39,10 @@ class ActionService(DBSessionService):
             True if no valid token is found, otherwise False.
         """
         n_tokens = await self.session.scalar(
-            select(func.count()).select_from(Token).where(Token.component_id == client.component_id, Token.valid)
+            select(func.count()).select_from(TokenDB).where(TokenDB.component_id == client.client_id, TokenDB.valid)
         )
 
-        LOGGER.debug(f"client_id={client.component_id}: found {n_tokens} valid token(s)")
+        LOGGER.debug(f"client_id={client.client_id}: found {n_tokens} valid token(s)")
 
         return n_tokens == 0
 
@@ -69,7 +69,7 @@ class ActionService(DBSessionService):
         if app is None:
             return False
 
-        LOGGER.debug(f"client_id={client.component_id}: version={client.version} newest_version={app.version}")
+        LOGGER.debug(f"client_id={client.client_id}: version={client.version} newest_version={app.version}")
 
         return client.version != app.version
 
@@ -92,7 +92,7 @@ class ActionService(DBSessionService):
         )
 
     async def _check_scheduled_job(self, client: Client) -> Job | None:
-        return await self.js.next_job_for_client(client.component_id)
+        return await self.js.next_job_for_client(client.client_id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateExecute:
         return UpdateExecute(action=Action.EXECUTE.name, artifact_id=job.artifact_id)

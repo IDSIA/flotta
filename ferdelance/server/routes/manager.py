@@ -133,7 +133,7 @@ async def manager_client_list(session: AsyncSession = Depends(get_session)):
 
     return [
         {
-            "client_id": m.component_id,
+            "client_id": m.client_id,
             "active": m.active,
             "ip_address": m.ip_address,
         }

@@ -1,5 +1,7 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
+from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
+from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.services import KeyValueStore, ComponentService
 from ferdelance.database.schemas import Client, Component, Token
 from ferdelance.shared.exchange import Exchange
@@ -15,12 +17,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-MAIN_KEY = "SERVER_MAIN_PASSWORD"
-PUBLIC_KEY = "SERVER_KEY_PUBLIC"
-PRIVATE_KEY = "SERVER_KEY_PRIVATE"
-
-
-async def generate_keys(session: AsyncSession) -> None:
+async def generate_keys(session: AsyncSession) -> Exchange:
     """Initialization method for the generation of keys for the server.
     Requires to have the environment variable 'SERVER_MAIN_PASSWORD'.
 
@@ -49,25 +46,27 @@ async def generate_keys(session: AsyncSession) -> None:
         LOGGER.info(f"Application initialization, Environment variable {MAIN_KEY} saved in storage")
 
     try:
-        await kvs.get_bytes(PRIVATE_KEY)
+        pk = await kvs.get_bytes(PRIVATE_KEY)
         LOGGER.info("Keys are already available")
-        return
+        e.set_key_bytes(pk)
 
     except NoResultFound:
-        pass
+        # generate new keys
+        LOGGER.info("Keys generation started")
 
-    # generate new keys
-    LOGGER.info("Keys generation started")
+        e.generate_key()
 
-    e.generate_key()
+        private_bytes: bytes = e.get_private_key_bytes()
+        public_bytes: bytes = e.get_public_key_bytes()
 
-    private_bytes: bytes = e.get_private_key_bytes()
-    public_bytes: bytes = e.get_public_key_bytes()
+        await kvs.put_bytes(PRIVATE_KEY, private_bytes)
+        await kvs.put_bytes(PUBLIC_KEY, public_bytes)
 
-    await kvs.put_bytes(PRIVATE_KEY, private_bytes)
-    await kvs.put_bytes(PUBLIC_KEY, public_bytes)
+        e.set_key_bytes(private_bytes)
 
-    LOGGER.info("Keys generation completed")
+        LOGGER.info("Keys generation completed")
+
+    return e
 
 
 async def check_token(
@@ -109,7 +108,7 @@ async def check_token(
     LOGGER.debug(f"component_id={component_id}: received valid token")
 
     try:
-        component: Component = await cs.get_by_id(component_id)
+        component: Component | Client = await cs.get_by_id(component_id)
 
         if component.left or not component.active:
             LOGGER.warning("Client that left or has been deactivated tried to connect!")

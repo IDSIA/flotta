@@ -116,7 +116,7 @@ async def wb_get_client_list(session: AsyncSession = Depends(get_session), user:
 
     clients = await cs.list_clients()
 
-    wcl = WorkbenchClientList(client_ids=[c.component_id for c in clients if c.active is True])
+    wcl = WorkbenchClientList(client_ids=[c.client_id for c in clients if c.active is True])
 
     return ss.create_response(wcl.dict())
 
@@ -140,7 +140,7 @@ async def wb_get_user_detail(
         LOGGER.warning(f"client_id={req_client_id} not found in database or is not active")
         raise HTTPException(404)
 
-    cd = ClientDetails(client_id=client.component_id, version=client.version)
+    cd = ClientDetails(client_id=client.client_id, version=client.version)
 
     return ss.create_response(cd.dict())
 
@@ -189,6 +189,7 @@ async def wb_get_client_datasource(
     ds = DataSource(
         **ds_session.__dict__,
         features=fs,
+        client_id=ds_session.component_id,
     )
 
     return ss.create_response(ds.dict())

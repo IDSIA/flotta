@@ -28,7 +28,7 @@ class Component(Base):
     component_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
 
-    type_name = Column(String, ForeignKey("component_types.name"))
+    type_name = Column(String, ForeignKey("component_types.type"))
     type = relationship("ComponentType")
 
     active = Column(Boolean, default=True)

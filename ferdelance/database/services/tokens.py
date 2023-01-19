@@ -39,7 +39,7 @@ class TokenService(DBSessionService):
 
         return Token(
             token=token,
-            client_id=client_id,
+            component_id=client_id,
             expiration_time=exp_time,
         )
 
@@ -62,7 +62,7 @@ class TokenService(DBSessionService):
 
         return Token(
             token=token,
-            user_id=user_id,
+            component_id=user_id,
             expiration_time=exp_time,
         )
 
@@ -99,5 +99,7 @@ class TokenService(DBSessionService):
         )
         await self.invalidate_tokens(component_id)
         await self.create_token(token)
+        await self.session.commit()
+        await self.session.refresh(token)
 
         return token

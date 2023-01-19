@@ -24,8 +24,8 @@ worker_router = APIRouter()
 
 async def check_access(component: Component = Depends(check_token)) -> Component:
     try:
-        if component.type != TYPE_WORKER:
-            LOGGER.warning(f"client of type={component.type} cannot access this route")
+        if component.type_name != TYPE_WORKER:
+            LOGGER.warning(f"client of type={component.type_name} cannot access this route")
             raise HTTPException(403)
 
         return component

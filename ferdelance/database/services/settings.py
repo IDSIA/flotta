@@ -37,14 +37,15 @@ def build_settings_cipher() -> Fernet:
 
 
 class KeyValueStore(DBSessionService):
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, encode: str = "utf8") -> None:
         super().__init__(session)
         self.cipher = build_settings_cipher()
+        self.encode: str = encode
 
     async def put_bytes(self, key: str, value_in: bytes) -> None:
         value = self.cipher.encrypt(value_in)
         value = base64.b64encode(value)
-        value = value.decode("utf8")
+        value = value.decode(self.encode)
 
         # check that entry exists
         res = await self.session.execute(select(Setting).where(Setting.key == key).limit(1))
@@ -59,7 +60,7 @@ class KeyValueStore(DBSessionService):
         await self.session.commit()
 
     async def put_str(self, key: str, value_in: str) -> None:
-        value = value_in.encode("utf8")
+        value = value_in.encode(self.encode)
         await self.put_bytes(key, value)
 
     async def put_int(self, key: str, value_in: int) -> None:
@@ -77,7 +78,7 @@ class KeyValueStore(DBSessionService):
         db_setting: Setting = res.scalar_one()
 
         value = db_setting.value
-        value = value.encode("utf8")
+        value = value.encode(self.encode)
         value = base64.b64decode(value)
         value = self.cipher.decrypt(value)
 
@@ -86,7 +87,7 @@ class KeyValueStore(DBSessionService):
     async def get_str(self, key: str) -> str:
         """Can raise NoResultFound"""
         value = await self.get_bytes(key)
-        value = value.decode("utf8")
+        value = value.decode(self.encode)
 
         return value
 

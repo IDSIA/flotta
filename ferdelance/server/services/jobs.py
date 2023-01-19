@@ -76,12 +76,12 @@ class JobManagementService(DBSessionService):
             for query in artifact.dataset.queries:
                 client: Client = await self.dss.get_client_by_datasource_id(query.datasource_id)
 
-                if client.component_id in client_ids:
+                if client.client_id in client_ids:
                     continue
 
-                await self.js.schedule_job(artifact.artifact_id, client.component_id)
+                await self.js.schedule_job(artifact.artifact_id, client.client_id)
 
-                client_ids.add(client.component_id)
+                client_ids.add(client.client_id)
 
             return ArtifactStatus(
                 artifact_id=artifact.artifact_id,

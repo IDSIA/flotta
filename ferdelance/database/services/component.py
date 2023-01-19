@@ -18,15 +18,40 @@ LOGGER = logging.getLogger(__name__)
 
 
 def view(component: ComponentDB) -> Component:
-    return Component(**component.__dict__)
+    return Component(
+        component_id=component.component_id,
+        public_key=component.public_key,
+        active=component.active,
+        left=component.left,
+        type_name=component.type_name,
+    )
 
 
 def viewClient(component: ComponentDB) -> Client:
-    return Client(**component.__dict__)
+    return Client(
+        client_id=component.component_id,
+        public_key=component.public_key,
+        active=component.active,
+        left=component.left,
+        version=component.version,
+        machine_system=component.machine_system,
+        machine_mac_address=component.machine_mac_address,
+        machine_node=component.machine_node,
+        blacklisted=component.blacklisted,
+        ip_address=component.ip_address,
+        type_name=component.type_name,
+    )
 
 
 def viewToken(token: TokenDB) -> Token:
-    return Token(**token.__dict__)
+    return Token(
+        token_id=token.token_id,
+        component_id=token.component_id,
+        token=token.token,
+        creation_time=token.creation_time,
+        expiration_time=token.expiration_time,
+        valid=token.valid,
+    )
 
 
 class ComponentService(DBSessionService):
@@ -93,7 +118,7 @@ class ComponentService(DBSessionService):
             machine_mac_address=machine_mac_address,
             machine_node=machine_node,
             ip_address=ip_address,
-            type=TYPE_CLIENT,
+            type_name=TYPE_CLIENT,
         )
 
         self.session.add(component)
@@ -101,6 +126,7 @@ class ComponentService(DBSessionService):
         await self.ts.create_token(token)
         await self.session.commit()
         await self.session.refresh(component)
+        await self.session.refresh(token)
 
         return viewClient(component), viewToken(token)
 
@@ -121,7 +147,7 @@ class ComponentService(DBSessionService):
         component = ComponentDB(
             component_id=token.component_id,
             public_key=public_key,
-            type=type_name,
+            type_name=type_name,
         )
 
         self.session.add(component)
@@ -129,6 +155,7 @@ class ComponentService(DBSessionService):
         await self.ts.create_token(token)
         await self.session.commit()
         await self.session.refresh(component)
+        await self.session.refresh(token)
 
         return view(component), viewToken(token)
 
@@ -157,10 +184,13 @@ class ComponentService(DBSessionService):
 
         await self.session.commit()
 
-    async def get_by_id(self, component_id: str) -> Component:
+    async def get_by_id(self, component_id: str) -> Component | Client:
         """Can raise NoResultFound"""
         res = await self.session.execute(select(ComponentDB).where(ComponentDB.component_id == component_id))
-        return view(res.scalar_one())
+        o: ComponentDB = res.scalar_one()
+        if o.type_name == TYPE_CLIENT:
+            return viewClient(o)
+        return view(o)
 
     async def get_client_by_id(self, component_id: str) -> Client:
         """Can raise NoResultFound"""
@@ -192,7 +222,7 @@ class ComponentService(DBSessionService):
         return [view(c) for c in res.all()]
 
     async def list_clients(self):
-        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type == TYPE_CLIENT))
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_CLIENT))
         return [viewClient(c) for c in res]
 
     async def invalidate_tokens(self, component_id: str) -> None:
@@ -203,7 +233,7 @@ class ComponentService(DBSessionService):
             client.machine_system,
             client.machine_mac_address,
             client.machine_node,
-            client.component_id,
+            client.client_id,
         )
         return viewToken(token)
 
@@ -230,7 +260,7 @@ class ComponentService(DBSessionService):
         client_token: TokenDB | None = await self.session.scalar(
             select(TokenDB)
             .join(ComponentDB, ComponentDB.component_id == TokenDB.component_id)
-            .where(ComponentDB.type == client_type)
+            .where(ComponentDB.type_name == client_type)
             .limit(1)
         )
 

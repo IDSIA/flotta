@@ -8,7 +8,12 @@ from sqlalchemy import func, select
 
 
 def view(artifact: ArtifactDB) -> ArtifactView:
-    return ArtifactView(**artifact.__dict__)
+    return ArtifactView(
+        artifact_id=artifact.artifact_id,
+        creation_time=artifact.creation_time,
+        path=artifact.path,
+        status=artifact.status,
+    )
 
 
 class ArtifactService(DBSessionService):

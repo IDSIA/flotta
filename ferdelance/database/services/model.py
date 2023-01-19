@@ -10,7 +10,14 @@ import os
 
 
 def view(model: ModelDB) -> ModelView:
-    return ModelView(**model.__dict__)
+    return ModelView(
+        model_id=model.model_id,
+        creation_time=model.creation_time,
+        path=model.path,
+        aggregated=model.aggregated,
+        artifact_id=model.artifact_id,
+        client_id=model.component_id,
+    )
 
 
 class ModelService(DBSessionService):

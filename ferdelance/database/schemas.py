@@ -4,9 +4,8 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class Component(BaseModel):
-    component_id: str
-    type: str
+class BaseComponent(BaseModel):
+    type_name: str
 
     public_key: str
 
@@ -14,8 +13,12 @@ class Component(BaseModel):
     left: bool
 
 
-class Client(Component):
+class Component(BaseComponent):
     component_id: str
+
+
+class Client(BaseComponent):
+    client_id: str
 
     version: str
 
@@ -55,8 +58,8 @@ class Artifact(BaseModel):
 
 class Model(BaseModel):
     model_id: str
-    creation_time: datetime
+    creation_time: Optional[datetime]
     path: str
-    aggregated: bool
+    aggregated: Optional[bool]
     artifact_id: str
     client_id: str

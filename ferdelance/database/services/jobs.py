@@ -14,7 +14,15 @@ LOGGER = logging.getLogger(__name__)
 
 
 def view(job: JobDB) -> JobView:
-    return JobView(**job.__dict__)
+    return JobView(
+        job_id=job.job_id,
+        artifact_id=job.artifact_id,
+        client_id=job.component_id,
+        status=job.status,
+        creation_time=job.creation_time,
+        execution_time=job.execution_time,
+        termination_time=job.termination_time,
+    )
 
 
 class JobService(DBSessionService):

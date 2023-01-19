@@ -44,7 +44,7 @@ class DataSourceService(DBSessionService):
                 name=ds.name,
                 n_records=ds.n_records,
                 n_features=ds.n_features,
-                client_id=client_id,
+                component_id=client_id,
             )
 
             self.session.add(ds_db)
