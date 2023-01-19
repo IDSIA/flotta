@@ -13,23 +13,23 @@ class Setting(Base):
     value = Column(String)
 
 
-class ClientType(Base):
-    """Table to store client type, such as SERVER, CLIENT, WORKER, WORKBENCH."""
+class ComponentType(Base):
+    """Table to store component types. Current valid types are SERVER, CLIENT, WORKER, WORKBENCH."""
 
-    __tablename__ = "client_types"
+    __tablename__ = "component_types"
     type = Column(String, primary_key=True, index=True)
 
 
-class Client(Base):
-    """Table used to keep track of current clients."""
+class Component(Base):
+    """Table used to keep track of current components."""
 
-    __tablename__ = "clients"
+    __tablename__ = "components"
 
-    client_id = Column(String, primary_key=True, index=True)
+    component_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
 
-    type_name = Column(String, ForeignKey("client_types.name"))
-    type = relationship("ClientType")
+    type_name = Column(String, ForeignKey("component_types.name"))
+    type = relationship("ComponentType")
 
     active = Column(Boolean, default=True)
     left = Column(Boolean, default=False)
@@ -46,13 +46,13 @@ class Client(Base):
     machine_mac_address = Column(String, nullable=True)
     # uuid.getnode()
     machine_node = Column(String, nullable=True)
-    # client id
+    # client ip address
     ip_address = Column(String, nullable=True)
 
 
 class Token(Base):
-    """Table that collects all used tokens for the clients.
-    If an invalid token is reused, the client could be blacklisted (or updated).
+    """Table that collects all used access tokens for the components.
+    If an invalid token is reused, a client could be blacklisted (or updated).
     """
 
     __tablename__ = "tokens"
@@ -63,12 +63,12 @@ class Token(Base):
     token = Column(String, nullable=False, index=True, unique=True)
     valid = Column(Boolean, default=True)
 
-    client_id = Column(String, ForeignKey("clients.client_id"))
-    client = relationship("Client")
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
 
 class Event(Base):
-    """Table that collects all the event from the clients."""
+    """Table that collects all the event from the components."""
 
     __tablename__ = "events"
 
@@ -76,8 +76,8 @@ class Event(Base):
     event_time = Column(DateTime(timezone=True), server_default=now())
     event = Column(String, nullable=False)
 
-    client_id = Column(String, ForeignKey("clients.client_id"))
-    client = relationship("Client")
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
 
 class Application(Base):
@@ -98,7 +98,7 @@ class Application(Base):
 
 
 class Artifact(Base):
-    """Table that keep tracks of the artifacts available for the clients.
+    """Table that keep tracks of the artifacts available for the components.
     An Artifact is the code that will be run in a client, based on the assigned task.
 
     Check 'status.py' in shared lib for details on the possible status.
@@ -127,8 +127,8 @@ class Job(Base):
     artifact_id = Column(String, ForeignKey("artifacts.artifact_id"))
     artifact = relationship("Artifact")
 
-    client_id = Column(String, ForeignKey("clients.client_id"))
-    client = relationship("Client")
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
     status = Column(String, nullable=True)
 
@@ -151,8 +151,8 @@ class Model(Base):
     artifact_id = Column(String, ForeignKey("artifacts.artifact_id"))
     artifact = relationship("Artifact")
 
-    client_id = Column(String, ForeignKey("clients.client_id"))
-    client = relationship("Client")
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
 
 class DataSource(Base):
@@ -171,8 +171,8 @@ class DataSource(Base):
     n_records = Column(Integer)
     n_features = Column(Integer)
 
-    client_id = Column(String, ForeignKey("clients.client_id"))
-    client = relationship("Client")
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
 
 class Feature(Base):
@@ -201,4 +201,4 @@ class Feature(Base):
     datasource_name = Column(String, nullable=False)
 
     datasource_id = Column(String, ForeignKey("datasources.datasource_id"))
-    datasource = relationship("ClientDataSource")
+    datasource = relationship("DataSource")

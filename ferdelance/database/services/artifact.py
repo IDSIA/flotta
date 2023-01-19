@@ -1,15 +1,13 @@
-from sqlalchemy import func, select
+from ferdelance.database.schemas import Artifact as ArtifactView
+from ferdelance.database.tables import Artifact as ArtifactDB
+from ferdelance.database.services.core import AsyncSession, DBSessionService
 
 from ferdelance.shared.status import ArtifactJobStatus
 
-from ..schemas import Artifact as ArtifactView
-from ..schemas import Model as ModelView
-from ..tables import Artifact as ArtifactDB
-from ..tables import Model as ModelDB
-from .core import AsyncSession, DBSessionService
+from sqlalchemy import func, select
 
 
-def get_view(artifact: ArtifactDB) -> ArtifactView:
+def view(artifact: ArtifactDB) -> ArtifactView:
     return ArtifactView(**artifact.__dict__)
 
 
@@ -20,7 +18,7 @@ class ArtifactService(DBSessionService):
     async def get_artifact_list(self) -> list[ArtifactView]:
         res = await self.session.execute(select(ArtifactDB))
         artifact_db_list = res.scalars().all()
-        return [get_view(a) for a in artifact_db_list]
+        return [view(a) for a in artifact_db_list]
 
     async def create_artifact(
         self, artifact_id: str, path: str, status: str
@@ -40,7 +38,7 @@ class ArtifactService(DBSessionService):
         await self.session.commit()
         await self.session.refresh(db_artifact)
 
-        return get_view(db_artifact)
+        return view(db_artifact)
 
     async def get_artifact(self, artifact_id: str) -> ArtifactView | None:
         query = await self.session.execute(
@@ -48,24 +46,8 @@ class ArtifactService(DBSessionService):
         )
         res = query.scalar_one_or_none()
         if res:
-            return get_view(res)
+            return view(res)
         return res
-
-    async def get_aggregated_model(self, artifact_id: str) -> ModelView:
-        res = await self.session.execute(
-            select(ModelDB).where(
-                ModelDB.artifact_id == artifact_id, ModelDB.aggregated
-            )
-        )
-        return get_view(res.scalar_one())
-
-    async def get_partial_model(self, artifact_id: str, client_id: str) -> ModelView:
-        res = await self.session.execute(
-            select(ModelDB).where(
-                ModelDB.artifact_id == artifact_id, ModelDB.client_id == client_id
-            )
-        )
-        return get_view(res.scalar_one())
 
     async def update_status(
         self, artifact_id: str, new_status: ArtifactJobStatus
