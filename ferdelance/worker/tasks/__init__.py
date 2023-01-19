@@ -1,5 +1,5 @@
 __all__ = [
-    'aggregation',
+    "aggregation",
 ]
 
 from .aggregation import aggregation
