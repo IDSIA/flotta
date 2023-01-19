@@ -1,26 +1,23 @@
+from ferdelance.config import conf
+from ferdelance.database import get_session, AsyncSession
+from ferdelance.database.services import KeyValueStore, ComponentService
+from ferdelance.database.schemas import Client, Component, Token
+from ferdelance.shared.exchange import Exchange
+
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBasicCredentials, HTTPBearer
+from sqlalchemy.exc import NoResultFound
 
 from datetime import timedelta, datetime
 
-from ferdelance.shared.exchange import Exchange
-
-from ..database import get_session, AsyncSession
-from ..database.services import KeyValueStore, ClientService, UserService
-from ..database.schemas import Client, User
-from ..database.tables import ClientToken, UserToken
-
-from ..config import conf
-
 import logging
-import os
 
 LOGGER = logging.getLogger(__name__)
 
 
-MAIN_KEY = 'SERVER_MAIN_PASSWORD'
-PUBLIC_KEY = 'SERVER_KEY_PUBLIC'
-PRIVATE_KEY = 'SERVER_KEY_PRIVATE'
+MAIN_KEY = "SERVER_MAIN_PASSWORD"
+PUBLIC_KEY = "SERVER_KEY_PUBLIC"
+PRIVATE_KEY = "SERVER_KEY_PRIVATE"
 
 
 async def generate_keys(session: AsyncSession) -> None:
@@ -34,8 +31,8 @@ async def generate_keys(session: AsyncSession) -> None:
     SMP_VALUE = conf.SERVER_MAIN_PASSWORD
 
     if SMP_VALUE is None:
-        LOGGER.critical(f'Environment variable {MAIN_KEY} is missing.')
-        raise ValueError(f'{MAIN_KEY} missing')
+        LOGGER.critical(f"Environment variable {MAIN_KEY} is missing.")
+        raise ValueError(f"{MAIN_KEY} missing")
 
     kvs = KeyValueStore(session)
     e = Exchange()
@@ -44,23 +41,23 @@ async def generate_keys(session: AsyncSession) -> None:
         db_smp_key = await kvs.get_str(MAIN_KEY)
 
         if db_smp_key != SMP_VALUE:
-            LOGGER.fatal(f'Environment variable {MAIN_KEY} invalid: please set the correct password!')
-            raise Exception(f'{MAIN_KEY} invalid')
+            LOGGER.fatal(f"Environment variable {MAIN_KEY} invalid: please set the correct password!")
+            raise Exception(f"{MAIN_KEY} invalid")
 
-    except ValueError:
+    except NoResultFound:
         await kvs.put_str(MAIN_KEY, SMP_VALUE)
-        LOGGER.info(f'Application initialization, Environment variable {MAIN_KEY} saved in storage')
+        LOGGER.info(f"Application initialization, Environment variable {MAIN_KEY} saved in storage")
 
     try:
         await kvs.get_bytes(PRIVATE_KEY)
-        LOGGER.info('Keys are already available')
+        LOGGER.info("Keys are already available")
         return
 
-    except ValueError:
+    except NoResultFound:
         pass
 
     # generate new keys
-    LOGGER.info('Keys generation started')
+    LOGGER.info("Keys generation started")
 
     e.generate_key()
 
@@ -70,102 +67,56 @@ async def generate_keys(session: AsyncSession) -> None:
     await kvs.put_bytes(PRIVATE_KEY, private_bytes)
     await kvs.put_bytes(PUBLIC_KEY, public_bytes)
 
-    LOGGER.info('Keys generation completed')
+    LOGGER.info("Keys generation completed")
 
 
-async def check_client_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> Client:
-    """Checks if the given client token exists in the database.
-
-    :param credentials:
-        Content of Authorization header.
-    :session:
-        Session on the database.
-    :return:
-        The client_id associated with the authorization header, otherwise an exception is raised.
-    """
-    token: str = credentials.credentials  # type: ignore
-
-    cs: ClientService = ClientService(session)
-
-    client_token: ClientToken | None = await cs.get_client_token_by_token(token)
-
-    # TODO: add expiration to token, and also an endpoint to update the token using an expired one
-
-    if client_token is None:
-        LOGGER.warning('received token does not exist in database')
-        raise HTTPException(401, 'Invalid access token')
-
-    client_id = str(client_token.client_id)
-
-    if not client_token.valid:
-        LOGGER.warning('received invalid token')
-        raise HTTPException(403, 'Permission denied')
-
-    if client_token.creation_time + timedelta(seconds=client_token.expiration_time) < datetime.now(client_token.creation_time.tzinfo):
-        LOGGER.warning(f'client_id={client_id}: received expired token: invalidating')
-        await cs.invalidate_all_tokens(client_id)
-        # allow access only for a single time, since the token update has priority
-
-    LOGGER.debug(f'client_id={client_id}: received valid token')
-
-    try:
-
-        client = await cs.get_client_by_id(client_id)
-
-        if client.left or not client.active:
-            LOGGER.warning('Client that left or has been deactivated tried to connect!')
-            raise HTTPException(403, 'Permission denied')
-
-        return client
-
-    except ValueError as e:
-        LOGGER.warning(f'valid token does not have client! {e}')
-        raise HTTPException(403, 'Permission denied')
-
-
-async def check_user_token(credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)) -> User:
-    """Checks if the given user token exists in the database.
+async def check_token(
+    credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)
+) -> Component | Client:
+    """Checks if the given token exists in the database.
 
     :param credentials:
         Content of Authorization header.
     :session:
         Session on the database.
     :return:
-        The user_id associated with the authorization header, otherwise an exception is raised.
+        The component object associated with the authorization header, otherwise an exception is raised.
     """
-    token: str = credentials.credentials  # type: ignore
+    given_token: str = credentials.credentials  # type: ignore
 
-    us: UserService = UserService(session)
+    cs: ComponentService = ComponentService(session)
 
-    user_token: UserToken | None = await us.get_user_token_by_token(token)
+    try:
+        token: Token = await cs.get_token_by_token(given_token)
+
+    except NoResultFound:
+        LOGGER.warning("received token does not exist in database")
+        raise HTTPException(401, "Invalid access token")
 
     # TODO: add expiration to token, and also an endpoint to update the token using an expired one
 
-    if user_token is None:
-        LOGGER.warning('received token does not exist in database')
-        raise HTTPException(401, 'Invalid access token')
+    component_id = str(token.component_id)
 
-    user_id = str(user_token.user_id)
+    if not token.valid:
+        LOGGER.warning("received invalid token")
+        raise HTTPException(403, "Permission denied")
 
-    if not user_token.valid:
-        LOGGER.warning('received invalid token')
-        raise HTTPException(403, 'Permission denied')
-
-    if user_token.creation_time + timedelta(seconds=user_token.expiration_time) < datetime.now(user_token.creation_time.tzinfo):
-        LOGGER.warning(f'user_id={user_id}: received expired token: invalidating')
-        await us.invalidate_all_tokens(user_id)
+    if token.creation_time + timedelta(seconds=token.expiration_time) < datetime.now(token.creation_time.tzinfo):
+        LOGGER.warning(f"component_id={component_id}: received expired token: invalidating")
+        await cs.invalidate_tokens(component_id)
         # allow access only for a single time, since the token update has priority
 
-    LOGGER.debug(f'user_id={user_id}: received valid token')
+    LOGGER.debug(f"component_id={component_id}: received valid token")
 
     try:
-        user = await us.get_user_by_id(user_id)
+        component: Component = await cs.get_by_id(component_id)
 
-        if user.left or not user.active:
-            LOGGER.warning('User that left or has been deactivated tried to connect!')
-            raise HTTPException(403, 'Permission denied')
+        if component.left or not component.active:
+            LOGGER.warning("Client that left or has been deactivated tried to connect!")
+            raise HTTPException(403, "Permission denied")
 
-        return user
-    except ValueError as e:
-        LOGGER.warning(f'valid token does not have user! {e}')
-        raise HTTPException(403, 'Permission denied')
+        return component
+
+    except NoResultFound:
+        LOGGER.warning(f"valid token does not have client!")
+        raise HTTPException(403, "Permission denied")

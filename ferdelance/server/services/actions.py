@@ -1,17 +1,20 @@
-from ...database.tables import ClientApp, ClientToken, Job
-from ...database.schemas import Client
-from ...database.services import (
+from ferdelance.database.tables import Application, Job
+from ferdelance.database.schemas import Client, Token
+from ferdelance.database.services import (
     DBSessionService,
     AsyncSession,
-    ClientAppService,
-    ClientService,
+    ApplicationService,
+    ComponentService,
     JobService,
 )
-
-from .tokens import TokenService
-
+from ferdelance.database.services import ComponentService
 from ferdelance.shared.actions import Action
-from ferdelance.shared.schemas import UpdateClientApp, UpdateExecute, UpdateNothing, UpdateToken
+from ferdelance.shared.schemas import (
+    UpdateClientApp,
+    UpdateExecute,
+    UpdateNothing,
+    UpdateToken,
+)
 
 from sqlalchemy import select, func
 from typing import Any
@@ -22,13 +25,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ActionService(DBSessionService):
-
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
         self.js: JobService = JobService(session)
-        self.cas: ClientAppService = ClientAppService(session)
-        self.cs: ClientService = ClientService(session)
+        self.cas: ApplicationService = ApplicationService(session)
+        self.cs: ComponentService = ComponentService(session)
 
     async def _check_client_token(self, client: Client) -> bool:
         """Checks if the token is still valid or if there is a new version.
@@ -37,15 +39,10 @@ class ActionService(DBSessionService):
             True if no valid token is found, otherwise False.
         """
         n_tokens = await self.session.scalar(
-            select(func.count())
-            .select_from(ClientToken)
-            .where(
-                ClientToken.client_id == client.client_id,
-                ClientToken.valid
-            )
+            select(func.count()).select_from(Token).where(Token.component_id == client.component_id, Token.valid)
         )
 
-        LOGGER.debug(f'client_id={client.client_id}: found {n_tokens} valid token(s)')
+        LOGGER.debug(f"client_id={client.component_id}: found {n_tokens} valid token(s)")
 
         return n_tokens == 0
 
@@ -55,16 +52,11 @@ class ActionService(DBSessionService):
         :return:
             The 'update_token' action and a string with the new token.
         """
-        ts: TokenService = TokenService(self.session)
+        cs: ComponentService = ComponentService(self.session)
 
-        token: ClientToken = await ts.generate_client_token(client.machine_system, client.machine_mac_address, client.machine_node, client.client_id)
-        await self.cs.invalidate_all_tokens(client.client_id)
-        await self.cs.create_client_token(token)
+        token: Token = await cs.update_client_token(client)
 
-        return UpdateToken(
-            action=Action.UPDATE_TOKEN.name,
-            token=token.token
-        )
+        return UpdateToken(action=Action.UPDATE_TOKEN.name, token=token.token)
 
     async def _check_client_app_update(self, client: Client) -> bool:
         """Compares the client current version with the newest version on the database.
@@ -72,12 +64,12 @@ class ActionService(DBSessionService):
         :return:
             True if there is a new version and this version is different from the current client version.
         """
-        app: ClientApp | None = await self.cas.get_newest_app()
+        app: Application | None = await self.cas.get_newest_app()
 
         if app is None:
             return False
 
-        LOGGER.debug(f'client_id={client.client_id}: version={client.version} newest_version={app.version}')
+        LOGGER.debug(f"client_id={client.component_id}: version={client.version} newest_version={app.version}")
 
         return client.version != app.version
 
@@ -88,7 +80,7 @@ class ActionService(DBSessionService):
             Fetch and return the version to download.
         """
 
-        new_client: ClientApp | None = await self.cas.get_newest_app()
+        new_client: Application | None = await self.cas.get_newest_app()
 
         assert new_client is not None
 
@@ -100,21 +92,18 @@ class ActionService(DBSessionService):
         )
 
     async def _check_scheduled_job(self, client: Client) -> Job | None:
-        return await self.js.next_job_for_client(client.client_id)
+        return await self.js.next_job_for_client(client.component_id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateExecute:
-        return UpdateExecute(
-            action=Action.EXECUTE.name,
-            artifact_id=job.artifact_id
-        )
+        return UpdateExecute(action=Action.EXECUTE.name, artifact_id=job.artifact_id)
 
     async def _action_nothing(self) -> UpdateNothing:
         """Do nothing and waits for the next update request."""
-        return UpdateNothing(
-            action=Action.DO_NOTHING.name
-        )
+        return UpdateNothing(action=Action.DO_NOTHING.name)
 
-    async def next(self, client: Client, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
+    async def next(
+        self, client: Client, payload: dict[str, Any]
+    ) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
 
         # TODO: consume client payload
 
