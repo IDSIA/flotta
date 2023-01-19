@@ -3,13 +3,13 @@ import pytest
 
 from ferdelance.cli.suites.jobs.functions import list_jobs
 from ferdelance.database import AsyncSession
-from ferdelance.database.tables import Artifact, Client, Job
+from ferdelance.database.tables import Artifact, Component, Job
 
 
 @pytest.mark.asyncio
 async def test_jobs_list(async_session: AsyncSession):
 
-    c1: Client = Client(
+    c1: Component = Component(
         client_id="C1",
         version="test",
         public_key="1",

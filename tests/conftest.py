@@ -24,14 +24,10 @@ conf.DB_MEMORY = False
 conf.DB_DIALECT = "sqlite"
 conf.DB_HOST = db_file
 
-conf.SERVER_MAIN_PASSWORD = (
-    "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
-)
+conf.SERVER_MAIN_PASSWORD = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
 
 # this is for client
-os.environ["PATH_PRIVATE_KEY"] = os.environ.get(
-    "PATH_PRIVATE_KEY", str(os.path.join("tests", "private_key.pem"))
-)
+os.environ["PATH_PRIVATE_KEY"] = os.environ.get("PATH_PRIVATE_KEY", str(os.path.join("tests", "private_key.pem")))
 
 
 def create_dirs() -> None:

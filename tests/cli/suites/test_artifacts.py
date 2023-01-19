@@ -2,7 +2,8 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ferdelance.cli.suites.artifacts.functions import describe_artifact, list_artifacts
-from ferdelance.database.tables import Artifact
+from ferdelance.database.tables import Artifact as ArtifactDB
+from ferdelance.database.schemas import Artifact
 
 
 @pytest.mark.asyncio
@@ -11,14 +12,14 @@ async def test_artifacts_ls(async_session: AsyncSession):
     artifact_id_2: str = "artifact2"
 
     async_session.add(
-        Artifact(
+        ArtifactDB(
             artifact_id=artifact_id_1,
             path=".",
             status="",
         )
     )
     async_session.add(
-        Artifact(
+        ArtifactDB(
             artifact_id=artifact_id_2,
             path=".",
             status="",
@@ -38,14 +39,14 @@ async def test_artifacts_description(async_session: AsyncSession):
     artifact_id_2: str = "artifact2"
 
     async_session.add(
-        Artifact(
+        ArtifactDB(
             artifact_id=artifact_id_1,
             path=".",
             status="",
         )
     )
     async_session.add(
-        Artifact(
+        ArtifactDB(
             artifact_id=artifact_id_2,
             path=".",
             status="",

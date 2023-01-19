@@ -3,14 +3,14 @@ import pytest
 
 from ferdelance.cli.suites.clients.functions import describe_client, list_clients
 from ferdelance.database import AsyncSession
-from ferdelance.database.tables import Client
+from ferdelance.database.tables import Component
 
 
 @pytest.mark.asyncio
 async def test_list_clients(async_session: AsyncSession):
 
     async_session.add(
-        Client(
+        Component(
             client_id="C1",
             version="test",
             public_key="1",
@@ -23,7 +23,7 @@ async def test_list_clients(async_session: AsyncSession):
     )
 
     async_session.add(
-        Client(
+        Component(
             client_id="C2",
             version="test",
             public_key="2",
@@ -45,7 +45,7 @@ async def test_list_clients(async_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_describe_client(async_session: AsyncSession):
     async_session.add(
-        Client(
+        Component(
             client_id="C1",
             version="test",
             public_key="1",
@@ -61,5 +61,5 @@ async def test_describe_client(async_session: AsyncSession):
 
     res = await describe_client(client_id="C1")
 
-    assert res.client_id == "C1"
+    assert res.component_id == "C1"
     assert res.version == "test"

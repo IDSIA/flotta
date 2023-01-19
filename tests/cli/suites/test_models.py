@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ferdelance.cli.suites.models.functions import describe_model, list_models
-from ferdelance.database.tables import Artifact, Client, Model
+from ferdelance.database.tables import Artifact, Component, Model
 
 
 @pytest.mark.asyncio
@@ -18,7 +18,7 @@ async def test_models_list(async_session: AsyncSession):
     )
 
     async_session.add(
-        Client(
+        Component(
             client_id="cid1",
             version="test",
             public_key="1",
@@ -54,7 +54,7 @@ async def test_describe_client(async_session: AsyncSession):
     )
 
     async_session.add(
-        Client(
+        Component(
             client_id="cid1",
             version="test",
             public_key="1",
