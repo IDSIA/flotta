@@ -63,3 +63,12 @@ class Model(BaseModel):
     aggregated: Optional[bool]
     artifact_id: str
     client_id: str
+
+
+class Project(BaseModel):
+    project_id: str
+    name: str
+    creation_time: datetime
+    token: str
+    valid: bool
+    active: bool
