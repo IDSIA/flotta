@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import NoResultFound
 
 from ferdelance.cli.suites.models.functions import describe_model, list_models
 from ferdelance.database.tables import Artifact, Client, Model
@@ -78,3 +79,7 @@ async def test_describe_client(async_session: AsyncSession):
 
     assert res.model_id == "mid1"
     assert res.path == "."
+
+    with pytest.raises(NoResultFound) as e:
+        res = await describe_model(model_id="do not exist")
+    assert "No row was found when one was required" in str(e)

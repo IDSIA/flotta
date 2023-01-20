@@ -7,6 +7,7 @@ from sqlalchemy import select
 from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
 
 from ..schemas import Client as ClientView
+from ..schemas import ClientDataSource as ClientDataSourceView
 from ..tables import Client, ClientDataSource, ClientFeature
 from .client import get_view
 from .core import AsyncSession, DBSessionService
@@ -14,19 +15,19 @@ from .core import AsyncSession, DBSessionService
 LOGGER = logging.getLogger(__name__)
 
 
+def get_view(datasource: ClientDataSource) -> ClientDataSourceView:
+    return ClientDataSourceView(**datasource.__dict__)
+
+
 class DataSourceService(DBSessionService):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def create_or_update_metadata(
-        self, client_id: str, metadata: Metadata
-    ) -> None:
+    async def create_or_update_metadata(self, client_id: str, metadata: Metadata) -> None:
         for ds in metadata.datasources:
             await self.create_or_update_datasource(client_id, ds)
 
-    async def create_or_update_datasource(
-        self, client_id: str, ds: MetaDataSource
-    ) -> ClientDataSource:
+    async def create_or_update_datasource(self, client_id: str, ds: MetaDataSource) -> ClientDataSource:
         dt_now = datetime.now()
 
         res = await self.session.execute(
@@ -65,9 +66,7 @@ class DataSourceService(DBSessionService):
 
                 # remove features assigned with this data source
                 x = await self.session.execute(
-                    select(ClientFeature).where(
-                        ClientFeature.datasource_id == ds_db.client_id
-                    )
+                    select(ClientFeature).where(ClientFeature.datasource_id == ds_db.client_id)
                 )
 
                 features: list[ClientFeature] = x.scalars().all()
@@ -145,9 +144,7 @@ class DataSourceService(DBSessionService):
         else:
             if remove or f.removed:
                 # remove feature and info
-                LOGGER.info(
-                    f"removing feature={f.name} for datasource={ds.datasource_id}"
-                )
+                LOGGER.info(f"removing feature={f.name} for datasource={ds.datasource_id}")
 
                 f_db.removed = True
                 f_db.dtype = None
@@ -163,9 +160,7 @@ class DataSourceService(DBSessionService):
 
             else:
                 # update data source info
-                LOGGER.info(
-                    f"client_id={ds.datasource_id}: updating data source={f.name}"
-                )
+                LOGGER.info(f"client_id={ds.datasource_id}: updating data source={f.name}")
 
                 f_db.dtype = f.dtype
                 f_db.v_mean = f.v_mean
@@ -184,41 +179,33 @@ class DataSourceService(DBSessionService):
 
         return f_db
 
-    async def get_datasource_list(self) -> list[ClientDataSource]:
+    async def get_datasource_list(self) -> list[ClientDataSourceView]:
         res = await self.session.scalars(select(ClientDataSource))
-        return res.all()
+        return [get_view(r) for r in res.all()]
 
-    async def get_datasource_by_client_id(
-        self, client_id: str
-    ) -> list[ClientDataSource]:
-        res = await self.session.scalars(
-            select(ClientDataSource).where(ClientDataSource.client_id == client_id)
-        )
-        return res.all()
+    async def get_datasource_by_client_id(self, client_id: str) -> list[ClientDataSourceView]:
+        res = await self.session.scalars(select(ClientDataSource).where(ClientDataSource.client_id == client_id))
+        return [get_view(r) for r in res.all()]
 
     async def get_datasource_ids_by_client_id(self, client_id: str) -> list[str]:
         res = await self.session.scalars(
-            select(ClientDataSource.datasource_id).where(
-                ClientDataSource.client_id == client_id
-            )
+            select(ClientDataSource.datasource_id).where(ClientDataSource.client_id == client_id)
         )
 
         return res.all()
 
-    async def get_datasource_by_id(self, ds_id: str) -> ClientDataSource:
+    async def get_datasource_by_id(self, ds_id: str) -> ClientDataSourceView | None:
         res = await self.session.execute(
             select(ClientDataSource).where(
                 ClientDataSource.datasource_id == ds_id,
                 ClientDataSource.removed == False,
             )
         )
-        return res.scalar_one()
+        return get_view(res.scalar_one())
 
     async def get_datasource_by_name(self, ds_name: str) -> list[ClientDataSource]:
         res = await self.session.scalars(
-            select(ClientDataSource).where(
-                ClientDataSource.name == ds_name, ClientDataSource.removed == False
-            )
+            select(ClientDataSource).where(ClientDataSource.name == ds_name, ClientDataSource.removed == False)
         )
         return res.all()
 
@@ -233,9 +220,7 @@ class DataSourceService(DBSessionService):
         )
         return get_view(res.scalar_one())
 
-    async def get_features_by_datasource(
-        self, ds: ClientDataSource
-    ) -> list[ClientFeature]:
+    async def get_features_by_datasource(self, ds: ClientDataSource) -> list[ClientFeature]:
         res = await self.session.scalars(
             select(ClientFeature).where(
                 ClientFeature.datasource_id == ds.datasource_id,

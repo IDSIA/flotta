@@ -53,3 +53,20 @@ class Model(BaseModel):
     aggregated: bool
     artifact_id: str
     client_id: str
+
+
+class ClientDataSource(BaseModel):
+    """Table that collects the data source available on each client."""
+
+    datasource_id: str
+
+    name: str
+
+    creation_time: datetime
+    update_time: datetime
+    removed: bool
+
+    n_records: int
+    n_features: int
+
+    client_id: str
