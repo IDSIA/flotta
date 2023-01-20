@@ -1,8 +1,11 @@
+from typing import List
+
 import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ferdelance.cli.suites.models.functions import describe_model, list_models
+from ferdelance.database.schemas import Model as ModelView
 from ferdelance.database.tables import Artifact, Client, Model
 
 
@@ -32,13 +35,13 @@ async def test_models_list(async_session: AsyncSession):
 
     async_session.add(Model(model_id="mid1", path=".", artifact_id="aid1", client_id="cid1"))
 
-    res: pd.DataFrame = await list_models()
+    res: List[ModelView] = await list_models()
 
     assert len(res) == 0
 
     await async_session.commit()
 
-    res: pd.DataFrame = await list_models()
+    res: List[ModelView] = await list_models()
 
     assert len(res) == 1
 

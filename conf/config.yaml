@@ -20,6 +20,11 @@ ferdelance:
       path: data/file3.tsv
       kind: file
 
+    - name: iris
+      type: csv
+      path: data/iris.csv
+      kind: file
+
     # - name: database1
     #   type: sqlite
     #   conn: sqlite.db

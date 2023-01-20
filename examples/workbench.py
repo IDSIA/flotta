@@ -3,13 +3,7 @@ import json
 
 import numpy as np
 
-from ferdelance.shared.artifacts import (
-    Artifact,
-    ArtifactStatus,
-    Dataset,
-    DataSource,
-    Query,
-)
+from ferdelance.shared.artifacts import Artifact, ArtifactStatus, Dataset, DataSource, Query
 from ferdelance.shared.models import (
     FederatedRandomForestClassifier,
     ParametersRandomForestClassifier,
@@ -33,7 +27,7 @@ ds: DataSource | None = None
 
 for ds_id in data_sources_id:
     ds = ctx.datasource_by_id(ds_id)
-
+    print(ds.info())
     if ds.name == "iris":
         break
 
@@ -97,5 +91,3 @@ m.load(ctx.get_model(a))
 
 print(m.predict(np.array([[0, 0, 0, 0]])))
 print(m.predict(np.array([[1, 1, 1, 1]])))
-
-# %%
