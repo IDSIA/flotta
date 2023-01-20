@@ -15,7 +15,9 @@ if __name__ == "__main__":
     LOGGER.info("standalone application starting")
 
     conf.STANDALONE = True
-    conf.SERVER_MAIN_PASSWORD = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"  # this is a dummy key
+    conf.SERVER_MAIN_PASSWORD = (
+        "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"  # this is a dummy key
+    )
     conf.DB_DIALECT = "sqlite"
     # conf.DB_MEMORY = True
     conf.SERVER_INTERFACE = "0.0.0.0"

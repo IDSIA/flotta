@@ -4,7 +4,7 @@ import pandas as pd
 
 from ....database import DataBase
 from ....database.schemas import Client
-from ....database.services import ClientService
+from ....database.services import ComponentService
 from ...visualization import show_many, show_one
 
 
@@ -16,8 +16,8 @@ async def list_clients() -> List[Client]:
     """
     db = DataBase()
     async with db.async_session() as session:
-        client_service = ClientService(session)
-        clients: List[Client] = await client_service.get_client_list()
+        client_service = ComponentService(session)
+        clients: List[Client] = await client_service.list_clients()
         show_many(result=clients)
         return clients
 
@@ -41,7 +41,7 @@ async def describe_client(client_id: str) -> Client:
     db = DataBase()
     async with db.async_session() as session:
 
-        client_service = ClientService(session)
+        client_service = ComponentService(session)
 
         client: Client | None = await client_service.get_client_by_id(client_id)
 

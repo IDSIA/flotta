@@ -4,6 +4,7 @@
 from typing import List
 
 import pandas as pd
+from sqlalchemy.exc import NoResultFound
 
 from ....database import DataBase
 from ....database.schemas import Model
@@ -11,7 +12,7 @@ from ....database.services import ModelService
 from ...visualization import show_many, show_one
 
 
-async def list_models(artifact_id: str = None) -> List[Model]:
+async def list_models(artifact_id: str | None = None) -> List[Model]:
     """Print model list, with or without filters on ARTIFACT_ID, MODEL_ID"""
     # TODO depending on 1:1, 1:n relations with artifacts arguments change or disappear
 
@@ -30,7 +31,7 @@ async def list_models(artifact_id: str = None) -> List[Model]:
         return models
 
 
-async def describe_model(model_id: str = None) -> Model:
+async def describe_model(model_id: str | None = None) -> Model:
     """Describe single model by printing its db record.
 
     Args:
@@ -51,11 +52,11 @@ async def describe_model(model_id: str = None) -> Model:
 
         model_service = ModelService(session)
 
-        model: Model | None = await model_service.get_model_by_id(model_id)
-
-        if model is None:
-            print(f"No model found with id {model_id}")
-        else:
+        try:
+            model: Model = await model_service.get_model_by_id(model_id)
             show_one(model)
 
-        return model
+            return model
+
+        except NoResultFound:
+            print(f"No model found with id {model_id}")

@@ -1,17 +1,13 @@
-from . import security
-from .. import __version__
-from ..config import conf
-from ..database.services import DBSessionService, AsyncSession
-from ..database.services.client import ClientService
-from ..database.services.settings import setup_settings
-from ..database.tables import ClientToken
-from ..server.services import SecurityService, TokenService
+from ferdelance import __version__
+from ferdelance.config import conf
+from ferdelance.database.const import PUBLIC_KEY
+from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER, TYPE_WORKER
+from ferdelance.database.services import DBSessionService, AsyncSession, ComponentService, KeyValueStore
+from ferdelance.database.services.settings import setup_settings
+from ferdelance.server import security
 
 import aiofiles.os
 import logging
-import platform
-import re
-import uuid
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,66 +15,41 @@ LOGGER = logging.getLogger(__name__)
 class ServerStartup(DBSessionService):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
-        self.cs: ClientService = ClientService(session)
-        self.ss: SecurityService = SecurityService(session)
-        self.ts: TokenService = TokenService(session)
+        self.cs: ComponentService = ComponentService(session)
+        self.kvs = KeyValueStore(session)
 
     async def init_directories(self) -> None:
-        LOGGER.info('directory initialization')
+        LOGGER.info("directory initialization")
 
         await aiofiles.os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
         await aiofiles.os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
         await aiofiles.os.makedirs(conf.STORAGE_MODELS, exist_ok=True)
 
-        LOGGER.info('directory initialization completed')
+        LOGGER.info("directory initialization completed")
 
-    async def create_client(self, type: str, ip_address: str = '', system: str = '', node: int | None = None) -> None:
-        LOGGER.info(f'creating client {type}')
-
-        if node is None:
-            node = uuid.uuid4().int
-
-        node_str: str = str(node)[:12]
-        mac_address: str = ':'.join(re.findall('..', f'{node:012x}'[:12]))
+    async def create_component(self, type: str, public_key: str) -> None:
+        LOGGER.info(f"creating component {type}")
 
         try:
-            client_token: ClientToken = await self.ts.generate_client_token(system, mac_address, node_str)
-
-            await self.cs.create_client(
-                client_id=client_token.client_id,
-                version=__version__,
-                public_key='',
-                machine_system=system,
-                machine_mac_address=mac_address,
-                machine_node=node_str,
-                ip_address=ip_address,
-                type=type
-            )
-            await self.cs.create_client_token(client_token)
+            await self.cs.create(public_key=public_key, type_name=type)
 
         except ValueError:
-            LOGGER.warning(f'client already exists for type={type} ip_address={ip_address} system={system}')
+            LOGGER.warning(f"client already exists for type={type}")
             return
 
-        LOGGER.info(f'client {type} created')
+        LOGGER.info(f"client {type} created")
 
     async def init_security(self) -> None:
-        LOGGER.info('setup setting and security keys')
+        LOGGER.info("setup setting and security keys")
         await setup_settings(self.session)
         await security.generate_keys(self.session)
-        LOGGER.info('setup setting and security keys completed')
+        LOGGER.info("setup setting and security keys completed")
 
     async def populate_database(self) -> None:
-        await self.create_client(
-            'SERVER',
-            'localhost',
-            platform.system(),
-            uuid.getnode(),
-        )
-        await self.create_client(
-            'WORKER',
-        )
-
+        spk: str = await self.kvs.get_str(PUBLIC_KEY)
+        await self.cs.create_types(COMPONENT_TYPES)
+        await self.create_component(TYPE_SERVER, spk)
+        await self.create_component(TYPE_WORKER, "")  # TODO: worker should have a public key
         await self.session.commit()
 
     async def startup(self) -> None:

@@ -1,8 +1,4 @@
-from ferdelance.shared.generate import (
-    generate_asymmetric_key,
-    RSAPrivateKey,
-    RSAPublicKey
-)
+from ferdelance.shared.generate import generate_asymmetric_key, RSAPrivateKey, RSAPublicKey
 from ferdelance.shared.encode import (
     encode_to_transfer,
     encrypt,
@@ -25,9 +21,8 @@ LOG = logging.getLogger(__name__)
 
 
 class TestEncodeDecode:
-
     def _random_string(self, length: int) -> str:
-        return ''.join(random.choice(string.ascii_letters) for _ in range(length))
+        return "".join(random.choice(string.ascii_letters) for _ in range(length))
 
     def test_transfer(self):
         """Test an encoding and decoding of a string. This is just a change of encoding and not an encrypting."""
@@ -90,10 +85,10 @@ class TestEncodeDecode:
 
         content_from: str = self._random_string(7637)
 
-        path_content_from: str = os.path.join('.', 'file_in.txt')
-        path_content_to: str = os.path.join('.', 'file_out.txt')
+        path_content_from: str = os.path.join(".", "file_in.txt")
+        path_content_to: str = os.path.join(".", "file_out.txt")
 
-        with open(path_content_from, 'w') as f:
+        with open(path_content_from, "w") as f:
             f.write(content_from)
 
         chunks_encrypted: list[bytes] = []
@@ -102,8 +97,8 @@ class TestEncodeDecode:
 
         dec.decrypt_stream_to_file(iter(chunks_encrypted), path_content_to)
 
-        with open(path_content_to, 'rb') as f:
-            content_to = f.read().decode('utf8')
+        with open(path_content_to, "rb") as f:
+            content_to = f.read().decode("utf8")
 
         os.remove(path_content_from)
         os.remove(path_content_to)

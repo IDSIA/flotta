@@ -1,7 +1,7 @@
 __all__ = [
-    'LocalClient',
-    'LocalServer',
-    'LocalWorker',
+    "LocalClient",
+    "LocalServer",
+    "LocalWorker",
 ]
 
 from .client import LocalClient

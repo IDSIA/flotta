@@ -2,10 +2,11 @@ from typing import AsyncGenerator, Generator
 
 from ferdelance.config import conf
 from ferdelance.database import Base, DataBase
+from ferdelance.database.data import COMPONENT_TYPES
+from ferdelance.database.tables import ComponentType
 from ferdelance.shared.exchange import Exchange
 
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -24,14 +25,10 @@ conf.DB_MEMORY = False
 conf.DB_DIALECT = "sqlite"
 conf.DB_HOST = db_file
 
-conf.SERVER_MAIN_PASSWORD = (
-    "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
-)
+conf.SERVER_MAIN_PASSWORD = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
 
 # this is for client
-os.environ["PATH_PRIVATE_KEY"] = os.environ.get(
-    "PATH_PRIVATE_KEY", str(os.path.join("tests", "private_key.pem"))
-)
+os.environ["PATH_PRIVATE_KEY"] = os.environ.get("PATH_PRIVATE_KEY", str(os.path.join("tests", "private_key.pem")))
 
 
 def create_dirs() -> None:
@@ -52,7 +49,7 @@ def delete_dirs() -> None:
 
 
 @pytest.fixture()
-def connection() -> Generator[Connection, None, None]:
+def session() -> Generator[Session, None, None]:
     """This will be executed once each test and it will create a new database on a sqlite local file.
     The database will be used as the server's database and it will be populate this database with the required tables.
     """
@@ -64,16 +61,14 @@ def connection() -> Generator[Connection, None, None]:
     with engine.connect() as conn:
         Base.metadata.create_all(conn, checkfirst=True)
         try:
-            yield conn
+            with Session(conn) as session:
+                for t in COMPONENT_TYPES:
+                    session.add(ComponentType(type=t))
+                session.commit()
+                yield session
         finally:
             Base.metadata.drop_all(conn)
             delete_dirs()
-
-
-@pytest.fixture()
-def session(connection: Connection) -> Generator[Session, None, None]:
-    with Session(connection) as session:
-        yield session
 
 
 @pytest_asyncio.fixture()
@@ -87,6 +82,9 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         await conn.run_sync(Base.metadata.create_all)
         try:
             async with inst.session() as session:
+                for t in COMPONENT_TYPES:
+                    session.add(ComponentType(type=t))
+                await session.commit()
                 yield session
         finally:
             await conn.run_sync(Base.metadata.drop_all)

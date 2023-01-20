@@ -43,12 +43,11 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TestWorkbenchClass:
-
     def setup_class(self):
         """This method will create two Exchange object, one to simulate the client
         and one to simulate the workbench.
         """
-        LOGGER.info('setting up')
+        LOGGER.info("setting up")
 
         # this is for client
         self.cl_exc = Exchange()
@@ -58,7 +57,7 @@ class TestWorkbenchClass:
         self.wb_exc = Exchange()
         self.wb_exc.generate_key()
 
-        LOGGER.info('setup completed')
+        LOGGER.info("setup completed")
 
     def connect(self, server: TestClient) -> tuple[str, str]:
         # this is to have a client
@@ -70,14 +69,9 @@ class TestWorkbenchClass:
         assert upload_response.status_code == 200
 
         # this is for connect a new workbench
-        wjr = WorkbenchJoinRequest(
-            public_key=self.wb_exc.transfer_public_key()
-        )
+        wjr = WorkbenchJoinRequest(public_key=self.wb_exc.transfer_public_key())
 
-        res = server.post(
-            '/workbench/connect',
-            data=json.dumps(wjr.dict())
-        )
+        res = server.post("/workbench/connect", data=json.dumps(wjr.dict()))
 
         res.raise_for_status()
 
@@ -107,19 +101,19 @@ class TestWorkbenchClass:
             self.connect(server)
 
             res = server.get(
-                '/workbench',
+                "/workbench",
                 headers=self.wb_exc.headers(),
             )
 
             assert res.status_code == 200
-            assert res.content.decode('utf8') == '"Workbench 🔧"'
+            assert res.content.decode("utf8") == '"Workbench 🔧"'
 
     def test_workbench_list_client(self, session: Session):
         with TestClient(api) as server:
             self.connect(server)
 
             res = server.get(
-                '/workbench/client/list',
+                "/workbench/client/list",
                 headers=self.wb_exc.headers(),
             )
 
@@ -129,16 +123,16 @@ class TestWorkbenchClass:
             client_list = wcl.client_ids
 
             assert len(client_list) == 1
-            assert 'SERVER' not in client_list
-            assert 'WORKER' not in client_list
-            assert 'WORKBENCH' not in client_list
+            assert "SERVER" not in client_list
+            assert "WORKER" not in client_list
+            assert "WORKBENCH" not in client_list
 
     def test_workbench_detail_client(self, session: Session):
         with TestClient(api) as server:
             client_id, _ = self.connect(server)
 
             res = server.get(
-                f'/workbench/client/{client_id}',
+                f"/workbench/client/{client_id}",
                 headers=self.wb_exc.headers(),
             )
 
@@ -147,14 +141,14 @@ class TestWorkbenchClass:
             cd = ClientDetails(**self.wb_exc.get_payload(res.content))
 
             assert cd.client_id == client_id
-            assert cd.version == 'test'
+            assert cd.version == "test"
 
     def test_workflow_submit(self, session: Session):
         with TestClient(api) as server:
             self.connect(server)
 
             res = server.get(
-                '/workbench/datasource/list',
+                "/workbench/datasource/list",
                 headers=self.wb_exc.headers(),
             )
 
@@ -168,7 +162,7 @@ class TestWorkbenchClass:
             datasource_id = ds_list[0]
 
             res = server.get(
-                f'/workbench/datasource/{datasource_id}',
+                f"/workbench/datasource/{datasource_id}",
                 headers=self.wb_exc.headers(),
             )
 
@@ -184,8 +178,8 @@ class TestWorkbenchClass:
 
             dtypes = [f.dtype for f in datasource.features]
 
-            assert 'float' in dtypes
-            assert 'int' in dtypes
+            assert "float" in dtypes
+            assert "int" in dtypes
 
             artifact = Artifact(
                 artifact_id=None,
@@ -194,20 +188,23 @@ class TestWorkbenchClass:
                         Query(
                             datasource_id=datasource.datasource_id,
                             datasource_name=datasource.name,
-                            features=[QueryFeature(
-                                datasource_id=f.datasource_id,
-                                datasource_name=f.datasource_name,
-                                feature_id=f.feature_id,
-                                feature_name=f.name,
-                            ) for f in datasource.features]
+                            features=[
+                                QueryFeature(
+                                    datasource_id=f.datasource_id,
+                                    datasource_name=f.datasource_name,
+                                    feature_id=f.feature_id,
+                                    feature_name=f.name,
+                                )
+                                for f in datasource.features
+                            ],
                         )
                     ]
                 ),
-                model=Model(name='model', strategy=''),
+                model=Model(name="model", strategy=""),
             )
 
             res = server.post(
-                '/workbench/artifact/submit',
+                "/workbench/artifact/submit",
                 data=self.wb_exc.create_payload(artifact.dict()),
                 headers=self.wb_exc.headers(),
             )
@@ -223,7 +220,7 @@ class TestWorkbenchClass:
             assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
             res = server.get(
-                f'/workbench/artifact/status/{artifact_id}',
+                f"/workbench/artifact/status/{artifact_id}",
                 headers=self.wb_exc.headers(),
             )
 
@@ -234,7 +231,7 @@ class TestWorkbenchClass:
             assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
             res = server.get(
-                f'/workbench/artifact/{artifact_id}',
+                f"/workbench/artifact/{artifact_id}",
                 headers=self.wb_exc.headers(),
             )
 
