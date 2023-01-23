@@ -1,9 +1,11 @@
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from ferdelance.cli.suites.artifacts.functions import describe_artifact, list_artifacts
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.schemas import Artifact
+
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.ext.asyncio import AsyncSession
+
+import pytest
 
 
 @pytest.mark.asyncio
@@ -63,8 +65,7 @@ async def test_artifacts_description(async_session: AsyncSession):
 
     with pytest.raises(ValueError) as e:
         res = await describe_artifact(artifact_id=None)
-    assert "Provide an Artifact ID" in str(e)
+        assert "Provide an Artifact ID" in str(e)
 
-    res = await describe_artifact(artifact_id="do_not_exist")
-
-    assert res is None
+    with pytest.raises(NoResultFound):
+        await describe_artifact(artifact_id="do_not_exist")

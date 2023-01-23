@@ -1,18 +1,17 @@
-from ferdelance.config import conf
-from ferdelance.database import get_session, AsyncSession
-from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
-from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.services import KeyValueStore, ComponentService
-from ferdelance.database.schemas import Client, Component, Token
-from ferdelance.shared.exchange import Exchange
+import logging
+from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBasicCredentials, HTTPBearer
 from sqlalchemy.exc import NoResultFound
 
-from datetime import timedelta, datetime
-
-import logging
+from ferdelance.config import conf
+from ferdelance.database import AsyncSession, get_session
+from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
+from ferdelance.database.data import TYPE_CLIENT
+from ferdelance.database.schemas import Component, Token
+from ferdelance.database.services import ComponentService, KeyValueStore
+from ferdelance.shared.exchange import Exchange
 
 LOGGER = logging.getLogger(__name__)
 
@@ -71,7 +70,7 @@ async def generate_keys(session: AsyncSession) -> Exchange:
 
 async def check_token(
     credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)
-) -> Component | Client:
+) -> Component | Component:
     """Checks if the given token exists in the database.
 
     :param credentials:
@@ -108,10 +107,10 @@ async def check_token(
     LOGGER.debug(f"component_id={component_id}: received valid token")
 
     try:
-        component: Component | Client = await cs.get_by_id(component_id)
+        component: Component | Component = await cs.get_by_id(component_id)
 
         if component.left or not component.active:
-            LOGGER.warning("Client that left or has been deactivated tried to connect!")
+            LOGGER.warning("Component that left or has been deactivated tried to connect!")
             raise HTTPException(403, "Permission denied")
 
         return component

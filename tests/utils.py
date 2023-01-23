@@ -1,22 +1,13 @@
-from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.artifacts import (
-    Metadata,
-    MetaDataSource,
-    MetaFeature,
-)
-from ferdelance.shared.schemas import (
-    ClientJoinRequest,
-    ClientJoinData,
-)
-
-from fastapi.testclient import TestClient
-
-from requests import Response
-
-import random
 import json
 import logging
+import random
 
+from fastapi.testclient import TestClient
+from requests import Response
+
+from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
+from ferdelance.shared.exchange import Exchange
+from ferdelance.shared.schemas import ClientJoinData, ClientJoinRequest
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +15,7 @@ LOGGER = logging.getLogger(__name__)
 def create_client(client: TestClient, exc: Exchange) -> str:
     """Creates and register a new client with random mac_address and node.
     :return:
-        Client id and token for this new client.
+        Component id and token for this new client.
     """
     mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)

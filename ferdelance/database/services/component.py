@@ -221,7 +221,7 @@ class ComponentService(DBSessionService):
         res = await self.session.scalars(select(ComponentDB))
         return [view(c) for c in res.all()]
 
-    async def list_clients(self):
+    async def list_clients(self) -> list[Client]:
         res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_CLIENT))
         return [viewClient(c) for c in res]
 

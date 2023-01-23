@@ -57,9 +57,7 @@ class CLIParser:
             type=str,
             help="Which entity is associated to the command",
         )
-        self.parser.add_argument(
-            "command", metavar="C", type=str, help="Which command to execute"
-        )
+        self.parser.add_argument("command", metavar="C", type=str, help="Which command to execute")
 
         self.suites: List[CLICommandSuite] = []
         self.selected_suite: CLICommandSuite = None
@@ -96,27 +94,18 @@ class CLIParser:
         """
         args: Namespace = self.parser.parse_args(command_line_args)
 
-        selected_suite: CLICommandSuite = next(
-            filter(lambda s: s.entity == args.entity, self.suites), None
-        )
+        selected_suite: CLICommandSuite = next(filter(lambda s: s.entity == args.entity, self.suites), None)
         if selected_suite is None:
             raise ValueError(f"No command suite found for entity '{args.entity}'")
 
-        selected_command: CLICommand = next(
-            filter(lambda c: c.command == args.command, selected_suite.commands), None
-        )
+        selected_command: CLICommand = next(filter(lambda c: c.command == args.command, selected_suite.commands), None)
 
         if selected_command is None:
-            raise ValueError(
-                f"Command suite {selected_suite.entity} does not support command '{args.command}'"
-            )
+            raise ValueError(f"Command suite {selected_suite.entity} does not support command '{args.command}'")
 
         self.selected_suite = selected_suite
         self.selected_command = selected_command
-        self.args = {
-            sca.var_name: getattr(args, sca.var_name)
-            for sca in self.selected_command.arguments
-        }
+        self.args = {sca.var_name: getattr(args, sca.var_name) for sca in self.selected_command.arguments}
 
 
 @dataclass
@@ -128,12 +117,17 @@ class CLIArgs:
         help="Artifact ID",
     )
 
-    MODEL_ID: CLIArgument = CLIArgument(
-        dash_string="--model-id", var_name="model_id", var_type=str, help="Model ID"
-    )
+    MODEL_ID: CLIArgument = CLIArgument(dash_string="--model-id", var_name="model_id", var_type=str, help="Model ID")
 
     CLIENT_ID: CLIArgument = CLIArgument(
-        dash_string="--client-id", var_name="client_id", var_type=str, help="Client ID"
+        dash_string="--client-id", var_name="client_id", var_type=str, help="Component ID"
+    )
+
+    DATASOURCE_ID: CLIArgument = CLIArgument(
+        dash_string="--datasource-id",
+        var_name="datasource_id",
+        var_type=str,
+        help="Datasource ID",
     )
 
     AGGREGATE: CLIArgument = CLIArgument(

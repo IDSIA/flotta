@@ -7,10 +7,7 @@ from ferdelance.database.services import (
     DataSourceService,
     ModelService,
 )
-from ferdelance.database.schemas import Component, Model, Client, Token
-from ferdelance.database.tables import (
-    DataSource as DataSourceDB,
-)
+from ferdelance.database.schemas import Component, Model, Client, Token, DataSource as DataSourceView
 from ferdelance.server.security import check_token
 from ferdelance.server.services import (
     JobManagementService,
@@ -166,7 +163,7 @@ async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), u
 
     await ss.setup(user.public_key)
 
-    ds_session: list[DataSourceDB] = await dss.get_datasource_list()
+    ds_session: list[DataSourceView] = await dss.get_datasource_list()
 
     LOGGER.info(f"found {len(ds_session)} datasource(s)")
 
@@ -187,24 +184,23 @@ async def wb_get_client_datasource(
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(user.public_key)
+    try:
+        ds_session: DataSourceView = await dss.get_datasource_by_id(ds_id)
 
-    ds_session: DataSourceDB | None = await dss.get_datasource_by_id(ds_id)
+        f_session = await dss.get_features_by_datasource(ds_session)
 
-    if ds_session is None or ds_session.removed is True:
+        fs = [Feature(**f.__dict__) for f in f_session if not f.removed]
+
+        ds = DataSource(
+            **ds_session.__dict__,
+            features=fs,
+        )
+
+        return ss.create_response(ds.dict())
+
+    except NoResultFound:
         LOGGER.warning(f"datasource_id={ds_id} not found in database or has been removed")
         raise HTTPException(404)
-
-    f_session = await dss.get_features_by_datasource(ds_session)
-
-    fs = [Feature(**f.__dict__) for f in f_session if not f.removed]
-
-    ds = DataSource(
-        **ds_session.__dict__,
-        features=fs,
-        client_id=ds_session.component_id,
-    )
-
-    return ss.create_response(ds.dict())
 
 
 @workbench_router.get("/workbench/datasource/name/{ds_name}", response_class=Response)
@@ -220,7 +216,7 @@ async def wb_get_client_datasource_by_name(
 
     await ss.setup(user.public_key)
 
-    ds_dbs: list[DataSourceDB] = await dss.get_datasource_by_name(ds_name)
+    ds_dbs: list[DataSourceView] = await dss.get_datasource_by_name(ds_name)
 
     if not ds_dbs:
         LOGGER.warning(f"datasource_id={ds_name} not found in database or has been removed")
