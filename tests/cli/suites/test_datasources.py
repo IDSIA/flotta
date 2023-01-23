@@ -1,12 +1,12 @@
-from typing import List
+from ferdelance.cli.suites.datasources.functions import describe_datasource, list_datasources
+from ferdelance.database.data import TYPE_CLIENT
+from ferdelance.database.schemas import DataSource as DataSourceView
+from ferdelance.database.tables import Component, DataSource
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import NoResultFound
 
-from ferdelance.cli.suites.datasources.functions import describe_datasource, list_datasources
-from ferdelance.database.schemas import DataSource as DataSouceView
-from ferdelance.database.tables import Component, DataSource
+import pytest
 
 
 async def populate_test_db(async_session: AsyncSession):
@@ -18,7 +18,7 @@ async def populate_test_db(async_session: AsyncSession):
         machine_mac_address="1",
         machine_node="1",
         ip_address="1",
-        type="CLIENT",
+        type_name=TYPE_CLIENT,
     )
 
     c2: Component = Component(
@@ -29,7 +29,7 @@ async def populate_test_db(async_session: AsyncSession):
         machine_mac_address="2",
         machine_node="2",
         ip_address="2",
-        type="CLIENT",
+        type_name=TYPE_CLIENT,
     )
 
     ds1: DataSource = DataSource(
@@ -54,17 +54,17 @@ async def populate_test_db(async_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_datasources_ls(async_session: AsyncSession):
 
-    res: List[DataSouceView] = await list_datasources()
+    res: list[DataSourceView] = await list_datasources()
 
     assert len(res) == 0
 
     await populate_test_db(async_session)
 
-    res: List[DataSouceView] = await list_datasources()
+    res: list[DataSourceView] = await list_datasources()
 
     assert len(res) == 3
 
-    res: List[DataSouceView] = await list_datasources(component_id="C1")
+    res: list[DataSourceView] = await list_datasources(component_id="C1")
 
     assert len(res) == 2
 
@@ -74,14 +74,14 @@ async def test_artifacts_description(async_session: AsyncSession):
 
     await populate_test_db(async_session)
 
-    res: DataSource = await describe_datasource(datasource_id="DS1")
+    res: DataSourceView = await describe_datasource(datasource_id="DS1")
 
     assert res.name == "DS1"
 
     with pytest.raises(ValueError) as e:
-        res = await describe_datasource(datasource_id=None)
+        res: DataSourceView = await describe_datasource(datasource_id=None)
     assert "Provide a DataSource ID" in str(e)
 
     with pytest.raises(NoResultFound) as e:
-        res = await describe_datasource(datasource_id="do_not_exist")
+        res: DataSourceView = await describe_datasource(datasource_id="do_not_exist")
     assert "No row was found when one was required" in str(e)
