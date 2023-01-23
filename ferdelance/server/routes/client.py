@@ -9,9 +9,8 @@ from ferdelance.database.services import (
 )
 from ferdelance.database.tables import (
     Application,
-    DataSource,
 )
-from ferdelance.database.schemas import Client, Model
+from ferdelance.database.schemas import Client, Model, DataSource
 from ferdelance.server.services import (
     ActionService,
     SecurityService,
@@ -137,7 +136,7 @@ async def client_join(
 @client_router.post("/client/leave")
 async def client_leave(
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_token),
+    client: Client = Depends(check_access),
 ):
     """API for existing client to be removed"""
     cs: ComponentService = ComponentService(session)
@@ -154,7 +153,7 @@ async def client_leave(
 async def client_update(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_token),
+    client: Client = Depends(check_access),
 ):
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
@@ -186,7 +185,7 @@ async def client_update(
 async def client_update_files(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_token),
+    client: Client = Depends(check_access),
 ):
     """
     API request by the client to get updated files. With this endpoint a client can:
@@ -227,7 +226,7 @@ async def client_update_files(
 async def client_update_metadata(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_token),
+    client: Client = Depends(check_access),
 ):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
@@ -264,7 +263,7 @@ async def client_update_metadata(
 async def client_get_task(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_token),
+    client: Client = Depends(check_access),
 ):
     LOGGER.info(f"client_id={client.client_id}: new task request")
 
@@ -299,7 +298,7 @@ async def client_post_task(
     request: Request,
     artifact_id: str,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_token),
+    client: Client = Depends(check_access),
 ):
     LOGGER.info(f"client_id={client.client_id}: complete work on artifact_id={artifact_id}")
 
@@ -321,7 +320,7 @@ async def client_post_task(
 async def client_post_metrics(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_token),
+    client: Client = Depends(check_access),
 ):
     ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
