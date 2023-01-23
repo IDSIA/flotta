@@ -1,20 +1,25 @@
-import logging
-from typing import Any
-
-from sqlalchemy import func, select
-
-from ferdelance.database.schemas import Component, Token
+from ferdelance.database.tables import Application, Token as TokenDB
+from ferdelance.database.schemas import Client, Token, Job
 from ferdelance.database.services import (
-    ApplicationService,
-    AsyncSession,
-    ComponentService,
     DBSessionService,
+    AsyncSession,
+    ApplicationService,
+    ComponentService,
     JobService,
 )
-from ferdelance.database.tables import Application, Job
-from ferdelance.database.tables import Token as TokenDB
+from ferdelance.database.services import ComponentService
 from ferdelance.shared.actions import Action
-from ferdelance.shared.schemas import UpdateClientApp, UpdateExecute, UpdateNothing, UpdateToken
+from ferdelance.shared.schemas import (
+    UpdateClientApp,
+    UpdateExecute,
+    UpdateNothing,
+    UpdateToken,
+)
+
+from sqlalchemy import select, func
+from typing import Any
+
+import logging
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +32,7 @@ class ActionService(DBSessionService):
         self.cas: ApplicationService = ApplicationService(session)
         self.cs: ComponentService = ComponentService(session)
 
-    async def _check_client_token(self, client: Component) -> bool:
+    async def _check_client_token(self, client: Client) -> bool:
         """Checks if the token is still valid or if there is a new version.
 
         :return:
@@ -41,7 +46,7 @@ class ActionService(DBSessionService):
 
         return n_tokens == 0
 
-    async def _action_update_token(self, client: Component) -> UpdateToken:
+    async def _action_update_token(self, client: Client) -> UpdateToken:
         """Generates a new valid token.
 
         :return:
@@ -53,7 +58,7 @@ class ActionService(DBSessionService):
 
         return UpdateToken(action=Action.UPDATE_TOKEN.name, token=token.token)
 
-    async def _check_client_app_update(self, client: Component) -> bool:
+    async def _check_client_app_update(self, client: Client) -> bool:
         """Compares the client current version with the newest version on the database.
 
         :return:
@@ -86,7 +91,7 @@ class ActionService(DBSessionService):
             version=new_client.version,
         )
 
-    async def _check_scheduled_job(self, client: Component) -> Job | None:
+    async def _check_scheduled_job(self, client: Client) -> Job:
         return await self.js.next_job_for_client(client.client_id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateExecute:
@@ -97,7 +102,7 @@ class ActionService(DBSessionService):
         return UpdateNothing(action=Action.DO_NOTHING.name)
 
     async def next(
-        self, client: Component, payload: dict[str, Any]
+        self, client: Client, payload: dict[str, Any]
     ) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
 
         # TODO: consume client payload
@@ -108,8 +113,10 @@ class ActionService(DBSessionService):
         if await self._check_client_app_update(client):
             return await self._action_update_client_app()
 
-        task = await self._check_scheduled_job(client)
-        if task is not None:
+        try:
+            task = await self._check_scheduled_job(client)
             return await self._action_schedule_job(task)
+        except Exception:
+            pass
 
         return await self._action_nothing()

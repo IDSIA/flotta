@@ -1,27 +1,50 @@
-import logging
-from typing import Any
-
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
-from sqlalchemy.exc import NoResultFound, SQLAlchemyError
-
 from ferdelance.database import get_session
-from ferdelance.database.schemas import Component, Model
 from ferdelance.database.services import (
-    ApplicationService,
     AsyncSession,
+    ApplicationService,
     ComponentService,
     DataSourceService,
     ModelService,
 )
-from ferdelance.database.tables import Application, DataSource
-from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
+from ferdelance.database.tables import (
+    Application,
+    DataSource,
+)
+from ferdelance.database.schemas import Client, Model
+from ferdelance.server.services import (
+    ActionService,
+    SecurityService,
+    JobManagementService,
+)
 from ferdelance.server.security import check_token
-from ferdelance.server.services import ActionService, JobManagementService, SecurityService
-from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
-from ferdelance.shared.decode import decode_from_transfer
+from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
+
+from ferdelance.shared.artifacts import (
+    MetaFeature,
+    Metadata,
+    MetaDataSource,
+)
+from ferdelance.shared.schemas import (
+    ClientJoinRequest,
+    ClientJoinData,
+    DownloadApp,
+    UpdateExecute,
+)
 from ferdelance.shared.models import Metrics
-from ferdelance.shared.schemas import ClientJoinData, ClientJoinRequest, DownloadApp, UpdateExecute
+from ferdelance.shared.decode import decode_from_transfer
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    Request,
+    HTTPException,
+)
+from fastapi.responses import Response
+
+from sqlalchemy.exc import SQLAlchemyError, NoResultFound
+from typing import Any
+
+import logging
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +54,7 @@ client_router = APIRouter()
 
 @client_router.get("/client/")
 async def client_home():
-    return "Component 🏠"
+    return "Client 🏠"
 
 
 @client_router.post("/client/join", response_class=Response)
@@ -101,7 +124,7 @@ async def client_join(
 @client_router.post("/client/leave")
 async def client_leave(
     session: AsyncSession = Depends(get_session),
-    client: Component = Depends(check_token),
+    client: Client = Depends(check_token),
 ):
     """API for existing client to be removed"""
     cs: ComponentService = ComponentService(session)
@@ -118,7 +141,7 @@ async def client_leave(
 async def client_update(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Component = Depends(check_token),
+    client: Client = Depends(check_token),
 ):
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
@@ -150,7 +173,7 @@ async def client_update(
 async def client_update_files(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Component = Depends(check_token),
+    client: Client = Depends(check_token),
 ):
     """
     API request by the client to get updated files. With this endpoint a client can:
@@ -191,7 +214,7 @@ async def client_update_files(
 async def client_update_metadata(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Component = Depends(check_token),
+    client: Client = Depends(check_token),
 ):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
@@ -228,7 +251,7 @@ async def client_update_metadata(
 async def client_get_task(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Component = Depends(check_token),
+    client: Client = Depends(check_token),
 ):
     LOGGER.info(f"client_id={client.client_id}: new task request")
 
@@ -263,7 +286,7 @@ async def client_post_task(
     request: Request,
     artifact_id: str,
     session: AsyncSession = Depends(get_session),
-    client: Component = Depends(check_token),
+    client: Client = Depends(check_token),
 ):
     LOGGER.info(f"client_id={client.client_id}: complete work on artifact_id={artifact_id}")
 
@@ -285,7 +308,7 @@ async def client_post_task(
 async def client_post_metrics(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Component = Depends(check_token),
+    client: Client = Depends(check_token),
 ):
     ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)

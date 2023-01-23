@@ -221,7 +221,7 @@ class DataSourceService(DBSessionService):
         )
         return viewClient(res.scalar_one())
 
-    async def get_features_by_datasource(self, ds: DataSource) -> list[Feature]:
+    async def get_features_by_datasource(self, ds: DataSourceView) -> list[Feature]:
         res = await self.session.scalars(
             select(Feature).where(
                 Feature.datasource_id == ds.datasource_id,

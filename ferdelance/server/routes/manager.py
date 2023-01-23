@@ -1,18 +1,35 @@
-import hashlib
-import logging
-import os
+from ferdelance.config import conf
+from ferdelance.database import get_session, AsyncSession
+from ferdelance.database.schemas import Client, Model
+from ferdelance.database.services import (
+    ModelService,
+    ComponentService,
+    JobService,
+)
+from ferdelance.database.tables import (
+    Application,
+    Artifact,
+)
+from ferdelance.server.schemas.manager import (
+    ManagerUploadClientMetadataRequest,
+    ManagerUploadClientResponse,
+)
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    UploadFile,
+    Response,
+    HTTPException,
+)
+
+from sqlalchemy import select
 from uuid import uuid4
 
 import aiofiles
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
-from sqlalchemy import select
-
-from ferdelance.config import conf
-from ferdelance.database import AsyncSession, get_session
-from ferdelance.database.schemas import Component, Model
-from ferdelance.database.services import ComponentService, JobService, ModelService
-from ferdelance.database.tables import Application, Artifact
-from ferdelance.server.schemas.manager import ManagerUploadClientMetadataRequest, ManagerUploadClientResponse
+import hashlib
+import logging
+import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -112,7 +129,7 @@ async def manager_upload_artifact(file: UploadFile, session: AsyncSession = Depe
 async def manager_client_list(session: AsyncSession = Depends(get_session)):
     cs: ComponentService = ComponentService(session)
 
-    clients: list[Component] = await cs.list_clients()
+    clients: list[Client] = await cs.list_clients()
 
     return [
         {
@@ -131,7 +148,7 @@ async def manager_remove_client(client_id: str, session: AsyncSession = Depends(
 
     LOGGER.info(f"client_id={client_id}: MANAGER request to leave")
 
-    client: Component | None = await cs.get_client_by_id(client_id)
+    client: Client | None = await cs.get_client_by_id(client_id)
 
     if client is None:
         raise HTTPException(404)

@@ -1,11 +1,12 @@
-import logging
-
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.services import JobService
 from ferdelance.database.tables import Artifact, Component
 from ferdelance.shared.status import JobStatus
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+import logging
+import pytest
 
 LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ async def test_jobs_next(async_session: AsyncSession):
             machine_mac_address="1",
             machine_node="1",
             ip_address="1",
-            type_name="CLIENT",
+            type_name=TYPE_CLIENT,
         )
     )
     async_session.add(
@@ -53,7 +54,7 @@ async def test_jobs_next(async_session: AsyncSession):
             machine_mac_address="2",
             machine_node="2",
             ip_address="2",
-            type_name="CLIENT",
+            type_name=TYPE_CLIENT,
         )
     )
 
@@ -74,22 +75,22 @@ async def test_jobs_next(async_session: AsyncSession):
 
     await js.start_execution(job1)
 
-    await async_session.refresh(sc_1)
-    await async_session.refresh(sc_2)
-    await async_session.refresh(sc_3)
-    await async_session.refresh(job1)
+    sc_1 = await js.get(sc_1)
+    sc_2 = await js.get(sc_2)
+    sc_3 = await js.get(sc_3)
+    job1 = await js.get(job1)
 
     assert JobStatus[job1.status] == JobStatus.RUNNING
     assert job1.execution_time is not None
     assert sc_2.execution_time is None
     assert sc_3.execution_time is None
 
-    await js.stop_execution(job1.artifact_id, job1.component_id)
+    await js.stop_execution(job1.artifact_id, job1.client_id)
 
-    await async_session.refresh(sc_1)
-    await async_session.refresh(sc_2)
-    await async_session.refresh(sc_3)
-    await async_session.refresh(job1)
+    sc_1 = await js.get(sc_1)
+    sc_2 = await js.get(sc_2)
+    sc_3 = await js.get(sc_3)
+    job1 = await js.get(job1)
 
     assert JobStatus[job1.status] == JobStatus.COMPLETED
     assert job1.termination_time is not None
