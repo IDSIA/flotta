@@ -16,10 +16,11 @@ LOGGER = logging.getLogger(__name__)
 class TokenService(DBSessionService):
     """This is an internal service used by ComponentService."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, encoding: str = "utf8") -> None:
         super().__init__(session)
 
         self.kvs: KeyValueStore = KeyValueStore(session)
+        self.encoding: str = encoding
 
     async def generate_client_token(self, system: str, mac_address: str, node: str, client_id: str = "") -> Token:
         """Generates a client token with the data received from the client."""
@@ -31,8 +32,8 @@ class TokenService(DBSessionService):
 
         ms = round(time() * 1000)
 
-        token_b: bytes = f"{client_id}~{system}${mac_address}£{node}={ms};".encode("utf8")
-        token_b: bytes = sha256(token_b).hexdigest().encode("utf8")
+        token_b: bytes = f"{client_id}~{system}${mac_address}£{node}={ms};".encode(self.encoding)
+        token_b: bytes = sha256(token_b).hexdigest().encode(self.encoding)
         token: str = sha256(token_b).hexdigest()
 
         exp_time: int = await self.kvs.get_int(KEY_CLIENT_TOKEN_EXPIRATION)
@@ -54,8 +55,8 @@ class TokenService(DBSessionService):
         ms = round(time() * 1000)
         salt = str(uuid4())[:16]
 
-        token_b: bytes = f"{user_id}~{salt}={ms};".encode("utf8")
-        token_b: bytes = sha256(token_b).hexdigest().encode("utf8")
+        token_b: bytes = f"{user_id}~{salt}={ms};".encode(self.encoding)
+        token_b: bytes = sha256(token_b).hexdigest().encode(self.encoding)
         token: str = sha256(token_b).hexdigest()
 
         exp_time: int = await self.kvs.get_int(KEY_USER_TOKEN_EXPIRATION)
@@ -65,6 +66,18 @@ class TokenService(DBSessionService):
             component_id=user_id,
             expiration_time=exp_time,
         )
+
+    async def project_token(self, name: str) -> str:
+        LOGGER.info("generating token for new project")
+
+        ms = round(time() * 1000 + 7)
+        salt = str(uuid4())[:17]
+
+        token_b: bytes = f"{ms}¨{name}${salt};".encode(self.encoding)
+        token_b: bytes = sha256(token_b).hexdigest().encode(self.encoding)
+        token: str = sha256(token_b).hexdigest()
+
+        return token
 
     async def create_token(self, token: Token) -> None:
         """Does not commit!"""

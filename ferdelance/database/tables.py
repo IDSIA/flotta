@@ -194,6 +194,8 @@ class Feature(Base):
     v_max = Column(Float)
     v_miss = Column(Float)
 
+    n_cats = Column(Integer)  # number of categorical values
+
     creation_time = Column(DateTime(timezone=True), server_default=now())
     update_time = Column(DateTime(timezone=True), server_default=now())
     removed = Column(Boolean, nullable=False, default=False)
@@ -201,4 +203,32 @@ class Feature(Base):
     datasource_name = Column(String, nullable=False)
 
     datasource_id = Column(String, ForeignKey("datasources.datasource_id"))
+    datasource = relationship("DataSource")
+
+
+class Project(Base):
+    """Table that collect all projects stored in the system."""
+
+    __tablename__ = "projects"
+
+    project_id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+
+    creation_time = Column(DateTime(timezone=True), server_default=now())
+
+    token = Column(String, nullable=False, index=True, unique=True)
+
+    valid = Column(Boolean, default=True)
+    active = Column(Boolean, default=True)
+
+
+class ProjectDataSource(Base):
+    """Connection table between projects and datasource."""
+
+    __tablename__ = "project_datasources"
+
+    project_id = Column(String, ForeignKey("projects.project_id"), primary_key=True)
+    project = relationship("Project")
+
+    datasource_id = Column(String, ForeignKey("datasources.datasource_id"), primary_key=True)
     datasource = relationship("DataSource")
