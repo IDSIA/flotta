@@ -4,29 +4,39 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class Client(BaseModel):
+class BaseComponent(BaseModel):
+    type_name: str
+
+    public_key: str
+
+    active: bool
+    left: bool
+
+
+class Component(BaseComponent):
+    component_id: str
+
+
+class Component(BaseComponent):
     client_id: str
 
     version: str
-    public_key: str
 
     machine_system: str
     machine_mac_address: str
     machine_node: str
 
-    type: str
-
-    active: bool
     blacklisted: bool
-    left: bool
     ip_address: str
 
 
-class User(BaseModel):
-    user_id: str
-    public_key: str
-    active: bool
-    left: bool
+class Token(BaseModel):
+    token_id: int
+    component_id: str
+    token: str
+    creation_time: datetime
+    expiration_time: float
+    valid: bool
 
 
 class Job(BaseModel):
@@ -48,14 +58,14 @@ class Artifact(BaseModel):
 
 class Model(BaseModel):
     model_id: str
-    creation_time: datetime
+    creation_time: Optional[datetime]
     path: str
-    aggregated: bool
+    aggregated: Optional[bool]
     artifact_id: str
     client_id: str
 
 
-class ClientDataSource(BaseModel):
+class DataSource(BaseModel):
     """Table that collects the data source available on each client."""
 
     datasource_id: str

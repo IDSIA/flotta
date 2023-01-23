@@ -120,7 +120,7 @@ class CLIArgs:
     MODEL_ID: CLIArgument = CLIArgument(dash_string="--model-id", var_name="model_id", var_type=str, help="Model ID")
 
     CLIENT_ID: CLIArgument = CLIArgument(
-        dash_string="--client-id", var_name="client_id", var_type=str, help="Client ID"
+        dash_string="--client-id", var_name="client_id", var_type=str, help="Component ID"
     )
 
     DATASOURCE_ID: CLIArgument = CLIArgument(

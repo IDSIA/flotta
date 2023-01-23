@@ -1,20 +1,28 @@
-import logging
-from datetime import datetime
+from ferdelance.database.schemas import Job as JobView
+from ferdelance.database.tables import Job as JobDB
+from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.shared.status import JobStatus
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 
-from ferdelance.shared.status import JobStatus
+from datetime import datetime
 
-from ..schemas import Job as JobView
-from ..tables import Job as JobDB
-from .core import AsyncSession, DBSessionService
+import logging
 
 LOGGER = logging.getLogger(__name__)
 
 
-def get_view(job: JobDB) -> JobView:
-    return JobView(**job.__dict__)
+def view(job: JobDB) -> JobView:
+    return JobView(
+        job_id=job.job_id,
+        artifact_id=job.artifact_id,
+        client_id=job.component_id,
+        status=job.status,
+        creation_time=job.creation_time,
+        execution_time=job.execution_time,
+        termination_time=job.termination_time,
+    )
 
 
 class JobService(DBSessionService):
@@ -22,13 +30,11 @@ class JobService(DBSessionService):
         super().__init__(session)
 
     async def schedule_job(self, artifact_id: str, client_id: str) -> JobDB:
-        LOGGER.info(
-            f"client_id={client_id}: scheduled new job for artifact_id={artifact_id}"
-        )
+        LOGGER.info(f"component_id={client_id}: scheduled new job for artifact_id={artifact_id}")
 
         job = JobDB(
             artifact_id=artifact_id,
-            client_id=client_id,
+            component_id=client_id,
             status=JobStatus.SCHEDULED.name,
         )
 
@@ -52,16 +58,16 @@ class JobService(DBSessionService):
         await self.session.refresh(job)
 
         LOGGER.info(
-            f"client_id={job.client_id}: started execution of job_id={job.job_id} artifact_id={job.artifact_id}"
+            f"component_id={job.component_id}: started execution of job_id={job.job_id} artifact_id={job.artifact_id}"
         )
 
-        return get_view(job)
+        return view(job)
 
     async def stop_execution(self, artifact_id: str, client_id: str) -> JobView:
         try:
             stmt = select(JobDB).where(
                 JobDB.artifact_id == artifact_id,
-                JobDB.client_id == client_id,
+                JobDB.component_id == client_id,
                 JobDB.status == JobStatus.RUNNING.name,
             )
 
@@ -75,28 +81,24 @@ class JobService(DBSessionService):
             await self.session.refresh(job)
 
             LOGGER.info(
-                f"client_id={job.client_id}: completed execution of job_id={job.job_id} artifact_id={job.artifact_id}"
+                f"client_id={job.component_id}: completed execution of job_id={job.job_id} artifact_id={job.artifact_id}"
             )
 
-            return get_view(job)
+            return view(job)
 
         except NoResultFound:
             LOGGER.error(
                 f"Could not terminate a job that does not exists or has not started yet with artifact_id={artifact_id} client_id={client_id}"
             )
-            raise ValueError(
-                f"Job in status RUNNING not found for artifact_id={artifact_id} client_id={client_id}"
-            )
+            raise ValueError(f"Job in status RUNNING not found for artifact_id={artifact_id} client_id={client_id}")
 
         except MultipleResultsFound:
-            LOGGER.error(
-                f"Multiple jobs have been started for artifact_id={artifact_id} client_id={client_id}"
-            )
+            LOGGER.error(f"Multiple jobs have been started for artifact_id={artifact_id} client_id={client_id}")
             raise ValueError(
                 f"Multiple job in status RUNNING found for artifact_id={artifact_id} client_id={client_id}"
             )
 
-    async def error(self, job: JobDB) -> JobDB:
+    async def error(self, job: JobDB) -> JobView:
 
         # TODO: add checks like in stop_execution method
 
@@ -110,50 +112,40 @@ class JobService(DBSessionService):
         await self.session.refresh(job)
 
         LOGGER.error(
-            f"client_id={job.client_id}: failed execution of job_id={job.job_id} artifact_id={job.artifact_id}"
+            f"client_id={job.component_id}: failed execution of job_id={job.job_id} artifact_id={job.artifact_id}"
         )
 
-        return get_view(job)
+        return view(job)
 
     async def get_jobs_for_client(self, client_id: str) -> list[JobView]:
-        res = await self.session.scalars(
-            select(JobDB).where(JobDB.client_id == client_id)
-        )
-        job_list = [get_view(j) for j in res.all()]
+        res = await self.session.scalars(select(JobDB).where(JobDB.component_id == client_id))
+        job_list = [view(j) for j in res.all()]
         return job_list
 
     async def get_jobs_all(self) -> list[JobView]:
         res = await self.session.scalars(select(JobDB))
-        job_list = [get_view(j) for j in res.all()]
+        job_list = [view(j) for j in res.all()]
         return job_list
 
     async def get_jobs_for_artifact(self, artifact_id: str) -> list[JobView]:
-        res = await self.session.scalars(
-            select(JobDB).where(JobDB.artifact_id == artifact_id)
-        )
-        job_list = [get_view(j) for j in res.all()]
+        res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
+        job_list = [view(j) for j in res.all()]
         return job_list
 
     async def count_jobs_for_artifact(self, artifact_id: str) -> int:
         return await self.session.scalar(
-            select(func.count())
-            .select_from(JobDB)
-            .where(JobDB.artifact_id == artifact_id)
+            select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id)
         )
 
     async def count_jobs_by_status(self, artifact_id: str, status: JobStatus) -> int:
         return await self.session.scalar(
-            select(func.count())
-            .select_from(JobDB)
-            .where(JobDB.artifact_id == artifact_id, JobDB.status == status.name)
+            select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id, JobDB.status == status.name)
         )
 
     async def next_job_for_client(self, client_id: str) -> JobDB | None:
         ret = await self.session.execute(
             select(JobDB)
-            .where(
-                JobDB.client_id == client_id, JobDB.status == JobStatus.SCHEDULED.name
-            )
+            .where(JobDB.component_id == client_id, JobDB.status == JobStatus.SCHEDULED.name)
             .order_by(JobDB.creation_time.asc())
             .limit(1)
         )

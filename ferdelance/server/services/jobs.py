@@ -1,30 +1,27 @@
-from ferdelance.config import conf
-from ferdelance.database.schemas import Client
-from ferdelance.database.services import (
-    DBSessionService,
-    AsyncSession,
-    ArtifactService,
-    DataSourceService,
-    JobService,
-    ModelService,
-    ClientService
-)
-
-from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
-
-from ferdelance.shared.artifacts import Artifact, ArtifactStatus
-from ferdelance.shared.models import Metrics
-from ferdelance.shared.status import JobStatus, ArtifactJobStatus
-
-from ferdelance.worker.tasks import aggregation
-
+import json
+import logging
+import os
 from uuid import uuid4
 
 import aiofiles
 import aiofiles.os as aos
-import json
-import logging
-import os
+
+from ferdelance.config import conf
+from ferdelance.database.schemas import Component
+from ferdelance.database.services import (
+    ArtifactService,
+    AsyncSession,
+    ComponentService,
+    DataSourceService,
+    DBSessionService,
+    JobService,
+    ModelService,
+)
+from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
+from ferdelance.shared.artifacts import Artifact, ArtifactStatus
+from ferdelance.shared.models import Metrics
+from ferdelance.shared.status import ArtifactJobStatus, JobStatus
+from ferdelance.worker.tasks import aggregation
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +30,7 @@ class JobManagementService(DBSessionService):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-        self.cs: ClientService = ClientService(session)
+        self.cs: ComponentService = ComponentService(session)
         self.ars: ArtifactService = ArtifactService(session)
         self.dss: DataSourceService = DataSourceService(session)
         self.js: JobService = JobService(session)
@@ -47,9 +44,9 @@ class JobManagementService(DBSessionService):
     async def dump_artifact(self, artifact: Artifact) -> str:
         out_dir = await self.storage_dir(artifact.artifact_id)
 
-        path = os.path.join(out_dir, 'descriptor.json')
+        path = os.path.join(out_dir, "descriptor.json")
 
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(artifact.dict(), f)
 
         return path
@@ -58,12 +55,12 @@ class JobManagementService(DBSessionService):
         artifact = await self.ars.get_artifact(artifact_id)
 
         if artifact is None:
-            raise ValueError(f'artifact_id={artifact_id} not found')
+            raise ValueError(f"artifact_id={artifact_id} not found")
 
         if not os.path.exists(artifact.path):
-            raise ValueError(f'artifact_id={artifact_id} not found')
+            raise ValueError(f"artifact_id={artifact_id} not found")
 
-        with open(artifact.path, 'r') as f:
+        with open(artifact.path, "r") as f:
             return Artifact(**json.load(f))
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
@@ -77,7 +74,7 @@ class JobManagementService(DBSessionService):
             client_ids = set()
 
             for query in artifact.dataset.queries:
-                client: Client = await self.dss.get_client_by_datasource_id(query.datasource_id)
+                client: Component = await self.dss.get_client_by_datasource_id(query.datasource_id)
 
                 if client.client_id in client_ids:
                     continue
@@ -100,7 +97,7 @@ class JobManagementService(DBSessionService):
         artifact_db = await self.ars.get_artifact(artifact_id)
 
         if artifact_db is None:
-            LOGGER.warning(f'client_id={client_id}: artifact_id={artifact_id} does not exists')
+            LOGGER.warning(f"client_id={client_id}: artifact_id={artifact_id} does not exists")
             raise ArtifactDoesNotExists()
 
         if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
@@ -109,10 +106,10 @@ class JobManagementService(DBSessionService):
         artifact_path = artifact_db.path
 
         if not os.path.exists(artifact_path):
-            LOGGER.warning(f'client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}')
+            LOGGER.warning(f"client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}")
             raise ArtifactDoesNotExists()
 
-        async with aiofiles.open(artifact_path, 'r') as f:
+        async with aiofiles.open(artifact_path, "r") as f:
             data = await f.read()
             artifact = Artifact(**json.loads(data))
 
@@ -123,7 +120,7 @@ class JobManagementService(DBSessionService):
         job = await self.js.next_job_for_client(client_id)
 
         if job is None:
-            LOGGER.warning(f'client_id={client_id}: task does not exists with artifact_id={artifact_id}')
+            LOGGER.warning(f"client_id={client_id}: task does not exists with artifact_id={artifact_id}")
             raise TaskDoesNotExists()
 
         job = await self.js.start_execution(job)
@@ -138,14 +135,14 @@ class JobManagementService(DBSessionService):
         aggregation.delay(token, artifact_id, model_ids)
 
     async def client_local_model_completed(self, artifact_id: str, client_id: str) -> None:
-        LOGGER.info(f'client_id={client_id}: started aggregation request')
+        LOGGER.info(f"client_id={client_id}: started aggregation request")
 
         await self.js.stop_execution(artifact_id, client_id)
 
         artifact = await self.ars.get_artifact(artifact_id)
 
         if artifact is None:
-            LOGGER.error(f'Cannot aggregate: artifact_id={artifact_id} not found')
+            LOGGER.error(f"Cannot aggregate: artifact_id={artifact_id} not found")
             return
 
         total = await self.js.count_jobs_for_artifact(artifact_id)
@@ -153,19 +150,19 @@ class JobManagementService(DBSessionService):
         error = await self.js.count_jobs_by_status(artifact_id, JobStatus.ERROR)
 
         if completed < total:
-            LOGGER.info(f'Cannot aggregate: {completed} / {total} completed job(s)')
+            LOGGER.info(f"Cannot aggregate: {completed} / {total} completed job(s)")
             return
 
         if error > 0:
-            LOGGER.error(f'Cannot aggregate: {error} jobs have error')
+            LOGGER.error(f"Cannot aggregate: {error} jobs have error")
             return
 
-        LOGGER.info(f'All {total} job(s) completed, starting aggregation')
+        LOGGER.info(f"All {total} job(s) completed, starting aggregation")
 
-        token = await self.cs.get_token_by_client_type('WORKER')
+        token = await self.cs.get_token_by_client_type("WORKER")
 
         if token is None:
-            LOGGER.error('Cannot aggregate: no worker available')
+            LOGGER.error("Cannot aggregate: no worker available")
             return
 
         models = await self.ms.get_models_by_artifact_id(artifact_id)
@@ -177,7 +174,7 @@ class JobManagementService(DBSessionService):
         self._start_aggregation(token, artifact_id, model_ids)
 
     async def aggregation_completed(self, artifact_id: str) -> None:
-        LOGGER.info(f'aggregation completed for artifact_id={artifact_id}')
+        LOGGER.info(f"aggregation completed for artifact_id={artifact_id}")
         await self.ars.update_status(artifact_id, ArtifactJobStatus.COMPLETED)
 
     def evaluate(self, artifact: Artifact) -> ArtifactStatus:
@@ -188,11 +185,11 @@ class JobManagementService(DBSessionService):
         artifact = await self.ars.get_artifact(metrics.artifact_id)
 
         if artifact is None:
-            raise ValueError(f'artifact_id={metrics.artifact_id} assigned to metrics not found')
+            raise ValueError(f"artifact_id={metrics.artifact_id} assigned to metrics not found")
 
         out_dir = await self.storage_dir(artifact.artifact_id)
 
-        path = os.path.join(out_dir, f'{artifact.artifact_id}_metrics_{metrics.source}.json')
+        path = os.path.join(out_dir, f"{artifact.artifact_id}_metrics_{metrics.source}.json")
 
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(metrics.dict(), f)

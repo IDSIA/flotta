@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, Float, DateTime, Integer, Boolean, Date
+from sqlalchemy import Column, ForeignKey, String, Float, DateTime, Integer, Boolean
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship
 
@@ -7,43 +7,55 @@ from . import Base
 
 class Setting(Base):
     """Key-value store for settings, parameters, and arguments."""
-    __tablename__ = 'settings'
+
+    __tablename__ = "settings"
     key = Column(String, primary_key=True, index=True)
     value = Column(String)
 
 
-class Client(Base):
-    """Table used to keep track of current clients."""
-    __tablename__ = 'clients'
+class ComponentType(Base):
+    """Table to store component types. Current valid types are SERVER, CLIENT, WORKER, WORKBENCH."""
 
-    client_id = Column(String, primary_key=True, index=True)
+    __tablename__ = "component_types"
+    type = Column(String, primary_key=True, index=True)
+
+
+class Component(Base):
+    """Table used to keep track of current components."""
+
+    __tablename__ = "components"
+
+    component_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
 
-    version = Column(String)
+    type_name = Column(String, ForeignKey("component_types.type"))
+    type = relationship("ComponentType")
+
+    active = Column(Boolean, default=True)
+    left = Column(Boolean, default=False)
+
     # this is b64+utf8 encoded bytes
-    public_key = Column(String)
+    public_key = Column(String, nullable=False)
 
-    # platform.system()
-    machine_system = Column(String, nullable=False)
-    # from getmac import get_mac_address; get_mac_address()
-    machine_mac_address = Column(String, nullable=False, unique=True)
-    # uuid.getnode()
-    machine_node = Column(String, nullable=False)
-
-    # valid values: SERVER, CLIENT, WORKER, WORKBENCH
-    type = Column(String, nullable=False)
-
-    active = Column(Boolean, default=True)
+    # --- ds-client only part ---
     blacklisted = Column(Boolean, default=False)
-    left = Column(Boolean, default=False)
-    ip_address = Column(String, nullable=False)
+    version = Column(String, nullable=True)
+    # platform.system()
+    machine_system = Column(String, nullable=True)
+    # from getmac import get_mac_address; get_mac_address()
+    machine_mac_address = Column(String, nullable=True)
+    # uuid.getnode()
+    machine_node = Column(String, nullable=True)
+    # client ip address
+    ip_address = Column(String, nullable=True)
 
 
-class ClientToken(Base):
-    """Table that collects all used tokens for the clients.
-    If an invalid token is reused, the client could be blacklisted (or updated).
+class Token(Base):
+    """Table that collects all used access tokens for the components.
+    If an invalid token is reused, a client could be blacklisted (or updated).
     """
-    __tablename__ = 'client_tokens'
+
+    __tablename__ = "tokens"
 
     token_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
@@ -51,54 +63,33 @@ class ClientToken(Base):
     token = Column(String, nullable=False, index=True, unique=True)
     valid = Column(Boolean, default=True)
 
-    client_id = Column(String, ForeignKey('clients.client_id'))
-    client = relationship('Client')
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
 
-class User(Base):
-    """Table used to keep track of current workbenches' users."""
-    __tablename__ = 'users'
+class Event(Base):
+    """Table that collects all the event from the components."""
 
-    user_id = Column(String, primary_key=True, index=True)
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    public_key = Column(String, index=True)
-    active = Column(Boolean, default=True)
-    left = Column(Boolean, default=False)
-
-
-class UserToken(Base):
-    """Table that collects all used tokens for the users."""
-    __tablename__ = 'user_tokens'
-
-    token_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    expiration_time = Column(Float, nullable=True)
-    token = Column(String, nullable=False, index=True, unique=True)
-    valid = Column(Boolean, default=True)
-
-    user_id = Column(String, ForeignKey('users.user_id'))
-    user = relationship('User')
-
-
-class ClientEvent(Base):
-    """Table that collects all the event from the clients."""
-    __tablename__ = 'client_events'
+    __tablename__ = "events"
 
     event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     event_time = Column(DateTime(timezone=True), server_default=now())
     event = Column(String, nullable=False)
 
-    client_id = Column(String, ForeignKey('clients.client_id'))
-    client = relationship('Client')
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
 
-class ClientApp(Base):
+class Application(Base):
     """Table that keeps track of the available client app version."""
-    __tablename__ = 'client_apps'
+
+    __tablename__ = "applications"
 
     app_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
-    version = Column(String,)
+    version = Column(
+        String,
+    )
     active = Column(Boolean, default=False)
     path = Column(String, nullable=False)
     name = Column(String)
@@ -107,12 +98,13 @@ class ClientApp(Base):
 
 
 class Artifact(Base):
-    """Table that keep tracks of the artifacts available for the clients.
+    """Table that keep tracks of the artifacts available for the components.
     An Artifact is the code that will be run in a client, based on the assigned task.
 
     Check 'status.py' in shared lib for details on the possible status.
     """
-    __tablename__ = 'artifacts'
+
+    __tablename__ = "artifacts"
 
     artifact_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
@@ -127,15 +119,16 @@ class Job(Base):
 
     Check 'status.py' in shared lib for details on the possible status.
     """
-    __tablename__ = 'jobs'
+
+    __tablename__ = "jobs"
 
     job_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
 
-    artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
-    artifact = relationship('Artifact')
+    artifact_id = Column(String, ForeignKey("artifacts.artifact_id"))
+    artifact = relationship("Artifact")
 
-    client_id = Column(String, ForeignKey('clients.client_id'))
-    client = relationship('Client')
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
     status = Column(String, nullable=True)
 
@@ -146,7 +139,8 @@ class Job(Base):
 
 class Model(Base):
     """Table that keep track of all the model created and stored on the server."""
-    __tablename__ = 'models'
+
+    __tablename__ = "models"
 
     model_id = Column(String, primary_key=True, index=True)
     creation_time = Column(DateTime(timezone=True), server_default=now())
@@ -154,16 +148,17 @@ class Model(Base):
     aggregated = Column(Boolean, nullable=False, default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
-    artifact_id = Column(String, ForeignKey('artifacts.artifact_id'))
-    artifact = relationship('Artifact')
+    artifact_id = Column(String, ForeignKey("artifacts.artifact_id"))
+    artifact = relationship("Artifact")
 
-    client_id = Column(String, ForeignKey('clients.client_id'))
-    client = relationship('Client')
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
 
-class ClientDataSource(Base):
+class DataSource(Base):
     """Table that collects the data source available on each client."""
-    __tablename__ = 'client_datasources'
+
+    __tablename__ = "datasources"
 
     datasource_id = Column(String, primary_key=True, index=True)
 
@@ -176,13 +171,14 @@ class ClientDataSource(Base):
     n_records = Column(Integer)
     n_features = Column(Integer)
 
-    client_id = Column(String, ForeignKey('clients.client_id'))
-    client = relationship('Client')
+    component_id = Column(String, ForeignKey("components.component_id"))
+    component = relationship("Component")
 
 
-class ClientFeature(Base):
+class Feature(Base):
     """Table that collects all metadata sent by the client."""
-    __tablename__ = 'client_features'
+
+    __tablename__ = "features"
 
     feature_id = Column(String, primary_key=True, index=True)
 
@@ -204,5 +200,5 @@ class ClientFeature(Base):
 
     datasource_name = Column(String, nullable=False)
 
-    datasource_id = Column(String, ForeignKey('client_datasources.datasource_id'))
-    datasource = relationship('ClientDataSource')
+    datasource_id = Column(String, ForeignKey("datasources.datasource_id"))
+    datasource = relationship("DataSource")

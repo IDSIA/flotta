@@ -1,9 +1,10 @@
+from ferdelance.database.data import TYPE_WORKER
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
-    ClientDataSource,
-    ClientFeature,
-    ClientToken,
-    Client,
+    DataSource,
+    Feature,
+    Token,
+    Component,
     Model as ModelDB,
 )
 from ferdelance.server.api import api
@@ -39,7 +40,6 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TestWorkersClass:
-
     def test_worker_endpoints(self, session: Session, exchange: Exchange):
         with TestClient(api) as server:
             create_client(server, exchange)
@@ -50,10 +50,10 @@ class TestWorkersClass:
             assert upload_response.status_code == 200
 
             worker_token: str | None = session.execute(
-                select(ClientToken.token)
-                .select_from(ClientToken)
-                .join(Client, Client.client_id == ClientToken.client_id)
-                .where(Client.type == 'WORKER')
+                select(Token.token)
+                .select_from(Token)
+                .join(Component, Component.component_id == Token.component_id)
+                .where(Component.type_name == TYPE_WORKER)
                 .limit(1)
             ).scalar_one_or_none()
 
@@ -64,18 +64,18 @@ class TestWorkersClass:
 
             # test artifact not found
             res = server.get(
-                f'/worker/artifact/{uuid.uuid4()}',
+                f"/worker/artifact/{uuid.uuid4()}",
                 headers=exchange.headers(),
             )
 
             assert res.status_code == 404
 
             # prepare new artifact
-            ds: ClientDataSource | None = session.query(ClientDataSource).first()
+            ds: DataSource | None = session.query(DataSource).first()
 
             assert ds is not None
 
-            fs: list[ClientFeature] = session.query(ClientFeature).where(ClientFeature.datasource_id == ds.datasource_id).all()
+            fs: list[Feature] = session.query(Feature).where(Feature.datasource_id == ds.datasource_id).all()
 
             artifact = Artifact(
                 artifact_id=None,
@@ -84,30 +84,29 @@ class TestWorkersClass:
                         Query(
                             datasource_id=ds.datasource_id,
                             datasource_name=ds.name,
-                            features=[QueryFeature(
-                                datasource_id=f.datasource_id,
-                                datasource_name=f.datasource_name,
-                                feature_id=f.feature_id,
-                                feature_name=f.name,
-                            ) for f in fs]
+                            features=[
+                                QueryFeature(
+                                    datasource_id=f.datasource_id,
+                                    datasource_name=f.datasource_name,
+                                    feature_id=f.feature_id,
+                                    feature_name=f.name,
+                                )
+                                for f in fs
+                            ],
                         )
                     ]
                 ),
-                model=Model(name='model', strategy=''),
+                model=Model(name="model", strategy=""),
             )
 
             # test artifact submit
-            res = server.post(
-                '/worker/artifact',
-                headers=exchange.headers(),
-                json=artifact.dict()
-            )
+            res = server.post("/worker/artifact", headers=exchange.headers(), json=artifact.dict())
 
             assert res.status_code == 200
 
             status: ArtifactStatus = ArtifactStatus(**res.json())
 
-            LOGGER.info(f'artifact_id: {status.artifact_id}')
+            LOGGER.info(f"artifact_id: {status.artifact_id}")
 
             artifact.artifact_id = status.artifact_id
             assert artifact.artifact_id is not None
@@ -115,14 +114,16 @@ class TestWorkersClass:
             assert status.status is not None
             assert JobStatus[status.status] == JobStatus.SCHEDULED
 
-            art_db: ArtifactDB | None = session.query(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).first()
+            art_db: ArtifactDB | None = (
+                session.query(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).first()
+            )
 
             assert art_db is not None
             assert os.path.exists(art_db.path)
 
             # test artifact get
             res = server.get(
-                f'/worker/artifact/{status.artifact_id}',
+                f"/worker/artifact/{status.artifact_id}",
                 headers=exchange.headers(),
             )
 
@@ -147,16 +148,16 @@ class TestWorkersClass:
             assert post_d == get_d
 
             # test model submit
-            model_path = os.path.join('.', 'model.bin')
-            model = {'model': 'example_model'}
+            model_path = os.path.join(".", "model.bin")
+            model = {"model": "example_model"}
 
-            with open(model_path, 'wb') as f:
+            with open(model_path, "wb") as f:
                 pickle.dump(model, f)
 
             res = server.post(
-                f'/worker/model/{artifact.artifact_id}',
+                f"/worker/model/{artifact.artifact_id}",
                 headers=exchange.headers(),
-                files={'file': open(model_path, 'rb')}
+                files={"file": open(model_path, "rb")},
             )
 
             assert res.status_code == 200
@@ -169,7 +170,7 @@ class TestWorkersClass:
 
             # test model get
             res = server.get(
-                f'/worker/model/{model_id}',
+                f"/worker/model/{model_id}",
                 headers=exchange.headers(),
             )
 
@@ -178,7 +179,7 @@ class TestWorkersClass:
             model_get = pickle.loads(res.content)
 
             assert isinstance(model_get, type(model))
-            assert 'model' in model_get
+            assert "model" in model_get
             assert model == model_get
 
             assert os.path.exists(models[0].path)

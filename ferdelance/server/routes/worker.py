@@ -1,15 +1,14 @@
+from ferdelance.config import conf
+from ferdelance.database import get_session, AsyncSession
+from ferdelance.database.data import TYPE_WORKER
+from ferdelance.database.services import ModelService
+from ferdelance.database.schemas import Component, Model
+from ferdelance.server.services import JobManagementService
+from ferdelance.server.security import check_token
+from ferdelance.shared.artifacts import Artifact, ArtifactStatus
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-
-from ...config import conf
-from ...database import get_session, AsyncSession
-from ...database.services import ModelService, ClientService
-from ...database.schemas import Client
-from ...database.tables import Model
-from ..services import JobManagementService
-from ..security import check_client_token
-
-from ferdelance.shared.artifacts import Artifact, ArtifactStatus
 
 from sqlalchemy.exc import NoResultFound
 
@@ -23,59 +22,64 @@ LOGGER = logging.getLogger(__name__)
 worker_router = APIRouter()
 
 
-async def check_access(session: AsyncSession = Depends(get_session), client: Client = Depends(check_client_token)) -> Client:
-    cs: ClientService = ClientService(session)
-
+async def check_access(component: Component = Depends(check_token)) -> Component:
     try:
-        client_db = await cs.get_client_by_id(client.client_id)
-
-        if client_db.type != 'WORKER':
-            LOGGER.warning(f'client of type={client_db.type} cannot access this route')
+        if component.type_name != TYPE_WORKER:
+            LOGGER.warning(f"client of type={component.type_name} cannot access this route")
             raise HTTPException(403)
 
-        return client
+        return component
     except NoResultFound:
-        LOGGER.warning(f'client_id={client.client_id} not found')
+        LOGGER.warning(f"worker_id={component.component_id} not found")
         raise HTTPException(403)
 
 
-@worker_router.post('/worker/artifact', response_model=ArtifactStatus)
-async def post_artifact(artifact: Artifact, session: AsyncSession = Depends(get_session), client: Client = Depends(check_access)):
-    LOGGER.info(f'client_id={client.client_id}: sent new artifact')
+@worker_router.post("/worker/artifact", response_model=ArtifactStatus)
+async def post_artifact(
+    artifact: Artifact, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
+):
+    LOGGER.info(f"worker_id={worker.component_id}: sent new artifact")
     try:
         jms: JobManagementService = JobManagementService(session)
         status = await jms.submit_artifact(artifact)
         return status
 
     except ValueError as e:
-        LOGGER.error('Artifact already exists')
+        LOGGER.error("Artifact already exists")
         LOGGER.exception(e)
         raise HTTPException(403)
 
 
-@worker_router.get('/worker/artifact/{artifact_id}', response_model=Artifact)
-async def get_artifact(artifact_id: str, session: AsyncSession = Depends(get_session), client: Client = Depends(check_access)):
-    LOGGER.info(f'client_id={client.client_id}: requested artifact_id={artifact_id}')
+@worker_router.get("/worker/artifact/{artifact_id}", response_model=Artifact)
+async def get_artifact(
+    artifact_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
+):
+    LOGGER.info(f"worker_id={worker.component_id}: requested artifact_id={artifact_id}")
     try:
         jms: JobManagementService = JobManagementService(session)
         artifact = jms.get_artifact(artifact_id)
         return await artifact
 
     except ValueError as e:
-        LOGGER.error(f'{e}')
+        LOGGER.error(f"{e}")
         raise HTTPException(404)
 
 
-@worker_router.post('/worker/model/{artifact_id}')
-async def post_model(file: UploadFile, artifact_id: str, session: AsyncSession = Depends(get_session), client: Client = Depends(check_access)):
-    LOGGER.info(f'client_id={client.client_id}: send model for artifact_id={artifact_id}')
+@worker_router.post("/worker/model/{artifact_id}")
+async def post_model(
+    file: UploadFile,
+    artifact_id: str,
+    session: AsyncSession = Depends(get_session),
+    worker: Component = Depends(check_access),
+):
+    LOGGER.info(f"worker_id={worker.component_id}: send model for artifact_id={artifact_id}")
     try:
         ms: ModelService = ModelService(session)
         js: JobManagementService = JobManagementService(session)
 
-        model_session = await ms.create_model_aggregated(artifact_id, client.client_id)
+        model_session = await ms.create_model_aggregated(artifact_id, worker.component_id)
 
-        async with aiofiles.open(model_session.path, 'wb') as out_file:
+        async with aiofiles.open(model_session.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
@@ -86,17 +90,20 @@ async def post_model(file: UploadFile, artifact_id: str, session: AsyncSession =
         raise HTTPException(500)
 
 
-@worker_router.get('/worker/model/{model_id}', response_class=FileResponse)
-async def get_model(model_id: str, session: AsyncSession = Depends(get_session), client: Client = Depends(check_access)):
-    LOGGER.info(f'client_id={client.client_id}: request model_id={model_id}')
+@worker_router.get("/worker/model/{model_id}", response_class=FileResponse)
+async def get_model(
+    model_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
+):
+    LOGGER.info(f"worker_id={worker.component_id}: request model_id={model_id}")
+    try:
+        ms: ModelService = ModelService(session)
 
-    ms: ModelService = ModelService(session)
-    model_session: Model | None = await ms.get_model_by_id(model_id)
+        model_session: Model = await ms.get_model_by_id(model_id)
 
-    if model_session is None:
+        if not os.path.exists(model_session.path):
+            raise NoResultFound()
+
+        return FileResponse(model_session.path)
+
+    except NoResultFound:
         raise HTTPException(404)
-
-    if not os.path.exists(model_session.path):
-        raise HTTPException(404)
-
-    return FileResponse(model_session.path)

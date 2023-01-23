@@ -1,23 +1,21 @@
 __all__ = [
-    'DBSessionService',
-    'AsyncSession',
-    'ClientAppService',
-    'ArtifactService',
-    'ClientService',
-    'JobService',
-    'DataSourceService',
-    'ModelService',
-    'UserService',
-    'setup_settings',
-    'KeyValueStore',
+    "DBSessionService",
+    "AsyncSession",
+    "ApplicationService",
+    "ArtifactService",
+    "ComponentService",
+    "JobService",
+    "DataSourceService",
+    "ModelService",
+    "setup_settings",
+    "KeyValueStore",
 ]
 
 from .core import DBSessionService, AsyncSession
-from .application import ClientAppService
+from .application import ApplicationService
 from .artifact import ArtifactService
-from .client import ClientService
+from .component import ComponentService
 from .jobs import JobService
 from .datasource import DataSourceService
 from .model import ModelService
-from .users import UserService
 from .settings import setup_settings, KeyValueStore

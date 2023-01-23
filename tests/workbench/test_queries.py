@@ -1,19 +1,18 @@
 from ferdelance.shared.artifacts import Feature, Query, QueryFilter, DataSource
 from ferdelance.shared.artifacts.operations import Operations
 
-DS1_NAME, DS1_ID = 'data_source_1', 'ds1'
-DS2_NAME, DS2_ID = 'data_source_2', 'ds2'
+DS1_NAME, DS1_ID = "data_source_1", "ds1"
+DS2_NAME, DS2_ID = "data_source_2", "ds2"
 
 
 class TestQueriesClass:
-
     def feature1(self) -> Feature:
         return Feature(
             datasource_id=DS1_ID,
             datasource_name=DS1_NAME,
-            feature_id='ds1-f1',
-            name='feature1',
-            dtype='str',
+            feature_id="ds1-f1",
+            name="feature1",
+            dtype="str",
             v_mean=None,
             v_std=None,
             v_min=None,
@@ -28,9 +27,9 @@ class TestQueriesClass:
         return Feature(
             datasource_id=DS1_ID,
             datasource_name=DS1_NAME,
-            feature_id='ds1-f2',
-            name='feature2',
-            dtype='str',
+            feature_id="ds1-f2",
+            name="feature2",
+            dtype="str",
             v_mean=None,
             v_std=None,
             v_min=None,
@@ -45,9 +44,9 @@ class TestQueriesClass:
         return Feature(
             datasource_id=DS2_ID,
             datasource_name=DS2_NAME,
-            feature_id='ds2-f3',
-            name='feature3',
-            dtype='str',
+            feature_id="ds2-f3",
+            name="feature3",
+            dtype="str",
             v_mean=None,
             v_std=None,
             v_min=None,
@@ -68,8 +67,8 @@ class TestQueriesClass:
             name=DS1_NAME,
             n_records=1000,
             n_features=len(features),
-            client_id='client1',
-            features=features
+            client_id="client1",
+            features=features,
         )
 
     def datasource2(self) -> DataSource:
@@ -81,8 +80,8 @@ class TestQueriesClass:
             name=DS2_NAME,
             n_records=1000,
             n_features=len(features),
-            client_id='client1',
-            features=features
+            client_id="client1",
+            features=features,
         )
 
     def test_features(self):
@@ -149,7 +148,7 @@ class TestQueriesClass:
         assert f2 in q2.features
         assert len(q2.features) == 2
 
-        qf = f1 == 'string'
+        qf = f1 == "string"
 
         assert qf.feature == f1
         assert qf.feature != f2

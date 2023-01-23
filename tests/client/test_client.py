@@ -2,11 +2,11 @@ from typing import Any
 
 from ferdelance.config import conf
 from ferdelance.database.tables import (
-    Client,
-    ClientApp,
-    ClientDataSource,
-    ClientFeature,
-    ClientToken,
+    Component,
+    Application,
+    DataSource,
+    Feature,
+    Token,
     Job,
 )
 from ferdelance.server.api import api
@@ -60,34 +60,31 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TestClientClass:
-
     def get_client_update(self, client: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
         payload = ClientUpdate(action=Action.DO_NOTHING.name)
 
         response = client.get(
-            '/client/update',
-            data=exchange.create_payload(payload.dict()),
-            headers=exchange.headers()
+            "/client/update", data=exchange.create_payload(payload.dict()), headers=exchange.headers()
         )
 
         if response.status_code != 200:
-            return response.status_code, '', None
+            return response.status_code, "", None
 
         response_payload = exchange.get_payload(response.content)
 
-        assert 'action' in response_payload
+        assert "action" in response_payload
 
-        return response.status_code, response_payload['action'], response_payload
+        return response.status_code, response_payload["action"], response_payload
 
     def test_client_read_home(self, exchange: Exchange):
         """Generic test to check if the home works."""
         with TestClient(api) as client:
             create_client(client, exchange)
 
-            response = client.get('/')
+            response = client.get("/")
 
             assert response.status_code == 200
-            assert response.content.decode('utf8') == '"Hi! 😀"'
+            assert response.content.decode("utf8") == '"Hi! 😀"'
 
     def test_client_connect_successful(self, session: Session, exchange: Exchange):
         """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
@@ -106,12 +103,12 @@ class TestClientClass:
         with TestClient(api) as client:
             client_id = create_client(client, exchange)
 
-            db_client: Client | None = get_client_by_id(session, client_id)
+            db_client: Component | None = get_client_by_id(session, client_id)
 
             assert db_client is not None
             assert db_client.active
 
-            db_token: ClientToken | None = get_token_by_id(session, client_id)
+            db_token: Token | None = get_token_by_id(session, client_id)
 
             assert db_token is not None
             assert db_token.token == exchange.token
@@ -120,7 +117,7 @@ class TestClientClass:
             db_events: list[str] = get_client_events(session, client_id)
 
             assert len(db_events) == 1
-            assert db_events[0] == 'creation'
+            assert db_events[0] == "creation"
 
     def test_client_already_exists(self, session: Session, exchange: Exchange):
         """This test will send twice the access information and expect the second time to receive a 403 error."""
@@ -137,16 +134,16 @@ class TestClientClass:
                 mac_address=client_db.machine_mac_address,
                 node=client_db.machine_node,
                 public_key=exchange.transfer_public_key(),
-                version='test',
+                version="test",
             )
 
             response = client.post(
-                '/client/join',
+                "/client/join",
                 json=data.dict(),
             )
 
             assert response.status_code == 403
-            assert response.json()['detail'] == 'Invalid client data'
+            assert response.json()["detail"] == "Invalid client data"
 
     def test_client_update(self, session: Session, exchange: Exchange):
         """This will test the endpoint for updates."""
@@ -162,21 +159,18 @@ class TestClientClass:
             db_events: list[str] = get_client_events(session, client_id)
 
             assert len(db_events) == 3
-            assert 'creation' in db_events
-            assert 'update' in db_events
-            assert f'action:{Action.DO_NOTHING.name}' in db_events
+            assert "creation" in db_events
+            assert "update" in db_events
+            assert f"action:{Action.DO_NOTHING.name}" in db_events
 
     def test_client_leave(self, session: Session, exchange: Exchange):
         """This will test the endpoint for leave a client."""
         with TestClient(api) as client:
             client_id = create_client(client, exchange)
 
-            response_leave = client.post(
-                '/client/leave',
-                headers=exchange.headers()
-            )
+            response_leave = client.post("/client/leave", headers=exchange.headers())
 
-            LOGGER.info(f'response_leave={response_leave}')
+            LOGGER.info(f"response_leave={response_leave}")
 
             assert response_leave.status_code == 200
 
@@ -185,7 +179,7 @@ class TestClientClass:
 
             assert status_code == 403
 
-            db_client: Client | None = get_client_by_id(session, client_id)
+            db_client: Component | None = get_client_by_id(session, client_id)
 
             assert db_client is not None
             assert db_client.active is False
@@ -193,9 +187,9 @@ class TestClientClass:
 
             db_events: list[str] = get_client_events(session, client_id)
 
-            assert 'creation' in db_events
-            assert 'left' in db_events
-            assert 'update' not in db_events
+            assert "creation" in db_events
+            assert "left" in db_events
+            assert "update" not in db_events
 
     def test_client_update_token(self, session: Session, exchange: Exchange):
         """This will test the failure and update of a token."""
@@ -203,18 +197,14 @@ class TestClientClass:
             client_id = create_client(client, exchange)
 
             # expire token
-            session.execute(
-                update(ClientToken)
-                .where(ClientToken.client_id == client_id)
-                .values(expiration_time=0)
-            )
+            session.execute(update(Token).where(Token.component_id == client_id).values(expiration_time=0))
             session.commit()
 
-            LOGGER.info('expiration_time for token set to 0')
+            LOGGER.info("expiration_time for token set to 0")
 
             status_code, action, data = self.get_client_update(client, exchange)
 
-            assert 'action' in data
+            assert "action" in data
             assert Action[action] == Action.UPDATE_TOKEN
 
             update_token = UpdateToken(**data)
@@ -225,14 +215,10 @@ class TestClientClass:
             assert Action[action] == Action.UPDATE_TOKEN
 
             # extend expire token
-            session.execute(
-                update(ClientToken)
-                .where(ClientToken.client_id == client_id)
-                .values(expiration_time=86400)
-            )
+            session.execute(update(Token).where(Token.component_id == client_id).values(expiration_time=86400))
             session.commit()
 
-            LOGGER.info('expiration_time for token set to 24h')
+            LOGGER.info("expiration_time for token set to 24h")
 
             status_code, _, _ = self.get_client_update(client, exchange)
 
@@ -242,7 +228,7 @@ class TestClientClass:
             status_code, action, data = self.get_client_update(client, exchange)
 
             assert status_code == 200
-            assert 'action' in data
+            assert "action" in data
             assert Action[action] == Action.DO_NOTHING
             assert len(data) == 1
 
@@ -257,58 +243,52 @@ class TestClientClass:
 
             client_version = client_db.version
 
-            assert client_version == 'test'
+            assert client_version == "test"
 
             # create fake app (it's just a file)
-            version_app = 'test_1.0'
-            filename_app = 'fake_client_app.json'
-            path_fake_app = os.path.join('.', filename_app)
+            version_app = "test_1.0"
+            filename_app = "fake_client_app.json"
+            path_fake_app = os.path.join(".", filename_app)
 
-            with open(path_fake_app, 'w') as f:
-                json.dump({'version': version_app}, f)
+            with open(path_fake_app, "w") as f:
+                json.dump({"version": version_app}, f)
 
-            LOGGER.info(f'created file={path_fake_app}')
+            LOGGER.info(f"created file={path_fake_app}")
 
             # upload fake client app
             upload_response = client.post(
-                '/manager/upload/client',
-                files={
-                    "file": (filename_app, open(path_fake_app, 'rb'))
-                }
+                "/manager/upload/client", files={"file": (filename_app, open(path_fake_app, "rb"))}
             )
 
             assert upload_response.status_code == 200
 
-            upload_id = upload_response.json()['upload_id']
+            upload_id = upload_response.json()["upload_id"]
 
             # update metadata
             metadata_response = client.post(
-                '/manager/upload/client/metadata',
+                "/manager/upload/client/metadata",
                 json={
-                    'upload_id': upload_id,
-                    'version': version_app,
-                    'name': 'Testing_app',
-                    'active': True,
-                }
+                    "upload_id": upload_id,
+                    "version": version_app,
+                    "name": "Testing_app",
+                    "active": True,
+                },
             )
 
             assert metadata_response.status_code == 200
 
-            res = session.execute(select(ClientApp).where(ClientApp.app_id == upload_id))
-            client_app: ClientApp | None = res.scalar_one_or_none()
+            res = session.execute(select(Application).where(Application.app_id == upload_id))
+            client_app: Application | None = res.scalar_one_or_none()
 
             assert client_app is not None
             assert client_app.version == version_app
             assert client_app.active
 
-            n_apps: int = session.scalar(select(func.count()).select_from(ClientApp).where(ClientApp.active))
+            n_apps: int = session.scalar(select(func.count()).select_from(Application).where(Application.active))
             assert n_apps == 1
 
-            newest_version: ClientApp | None = session.execute(
-                select(ClientApp)
-                .where(ClientApp.active)
-                .order_by(ClientApp.creation_time.desc())
-                .limit(1)
+            newest_version: Application | None = session.execute(
+                select(Application).where(Application.active).order_by(Application.creation_time.desc()).limit(1)
             ).scalar_one_or_none()
 
             assert newest_version is not None
@@ -330,7 +310,7 @@ class TestClientClass:
 
             # download new client
             with client.get(
-                '/client/download/application',
+                "/client/download/application",
                 data=exchange.create_payload(download_app.dict()),
                 headers=exchange.headers(),
                 stream=True,
@@ -340,7 +320,7 @@ class TestClientClass:
                 content, checksum = exchange.stream_response(stream)
 
                 assert update_client_app.checksum == checksum
-                assert json.loads(content) == {'version': version_app}
+                assert json.loads(content) == {"version": version_app}
 
             client_db = get_client_by_id(session, client_id)
             session.refresh(client_db)
@@ -363,9 +343,8 @@ class TestClientClass:
 
             assert upload_response.status_code == 200
 
-            ds_db: ClientDataSource = session.execute(
-                select(ClientDataSource)
-                .where(ClientDataSource.client_id == client_id)
+            ds_db: DataSource = session.execute(
+                select(DataSource).where(DataSource.component_id == client_id)
             ).scalar_one()
 
             assert ds_db.name == metadata.datasources[0].name
@@ -375,9 +354,8 @@ class TestClientClass:
 
             ds_features = metadata.datasources[0].features
 
-            ds_fs: list[ClientFeature] = session.scalars(
-                select(ClientFeature)
-                .where(ClientFeature.datasource_id == ds_db.datasource_id)
+            ds_fs: list[Feature] = session.scalars(
+                select(Feature).where(Feature.datasource_id == ds_db.datasource_id)
             ).all()
 
             assert len(ds_fs) == 2
@@ -388,34 +366,29 @@ class TestClientClass:
         with TestClient(api) as server:
             client_id = create_client(server, exchange)
 
-            LOGGER.info('setup metadata for client')
+            LOGGER.info("setup metadata for client")
 
             metadata: Metadata = get_metadata()
             upload_response: Response = send_metadata(server, exchange, metadata)
 
             assert upload_response.status_code == 200
 
-            LOGGER.info('setup artifact')
+            LOGGER.info("setup artifact")
 
-            ds_db: ClientDataSource | None = session.execute(
-                select(ClientDataSource)
-                .where(ClientDataSource.client_id == client_id)
+            ds_db: DataSource | None = session.execute(
+                select(DataSource).where(DataSource.component_id == client_id)
             ).scalar_one_or_none()
 
             assert ds_db is not None
 
             fs = session.scalars(
-                select(ClientFeature)
-                .where(
-                    ClientFeature.datasource_id == ds_db.datasource_id,
-                    ClientFeature.removed == False
-                )
+                select(Feature).where(Feature.datasource_id == ds_db.datasource_id, Feature.removed == False)
             ).all()
 
             assert len(fs) == 2
 
-            f1: ClientFeature = fs[0]
-            f2: ClientFeature = fs[1]
+            f1: Feature = fs[0]
+            f2: Feature = fs[1]
 
             qf1 = QueryFeature(
                 feature_id=f1.feature_id,
@@ -433,30 +406,29 @@ class TestClientClass:
             artifact = Artifact(
                 artifact_id=None,
                 dataset=Dataset(
-                    queries=[Query(
-                        datasource_id=ds_db.datasource_id,
-                        datasource_name=ds_db.name,
-                        features=[qf1, qf2],
-                        filters=[QueryFilter(feature=qf1, operation=Operations.NUM_LESS_THAN.name, parameter='1.0')],
-                        transformers=[],
-                    )],
+                    queries=[
+                        Query(
+                            datasource_id=ds_db.datasource_id,
+                            datasource_name=ds_db.name,
+                            features=[qf1, qf2],
+                            filters=[
+                                QueryFilter(feature=qf1, operation=Operations.NUM_LESS_THAN.name, parameter="1.0")
+                            ],
+                            transformers=[],
+                        )
+                    ],
                 ),
-                model=Model(name=''),
+                model=Model(name=""),
             )
 
-            LOGGER.info('submit artifact')
+            LOGGER.info("submit artifact")
 
             wb_exc = Exchange()
             wb_exc.generate_key()
 
-            wjr = WorkbenchJoinRequest(
-                public_key=wb_exc.transfer_public_key()
-            )
+            wjr = WorkbenchJoinRequest(public_key=wb_exc.transfer_public_key())
 
-            res = server.post(
-                '/workbench/connect',
-                data=json.dumps(wjr.dict())
-            )
+            res = server.post("/workbench/connect", data=json.dumps(wjr.dict()))
 
             res.raise_for_status()
 
@@ -466,7 +438,7 @@ class TestClientClass:
             wb_exc.set_token(wjd.token)
 
             submit_response = server.post(
-                '/workbench/artifact/submit',
+                "/workbench/artifact/submit",
                 data=wb_exc.create_payload(artifact.dict()),
                 headers=wb_exc.headers(),
             )
@@ -478,12 +450,12 @@ class TestClientClass:
             n = session.scalar(select(func.count()).select_from(Job))
             assert n == 1
 
-            n = session.scalar(select(func.count()).select_from(Job).where(Job.client_id == client_id))
+            n = session.scalar(select(func.count()).select_from(Job).where(Job.component_id == client_id))
             assert n == 1
 
             job: Job = session.scalar(select(Job).limit(1))
 
-            LOGGER.info('update client')
+            LOGGER.info("update client")
 
             status_code, action, data = self.get_client_update(server, exchange)
 
@@ -494,10 +466,10 @@ class TestClientClass:
 
             assert update_execute.artifact_id == job.artifact_id
 
-            LOGGER.info('get task for client')
+            LOGGER.info("get task for client")
 
             with server.get(
-                '/client/task/',
+                "/client/task/",
                 data=exchange.create_payload(update_execute.dict()),
                 headers=exchange.headers(),
                 stream=True,
@@ -506,9 +478,9 @@ class TestClientClass:
 
                 content = exchange.get_payload(task_response.content)
 
-                assert 'artifact_id' in content
-                assert 'model' in content
-                assert 'dataset' in content
+                assert "artifact_id" in content
+                assert "model" in content
+                assert "dataset" in content
 
                 task = Artifact(**content)
 
@@ -519,5 +491,5 @@ class TestClientClass:
                 assert len(task.dataset.queries[0].features) == 2
 
             # cleanup
-            LOGGER.info('cleaning up')
+            LOGGER.info("cleaning up")
             shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_status.artifact_id))

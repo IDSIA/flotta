@@ -1,21 +1,19 @@
+import json
+import logging
+from base64 import b64encode
 from collections.abc import Iterator
+from hashlib import sha256
 
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
-from .generate import SymmetricKey
 from .commons import DEFAULT_SEPARATOR
-
-from base64 import b64encode
-from hashlib import sha256
-
-import json
-import logging
+from .generate import SymmetricKey
 
 LOGGER = logging.getLogger(__name__)
 
 
-def encode_to_transfer(text: str, encoding: str = 'utf8') -> str:
+def encode_to_transfer(text: str, encoding: str = "utf8") -> str:
     """Encode a string that will be sent through a transfer between client and server.
 
     :param text:
@@ -31,7 +29,7 @@ def encode_to_transfer(text: str, encoding: str = 'utf8') -> str:
     return out_text
 
 
-def encrypt(public_key: RSAPublicKey, text: str, encoding: str = 'utf8') -> str:
+def encrypt(public_key: RSAPublicKey, text: str, encoding: str = "utf8") -> str:
     """Encrypt a text using a public key.
 
     :param public_key:
@@ -48,7 +46,7 @@ def encrypt(public_key: RSAPublicKey, text: str, encoding: str = 'utf8') -> str:
     return ret_text
 
 
-def generate_hybrid_encryption_key(public_key: RSAPublicKey, encoding: str = 'utf8') -> tuple[bytes, SymmetricKey]:
+def generate_hybrid_encryption_key(public_key: RSAPublicKey, encoding: str = "utf8") -> tuple[bytes, SymmetricKey]:
     """Generates a one-use Symmetric key for hybrid encryption and returns it both
     in bytes and in object form.
 
@@ -64,10 +62,12 @@ def generate_hybrid_encryption_key(public_key: RSAPublicKey, encoding: str = 'ut
     # generate session key for hybrid encryption
     symmetric_key = SymmetricKey()
 
-    preamble_str: str = json.dumps({
-        'key': b64encode(symmetric_key.key).decode(encoding),
-        'iv': b64encode(symmetric_key.iv).decode(encoding),
-    })
+    preamble_str: str = json.dumps(
+        {
+            "key": b64encode(symmetric_key.key).decode(encoding),
+            "iv": b64encode(symmetric_key.iv).decode(encoding),
+        }
+    )
 
     # first part: return encrypted session key
     preamble_bytes: bytes = preamble_str.encode(encoding)
@@ -80,17 +80,17 @@ class HybridEncrypter:
     """Encryption object that uses an hybrid-encryption algorithm.
 
     The output data is composed by two parts: the first part contains the symmetric
-    key encrypted with the client asymmetric key; the second part contains the 
+    key encrypted with the client asymmetric key; the second part contains the
     content encrypted using the asymmetric key.
 
-    The client is expected to decrypt the first part, obtain the symmetric key and 
+    The client is expected to decrypt the first part, obtain the symmetric key and
     start decrypting the data.
     """
 
-    def __init__(self, public_key: RSAPublicKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = 'utf8') -> None:
+    def __init__(self, public_key: RSAPublicKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = "utf8") -> None:
         """
         :param public_key:
-            Client public key.
+            Component public key.
         :param SEPARATOR:
             Single or sequence of bytes that separates the first part of the stream
             from the second part.
@@ -134,7 +134,7 @@ class HybridEncrypter:
         """
         yield self.start()
 
-        with open(in_path, 'r') as f:
+        with open(in_path, "r") as f:
             while chunk := f.read(CHUNK_SIZE):
                 yield self.update(chunk)
 
@@ -202,7 +202,7 @@ class HybridEncrypter:
             Encrypted bytes.
         """
         if self.checksum is None or self.encryptor is None:
-            raise ValueError('Call the start() method before update(...)')
+            raise ValueError("Call the start() method before update(...)")
 
         if isinstance(content, str):
             data = content.encode(self.encoding)
@@ -221,15 +221,15 @@ class HybridEncrypter:
             Encrypted bytes.
         """
         if self.encryptor is None:
-            raise ValueError('Call the start() method before end()')
+            raise ValueError("Call the start() method before end()")
 
         return self.encryptor.finalize()
 
     def get_checksum(self) -> str:
-        """Checksum of the original data that can be used to check if the data has 
+        """Checksum of the original data that can be used to check if the data has
         been transferred correctly.
         """
         if self.checksum is None:
-            raise ValueError('No encryption performed')
+            raise ValueError("No encryption performed")
 
         return self.checksum.hexdigest()
