@@ -80,3 +80,12 @@ class DataSource(BaseModel):
     n_features: int
 
     client_id: str
+
+
+class Project(BaseModel):
+    project_id: str
+    name: str
+    creation_time: datetime
+    token: str
+    valid: bool
+    active: bool
