@@ -1,4 +1,5 @@
 from ferdelance.database import get_session
+from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.services import (
     AsyncSession,
     ApplicationService,
@@ -50,6 +51,18 @@ LOGGER = logging.getLogger(__name__)
 
 
 client_router = APIRouter()
+
+
+async def check_access(component: Client = Depends(check_token)) -> Client:
+    try:
+        if component.type_name != TYPE_CLIENT:
+            LOGGER.warning(f"client of type={component.type_name} cannot access this route")
+            raise HTTPException(403)
+
+        return component
+    except NoResultFound:
+        LOGGER.warning(f"client_id={component.client_id} not found")
+        raise HTTPException(403)
 
 
 @client_router.get("/client/")

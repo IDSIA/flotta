@@ -53,6 +53,18 @@ def job_manager(session: AsyncSession) -> JobManagementService:
     return JobManagementService(session)
 
 
+async def check_access(component: Component = Depends(check_token)) -> Component:
+    try:
+        if component.type_name != TYPE_USER:
+            LOGGER.warning(f"client of type={component.type_name} cannot access this route")
+            raise HTTPException(403)
+
+        return component
+    except NoResultFound:
+        LOGGER.warning(f"component_id={component.component_id} not found")
+        raise HTTPException(403)
+
+
 @workbench_router.get("/workbench/")
 async def wb_home():
     return "Workbench 🔧"
