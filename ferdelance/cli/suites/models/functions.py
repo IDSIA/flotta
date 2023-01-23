@@ -58,5 +58,6 @@ async def describe_model(model_id: str | None = None) -> Model:
 
             return model
 
-        except NoResultFound:
+        except NoResultFound as e:
             print(f"No model found with id {model_id}")
+            raise e

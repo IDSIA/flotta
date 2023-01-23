@@ -5,8 +5,10 @@ from ferdelance.database import DataBase
 from ferdelance.database.schemas import DataSource
 from ferdelance.database.services import DataSourceService
 
+from sqlalchemy.exc import NoResultFound
 
-async def list_datasources(component_id: str = None) -> List[DataSource]:
+
+async def list_datasources(component_id: str | None = None) -> List[DataSource]:
     """Print and Return DataSource objects list
 
     Args:
@@ -26,15 +28,13 @@ async def list_datasources(component_id: str = None) -> List[DataSource]:
         if component_id is None:
             datasources: List[DataSource] = await datasource_service.get_datasource_list()
         else:
-            datasources: List[DataSource] = await datasource_service.get_datasource_by_client_id(
-                component_id=component_id
-            )
+            datasources: List[DataSource] = await datasource_service.get_datasource_by_client_id(client_id=component_id)
 
         show_many(datasources)
         return datasources
 
 
-async def describe_datasource(datasource_id: str) -> DataSource | None:
+async def describe_datasource(datasource_id: str | None) -> DataSource:
     """Print and return a single Artifact object
 
     Args:
@@ -52,9 +52,10 @@ async def describe_datasource(datasource_id: str) -> DataSource | None:
     db = DataBase()
     async with db.async_session() as session:
         datasource_service: DataSourceService = DataSourceService(session)
-        datasource: DataSource | None = await datasource_service.get_datasource_by_id(ds_id=datasource_id)
-        if datasource is None:
-            print(f"No Datasource found with id {datasource_id}")
-        else:
+        try:
+            datasource: DataSource = await datasource_service.get_datasource_by_id(ds_id=datasource_id)
             show_one(datasource)
-        return datasource
+            return datasource
+        except NoResultFound as e:
+            print(f"No Datasource found with id {datasource_id}")
+            raise e

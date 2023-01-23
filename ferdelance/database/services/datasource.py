@@ -1,20 +1,30 @@
-import logging
+from ferdelance.database.tables import DataSource, Feature
+from ferdelance.database.services.component import viewClient, ComponentDB, Client
+from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.database.schemas import DataSource as DataSourceView
+from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
+
 from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import select
 
-from ferdelance.database.schemas import DataSource as DataSourceView
-from ferdelance.database.services.component import Component, ComponentDB, viewClient
-from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.tables import DataSource, Feature
-from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
+import logging
 
 LOGGER = logging.getLogger(__name__)
 
 
-def get_view(datasource: DataSource) -> DataSourceView:
-    return DataSourceView(**datasource.__dict__)
+def view(datasource: DataSource) -> DataSourceView:
+    return DataSourceView(
+        datasource_id=datasource.datasource_id,
+        name=datasource.name,
+        creation_time=datasource.creation_time,
+        update_time=datasource.update_time,
+        removed=datasource.removed,
+        n_records=datasource.n_records,
+        n_features=datasource.n_features,
+        client_id=datasource.component_id,
+    )
 
 
 class DataSourceService(DBSessionService):
@@ -171,35 +181,36 @@ class DataSourceService(DBSessionService):
 
         return f_db
 
-    async def get_datasource_list(self) -> list[DataSource]:
+    async def get_datasource_list(self) -> list[DataSourceView]:
         res = await self.session.scalars(select(DataSource))
-        return res.all()
+        return [view(d) for d in res.all()]
 
-    async def get_datasource_by_client_id(self, client_id: str) -> list[DataSource]:
+    async def get_datasource_by_client_id(self, client_id: str) -> list[DataSourceView]:
         res = await self.session.scalars(select(DataSource).where(DataSource.component_id == client_id))
-        return res.all()
+        return [view(d) for d in res.all()]
 
     async def get_datasource_ids_by_client_id(self, client_id: str) -> list[str]:
         res = await self.session.scalars(select(DataSource.datasource_id).where(DataSource.component_id == client_id))
 
         return res.all()
 
-    async def get_datasource_by_id(self, ds_id: str) -> DataSource:
+    async def get_datasource_by_id(self, ds_id: str) -> DataSourceView:
+        """Can raise NoResultsFound."""
         res = await self.session.execute(
             select(DataSource).where(
                 DataSource.datasource_id == ds_id,
                 DataSource.removed == False,
             )
         )
-        return get_view(res.scalar_one())
+        return view(res.scalar_one())
 
-    async def get_datasource_by_name(self, ds_name: str) -> list[DataSource]:
+    async def get_datasource_by_name(self, ds_name: str) -> list[DataSourceView]:
         res = await self.session.scalars(
             select(DataSource).where(DataSource.name == ds_name, DataSource.removed == False)
         )
-        return res.all()
+        return [view(d) for d in res.all()]
 
-    async def get_client_by_datasource_id(self, ds_id: str) -> Component:
+    async def get_client_by_datasource_id(self, ds_id: str) -> Client:
         res = await self.session.execute(
             select(ComponentDB)
             .join(DataSource, ComponentDB.component_id == DataSource.component_id)

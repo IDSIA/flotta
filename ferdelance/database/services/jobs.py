@@ -29,7 +29,7 @@ class JobService(DBSessionService):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def schedule_job(self, artifact_id: str, client_id: str) -> JobDB:
+    async def schedule_job(self, artifact_id: str, client_id: str) -> JobView:
         LOGGER.info(f"component_id={client_id}: scheduled new job for artifact_id={artifact_id}")
 
         job = JobDB(
@@ -42,7 +42,7 @@ class JobService(DBSessionService):
         await self.session.commit()
         await self.session.refresh(job)
 
-        return job
+        return view(job)
 
     async def start_execution(self, job: JobDB) -> JobView:
 
@@ -142,11 +142,13 @@ class JobService(DBSessionService):
             select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id, JobDB.status == status.name)
         )
 
-    async def next_job_for_client(self, client_id: str) -> JobDB | None:
+    async def next_job_for_client(self, client_id: str) -> JobView:
+        """Can raise NoResultFound."""
         ret = await self.session.execute(
             select(JobDB)
             .where(JobDB.component_id == client_id, JobDB.status == JobStatus.SCHEDULED.name)
             .order_by(JobDB.creation_time.asc())
             .limit(1)
         )
-        return ret.scalar_one_or_none()
+
+        return view(ret.scalar_one())

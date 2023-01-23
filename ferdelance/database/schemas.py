@@ -17,7 +17,7 @@ class Component(BaseComponent):
     component_id: str
 
 
-class Component(BaseComponent):
+class Client(BaseComponent):
     client_id: str
 
     version: str
@@ -66,8 +66,6 @@ class Model(BaseModel):
 
 
 class DataSource(BaseModel):
-    """Table that collects the data source available on each client."""
-
     datasource_id: str
 
     name: str

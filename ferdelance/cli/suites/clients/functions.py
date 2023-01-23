@@ -2,13 +2,15 @@ from typing import List
 
 import pandas as pd
 
-from ....database import DataBase
-from ....database.schemas import Component
-from ....database.services import ComponentService
-from ...visualization import show_many, show_one
+from ferdelance.database import DataBase
+from ferdelance.database.schemas import Component, Client
+from ferdelance.database.services import ComponentService
+from ferdelance.cli.visualization import show_many, show_one
+
+from sqlalchemy.exc import NoResultFound
 
 
-async def list_clients() -> List[Component]:
+async def list_clients() -> List[Client]:
     """Print and return Component objects list
 
     Returns:
@@ -17,12 +19,12 @@ async def list_clients() -> List[Component]:
     db = DataBase()
     async with db.async_session() as session:
         client_service = ComponentService(session)
-        clients: List[Component] = await client_service.list_clients()
+        clients: List[Client] = await client_service.list_clients()
         show_many(result=clients)
         return clients
 
 
-async def describe_client(client_id: str) -> Component:
+async def describe_client(client_id: str) -> Client:
     """Describe single client by printing its db record.
 
     Args:
@@ -43,11 +45,10 @@ async def describe_client(client_id: str) -> Component:
 
         client_service = ComponentService(session)
 
-        client: Component | None = await client_service.get_client_by_id(client_id)
-
-        if client is None:
-            print(f"No client found with id {client_id}")
-        else:
+        try:
+            client: Client = await client_service.get_client_by_id(client_id)
             show_one(client)
-
-        return client
+            return client
+        except NoResultFound as e:
+            print(f"No client found with id {client_id}")
+            raise e

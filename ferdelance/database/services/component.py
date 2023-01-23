@@ -1,15 +1,18 @@
-import logging
+from ferdelance.database.schemas import Component, Client, Token
+from ferdelance.database.tables import (
+    Component as ComponentDB,
+    Event,
+    Token as TokenDB,
+    ComponentType,
+)
+from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.database.services.tokens import TokenService
+from ferdelance.database.data import TYPE_CLIENT
 
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
-from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.schemas import Component, Token
-from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.services.tokens import TokenService
-from ferdelance.database.tables import Component as ComponentDB
-from ferdelance.database.tables import ComponentType, Event
-from ferdelance.database.tables import Token as TokenDB
+import logging
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,8 +27,8 @@ def view(component: ComponentDB) -> Component:
     )
 
 
-def viewClient(component: ComponentDB) -> Component:
-    return Component(
+def viewClient(component: ComponentDB) -> Client:
+    return Client(
         client_id=component.component_id,
         public_key=component.public_key,
         active=component.active,
@@ -82,7 +85,7 @@ class ComponentService(DBSessionService):
         machine_mac_address: str,
         machine_node: str,
         ip_address: str,
-    ) -> tuple[Component, Token]:
+    ) -> tuple[Client, Token]:
         LOGGER.info(
             f"creating new type={TYPE_CLIENT} version={version} mac_address={machine_mac_address} node={machine_node}"
         )
@@ -99,7 +102,7 @@ class ComponentService(DBSessionService):
 
         if existing_id is not None:
             LOGGER.warning(f"A {TYPE_CLIENT} already exists with component_id={existing_id}")
-            raise ValueError("Component already exists")
+            raise ValueError("Client already exists")
 
         token: TokenDB = await self.ts.generate_client_token(
             system=machine_system,
@@ -181,7 +184,7 @@ class ComponentService(DBSessionService):
 
         await self.session.commit()
 
-    async def get_by_id(self, component_id: str) -> Component | Component:
+    async def get_by_id(self, component_id: str) -> Component | Client:
         """Can raise NoResultFound"""
         res = await self.session.execute(select(ComponentDB).where(ComponentDB.component_id == component_id))
         o: ComponentDB = res.scalar_one()
@@ -189,7 +192,7 @@ class ComponentService(DBSessionService):
             return viewClient(o)
         return view(o)
 
-    async def get_client_by_id(self, component_id: str) -> Component:
+    async def get_client_by_id(self, component_id: str) -> Client:
         """Can raise NoResultFound"""
         res = await self.session.execute(select(ComponentDB).where(ComponentDB.component_id == component_id))
         return viewClient(res.scalar_one())
@@ -218,14 +221,14 @@ class ComponentService(DBSessionService):
         res = await self.session.scalars(select(ComponentDB))
         return [view(c) for c in res.all()]
 
-    async def list_clients(self):
+    async def list_clients(self) -> list[Client]:
         res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_CLIENT))
         return [viewClient(c) for c in res]
 
     async def invalidate_tokens(self, component_id: str) -> None:
         await self.ts.invalidate_tokens(component_id)
 
-    async def update_client_token(self, client: Component) -> Token:
+    async def update_client_token(self, client: Client) -> Token:
         token = await self.ts.update_client_token(
             client.machine_system,
             client.machine_mac_address,

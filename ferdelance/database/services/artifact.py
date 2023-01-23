@@ -41,9 +41,10 @@ class ArtifactService(DBSessionService):
 
         return view(db_artifact)
 
-    async def get_artifact(self, artifact_id: str) -> ArtifactView | None:
+    async def get_artifact(self, artifact_id: str) -> ArtifactView:
+        """Can raise NoResultException."""
         query = await self.session.execute(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
-        res = query.scalar_one_or_none()
+        res = query.scalar_one()
         if res:
             return view(res)
         return res
