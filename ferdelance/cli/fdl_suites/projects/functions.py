@@ -5,6 +5,8 @@ from ferdelance.database import DataBase
 from ferdelance.database.schemas import Project as ProjectView
 from ferdelance.database.services import ProjectService
 
+from sqlalchemy.exc import NoResultFound
+
 
 async def list_projects() -> List[ProjectView]:
     db = DataBase()
@@ -33,11 +35,17 @@ async def describe_project(project_id: str = None, token: str = None) -> Project
     async with db.async_session() as session:
         project_service: ProjectService = ProjectService(session)
 
-    if project_id is not None:
-        project: ProjectView = await project_service.get_by_id(project_id=project_id)
-    else:
-        project: ProjectView = await project_service.get_by_token(token=token)
+        try:
 
-    show_one(project)
+            if project_id is not None:
+                project: ProjectView = await project_service.get_by_id(project_id=project_id)
+            else:
+                project: ProjectView = await project_service.get_by_token(token=token)
 
-    return project
+            show_one(project)
+
+            return project
+
+        except NoResultFound as e:
+            print(f"No project found with id id or token {project_id or token}")
+            raise e

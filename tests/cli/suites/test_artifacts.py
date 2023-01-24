@@ -1,4 +1,4 @@
-from ferdelance.cli.suites.artifacts.functions import describe_artifact, list_artifacts
+from ferdelance.cli.fdl_suites.artifacts.functions import describe_artifact, list_artifacts
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.schemas import Artifact
 

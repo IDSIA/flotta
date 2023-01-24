@@ -1,7 +1,5 @@
 """Implementation of the CLI features regarding artifacts"""
 
-import pandas as pd
-
 from ferdelance.database import DataBase
 from ferdelance.database.schemas import Artifact
 from ferdelance.database.services import ArtifactService

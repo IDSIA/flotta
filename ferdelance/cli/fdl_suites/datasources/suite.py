@@ -1,8 +1,9 @@
 """Datasources CLI suite
 """
 
-from ferdelance.cli.base import CLIArgs, CLICommand, CLICommandSuite
-
+from ferdelance.cli.base import CLICommand, CLICommandSuite
+from ferdelance.cli.fdl_suites.args import FDLCLIArgs
+from ferdelance.cli.fdl_suites.commands import FDLCommands
 from .functions import describe_datasource, list_datasources
 
 #
@@ -10,14 +11,14 @@ from .functions import describe_datasource, list_datasources
 #
 
 ls_command: CLICommand = CLICommand(
-    command="ls",
-    arguments=[CLIArgs.CLIENT_ID],
+    command=FDLCommands.list,
+    arguments=[FDLCLIArgs.CLIENT_ID],
     function=list_datasources,
 )
 
 descr_command: CLICommand = CLICommand(
-    command="descr",
-    arguments=[CLIArgs.DATASOURCE_ID],
+    command=FDLCommands.describe,
+    arguments=[FDLCLIArgs.DATASOURCE_ID],
     function=describe_datasource,
 )
 

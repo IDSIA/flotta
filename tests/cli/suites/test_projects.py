@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import select
 
-from ferdelance.cli.suites.projects.functions import create_project, describe_project, list_projects
+from ferdelance.cli.fdl_suites.projects.functions import create_project, describe_project, list_projects
 from ferdelance.database.schemas import Project as ProjectView
 from ferdelance.database.tables import Project as ProjectDB
 

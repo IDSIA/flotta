@@ -12,8 +12,8 @@ This is related to manage projects, users, clients, etc. As an example:
 import asyncio
 from typing import List
 
-from .base import CLICommandSuite, CLIParser
-from .suites import *
+from ferdelance.cli.base import CLICommandSuite, CLIParser
+from ferdelance.cli.fdl_suites import *
 
 
 async def main() -> None:
