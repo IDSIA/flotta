@@ -1,4 +1,4 @@
-from ferdelance.cli.suites.models.functions import describe_model, list_models
+from ferdelance.cli.fdl_suites.models.functions import describe_model, list_models
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.schemas import Model as ModelView
 from ferdelance.database.tables import Artifact, Component, Model

@@ -1,7 +1,7 @@
 import pytest
 
 from ferdelance.cli.base import CLICommandSuite, CLIParser
-from ferdelance.cli.suites import artifacts_cli_suite
+from ferdelance.cli.fdl_suites import artifacts_cli_suite
 
 
 @pytest.fixture

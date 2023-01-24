@@ -1,25 +1,30 @@
 """Clients CLI suite
 """
 
-from ...base import CLIArgs, CLICommand, CLICommandSuite
+from ferdelance.cli.base import CLICommand, CLICommandSuite
+
+from ferdelance.cli.fdl_suites.args import FDLCLIArgs
+from ferdelance.cli.fdl_suites.commands import FDLCommands
+
 from .functions import describe_client, list_clients
+
 
 #
 #   COMMANDS
 #
 
 ls_command: CLICommand = CLICommand(
-    command="ls",
+    command=FDLCommands.list,
     arguments=[
-        CLIArgs.CLIENT_ID,
+        FDLCLIArgs.CLIENT_ID,
     ],
     function=list_clients,
 )
 
 descr_command: CLICommand = CLICommand(
-    command="descr",
+    command=FDLCommands.describe,
     arguments=[
-        CLIArgs.CLIENT_ID,
+        FDLCLIArgs.CLIENT_ID,
     ],
     function=describe_client,
 )

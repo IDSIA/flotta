@@ -1,7 +1,9 @@
 """Models CLI suite
 """
 
-from ...base import CLIArgs, CLICommand, CLICommandSuite
+from ferdelance.cli.base import CLICommand, CLICommandSuite
+from ferdelance.cli.fdl_suites.args import FDLCLIArgs
+from ferdelance.cli.fdl_suites.commands import FDLCommands
 from .functions import list_models
 
 #
@@ -9,8 +11,8 @@ from .functions import list_models
 #
 
 list_command: CLICommand = CLICommand(
-    command="ls",
-    arguments=[CLIArgs.ARTIFACT_ID, CLIArgs.MODEL_ID],
+    command=FDLCommands.list,
+    arguments=[FDLCLIArgs.ARTIFACT_ID, FDLCLIArgs.MODEL_ID],
     function=list_models,
 )
 

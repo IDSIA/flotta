@@ -1,4 +1,4 @@
-from ferdelance.cli.suites.datasources.functions import describe_datasource, list_datasources
+from ferdelance.cli.fdl_suites.datasources.functions import describe_datasource, list_datasources
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.schemas import DataSource as DataSourceView
 from ferdelance.database.tables import Component, DataSource
@@ -64,7 +64,7 @@ async def test_datasources_ls(async_session: AsyncSession):
 
     assert len(res) == 3
 
-    res: list[DataSourceView] = await list_datasources(component_id="C1")
+    res: list[DataSourceView] = await list_datasources(client_id="C1")
 
     assert len(res) == 2
 
