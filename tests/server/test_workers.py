@@ -40,6 +40,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TestWorkersClass:
+    def setup_worker(self, session: Session, exchange: Exchange):
+        worker_token: str | None = session.execute(
+            select(Token.token)
+            .select_from(Token)
+            .join(Component, Component.component_id == Token.component_id)
+            .where(Component.type_name == TYPE_WORKER)
+            .limit(1)
+        ).scalar_one_or_none()
+
+        assert worker_token is not None
+        assert isinstance(worker_token, str)
+
+        exchange.set_token(worker_token)
+
     def test_worker_endpoints(self, session: Session, exchange: Exchange):
         with TestClient(api) as server:
             create_client(server, exchange)
@@ -49,18 +63,7 @@ class TestWorkersClass:
 
             assert upload_response.status_code == 200
 
-            worker_token: str | None = session.execute(
-                select(Token.token)
-                .select_from(Token)
-                .join(Component, Component.component_id == Token.component_id)
-                .where(Component.type_name == TYPE_WORKER)
-                .limit(1)
-            ).scalar_one_or_none()
-
-            assert worker_token is not None
-            assert isinstance(worker_token, str)
-
-            exchange.set_token(worker_token)
+            self.setup_worker(session, exchange)
 
             # test artifact not found
             res = server.get(
@@ -188,3 +191,28 @@ class TestWorkersClass:
             os.remove(art_db.path)
             os.remove(models[0].path)
             os.remove(model_path)
+
+    def test_worker_access(self, session: Session, exchange: Exchange):
+        with TestClient(api) as server:
+            self.setup_worker(session, exchange)
+
+            res = server.get(
+                "/client/update",
+                headers=exchange.headers(),
+            )
+
+            assert res.status_code == 403
+
+            res = server.get(
+                "/worker/artifact/none",
+                headers=exchange.headers(),
+            )
+
+            assert res.status_code == 404  # there is no artifact, and 404 is correct
+
+            res = server.get(
+                "/workbench/client/list",
+                headers=exchange.headers(),
+            )
+
+            assert res.status_code == 403

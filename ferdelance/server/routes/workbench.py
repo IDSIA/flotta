@@ -50,6 +50,18 @@ def job_manager(session: AsyncSession) -> JobManagementService:
     return JobManagementService(session)
 
 
+async def check_access(component: Component = Depends(check_token)) -> Component:
+    try:
+        if component.type_name != TYPE_USER:
+            LOGGER.warning(f"client of type={component.type_name} cannot access this route")
+            raise HTTPException(403)
+
+        return component
+    except NoResultFound:
+        LOGGER.warning(f"component_id={component.component_id} not found")
+        raise HTTPException(403)
+
+
 @workbench_router.get("/workbench/")
 async def wb_home():
     return "Workbench 🔧"
@@ -103,7 +115,7 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
 
 
 @workbench_router.get("/workbench/client/list", response_class=Response)
-async def wb_get_client_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_token)):
+async def wb_get_client_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)):
     LOGGER.info(f"user_id={user.component_id}: requested a list of clients")
 
     cs: ComponentService = ComponentService(session)
@@ -122,7 +134,7 @@ async def wb_get_client_list(session: AsyncSession = Depends(get_session), user:
 async def wb_get_user_detail(
     req_client_id: str,
     session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_token),
+    user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}: requested details on client_id={req_client_id}")
 
@@ -143,7 +155,7 @@ async def wb_get_user_detail(
 
 
 @workbench_router.get("/workbench/datasource/list", response_class=Response)
-async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_token)):
+async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)):
     LOGGER.info(f"user_id={user.component_id}: requested a list of available data source")
 
     dss: DataSourceService = DataSourceService(session)
@@ -195,7 +207,7 @@ async def wb_get_client_datasource(
 async def wb_get_client_datasource_by_name(
     ds_name: str,
     session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_token),
+    user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}: requested details on datasource_name={ds_name}")
 
@@ -234,7 +246,7 @@ async def wb_get_client_datasource_by_name(
 async def wb_post_artifact_submit(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_token),
+    user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}:  submitted a new artifact")
 
@@ -263,7 +275,7 @@ async def wb_post_artifact_submit(
 async def wb_get_artifact_status(
     artifact_id: str,
     session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_token),
+    user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}:  requested status of artifact_id={artifact_id}")
 
@@ -292,7 +304,7 @@ async def wb_get_artifact_status(
 async def wb_get_artifact(
     artifact_id: str,
     session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_token),
+    user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}: requested details on artifact_id={artifact_id}")
 
@@ -315,7 +327,7 @@ async def wb_get_artifact(
 async def wb_get_model(
     artifact_id: str,
     session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_token),
+    user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}: requested aggregate model for artifact_id={artifact_id}")
 
@@ -357,7 +369,7 @@ async def wb_get_partial_model(
     artifact_id: str,
     builder_user_id: str,
     session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_token),
+    user: Component = Depends(check_access),
 ):
     LOGGER.info(
         f"user_id={user.component_id}: requested partial model for artifact_id={artifact_id} from user_id={builder_user_id}"
