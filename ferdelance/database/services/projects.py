@@ -1,12 +1,13 @@
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.exc import NoReferenceError
+
+from ferdelance.database.schemas import Project
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.tokens import TokenService
-from ferdelance.database.schemas import Project
-from ferdelance.database.tables import Project as ProjectDB, ProjectDataSource as ProjectDataSourceDB
-
-from sqlalchemy.exc import NoReferenceError
-from sqlalchemy import select
-
-import uuid
+from ferdelance.database.tables import Project as ProjectDB
+from ferdelance.database.tables import ProjectDataSource as ProjectDataSourceDB
 
 
 def view(project: ProjectDB) -> Project:
@@ -54,6 +55,11 @@ class ProjectService(DBSessionService):
 
         except NoReferenceError:
             raise ValueError()
+
+    async def get_project_list(self) -> list[Project]:
+        res = await self.session.execute(select(ProjectDB))
+        project_db_list = res.scalars().all()
+        return [view(p) for p in project_db_list]
 
     async def get_by_id(self, project_id: str) -> Project:
         """Can raise NoResultsException."""

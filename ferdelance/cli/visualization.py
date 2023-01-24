@@ -23,3 +23,6 @@ def show_many(result: List[BaseModel]) -> None:
         result (List[BaseModel]): List of objects to print
     """
     print(pd.DataFrame([r.dict() for r in result]))
+
+def show_string(s: str) -> None:
+    print(s)

@@ -137,3 +137,5 @@ class CLIArgs:
         default=False,
         help="Create local model or aggregated model",
     )
+
+    NAME: CLIArgument = CLIArgument(dash_string="--name", var_name="name", var_type=str, help="Component name")
