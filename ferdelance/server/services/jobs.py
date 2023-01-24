@@ -1,5 +1,5 @@
 from ferdelance.config import conf
-from ferdelance.database.schemas import Client
+from ferdelance.database.schemas import Client, Job
 from ferdelance.database.services import (
     DBSessionService,
     AsyncSession,
@@ -15,6 +15,7 @@ from ferdelance.shared.models import Metrics
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 from ferdelance.worker.tasks import aggregation
 
+from sqlalchemy.exc import NoResultFound
 from uuid import uuid4
 
 import aiofiles
@@ -52,16 +53,16 @@ class JobManagementService(DBSessionService):
         return path
 
     async def load_artifact(self, artifact_id: str) -> Artifact:
-        artifact = await self.ars.get_artifact(artifact_id)
+        try:
+            artifact = await self.ars.get_artifact(artifact_id)
 
-        if artifact is None:
+            if not os.path.exists(artifact.path):
+                raise ValueError(f"artifact_id={artifact_id} not found")
+
+            with open(artifact.path, "r") as f:
+                return Artifact(**json.load(f))
+        except NoResultFound:
             raise ValueError(f"artifact_id={artifact_id} not found")
-
-        if not os.path.exists(artifact.path):
-            raise ValueError(f"artifact_id={artifact_id} not found")
-
-        with open(artifact.path, "r") as f:
-            return Artifact(**json.load(f))
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         artifact.artifact_id = str(uuid4())
@@ -117,19 +118,19 @@ class JobManagementService(DBSessionService):
 
         artifact.dataset.queries = [q for q in artifact.dataset.queries if q.datasource_id in client_datasource_ids]
 
-        job = await self.js.next_job_for_client(client_id)
+        try:
+            job: Job = await self.js.next_job_for_client(client_id)
 
-        if job is None:
+            job: Job = await self.js.start_execution(job)
+
+            return Artifact(
+                artifact_id=job.artifact_id,
+                dataset=artifact.dataset,
+                model=artifact.model,
+            )
+        except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task does not exists with artifact_id={artifact_id}")
             raise TaskDoesNotExists()
-
-        job = await self.js.start_execution(job)
-
-        return Artifact(
-            artifact_id=job.artifact_id,
-            dataset=artifact.dataset,
-            model=artifact.model,
-        )
 
     def _start_aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> None:
         aggregation.delay(token, artifact_id, model_ids)

@@ -1,5 +1,5 @@
-from ferdelance.database.tables import Application, Job, Token as TokenDB
-from ferdelance.database.schemas import Client, Token
+from ferdelance.database.tables import Application, Token as TokenDB
+from ferdelance.database.schemas import Client, Token, Job
 from ferdelance.database.services import (
     DBSessionService,
     AsyncSession,
@@ -91,7 +91,7 @@ class ActionService(DBSessionService):
             version=new_client.version,
         )
 
-    async def _check_scheduled_job(self, client: Client) -> Job | None:
+    async def _check_scheduled_job(self, client: Client) -> Job:
         return await self.js.next_job_for_client(client.client_id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateExecute:
@@ -113,8 +113,10 @@ class ActionService(DBSessionService):
         if await self._check_client_app_update(client):
             return await self._action_update_client_app()
 
-        task = await self._check_scheduled_job(client)
-        if task is not None:
+        try:
+            task = await self._check_scheduled_job(client)
             return await self._action_schedule_job(task)
+        except Exception:
+            pass
 
         return await self._action_nothing()

@@ -65,6 +65,21 @@ class Model(BaseModel):
     client_id: str
 
 
+class DataSource(BaseModel):
+    datasource_id: str
+
+    name: str
+
+    creation_time: datetime
+    update_time: datetime
+    removed: bool
+
+    n_records: int
+    n_features: int
+
+    client_id: str
+
+
 class Project(BaseModel):
     project_id: str
     name: str

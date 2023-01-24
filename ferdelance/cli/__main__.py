@@ -13,7 +13,7 @@ import asyncio
 from typing import List
 
 from .base import CLICommandSuite, CLIParser
-from .suites import artifacts_cli_suite, clients_cli_suite, jobs_cli_suite, models_cli_suite
+from .suites import *
 
 
 async def main() -> None:
@@ -28,6 +28,7 @@ async def main() -> None:
         artifacts_cli_suite,
         jobs_cli_suite,
         clients_cli_suite,
+        datasources_cli_suite,
     ]
 
     for suite in suites:

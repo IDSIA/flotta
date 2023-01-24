@@ -20,7 +20,7 @@ class Action(Enum):
     """No action required."""
     DO_NOTHING = auto()
 
-    """Client self-update."""
+    """Component self-update."""
     CLIENT_UPDATE = auto()
-    """Client can terminate application."""
+    """Component can terminate application."""
     CLIENT_EXIT = auto()
