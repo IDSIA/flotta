@@ -28,6 +28,7 @@ async def main() -> None:
         artifacts_cli_suite,
         jobs_cli_suite,
         clients_cli_suite,
+        projects_cli_suite,
         datasources_cli_suite,
     ]
 
