@@ -245,3 +245,28 @@ class TestWorkbenchClass:
             assert len(downloaded_artifact.dataset.queries[0].features) == 2
 
             shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
+
+    def test_workbench_access(self):
+        with TestClient(api) as server:
+            self.connect(server)
+
+            res = server.get(
+                "/client/update",
+                headers=self.wb_exc.headers(),
+            )
+
+            assert res.status_code == 403
+
+            res = server.get(
+                "/worker/artifact/none",
+                headers=self.wb_exc.headers(),
+            )
+
+            assert res.status_code == 403
+
+            res = server.get(
+                "/workbench/client/list",
+                headers=self.wb_exc.headers(),
+            )
+
+            assert res.status_code == 200

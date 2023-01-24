@@ -493,3 +493,29 @@ class TestClientClass:
             # cleanup
             LOGGER.info("cleaning up")
             shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_status.artifact_id))
+
+    def test_client_access(self, session: Session, exchange: Exchange):
+        with TestClient(api) as client:
+            create_client(client, exchange)
+
+            res = client.get(
+                "/client/update",
+                data=exchange.create_payload({}),
+                headers=exchange.headers(),
+            )
+
+            assert res.status_code == 200
+
+            res = client.get(
+                "/worker/artifact/none",
+                headers=exchange.headers(),
+            )
+
+            assert res.status_code == 403
+
+            res = client.get(
+                "/workbench/client/list",
+                headers=exchange.headers(),
+            )
+
+            assert res.status_code == 403
