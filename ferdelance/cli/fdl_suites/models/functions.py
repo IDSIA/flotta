@@ -31,7 +31,7 @@ async def list_models(artifact_id: str | None = None) -> List[Model]:
         return models
 
 
-async def describe_model(model_id: str | None = None) -> Model:
+async def describe_model(model_id: str | None = None) -> Model | None:
     """Describe single model by printing its db record.
 
     Args:
@@ -60,4 +60,3 @@ async def describe_model(model_id: str | None = None) -> Model:
 
         except NoResultFound as e:
             print(f"No model found with id {model_id}")
-            raise e

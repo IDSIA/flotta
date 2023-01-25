@@ -48,4 +48,3 @@ async def describe_artifact(artifact_id: str) -> Artifact:
 
         except NoResultFound as e:
             print(f"No artifact found with id {artifact_id}")
-            raise e
