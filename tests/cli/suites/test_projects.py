@@ -79,9 +79,8 @@ async def test_project_describe(async_session: AsyncSession):
     assert p1_view.name == "P1"
     assert p1_view.token == "P1"
 
-    with pytest.raises(NoResultFound) as e:
-        res = await describe_project(token="do not exist")
-        assert "No row was found when one was required" in str(e)
+    res = await describe_project(token="do not exist")
+    assert res is None
 
     with pytest.raises(ValueError) as e:
         res = await describe_project()

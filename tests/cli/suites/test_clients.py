@@ -1,4 +1,3 @@
-import pandas as pd
 import pytest
 
 from ferdelance.cli.fdl_suites.clients.functions import describe_client, list_clients
@@ -64,3 +63,6 @@ async def test_describe_client(async_session: AsyncSession):
     assert isinstance(res, ClientView)
     assert res.client_id == "C1"
     assert res.version == "test"
+
+    res = await describe_client(client_id="do not exist")
+    assert res is None

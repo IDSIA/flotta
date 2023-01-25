@@ -4,7 +4,6 @@ from ferdelance.database.schemas import DataSource as DataSourceView
 from ferdelance.database.tables import Component, DataSource
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.exc import NoResultFound
 
 import pytest
 
@@ -82,6 +81,5 @@ async def test_artifacts_description(async_session: AsyncSession):
         res: DataSourceView = await describe_datasource(datasource_id=None)
     assert "Provide a DataSource ID" in str(e)
 
-    with pytest.raises(NoResultFound) as e:
-        res: DataSourceView = await describe_datasource(datasource_id="do_not_exist")
-    assert "No row was found when one was required" in str(e)
+    res: DataSourceView = await describe_datasource(datasource_id="do_not_exist")
+    assert res is None

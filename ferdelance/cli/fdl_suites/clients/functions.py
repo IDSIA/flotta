@@ -24,7 +24,7 @@ async def list_clients() -> List[Client]:
         return clients
 
 
-async def describe_client(client_id: str) -> Client:
+async def describe_client(client_id: str) -> Client | None:
     """Describe single client by printing its db record.
 
     Args:
@@ -51,4 +51,3 @@ async def describe_client(client_id: str) -> Client:
             return client
         except NoResultFound as e:
             print(f"No client found with id {client_id}")
-            raise e

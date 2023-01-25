@@ -29,7 +29,7 @@ async def list_datasources(client_id: str | None = None) -> List[DataSource]:
         return datasources
 
 
-async def describe_datasource(datasource_id: str | None) -> DataSource:
+async def describe_datasource(datasource_id: str | None) -> DataSource | None:
     """Print and return a single Artifact object
 
     Args:
@@ -53,4 +53,3 @@ async def describe_datasource(datasource_id: str | None) -> DataSource:
             return datasource
         except NoResultFound as e:
             print(f"No Datasource found with id {datasource_id}")
-            raise e

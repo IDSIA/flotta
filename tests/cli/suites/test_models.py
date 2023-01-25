@@ -4,7 +4,6 @@ from ferdelance.database.schemas import Model as ModelView
 from ferdelance.database.tables import Artifact, Component, Model
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.exc import NoResultFound
 
 import pytest
 
@@ -73,9 +72,6 @@ async def test_describe_client(async_session: AsyncSession):
         Model(model_id="mid1", path=".", artifact_id="aid1", component_id="cid1", aggregated=True, creation_time=None)
     )
 
-    with pytest.raises(NoResultFound):
-        res: ModelView = await describe_model(model_id="mid1")
-
     await async_session.commit()
 
     res: ModelView = await describe_model(model_id="mid1")
@@ -83,6 +79,5 @@ async def test_describe_client(async_session: AsyncSession):
     assert res.model_id == "mid1"
     assert res.path == "."
 
-    with pytest.raises(NoResultFound) as e:
-        res = await describe_model(model_id="do not exist")
-        assert "No row was found when one was required" in str(e)
+    res = await describe_model(model_id="do not exist")
+    assert res is None
