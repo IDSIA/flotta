@@ -1,22 +1,20 @@
 __all__ = [
-    'ClientJoinRequest',
-    'ClientJoinData',
-    'ClientDetails',
-    'ClientUpdate',
-    'ClientUpdateTaskCompleted',
-
-    'UpdateData',
-    'UpdateToken',
-    'UpdateClientApp',
-    'UpdateExecute',
-    'UpdateNothing',
-    'DownloadApp',
-
-    'WorkbenchJoinRequest',
-    'WorkbenchJoinData',
-    'WorkbenchClientList',
-    'WorkbenchDataSourceIdList',
-    'WorkbenchDataSourceList',
+    "ClientJoinRequest",
+    "ClientJoinData",
+    "ClientDetails",
+    "ClientUpdate",
+    "ClientUpdateTaskCompleted",
+    "UpdateData",
+    "UpdateToken",
+    "UpdateClientApp",
+    "UpdateExecute",
+    "UpdateNothing",
+    "DownloadApp",
+    "WorkbenchJoinRequest",
+    "WorkbenchJoinData",
+    "WorkbenchClientList",
+    "WorkbenchDataSourceIdList",
+    "WorkbenchDataSourceList",
 ]
 
 from .client import (
@@ -41,4 +39,6 @@ from .workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchDataSourceList,
+    WorkbenchProjectList,
+    WorkbenchProject,
 )

@@ -16,7 +16,7 @@ ctx = Context("http://localhost:1456")
 
 # %% ask the context for available client
 for c in ctx.list_clients():
-    dc = ctx.detail_client(c)
+    dc = ctx.describe_client(c)
     print(dc.client_id)
     print("- client version:", dc.version)
 
@@ -91,3 +91,29 @@ m.load(ctx.get_model(a))
 
 print(m.predict(np.array([[0, 0, 0, 0]])))
 print(m.predict(np.array([[1, 1, 1, 1]])))
+
+
+# %%
+
+# AggregatedDataSource(
+#     project_id="123-456-789",
+#     project_name="Housing",
+#     n_records=69,
+#     n_features=420,
+#     features=[
+#         AggregatedFeature(
+#             "Price",
+#             float,
+#             min=Distrib(
+#                 min=1000,
+#                 max=2000,
+#                 mean=1600,
+#                 stdd=3.5
+#             ),
+#             max=Distrib(
+#                 ...
+#             ),
+#             ...
+#         )
+#     ]
+# )
