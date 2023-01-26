@@ -16,6 +16,12 @@ datasources:
     kind: file
     token: example_123
 
+  - name: iris
+    type: csv
+    path: data/iris.csv
+    kind: file
+    token: example_123
+
   # - name: database1
   #   type: sqlite
   #   conn: sqlite.db

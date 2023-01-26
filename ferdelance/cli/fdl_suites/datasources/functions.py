@@ -8,7 +8,7 @@ from ferdelance.database.services import DataSourceService
 from sqlalchemy.exc import NoResultFound
 
 
-async def list_datasources(component_id: str | None = None) -> List[DataSource]:
+async def list_datasources(client_id: str | None = None) -> List[DataSource]:
     """Print and Return DataSource objects list
 
     Args:
@@ -20,21 +20,16 @@ async def list_datasources(component_id: str | None = None) -> List[DataSource]:
     db = DataBase()
     async with db.async_session() as session:
         datasource_service: DataSourceService = DataSourceService(session)
-        # query_function: Callable = (
-        #     partial(datasource_service.get_datasource_by_client_id, component_id=component_id)
-        #     if component_id is not None
-        #     else datasource_service.get_datasource_list()
-        # )
-        if component_id is None:
+        if client_id is None:
             datasources: List[DataSource] = await datasource_service.get_datasource_list()
         else:
-            datasources: List[DataSource] = await datasource_service.get_datasource_by_client_id(client_id=component_id)
+            datasources: List[DataSource] = await datasource_service.get_datasource_by_client_id(client_id=client_id)
 
         show_many(datasources)
         return datasources
 
 
-async def describe_datasource(datasource_id: str | None) -> DataSource:
+async def describe_datasource(datasource_id: str | None) -> DataSource | None:
     """Print and return a single Artifact object
 
     Args:
@@ -58,4 +53,3 @@ async def describe_datasource(datasource_id: str | None) -> DataSource:
             return datasource
         except NoResultFound as e:
             print(f"No Datasource found with id {datasource_id}")
-            raise e

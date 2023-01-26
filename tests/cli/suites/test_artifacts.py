@@ -1,8 +1,7 @@
-from ferdelance.cli.suites.artifacts.functions import describe_artifact, list_artifacts
+from ferdelance.cli.fdl_suites.artifacts.functions import describe_artifact, list_artifacts
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.schemas import Artifact
 
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import pytest
@@ -67,5 +66,6 @@ async def test_artifacts_description(async_session: AsyncSession):
         res = await describe_artifact(artifact_id=None)
         assert "Provide an Artifact ID" in str(e)
 
-    with pytest.raises(NoResultFound):
-        await describe_artifact(artifact_id="do_not_exist")
+    res = await describe_artifact(artifact_id="do_not_exist")
+
+    assert res is None

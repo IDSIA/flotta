@@ -1,47 +1,6 @@
-""" Base code to be shared across CLI submodules
-"""
-
 from argparse import ArgumentParser, Namespace
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Type
-
-
-async def function_not_implemented():
-    raise NotImplementedError("This command has not been implemented.")
-
-
-@dataclass
-class CLIArgument:
-    """Argument that will be linked to a specific command"""
-
-    dash_string: str
-    var_name: str
-    var_type: Type
-    default: Any = None
-    help: str = None
-
-    def __eq__(self, other: object) -> bool:
-        return self.dash_string == other.dash_string
-
-    def __hash__(self):
-        return hash(self.dash_string)
-
-
-@dataclass
-class CLICommand:
-    """Allow CLI submodules to determine which commands go with which arguments"""
-
-    command: str
-    arguments: List[CLIArgument]
-    function: Callable = function_not_implemented
-
-
-@dataclass
-class CLICommandSuite:
-    """Suite of all supported commands"""
-
-    entity: str
-    commands: List[CLICommand]
+from typing import List, Dict, Any
+from ferdelance.cli.base import CLICommand, CLICommandSuite
 
 
 class CLIParser:
@@ -106,34 +65,3 @@ class CLIParser:
         self.selected_suite = selected_suite
         self.selected_command = selected_command
         self.args = {sca.var_name: getattr(args, sca.var_name) for sca in self.selected_command.arguments}
-
-
-@dataclass
-class CLIArgs:
-    ARTIFACT_ID: CLIArgument = CLIArgument(
-        dash_string="--artifact-id",
-        var_name="artifact_id",
-        var_type=str,
-        help="Artifact ID",
-    )
-
-    MODEL_ID: CLIArgument = CLIArgument(dash_string="--model-id", var_name="model_id", var_type=str, help="Model ID")
-
-    CLIENT_ID: CLIArgument = CLIArgument(
-        dash_string="--client-id", var_name="client_id", var_type=str, help="Component ID"
-    )
-
-    DATASOURCE_ID: CLIArgument = CLIArgument(
-        dash_string="--datasource-id",
-        var_name="datasource_id",
-        var_type=str,
-        help="Datasource ID",
-    )
-
-    AGGREGATE: CLIArgument = CLIArgument(
-        dash_string="--aggregate",
-        var_name="aggregate",
-        var_type=bool,
-        default=False,
-        help="Create local model or aggregated model",
-    )

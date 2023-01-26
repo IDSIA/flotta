@@ -7,15 +7,19 @@ __all__ = [
     "JobService",
     "DataSourceService",
     "ModelService",
+    "ProjectService",
     "setup_settings",
     "KeyValueStore",
 ]
 
-from .core import DBSessionService, AsyncSession
+from .core import AsyncSession, DBSessionService
+
 from .application import ApplicationService
 from .artifact import ArtifactService
 from .component import ComponentService
-from .jobs import JobService
 from .datasource import DataSourceService
+from .jobs import JobService
 from .model import ModelService
-from .settings import setup_settings, KeyValueStore
+
+from .projects import ProjectService
+from .settings import KeyValueStore, setup_settings
