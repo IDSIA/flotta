@@ -1,4 +1,4 @@
-from .datasource import DataSource
+from ferdelance.client.datasources.datasource import DataSource
 
 import pandas as pd
 

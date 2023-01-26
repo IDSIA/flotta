@@ -1,29 +1,29 @@
-ferdelance:
-  client:
-    server: http://localhost:8080
-    heartbeat: 10.0
-    workdir: ./workdir
-    private_key: ./private_key.pem
+server: http://localhost:8080/
+heartbeat: 10.0
+workdir: ./workdir
+private_key_location: ./private_key.pem
 
-  datasource:
-    - name: source1
-      type: csv
-      path: data/file1.csv
-      kind: file
+datasources:
+  - name: source1
+    type: csv
+    path: data/file1.csv
+    kind: file
+    token: example_123
 
-    - name: source2
-      type: tsv
-      path: data/file2.tsv
-      kind: file
+  - name: source2
+    type: tsv
+    path: data/file2.tsv
+    kind: file
+    token: example_123
 
-    # - name: database1
-    #   type: sqlite
-    #   conn: sqlite.db
-    #   kind: db
-    #   token: <...>
+  # - name: database1
+  #   type: sqlite
+  #   conn: sqlite.db
+  #   kind: db
+  #   token: <...>
 
-    # - name: database2
-    #   type: postgres
-    #   conn: postgresql://user:password@localhost:5432
-    #   kind: db
-    #   token: <...>
+  # - name: database2
+  #   type: postgres
+  #   conn: postgresql://user:password@localhost:5432
+  #   kind: db
+  #   token: <...>

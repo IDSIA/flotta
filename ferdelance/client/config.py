@@ -1,8 +1,10 @@
 from ferdelance import __version__
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
+from ferdelance.client.exceptions import ConfigError
+from ferdelance.client.schemas import ArgumentsConfig
 from ferdelance.shared.exchange import Exchange
 
-from pydantic import BaseModel
+from uuid import uuid4
 
 import logging
 import os
@@ -12,29 +14,51 @@ import yaml
 LOGGER = logging.getLogger(__name__)
 
 
-class ConfigError(Exception):
-    def __init__(self, *args: str) -> None:
-        self.what_is_missing: list[str] = list(args)
+class Config:
+    def __init__(self, args: ArgumentsConfig) -> None:
+        self.server: str = args.server.rstrip("/")
+        self.heartbeat: float = args.heartbeat
+        self.workdir: str = args.workdir
+        self.private_key_location: str | None = args.private_key_location
 
+        self.leave: bool = False
 
-class Config(BaseModel):
+        self.exc: Exchange = Exchange()
 
-    server: str = "http://localhost/"
-    heartbeat: float = 1.0
+        self.client_id: str | None = None
+        self.client_token: str | None = None
+        self.server_public_key: str | None = None
 
-    workdir: str = "./workdir"
-    private_key_location: str | None = None
+        self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
 
-    leave: bool = False
+        for ds in args.datasources:
+            datasource_id = str(uuid4())
 
-    client_id: str | None = None
-    client_token: str | None = None
-    server_public_key: str | None = None
+            if ds.kind == "db":
+                if ds.conn is None:
+                    LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
+                    continue
+                self.datasources[datasource_id] = DataSourceDB(datasource_id, ds.name, ds.type, ds.conn, ds.token)
 
-    datasources_list: list[DataSourceFile | DataSourceDB] = list()
-    datasources_by_id: dict[str, DataSourceFile | DataSourceDB] = dict()
+            if ds.kind == "file":
+                if ds.path is None:
+                    LOGGER.error(f"Missing path for datasource with name={ds.conn}")
+                    continue
+                self.datasources[datasource_id] = DataSourceFile(datasource_id, ds.name, ds.type, ds.path, ds.token)
 
-    exc: Exchange = Exchange()
+        if not self.datasources:
+            LOGGER.error("No valid datasource available!")
+            raise ConfigError()
+
+    def join(self, client_id: str, client_token: str, server_public_key: str) -> None:
+        self.client_id = client_id
+        self.client_token = client_token
+        self.server_public_key = server_public_key
+
+        self.exc.set_token(client_token)
+        self.exc.set_remote_key(server_public_key)
+
+        self.dump_props()
 
     def get_server(self) -> str:
         return self.server.rstrip("/")
@@ -51,24 +75,6 @@ class Config(BaseModel):
         path = os.path.join(self.workdir, "artifacts")
         os.makedirs(path, exist_ok=True)
         return path
-
-    def add_datasource(
-        self, datasource_id: str, kind: str, name: str, type: str, conn: str, path: str, token: str
-    ) -> None:
-        if kind == "db":
-            self.datasources_list.append(DataSourceDB(datasource_id, name, type, conn, token))
-        if kind == "file":
-            self.datasources_list.append(DataSourceFile(datasource_id, name, type, path, token))
-
-    def join(self, client_id: str, client_token: str, server_public_key: str) -> None:
-        self.client_id = client_id
-        self.client_token = client_token
-        self.server_public_key = server_public_key
-
-        self.exc.set_token(client_token)
-        self.exc.set_remote_key(server_public_key)
-
-        self.dump_props()
 
     def read_props(self):
         with open(self.path_properties(), "r") as f:

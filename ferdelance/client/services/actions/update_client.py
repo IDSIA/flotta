@@ -1,12 +1,11 @@
 from ferdelance.shared.schemas import UpdateClientApp
 
-from ...config import Config
-from ..routes import RouteService
-from .action import Action
+from ferdelance.client.config import Config
+from ferdelance.client.services.actions.action import Action
+from ferdelance.client.services.routes import RouteService
 
 
 class UpdateClientAction(Action):
-
     def __init__(self, config: Config, data: UpdateClientApp) -> None:
         self.routes_service: RouteService = RouteService(config)
         self.data = data

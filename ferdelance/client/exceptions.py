@@ -23,3 +23,10 @@ class ErrorClient(ClientExitStatus):
 
     def __init__(self, *args: object) -> None:
         super().__init__(2, *args)
+
+
+class ConfigError(ClientExitStatus):
+    """Exit code = 2"""
+
+    def __init__(self, *args: str) -> None:
+        super().__init__(2, *args)

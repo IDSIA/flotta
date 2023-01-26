@@ -12,7 +12,6 @@ import json
 import logging
 import os
 import shutil
-import sys
 
 
 LOGGER = logging.getLogger(__name__)
@@ -68,7 +67,7 @@ class RouteService:
     def send_metadata(self) -> None:
         LOGGER.info("sending metadata to remote")
 
-        metadata: Metadata = Metadata(datasources=[ds.metadata() for ds in self.config.datasources_list])
+        metadata: Metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
 
         res = post(
             f"{self.config.server}/client/update/metadata",

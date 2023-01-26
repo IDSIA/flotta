@@ -1,18 +1,17 @@
 from .controller import ClientActionController
 
-from .do_nothing import DoNothingAction
-from .execute import ExecuteAction
-from .update_client import UpdateClientAction
-from .update_token import UpdateTokenAction
-from .controller import ClientActionController
+from ferdelance.client.config import Config
+from ferdelance.client.services.actions.controller import ClientActionController
+from ferdelance.client.services.actions.do_nothing import DoNothingAction
+from ferdelance.client.services.actions.execute import ExecuteAction
+from ferdelance.client.services.actions.update_client import UpdateClientAction
+from ferdelance.client.services.actions.update_token import UpdateTokenAction
 from ferdelance.shared.actions import Action as ActionType
 from ferdelance.shared.schemas import (
     UpdateToken,
     UpdateExecute,
     UpdateClientApp,
 )
-
-from ferdelance.client.config import Config
 
 import logging
 
@@ -44,5 +43,5 @@ class ActionService:
             self.controller.execute(DoNothingAction())
             return ActionType.DO_NOTHING
 
-        LOGGER.error(f'cannot complete action={action}')
+        LOGGER.error(f"cannot complete action={action}")
         return ActionType.DO_NOTHING

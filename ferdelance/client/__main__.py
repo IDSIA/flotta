@@ -1,5 +1,5 @@
-from ferdelance.client.arguments import setup_config_from_arguments
 from ferdelance.client import FerdelanceClient
+from ferdelance.client.arguments import setup_config_from_arguments
 from ferdelance.client.exceptions import ClientExitStatus
 
 import logging

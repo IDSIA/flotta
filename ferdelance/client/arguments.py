@@ -1,42 +1,24 @@
 from typing import Any
 from ferdelance.client.config import Config, ConfigError
-from ferdelance.client.const import LOCAL_CONFIG_FILE
+from ferdelance.client.exceptions import ErrorClient
+from ferdelance.client.schemas import ArgumentsConfig
 
 from argparse import ArgumentParser
 
 import logging
 import os
-import re
 import sys
 import yaml
 
+LOCAL_CONFIG_FILE: str = os.path.join(".", "config.yaml")
+
 LOGGER = logging.getLogger(__name__)
 
-VAR_PATTERN = re.compile(r".*?\${(\w+)}.*?")
 
-
-class Arguments(ArgumentParser):
+class CustomArguments(ArgumentParser):
     def error(self, message: str) -> None:
         self.print_usage(sys.stderr)
         self.exit(0, f"{self.prog}: error: {message}\n")
-
-
-def check_for_environment_variables(value: str | bool | int | float) -> Any:
-    """Source: https://dev.to/mkaranasou/python-yaml-configuration-with-environment-variables-parsing-2ha6"""
-    if not isinstance(value, str):
-        return value
-
-    # find all env variables in line
-    match = VAR_PATTERN.findall(value)
-
-    # TODO: testing required
-
-    if match:
-        full_value = value
-        for g in match:
-            full_value = full_value.replace(f"${{{g}}}", os.environ.get(g, g))
-        return full_value
-    return value
 
 
 def setup_config_from_arguments() -> Config:
@@ -45,9 +27,7 @@ def setup_config_from_arguments() -> Config:
     Can raise ConfigError.
     """
 
-    config: Config = Config()
-
-    parser = Arguments()
+    parser = CustomArguments()
 
     parser.add_argument(
         "-c",
@@ -56,7 +36,7 @@ def setup_config_from_arguments() -> Config:
         Set a configuration file in YAML format to use
         Note that command line arguments take the precedence of arguments declared with a config file.
         """,
-        default=None,
+        default=LOCAL_CONFIG_FILE,
         type=str,
     )
 
@@ -76,10 +56,7 @@ def setup_config_from_arguments() -> Config:
 
     config_path: str = args.config
 
-    if config_path is None:
-        config_path = LOCAL_CONFIG_FILE
-
-    if not os.path.exists(LOCAL_CONFIG_FILE):
+    if not os.path.exists(config_path):
         LOGGER.error(f"Configuration file not found at {config_path}")
         raise ConfigError()
 
@@ -89,39 +66,20 @@ def setup_config_from_arguments() -> Config:
     with open(config_path, "r") as f:
         try:
             yaml_data: dict[str, Any] = yaml.safe_load(f)
-            config_args: dict[str, Any] = yaml_data.get("ferdelance", dict())
 
-            # assign values from config file
-            client_args: dict[str, Any] = config_args.get("client", dict())
+            args_config: ArgumentsConfig = ArgumentsConfig(**yaml_data)
 
-            config.server = check_for_environment_variables(client_args.get("server", config.server))
+            config: Config = Config(args_config)
 
-            config.heartbeat = check_for_environment_variables(client_args.get("heartbeat", config.heartbeat))
+            # assign values from command line
+            if args.leave:
+                config.leave = args.leave
 
-            config.workdir = check_for_environment_variables(client_args.get("workdir", config.workdir))
-            config.private_key_location = check_for_environment_variables(client_args.get("private_key", None))
+            LOGGER.info("configuration completed")
 
-            # assign data sources
-            datasources_args: list[dict[str, Any]] = config_args.get("datasource", list())
-            for item in datasources_args:
-                config.add_datasource(
-                    datasource_id=item.get("id", ""),
-                    name=item.get("name", ""),
-                    type=item.get("type", ""),
-                    kind=item.get("kind", ""),
-                    conn=item.get("conn", ""),
-                    path=item.get("path", ""),
-                    token=item.get("token", ""),
-                )
+            return config
 
         except yaml.YAMLError as e:
-            LOGGER.error(f"could not read config file {config}")
+            LOGGER.error(f"could not read config file {config_path}")
             LOGGER.exception(e)
-
-    # assign values from command line
-    if args.leave:
-        config.leave = args.leave
-
-    LOGGER.info("configuration completed")
-
-    return config
+            raise ErrorClient()
