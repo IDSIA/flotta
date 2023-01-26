@@ -1,7 +1,7 @@
 __all__ = [
-    'DataSource',
-    'DataSourceDB',
-    'DataSourceFile',
+    "DataSource",
+    "DataSourceDB",
+    "DataSourceFile",
 ]
 
 from .datasource import DataSource

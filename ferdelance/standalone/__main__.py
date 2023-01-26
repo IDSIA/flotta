@@ -2,7 +2,7 @@ import logging
 from multiprocessing import Queue
 from multiprocessing.managers import BaseManager
 
-from ferdelance.client.arguments import setup_arguments
+from ferdelance.client.arguments import setup_config_from_arguments
 from ferdelance.config import conf
 from ferdelance.standalone.processes import LocalClient, LocalServer, LocalWorker
 
@@ -10,7 +10,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
-    client_args = setup_arguments()
+    client_args = setup_config_from_arguments()
 
     LOGGER.info("standalone application starting")
 
