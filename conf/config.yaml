@@ -1,8 +1,9 @@
 ferdelance:
   client:
     server: http://localhost:8080
-    workdir: ./workdir
     heartbeat: 10.0
+    workdir: ./workdir
+    private_key: ./private_key.pem
 
   datasource:
     - name: source1
@@ -15,17 +16,14 @@ ferdelance:
       path: data/file2.tsv
       kind: file
 
-    - name: source3
-      type: tsv
-      path: data/file3.tsv
-      kind: file
-
     # - name: database1
     #   type: sqlite
     #   conn: sqlite.db
     #   kind: db
+    #   token: <...>
 
     # - name: database2
     #   type: postgres
     #   conn: postgresql://user:password@localhost:5432
     #   kind: db
+    #   token: <...>

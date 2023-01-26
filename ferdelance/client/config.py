@@ -1,7 +1,8 @@
 from ferdelance import __version__
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
-from ferdelance.shared.artifacts import DataSource
 from ferdelance.shared.exchange import Exchange
+
+from pydantic import BaseModel
 
 import logging
 import os
@@ -12,120 +13,86 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ConfigError(Exception):
-
-    def __init__(self,  *args: str) -> None:
+    def __init__(self, *args: str) -> None:
         self.what_is_missing: list[str] = list(args)
 
 
-class Config:
+class Config(BaseModel):
 
-    def __init__(self, server: str, workdir: str, heartbeat: float, datasources: list[dict[str, str]]) -> None:
-        self.server: str = server.rstrip('/')
-        self.workdir: str = workdir
+    server: str = "http://localhost/"
+    heartbeat: float = 1.0
 
-        self.heartbeat: float = heartbeat
+    workdir: str = "./workdir"
+    private_key_location: str | None = None
 
-        self.client_id: str
+    leave: bool = False
 
-        self.exc: Exchange = Exchange()
+    client_id: str | None = None
+    client_token: str | None = None
+    server_public_key: str | None = None
 
-        self.datasources_list: list[dict[str, str]] = datasources
-        self.datasources: dict[str, DataSourceFile | DataSourceDB] = dict()
-        self.datasources_by_id: dict[str, DataSource] = dict()
+    datasources_list: list[DataSourceFile | DataSourceDB] = list()
+    datasources_by_id: dict[str, DataSourceFile | DataSourceDB] = dict()
 
-        self.path_joined: str = os.path.join(self.workdir, '.joined')
-        self.path_properties: str = os.path.join(self.workdir, 'properties.yaml')
-        self.path_server_key: str = os.path.join(self.workdir, 'server_key.pub')
-        self.path_private_key: str = os.path.join(self.workdir, 'private_key.pem')
-        self.path_artifact_folder: str = os.path.join(self.workdir, 'artifacts')
-        self.path_artifact_folder: str = os.path.join(self.workdir, 'artifacts')
+    exc: Exchange = Exchange()
 
-    def check(self) -> None:
-        # check for existing working directory
-        if os.path.exists(self.workdir):
-            LOGGER.info(f'loading properties from working directory {self.workdir}')
+    def get_server(self) -> str:
+        return self.server.rstrip("/")
 
-            # TODO: check how to enable permission check with docker
-            # status = os.stat(self.workdir)
-            # chmod = stat.S_IMODE(status.st_mode & 0o777)
+    def path_properties(self) -> str:
+        return os.path.join(self.workdir, "properties.yaml")
 
-            # if chmod != 0o700:
-            #     LOGGER.error(f'working directory {self.workdir} has wrong permissions!')
-            #     LOGGER.error(f'expected {0o700} found {chmod}')
-            #     sys.exit(2)
+    def path_private_key(self) -> str:
+        if self.private_key_location is None:
+            return os.path.join(self.workdir, "private_key.pem")
+        return self.private_key_location
 
-            if os.path.exists(self.path_properties):
-                # load properties
-                LOGGER.info(f'loading properties file from {self.path_properties}')
-                with open(self.path_properties, 'r') as f:
-                    props = yaml.safe_load(f)
+    def path_artifact_folder(self) -> str:
+        path = os.path.join(self.workdir, "artifacts")
+        os.makedirs(path, exist_ok=True)
+        return path
 
-                    if not props:
-                        raise ConfigError()
+    def add_datasource(
+        self, datasource_id: str, kind: str, name: str, type: str, conn: str, path: str, token: str
+    ) -> None:
+        if kind == "db":
+            self.datasources_list.append(DataSourceDB(datasource_id, name, type, conn, token))
+        if kind == "file":
+            self.datasources_list.append(DataSourceFile(datasource_id, name, type, path, token))
 
-                    self.client_id = props['client_id']
-                    self.server = props['server']
+    def join(self, client_id: str, client_token: str, server_public_key: str) -> None:
+        self.client_id = client_id
+        self.client_token = client_token
+        self.server_public_key = server_public_key
 
-                    self.exc.set_token(props['client_token'])
+        self.exc.set_token(client_token)
+        self.exc.set_remote_key(server_public_key)
 
-                    if self.heartbeat == None:
-                        self.heartbeat = props['heartbeat']
-                    if self.heartbeat == None:
-                        self.heartbeat = 1.0
+        self.dump_props()
 
-                    # TODO: load data sources
+    def read_props(self):
+        with open(self.path_properties(), "r") as f:
+            props_data = yaml.safe_load(f)
 
-                    self.path_joined = props['path_joined']
-                    self.path_server_key = props['path_server_key']
-                    self.path_private_key = props['path_private_key']
+            props = props_data["ferdelance"]["extra"]
 
-            if os.path.exists(self.path_private_key):
-                LOGGER.info(f'private key found at {self.path_private_key}')
-                self.exc.load_key(self.path_private_key)
-            else:
-                LOGGER.info(f'private key not found at {self.path_private_key}')
-                raise ConfigError('pk', 'join')
+            self.client_id = props["client_id"]
+            self.client_token = props["client_token"]
+            self.server_public_key = props["server_public_key"]
 
-            if os.path.exists(self.path_joined):
-                # already joined
-
-                if os.path.exists(self.path_server_key):
-                    LOGGER.info(f'reading server key from {self.path_server_key}')
-                    self.exc.load_remote_key(self.path_server_key)
-
-                else:
-                    LOGGER.info(f'reading server key not found at {self.path_server_key}')
-                    raise ConfigError('join')
-
-                if self.client_id is None or self.exc.token is None or not os.path.exists(self.path_joined):
-                    LOGGER.info(f'client not joined')
-                    raise ConfigError('join')
-
-            else:
-                LOGGER.info(f'client not joined')
-                raise ConfigError('join')
-
-        else:
-            # empty directory
-            LOGGER.info('working directory does not exists')
-            raise ConfigError('wd', 'pk', 'join')
-
-    def dump(self):
+    def dump_props(self):
         """Save current configuration to a file in the working directory."""
-        with open(self.path_properties, 'w') as f:
-            yaml.safe_dump({
-                'version': __version__,
-
-                'server': self.server,
-                'workdir': self.workdir,
-                'heartbeat': self.heartbeat,
-
-                'datasources': self.datasources_list,
-
-                'client_id': self.client_id,
-                'client_token': self.exc.token,
-
-                'path_joined': self.path_joined,
-                'path_server_key': self.path_server_key,
-                'path_private_key': self.path_private_key,
-            }, f)
+        with open(self.path_properties(), "w") as f:
+            yaml.safe_dump(
+                {
+                    "ferdelance": {
+                        "extra": {
+                            "version": __version__,
+                            "client_id": self.client_id,
+                            "client_token": self.client_token,
+                            "server_public_key": self.server_public_key,
+                        },
+                    },
+                },
+                f,
+            )

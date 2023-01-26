@@ -1,5 +1,8 @@
-from argparse import ArgumentParser
 from typing import Any
+from ferdelance.client.config import Config, ConfigError
+from ferdelance.client.const import LOCAL_CONFIG_FILE
+
+from argparse import ArgumentParser
 
 import logging
 import os
@@ -9,22 +12,16 @@ import yaml
 
 LOGGER = logging.getLogger(__name__)
 
-VAR_PATTERN = re.compile(r'.*?\${(\w+)}.*?')
-
-LOCAL_CONFIG_FILE = os.path.join('.', 'config.yaml')
-
-FDL_SERVER = 'FDL_SERVER'
-FDL_HEARTBEAT = 'FDL_HEARTBEAT'
+VAR_PATTERN = re.compile(r".*?\${(\w+)}.*?")
 
 
 class Arguments(ArgumentParser):
-
     def error(self, message: str) -> None:
         self.print_usage(sys.stderr)
         self.exit(0, f"{self.prog}: error: {message}\n")
 
 
-def check_for_environment_variables(value: str | bool | int | float):
+def check_for_environment_variables(value: str | bool | int | float) -> Any:
     """Source: https://dev.to/mkaranasou/python-yaml-configuration-with-environment-variables-parsing-2ha6"""
     if not isinstance(value, str):
         return value
@@ -37,30 +34,24 @@ def check_for_environment_variables(value: str | bool | int | float):
     if match:
         full_value = value
         for g in match:
-            full_value = full_value.replace(
-                f'${{{g}}}', os.environ.get(g, g)
-            )
+            full_value = full_value.replace(f"${{{g}}}", os.environ.get(g, g))
         return full_value
     return value
 
 
-def setup_arguments() -> dict[str, Any]:
-    """Defines the available input parameters base on command line arguments."""
+def setup_config_from_arguments() -> Config:
+    """Defines the available input parameters base on command line arguments.
 
-    arguments: dict[str, Any] = {
-        'server': 'http://localhost/',
-        'workdir': 'workdir',
-        'heartbeat': 1.0,
-        'leave': False,
+    Can raise ConfigError.
+    """
 
-        'datasources': [],
-    }
-    LOGGER.debug(f'default arguments: {arguments}')
+    config: Config = Config()
 
     parser = Arguments()
 
     parser.add_argument(
-        '-c', '--config',
+        "-c",
+        "--config",
         help=f"""
         Set a configuration file in YAML format to use
         Note that command line arguments take the precedence of arguments declared with a config file.
@@ -70,142 +61,67 @@ def setup_arguments() -> dict[str, Any]:
     )
 
     parser.add_argument(
-        '-s', '--server',
-        help=f"""
-        Set the url for the aggregation server.
-        (default: {arguments['server']})
-        """,
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        '-w', '--workdir',
-        help=f"""
-        Set the working directory of the client
-        (default: {arguments['workdir']})
-        """,
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        '-b', '--heartbeat',
-        help=f"""
-        Set the amount of time in seconds to wait after a command execution.
-        (default: {arguments['heartbeat']})
-        """,
-        default=None,
-        type=float
-    )
-
-    parser.add_argument(
-        '--leave',
+        "--leave",
         help=f"""
         Request to disconnect this client from the server.
         This command will also remove the given working directory and all its content.
-        (default: {arguments['leave']})
+        (default: False)
         """,
-        action='store_true',
+        action="store_true",
         default=None,
-    )
-
-    parser.add_argument(
-        '-f', '--file',
-        help="""
-        Add a file as source file.
-        This arguments takes 3 positions: a unique NAME, a file type (TYPE), and a file path (PATH).
-        The supported filetypes are: CSV, TSV.
-        This arguments can be repeated.
-        """,
-        default=None,
-        action='append',
-        nargs=3,
-        metavar=('NAME', 'TYPE', 'PATH'),
-        type=str,
-    )
-    parser.add_argument(
-        '-db', '--dbms',
-        help="""
-        Add a database as source file.
-        This arguments takes 3 position: a unique NAME, a supported DBMS (TYPE), and the connection string (CONN).
-        The DBMS requires full compatibility with SQLAlchemy
-        This arguments can be repeated.
-        """,
-        default=None,
-        action='append',
-        nargs=3,
-        metavar=('NAME', 'TYPE', 'CONN'),
-        type=str
     )
 
     # parse input arguments as a dict
     args = parser.parse_args()
 
-    config = args.config
+    config_path: str = args.config
 
-    if config is None and os.path.exists(LOCAL_CONFIG_FILE):
-        LOGGER.info(f'Using local config file found at {LOCAL_CONFIG_FILE}')
-        config = LOCAL_CONFIG_FILE
+    if config_path is None:
+        config_path = LOCAL_CONFIG_FILE
+
+    if not os.path.exists(LOCAL_CONFIG_FILE):
+        LOGGER.error(f"Configuration file not found at {config_path}")
+        raise ConfigError()
+
+    LOGGER.info(f"Using local config file found at {config_path}")
 
     # parse YAML config file
-    if config is not None and os.path.exists(config):
-        LOGGER.info(f'Reading configuration from {config}')
+    with open(config_path, "r") as f:
+        try:
+            yaml_data: dict[str, Any] = yaml.safe_load(f)
+            config_args: dict[str, Any] = yaml_data.get("ferdelance", dict())
 
-        config_args: dict = dict()
+            # assign values from config file
+            client_args: dict[str, Any] = config_args.get("client", dict())
 
-        with open(config, 'r') as f:
-            try:
-                config_args = yaml.safe_load(f)['ferdelance']
-                LOGGER.debug(f'config input arguments: {config_args}')
-            except yaml.YAMLError as e:
-                LOGGER.error(f'could not read config file {config}')
-                LOGGER.exception(e)
+            config.server = check_for_environment_variables(client_args.get("server", config.server))
 
-        # assign values from config file
-        arguments['server'] = check_for_environment_variables(config_args['client']['server'])
-        arguments['workdir'] = check_for_environment_variables(config_args['client']['workdir'])
-        arguments['heartbeat'] = check_for_environment_variables(config_args['client']['heartbeat'])
+            config.heartbeat = check_for_environment_variables(client_args.get("heartbeat", config.heartbeat))
 
-        # assign data sources
-        for item in config_args['datasource']:
-            arguments['datasources'].append((
-                check_for_environment_variables(item['kind']),
-                check_for_environment_variables(item['name']),
-                check_for_environment_variables(item['type']),
-                check_for_environment_variables(item['conn'] if item['kind'] == 'db' else item['path']),
-            ))
+            config.workdir = check_for_environment_variables(client_args.get("workdir", config.workdir))
+            config.private_key_location = check_for_environment_variables(client_args.get("private_key", None))
 
-    LOGGER.debug(f'config output arguments: {arguments}')
+            # assign data sources
+            datasources_args: list[dict[str, Any]] = config_args.get("datasource", list())
+            for item in datasources_args:
+                config.add_datasource(
+                    datasource_id=item.get("id", ""),
+                    name=item.get("name", ""),
+                    type=item.get("type", ""),
+                    kind=item.get("kind", ""),
+                    conn=item.get("conn", ""),
+                    path=item.get("path", ""),
+                    token=item.get("token", ""),
+                )
+
+        except yaml.YAMLError as e:
+            LOGGER.error(f"could not read config file {config}")
+            LOGGER.exception(e)
 
     # assign values from command line
-    if args.server:
-        arguments['server'] = check_for_environment_variables(args.server)
-    if args.workdir:
-        arguments['workdir'] = check_for_environment_variables(args.workdir)
-    if args.heartbeat:
-        arguments['heartbeat'] = check_for_environment_variables(args.heartbeat)
     if args.leave:
-        arguments['leave'] = args.leave
+        config.leave = args.leave
 
-    if args.file:
-        for name, type, path in args.file:
-            arguments['datasources'].append({
-                'kind': 'file',
-                'name': check_for_environment_variables(name),
-                'type': check_for_environment_variables(type),
-                'path': check_for_environment_variables(path),
-            })
-    if args.dbms:
-        for name, type, conn in args.dbms:
-            arguments['datasources'].append({
-                'kind': 'db',
-                'name': check_for_environment_variables(name),
-                'type': check_for_environment_variables(type),
-                'path': check_for_environment_variables(conn),
-            })
+    LOGGER.info("configuration completed")
 
-    arguments['server'] = os.environ.get(FDL_SERVER, arguments['server'])
-    arguments['heartbeat'] = float(os.environ.get(FDL_HEARTBEAT, arguments['heartbeat']))
-
-    LOGGER.debug(f'used arguments: {arguments}')
-
-    return arguments
+    return config
