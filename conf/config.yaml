@@ -1,5 +1,5 @@
 server: http://localhost:8080/
-heartbeat: 10.0
+heartbeat: 2.0
 workdir: ./workdir
 private_key_location: ./private_key.pem
 

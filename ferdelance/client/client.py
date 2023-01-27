@@ -6,15 +6,11 @@ from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action
 from ferdelance.shared.schemas import ClientJoinData, ClientJoinRequest
 
-from getmac import get_mac_address
 from time import sleep
 
 import logging
 import os
-import platform
 import requests
-import sys
-import uuid
 
 
 LOGGER = logging.getLogger(__name__)
@@ -70,19 +66,10 @@ class FerdelanceClient:
             # not joined yet
             LOGGER.info("collecting system info")
 
-            machine_system: str = platform.system()
-            machine_mac_address: str = get_mac_address() or ""
-            machine_node: str = str(uuid.getnode())
-
-            LOGGER.debug(f"system info: machine_system={machine_system}")
-            LOGGER.debug(f"system info: machine_mac_address={machine_mac_address}")
-            LOGGER.debug(f"system info: machine_node={machine_node}")
-            LOGGER.debug(f"client info: version={__version__}")
-
             join_data = ClientJoinRequest(
-                system=machine_system,
-                mac_address=machine_mac_address,
-                node=machine_node,
+                system=self.config.machine_system,
+                mac_address=self.config.machine_mac_address,
+                node=self.config.machine_node,
                 public_key=self.config.exc.transfer_public_key(),
                 version=__version__,
             )

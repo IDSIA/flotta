@@ -18,7 +18,7 @@ class LocalWorker(Process):
 
         # TODO: connect/join/register on server
 
-    def run(self):
+    def run(self) -> None:
         def main_signal_handler(signum, frame):
             """This handler is used to gracefully stop when ctrl-c is hit in the terminal."""
             self.stop = True
@@ -38,5 +38,3 @@ class LocalWorker(Process):
             aggregate(token, artifact_id, model_ids)
 
             self.task_queue.task_done()
-
-        return
