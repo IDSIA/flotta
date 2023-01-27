@@ -10,7 +10,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
-    client_args = setup_config_from_arguments()
+    client_conf = setup_config_from_arguments()
 
     LOGGER.info("standalone application starting")
 
@@ -19,7 +19,7 @@ if __name__ == "__main__":
         "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"  # this is a dummy key
     )
     conf.DB_DIALECT = "sqlite"
-    # conf.DB_MEMORY = True
+    conf.DB_HOST = "./sqlite.db"
     conf.SERVER_INTERFACE = "0.0.0.0"
     conf.STANDALONE_WORKERS = 7
 
@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     server_process = LocalServer()
     worker_process = LocalWorker()
-    client_process = LocalClient(client_args)
+    client_process = LocalClient(client_conf)
 
     server_process.start()
     worker_process.start()

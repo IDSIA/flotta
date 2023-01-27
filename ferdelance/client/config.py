@@ -4,10 +4,12 @@ from ferdelance.client.exceptions import ConfigError
 from ferdelance.client.schemas import ArgumentsConfig
 from ferdelance.shared.exchange import Exchange
 
-from uuid import uuid4
+from getmac import get_mac_address
 
 import logging
 import os
+import platform
+import uuid
 import yaml
 
 
@@ -23,6 +25,10 @@ class Config:
 
         self.leave: bool = False
 
+        self.machine_system: str = platform.system()
+        self.machine_mac_address: str = get_mac_address() or ""
+        self.machine_node: str = str(uuid.getnode())
+
         self.exc: Exchange = Exchange()
 
         self.client_id: str | None = None
@@ -32,7 +38,7 @@ class Config:
         self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
 
         for ds in args.datasources:
-            datasource_id = str(uuid4())
+            datasource_id = str(uuid.uuid4())
 
             if ds.kind == "db":
                 if ds.conn is None:
