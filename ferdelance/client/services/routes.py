@@ -1,17 +1,18 @@
-import json
-import logging
-import os
-import shutil
-import sys
-
-from requests import Session, get, post
-from requests.adapters import HTTPAdapter, Retry
-
 from ferdelance.client.config import Config
+from ferdelance.client.exceptions import ErrorClient
 from ferdelance.shared.actions import Action
 from ferdelance.shared.artifacts import Artifact, Metadata
 from ferdelance.shared.models import Metrics
 from ferdelance.shared.schemas import ClientJoinData, ClientJoinRequest, DownloadApp, UpdateClientApp, UpdateExecute
+
+from requests import Session, get, post
+from requests.adapters import HTTPAdapter, Retry
+
+import json
+import logging
+import os
+import shutil
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class RouteService:
     def __init__(self, config: Config) -> None:
         self.config = config
 
-    def join(self, system: str, mac_address: str, node: str, encoded_public_key: str, version: str) -> ClientJoinData:
+    def join(self, join_data: ClientJoinRequest) -> ClientJoinData:
         """Send a join request to the server.
 
         :param system:
@@ -36,14 +37,6 @@ class RouteService:
         :return:
             The connection data for a join request.
         """
-
-        join_data = ClientJoinRequest(
-            system=system,
-            mac_address=mac_address,
-            node=node,
-            public_key=encoded_public_key,
-            version=version,
-        )
 
         s = Session()
 
@@ -69,7 +62,7 @@ class RouteService:
         shutil.rmtree(self.config.workdir)
 
         LOGGER.info(f"client left server {self.config.server}")
-        sys.exit(2)
+        raise ErrorClient()
 
     def send_metadata(self) -> None:
         LOGGER.info("sending metadata to remote")

@@ -1,3 +1,10 @@
+# launch client
+client:
+	python -m ferdelance.client -c conf/config.yaml
+
+standalone:
+	python -m ferdelance.standalone -c conf/config.yaml
+
 # docker build 
 build-client:
 	docker-compose -f docker-compose.client.yaml -p ferdelance build

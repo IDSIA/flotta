@@ -84,6 +84,7 @@ class DataSource(BaseDataSource):
 class MetaDataSource(BaseDataSource):
     """Information on data source stored in the client."""
 
+    datasource_id: str
     removed: bool = False
 
     features: list[MetaFeature]

@@ -1,14 +1,14 @@
-from pathlib import Path
+from ferdelance.client.datasources.datasource import DataSource
 from ferdelance.shared.artifacts import MetaDataSource, MetaFeature
 
-from .datasource import DataSource
+from pathlib import Path
 
 import pandas as pd
 
 
 class DataSourceFile(DataSource):
-    def __init__(self, name: str, kind: str, path: str) -> None:
-        super().__init__(name, kind)
+    def __init__(self, datasource_id: str, name: str, type: str, path: str, token: str = "") -> None:
+        super().__init__(datasource_id, name, type, token)
         self.path: Path = Path(path)
 
     def get(self) -> pd.DataFrame:
@@ -21,8 +21,13 @@ class DataSourceFile(DataSource):
 
         raise NotImplemented(f"Don't know how to load {extension} format")
 
+    def dump(self) -> dict[str, str]:
+        return super().dump() | {
+            "conn": str(self.path),
+        }
+
     def metadata(self) -> MetaDataSource:
-        sep = '\t' if self.kind == 'tsv' else ','
+        sep = "\t" if self.type == "tsv" else ","
 
         df = pd.read_csv(self.path, sep=sep)
         df_desc = df.describe()
@@ -35,19 +40,21 @@ class DataSourceFile(DataSource):
 
             if feature in df_desc:
                 f = MetaFeature(
+                    datasource_id=self.datasource_id,
                     name=str(feature),
                     dtype=dtype,
-                    v_mean=df_desc[feature]['mean'],
-                    v_std=df_desc[feature]['std'],
-                    v_min=df_desc[feature]['min'],
-                    v_p25=df_desc[feature]['25%'],
-                    v_p50=df_desc[feature]['50%'],
-                    v_p75=df_desc[feature]['75%'],
-                    v_max=df_desc[feature]['max'],
+                    v_mean=df_desc[feature]["mean"],
+                    v_std=df_desc[feature]["std"],
+                    v_min=df_desc[feature]["min"],
+                    v_p25=df_desc[feature]["25%"],
+                    v_p50=df_desc[feature]["50%"],
+                    v_p75=df_desc[feature]["75%"],
+                    v_max=df_desc[feature]["max"],
                     v_miss=df[feature].isna().sum(),
                 )
             else:
                 f = MetaFeature(
+                    datasource_id=self.datasource_id,
                     name=str(feature),
                     dtype=dtype,
                     v_mean=None,
@@ -62,6 +69,7 @@ class DataSourceFile(DataSource):
             features.append(f)
 
         return MetaDataSource(
+            datasource_id=self.datasource_id,
             name=self.name,
             removed=False,
             n_records=n_records,

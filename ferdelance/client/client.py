@@ -1,154 +1,107 @@
-import logging
-import os
-import platform
-import sys
-import uuid
-from time import sleep
-
-import requests
-from getmac import get_mac_address
-
 from ferdelance import __version__
 from ferdelance.client.config import Config, ConfigError
-from ferdelance.client.datasources import DataSourceDB, DataSourceFile
+from ferdelance.client.exceptions import RelaunchClient, UpdateClient, ErrorClient
 from ferdelance.client.services.actions import ActionService
 from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action
-from ferdelance.shared.schemas import ClientJoinData
+from ferdelance.shared.schemas import ClientJoinData, ClientJoinRequest
+
+from time import sleep
+
+import logging
+import os
+import requests
+
 
 LOGGER = logging.getLogger(__name__)
 
 
 class FerdelanceClient:
-    def __init__(
-        self,
-        server: str = "http://localhost:8080",
-        workdir: str = "workdir",
-        heartbeat: float = -1.0,
-        leave: bool = False,
-        datasources: list[dict[str, str]] = list(),
-        machine_mac_addres: str | None = None,
-        machine_node: str | None = None,
-    ) -> None:
+    def __init__(self, config: Config) -> None:
         # possible states are: work, exit, update, install
         self.status: Action = Action.INIT
 
-        self.config: Config = Config(
-            server=server,
-            workdir=workdir,
-            heartbeat=heartbeat,
-            datasources=datasources,
-        )
+        self.config: Config = config
 
-        self.flag_leave: bool = leave
         self.setup_completed: bool = False
         self.stop: bool = False
-
-        self.machine_mac_address = machine_mac_addres
-        self.machine_node = machine_node
 
     def beat(self):
         LOGGER.debug(f"waiting for {self.config.heartbeat}")
         sleep(self.config.heartbeat)
 
-    def get_datasource(self, name: str, filter: str | None = None) -> None:
-        # TODO
-        pass
+    def setup(self, routes_service: RouteService) -> None:
+        """Component initialization (keys setup), joining the server (if not already joined), and sending metadata."""
 
-    def setup(self) -> None:
-        """Component initialization (keys setup), joining the server (if not already joined), and sending metadata and sources available."""
         LOGGER.info("client initialization")
 
-        try:
-            self.config.check()
+        # create required directories
+        os.makedirs(self.config.workdir, exist_ok=True)
+        os.chmod(self.config.workdir, 0o700)
+        os.makedirs(self.config.path_artifact_folder(), exist_ok=True)
+        os.chmod(self.config.path_artifact_folder(), 0o700)
 
-        except ConfigError as e:
-            LOGGER.info(f"missing setup files: {e.what_is_missing}")
+        if self.config.private_key_location is None:
+            # generate new key
+            LOGGER.info("private key location not set: creating a new one")
+            self.config.exc.generate_key()
+            self.config.exc.save_private_key(self.config.path_private_key())
 
-            for item in e.what_is_missing:
+        elif not os.path.exists(self.config.private_key_location):
+            LOGGER.info("private key location not found: creating a new one")
+            self.config.exc.generate_key()
+            self.config.exc.save_private_key(self.config.path_private_key())
 
-                if item == "wd":
-                    LOGGER.info(f"creating working directory={self.config.workdir}")
-                    os.makedirs(self.config.workdir, exist_ok=True)
-                    os.chmod(self.config.workdir, 0o700)
-                    os.makedirs(self.config.path_artifact_folder, exist_ok=True)
+        else:
+            # load key
+            LOGGER.info(f"private key found at {self.config.private_key_location}")
+            self.config.exc.load_key(self.config.private_key_location)
 
-                if item == "pk":
-                    LOGGER.info("private key does not exist: creating a new one")
-                    self.config.exc.generate_key()
-                    self.config.exc.save_private_key(self.config.path_private_key)
+        if os.path.exists(self.config.path_properties()):
+            # already joined
+            LOGGER.info(f"loading connection data from {self.config.path_properties()}")
+            self.config.read_props()
 
-                if item == "join":
-                    routes_service = RouteService(self.config)
-                    LOGGER.info("collecting system info")
+        else:
+            # not joined yet
+            LOGGER.info("collecting system info")
 
-                    machine_system: str = platform.system()
+            join_data = ClientJoinRequest(
+                system=self.config.machine_system,
+                mac_address=self.config.machine_mac_address,
+                node=self.config.machine_node,
+                public_key=self.config.exc.transfer_public_key(),
+                version=__version__,
+            )
 
-                    machine_mac_address: str = self.machine_mac_address or get_mac_address() or ""
-                    machine_node: str = self.machine_node or str(uuid.getnode())
+            try:
+                data: ClientJoinData = routes_service.join(join_data)
+                self.config.join(data.id, data.token, data.public_key)
 
-                    LOGGER.info(f"system info: machine_system={machine_system}")
-                    LOGGER.info(f"system info: machine_mac_address={machine_mac_address}")
-                    LOGGER.info(f"system info: machine_node={machine_node}")
-                    LOGGER.info(f"client info: version={__version__}")
+            except requests.HTTPError as e:
 
-                    try:
-                        data: ClientJoinData = routes_service.join(
-                            system=machine_system,
-                            mac_address=machine_mac_address,
-                            node=machine_node,
-                            encoded_public_key=self.config.exc.transfer_public_key(),
-                            version=__version__,
-                        )
+                if e.response.status_code == 404:
+                    LOGGER.error(f"remote server {self.config.server} not found.")
+                    self.beat()
+                    raise RelaunchClient()
 
-                        LOGGER.info("client join successful")
+                if e.response.status_code == 403:
+                    LOGGER.error("wrong local files, maybe the client has been removed?")
+                    raise ErrorClient()
 
-                        self.config.client_id = data.id
-                        self.config.exc.set_token(data.token)
-                        self.config.exc.set_remote_key(data.public_key)
+                LOGGER.exception(e)
+                raise ErrorClient()
 
-                        self.config.exc.save_remote_key(self.config.path_server_key)
+            except requests.exceptions.RequestException as e:
+                LOGGER.error("connection refused")
+                LOGGER.exception(e)
+                self.beat()
+                raise RelaunchClient()
 
-                        open(self.config.path_joined, "a").close()
-                    except requests.HTTPError as e:
-
-                        if e.response.status_code == 404:
-                            LOGGER.error(f"remote server {self.config.server} not found.")
-                            self.beat()
-                            sys.exit(0)
-
-                        if e.response.status_code == 403:
-                            LOGGER.error("client already joined, but no local files found!?")
-                            sys.exit(2)
-
-                        LOGGER.exception(e)
-                        sys.exit(2)
-
-                    except requests.exceptions.RequestException as e:
-                        LOGGER.error("connection refused")
-                        LOGGER.exception(e)
-                        self.beat()
-                        sys.exit(0)
-
-                    except Exception as e:
-                        LOGGER.error("internal error")
-                        LOGGER.exception(e)
-                        sys.exit(0)
-
-        # setup local data sources
-        for k, n, t, p in self.config.datasources_list:
-            if k == "file":
-                self.config.datasources[n] = DataSourceFile(n, t, p)
-            elif k == "db":
-                self.config.datasources[n] = DataSourceDB(n, t, p)
-            else:
-                LOGGER.error(f"Invalid data source: KIND={k} NAME={n} TYPE={t} CONN={p}")
-
-        # save config locally
-        self.config.dump()
-
-        LOGGER.info("creating workdir folders")
-        os.makedirs(self.config.path_artifact_folder, exist_ok=True)
+            except Exception as e:
+                LOGGER.error("internal error")
+                LOGGER.exception(e)
+                raise RelaunchClient()
 
         LOGGER.info("setup completed")
         self.setup_completed = True
@@ -170,9 +123,9 @@ class FerdelanceClient:
             LOGGER.info("running client")
 
             if not self.setup_completed:
-                self.setup()
+                self.setup(routes_service)
 
-            if self.flag_leave:
+            if self.config.leave:
                 routes_service.leave()
 
             routes_service.send_metadata()
@@ -210,21 +163,21 @@ class FerdelanceClient:
                     LOGGER.exception(e)
 
                     # TODO what to do in this case?
-                    return 2
+                    raise ErrorClient()
 
                 self.beat()
 
         except ConfigError as e:
             LOGGER.error("could not complete setup")
             LOGGER.exception(e)
-            return 2
+            raise ErrorClient()
 
         except Exception as e:
             LOGGER.error("Unknown error")
             LOGGER.exception(e)
-            return 2
+            raise ErrorClient()
 
         if self.stop:
-            return 2
+            raise ErrorClient()
 
         return 0

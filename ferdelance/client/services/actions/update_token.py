@@ -1,7 +1,7 @@
 from ferdelance.shared.schemas import UpdateToken
 
-from ...config import Config
-from .action import Action
+from ferdelance.client.config import Config
+from ferdelance.client.services.actions.action import Action
 
 import logging
 
@@ -10,7 +10,6 @@ LOGGER = logging.getLogger(__name__)
 
 
 class UpdateTokenAction(Action):
-
     def __init__(self, config: Config, data: UpdateToken) -> None:
         self.config = config
         self.data = data
@@ -22,6 +21,6 @@ class UpdateTokenAction(Action):
             raise ValueError(f"data parameter must be of type UpdateToken")
 
     def execute(self) -> None:
-        LOGGER.info('updating client token with a new one')
+        LOGGER.info("updating client token with a new one")
         self.config.exc.set_token(self.data.token)
         self.config.dump()

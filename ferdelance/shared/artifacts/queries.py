@@ -22,6 +22,7 @@ def is_time(other) -> bool:
 
 class QueryFeature(BaseModel):
     """Query feature to use in a query from the workbench."""
+
     feature_id: str
     datasource_id: str
     feature_name: str
@@ -40,11 +41,12 @@ class QueryFeature(BaseModel):
         return hash((self.datasource_id, self.feature_id))
 
     def __str__(self) -> str:
-        return f'{self.feature_name}@{self.datasource_name}'
+        return f"{self.feature_name}@{self.datasource_name}"
 
 
 class QueryFilter(BaseModel):
     """Query filter to apply to the feature from the workbench."""
+
     feature: QueryFeature
     operation: str
     parameter: str
@@ -87,21 +89,18 @@ class QueryFilter(BaseModel):
         if not isinstance(other, QueryFilter):
             return False
 
-        return (
-            self.feature == other.feature and
-            self.operation == other.operation and
-            self.parameter == other.parameter
-        )
+        return self.feature == other.feature and self.operation == other.operation and self.parameter == other.parameter
 
     def __hash__(self) -> int:
         return hash((self.feature, self.operation, self.parameter))
 
     def __str__(self) -> str:
-        return f'Filter({self.feature} {self.operation} {self.parameter})'
+        return f"Filter({self.feature} {self.operation} {self.parameter})"
 
 
 class QueryTransformer(BaseModel):
     """Query transformation to apply to the feature from the workbench."""
+
     features_in: QueryFeature | list[QueryFeature] | str | list[str]
     features_out: QueryFeature | list[QueryFeature] | str | list[str]
     name: str
@@ -109,8 +108,8 @@ class QueryTransformer(BaseModel):
 
     def params(self) -> dict[str, Any]:
         return {
-            'features_in': self.features_in,
-            'features_out': self.features_out,
+            "features_in": self.features_in,
+            "features_out": self.features_out,
         } | self.parameters
 
     def __eq__(self, other: QueryTransformer) -> bool:
@@ -118,20 +117,21 @@ class QueryTransformer(BaseModel):
             return False
 
         return (
-            self.features_in == other.features_in and
-            self.features_out == other.features_out and
-            self.name == other.name
+            self.features_in == other.features_in
+            and self.features_out == other.features_out
+            and self.name == other.name
         )
 
     def __hash__(self) -> int:
         return hash((self.features_in, self.features_out, self.name))
 
     def __str__(self) -> str:
-        return f'{self.name}({self.features_in} -> {self.features_out})'
+        return f"{self.name}({self.features_in} -> {self.features_out})"
 
 
 class BaseFeature(BaseModel):
     """Common information to all features."""
+
     name: str
     dtype: str | None
 
@@ -147,6 +147,7 @@ class BaseFeature(BaseModel):
 
 class Feature(BaseFeature):
     """Information for the workbench."""
+
     feature_id: str
     datasource_id: str
     datasource_name: str
@@ -155,7 +156,7 @@ class Feature(BaseFeature):
         return QueryFilter(
             feature=self.qf(),
             operation=operation.name,
-            parameter=f'{value}',
+            parameter=f"{value}",
         )
 
     def qf(self) -> QueryFeature:
@@ -168,26 +169,26 @@ class Feature(BaseFeature):
 
     def info(self) -> str:
         lines: list[str] = [
-            f'{self.name}',
-            f'Data type:            {self.dtype}',
+            f"{self.name}",
+            f"Data type:            {self.dtype}",
         ]
 
-        if self.dtype != 'object':
+        if self.dtype != "object":
             lines += [
-                f'Value min:            {self.v_min:.2f}',
-                f'Value max:            {self.v_max:.2f}',
-                f'Mean:                 {self.v_mean:.2f}',
-                f'Std deviation:        {self.v_std:.2f}',
-                f'Value 25° percentile: {self.v_p25:.2f}',
-                f'Value 50° percentile: {self.v_p50:.2f}',
-                f'Value 75° percentile: {self.v_p75:.2f}',
-                f'Missing value:        {self.v_miss:.2f}',
+                f"Value min:            {self.v_min:.2f}",
+                f"Value max:            {self.v_max:.2f}",
+                f"Mean:                 {self.v_mean:.2f}",
+                f"Std deviation:        {self.v_std:.2f}",
+                f"Value 25° percentile: {self.v_p25:.2f}",
+                f"Value 50° percentile: {self.v_p50:.2f}",
+                f"Value 75° percentile: {self.v_p75:.2f}",
+                f"Missing value:        {self.v_miss:.2f}",
             ]
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def _dtype_numeric(self):
-        return self.dtype in ('int', 'float', 'int64', 'float64')
+        return self.dtype in ("int", "float", "int64", "float64")
 
     def __lt__(self, other) -> QueryFilter:
         if self._dtype_numeric():
@@ -227,11 +228,11 @@ class Feature(BaseFeature):
     def __eq__(self, other) -> bool | QueryFilter:
         if isinstance(other, Feature):
             return (
-                self.datasource_id == other.datasource_id and
-                self.datasource_name == other.datasource_name and
-                self.feature_id == other.feature_id and
-                self.name == other.name and
-                self.dtype == other.dtype
+                self.datasource_id == other.datasource_id
+                and self.datasource_name == other.datasource_name
+                and self.feature_id == other.feature_id
+                and self.name == other.name
+                and self.dtype == other.dtype
             )
 
         if self._dtype_numeric():
@@ -263,16 +264,19 @@ class Feature(BaseFeature):
         return hash((self.datasource_id, self.feature_id, self.name, self.dtype))
 
     def __str__(self) -> str:
-        return f'{self.name}@{self.datasource_name}'
+        return f"{self.name}@{self.datasource_name}"
 
 
 class MetaFeature(BaseFeature):
     """Information on features stored in the client."""
+
+    datasource_id: str
     removed: bool = False
 
 
 class Query(BaseModel):
     """Query to apply to the selected data from the workbench."""
+
     datasource_id: str
     datasource_name: str
     features: list[QueryFeature] = list()
@@ -285,7 +289,7 @@ class Query(BaseModel):
             datasource_name=self.datasource_name,
             features=self.features.copy(),
             filters=self.filters.copy(),
-            transformers=self.transformers.copy()
+            transformers=self.transformers.copy(),
         )
 
     def add_feature(self, feature: Feature | QueryFeature) -> None:
@@ -293,14 +297,14 @@ class Query(BaseModel):
             feature = feature.qf()
 
         if feature.datasource_id != self.datasource_id:
-            raise ValueError('Cannot add features from a different data source')
+            raise ValueError("Cannot add features from a different data source")
 
         if feature not in self.features:
             self.features.append(feature)
 
     def add_filter(self, filter: QueryFilter) -> None:
         if filter.feature.datasource_id != self.datasource_id:
-            raise ValueError('Cannot add filter for features from a different data source')
+            raise ValueError("Cannot add filter for features from a different data source")
 
         self.filters.append(filter)
 
@@ -323,7 +327,9 @@ class Query(BaseModel):
             q.add_transformer(other)
             return q
 
-        raise ValueError('Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects')
+        raise ValueError(
+            "Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects"
+        )
 
     def __iadd__(self, other: QueryFeature | Feature | QueryFilter) -> Query:
         if isinstance(other, Feature | QueryFeature):
@@ -338,14 +344,16 @@ class Query(BaseModel):
             self.add_transformer(other)
             return self
 
-        raise ValueError('Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects')
+        raise ValueError(
+            "Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects"
+        )
 
     def remove_feature(self, feature: Feature | QueryFeature) -> None:
         if isinstance(feature, Feature):
             feature = feature.qf()
 
         if feature.datasource_id != self.datasource_id:
-            raise ValueError('Cannot remove features from a different data source')
+            raise ValueError("Cannot remove features from a different data source")
 
         self.features = [f for f in self.features if f != feature]
         self.filters = [f for f in self.filters if f.feature != feature]
@@ -353,7 +361,7 @@ class Query(BaseModel):
 
     def remove_filter(self, filter: QueryFilter) -> None:
         if filter.feature.datasource_id != self.datasource_id:
-            raise ValueError('Cannot remove filter for features from a different data source')
+            raise ValueError("Cannot remove filter for features from a different data source")
 
         self.filters.remove(filter)
 
@@ -368,7 +376,7 @@ class Query(BaseModel):
             q.remove_filter(other)
             return q
 
-        raise ValueError('only Feature or QueryFeature objects can be removed from Query objects')
+        raise ValueError("only Feature or QueryFeature objects can be removed from Query objects")
 
     def __isub__(self, other: QueryFeature | Feature) -> Query:
         if isinstance(other, Feature | QueryFeature):
@@ -379,18 +387,18 @@ class Query(BaseModel):
             self.remove_filter(other)
             return self
 
-        raise ValueError('only Feature or QueryFeature objects can be removed from Query objects')
+        raise ValueError("only Feature or QueryFeature objects can be removed from Query objects")
 
     def __eq__(self, other: Query) -> bool:
         if not isinstance(other, Query):
             return False
 
         return (
-            self.datasource_id == other.datasource_id and
-            self.datasource_name == other.datasource_name and
-            self.features == other.features and
-            self.filters == other.filters and
-            self.transformers == other.transformers
+            self.datasource_id == other.datasource_id
+            and self.datasource_name == other.datasource_name
+            and self.features == other.features
+            and self.filters == other.filters
+            and self.transformers == other.transformers
         )
 
     def __hash__(self) -> int:
@@ -400,4 +408,4 @@ class Query(BaseModel):
         if isinstance(key, QueryFilter):
             return self + key
 
-        raise ValueError('unsupported key type')
+        raise ValueError("unsupported key type")
