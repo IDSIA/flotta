@@ -128,6 +128,9 @@ class TestClientClass:
             client_db = get_client_by_id(session, client_id)
 
             assert client_db is not None
+            assert client_db.machine_system is not None
+            assert client_db.machine_mac_address is not None
+            assert client_db.machine_node is not None
 
             data = ClientJoinRequest(
                 system=client_db.machine_system,
@@ -284,7 +287,7 @@ class TestClientClass:
             assert client_app.version == version_app
             assert client_app.active
 
-            n_apps: int = session.scalar(select(func.count()).select_from(Application).where(Application.active))
+            n_apps: int = session.scalars(select(func.count()).select_from(Application).where(Application.active)).one()
             assert n_apps == 1
 
             newest_version: Application | None = session.execute(
@@ -354,9 +357,9 @@ class TestClientClass:
 
             ds_features = metadata.datasources[0].features
 
-            ds_fs: list[Feature] = session.scalars(
-                select(Feature).where(Feature.datasource_id == ds_db.datasource_id)
-            ).all()
+            ds_fs: list[Feature] = list(
+                session.scalars(select(Feature).where(Feature.datasource_id == ds_db.datasource_id)).all()
+            )
 
             assert len(ds_fs) == 2
             assert ds_fs[0].name == ds_features[0].name
@@ -453,7 +456,7 @@ class TestClientClass:
             n = session.scalar(select(func.count()).select_from(Job).where(Job.component_id == client_id))
             assert n == 1
 
-            job: Job = session.scalar(select(Job).limit(1))
+            job: Job = session.scalars(select(Job).limit(1)).one()
 
             LOGGER.info("update client")
 

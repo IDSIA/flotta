@@ -47,15 +47,18 @@ def create_client(client: TestClient, exc: Exchange) -> str:
 
 
 def get_metadata() -> Metadata:
+    datasource_id: str = "5751619c-ea8a-4a24-b2cb-35c50124c16a"
     return Metadata(
         datasources=[
             MetaDataSource(
+                datasource_id=datasource_id,
                 n_records=1000,
                 n_features=2,
                 name="ds1",
                 removed=False,
                 features=[
                     MetaFeature(
+                        datasource_id=datasource_id,
                         name="feature1",
                         dtype="float",
                         v_mean=0.1,
@@ -68,6 +71,7 @@ def get_metadata() -> Metadata:
                         v_max=0.8,
                     ),
                     MetaFeature(
+                        datasource_id=datasource_id,
                         name="label",
                         dtype="int",
                         v_mean=0.8,

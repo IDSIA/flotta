@@ -29,7 +29,7 @@ def get_token_by_id(session: Session, client_id: str) -> Token | None:
 
 
 def get_client_events(session: Session, client_id: str) -> list[str]:
-    return session.scalars(select(Event.event).where(Event.component_id == client_id)).all()
+    return list(session.scalars(select(Event.event).where(Event.component_id == client_id)).all())
 
 
 def delete_client(session: Session, client_id: str) -> None:
