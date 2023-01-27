@@ -28,6 +28,12 @@ def view(component: ComponentDB) -> Component:
 
 
 def viewClient(component: ComponentDB) -> Client:
+    assert component.version is not None
+    assert component.machine_system is not None
+    assert component.machine_mac_address is not None
+    assert component.machine_node is not None
+    assert component.ip_address is not None
+
     return Client(
         client_id=component.component_id,
         public_key=component.public_key,
@@ -67,8 +73,8 @@ class ComponentService(DBSessionService):
 
         for type_name in type_names:
             try:
-                res = await self.session.execute(select(ComponentType).where(ComponentType.type == type_name).limit(1))
-                res.scalar_one()
+                res = await self.session.scalars(select(ComponentType).where(ComponentType.type == type_name).limit(1))
+                res.one()
             except NoResultFound:
                 tn = ComponentType(type=type_name)
                 self.session.add(tn)
@@ -90,7 +96,7 @@ class ComponentService(DBSessionService):
             f"creating new type={TYPE_CLIENT} version={version} mac_address={machine_mac_address} node={machine_node}"
         )
 
-        res = await self.session.execute(
+        res = await self.session.scalars(
             select(ComponentDB.component_id)
             .where(
                 (ComponentDB.machine_mac_address == machine_mac_address) | (ComponentDB.machine_node == machine_node)
@@ -98,7 +104,7 @@ class ComponentService(DBSessionService):
             .limit(1)
         )
 
-        existing_id: ComponentDB | None = res.scalar_one_or_none()
+        existing_id: str | None = res.one_or_none()
 
         if existing_id is not None:
             LOGGER.warning(f"A {TYPE_CLIENT} already exists with component_id={existing_id}")
@@ -133,10 +139,10 @@ class ComponentService(DBSessionService):
     async def create(self, type_name: str, public_key: str) -> tuple[Component, Token]:
         LOGGER.info(f"creating new component type={type_name}")
 
-        res = await self.session.execute(
+        res = await self.session.scalars(
             select(ComponentDB.component_id).where(ComponentDB.public_key == public_key).limit(1)
         )
-        existing_user_id: ComponentDB | None = res.scalar_one_or_none()
+        existing_user_id: str | None = res.one_or_none()
 
         if existing_user_id is not None:
             LOGGER.warning(f"user_id={existing_user_id}: user already exists")
@@ -160,13 +166,14 @@ class ComponentService(DBSessionService):
         return view(component), viewToken(token)
 
     async def update_client(self, client_id: str, version: str = "") -> None:
+        """Can raise NoResultException."""
         if not version:
             LOGGER.warning("cannot update a version with an empty string")
             return
 
-        client: ComponentDB = await self.session.scalar(
-            select(ComponentDB).where(ComponentDB.component_id == client_id)
-        )
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.component_id == client_id))
+
+        client: ComponentDB = res.one()
         client.version = version
 
         await self.session.commit()
@@ -174,11 +181,11 @@ class ComponentService(DBSessionService):
         LOGGER.info(f"client_id={client_id}: updated client version to {version}")
 
     async def client_leave(self, client_id: str) -> None:
+        """Can raise NoResultException."""
         await self.invalidate_tokens(client_id)
 
-        client: ComponentDB = await self.session.scalar(
-            select(ComponentDB).where(ComponentDB.component_id == client_id)
-        )
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.component_id == client_id))
+        client: ComponentDB = res.one()
         client.active = False
         client.left = True
 
@@ -186,34 +193,34 @@ class ComponentService(DBSessionService):
 
     async def get_by_id(self, component_id: str) -> Component | Client:
         """Can raise NoResultFound"""
-        res = await self.session.execute(select(ComponentDB).where(ComponentDB.component_id == component_id))
-        o: ComponentDB = res.scalar_one()
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.component_id == component_id))
+        o: ComponentDB = res.one()
         if o.type_name == TYPE_CLIENT:
             return viewClient(o)
         return view(o)
 
     async def get_client_by_id(self, component_id: str) -> Client:
         """Can raise NoResultFound"""
-        res = await self.session.execute(select(ComponentDB).where(ComponentDB.component_id == component_id))
-        return viewClient(res.scalar_one())
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.component_id == component_id))
+        return viewClient(res.one())
 
     async def get_by_key(self, public_key: str) -> Component:
         """Can raise NoResultFound"""
-        res = await self.session.execute(select(ComponentDB).where(ComponentDB.public_key == public_key))
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.public_key == public_key))
 
-        component: ComponentDB = res.scalar_one()
+        component: ComponentDB = res.one()
 
         return view(component)
 
     async def get_by_token(self, token: str) -> Component:
         """Can raise NoResultFound"""
-        res = await self.session.execute(
+        res = await self.session.scalars(
             select(ComponentDB)
             .join(TokenDB, ComponentDB.component_id == TokenDB.token_id)
             .where(TokenDB.token == token)
         )
 
-        component: ComponentDB = res.scalar_one()
+        component: ComponentDB = res.one()
 
         return view(component)
 
@@ -245,15 +252,15 @@ class ComponentService(DBSessionService):
 
     async def get_token_by_token(self, token: str) -> Token:
         """Can raise NoResultFound"""
-        res = await self.session.execute(select(TokenDB).where(TokenDB.token == token))
-        return res.scalar_one()
+        res = await self.session.scalars(select(TokenDB).where(TokenDB.token == token))
+        return viewToken(res.one())
 
     async def get_token_by_component_id(self, client_id: str) -> Token:
         """Can raise NoResultFound"""
-        res = await self.session.execute(
+        res = await self.session.scalars(
             select(TokenDB).where(TokenDB.component_id == client_id, TokenDB.valid == True)
         )
-        return res.scalar_one()
+        return viewToken(res.one())
 
     async def get_token_by_client_type(self, client_type: str) -> str | None:
         # TODO: remove this
@@ -282,4 +289,4 @@ class ComponentService(DBSessionService):
 
     async def get_events(self, component_id: str) -> list[Event]:
         res = await self.session.scalars(select(Event).where(Event.component_id == component_id))
-        return res.all()
+        return list(res.all())

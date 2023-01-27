@@ -79,7 +79,7 @@ class TokenService(DBSessionService):
 
         return token
 
-    async def create_token(self, token: Token) -> None:
+    async def create_token(self, token: Token) -> Token | None:
         """Does not commit!"""
         LOGGER.info(f"component_id={token.component_id}: creating new token")
 
@@ -96,7 +96,7 @@ class TokenService(DBSessionService):
 
     async def invalidate_tokens(self, component_id: str) -> None:
         res = await self.session.scalars(select(Token).where(Token.component_id == component_id))
-        tokens: list[Token] = res.all()
+        tokens: list[Token] = list(res.all())
 
         for token in tokens:
             token.valid = False
