@@ -92,6 +92,9 @@ class Config:
             self.client_token = props["client_token"]
             self.server_public_key = props["server_public_key"]
 
+            self.exc.set_token(self.client_token)
+            self.exc.set_remote_key(self.server_public_key)
+
     def dump_props(self):
         """Save current configuration to a file in the working directory."""
         with open(self.path_properties(), "w") as f:
