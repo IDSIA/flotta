@@ -1,17 +1,17 @@
 from typing import List
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import select
 
 from ferdelance.cli.fdl_suites.projects.functions import create_project, describe_project, list_projects
 from ferdelance.database.schemas import Project as ProjectView
 from ferdelance.database.tables import Project as ProjectDB
 
+import pytest
+
 
 @pytest.mark.asyncio
-async def test_projects_list(async_session: AsyncSession):
+async def test_projects_list(session: AsyncSession):
     p1: ProjectDB = ProjectDB(
         project_id="P1",
         name="P1",
@@ -24,13 +24,13 @@ async def test_projects_list(async_session: AsyncSession):
         token="P2",
     )
 
-    async_session.add(p1)
-    async_session.add(p2)
+    session.add(p1)
+    session.add(p2)
 
     res: List[ProjectView] = await list_projects()
     assert len(res) == 0
 
-    await async_session.commit()
+    await session.commit()
 
     res: List[ProjectView] = await list_projects()
     assert len(res) == 2
@@ -39,11 +39,11 @@ async def test_projects_list(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_project_create(async_session: AsyncSession):
+async def test_project_create(session: AsyncSession):
 
     project_token: str = await create_project(name="P1")
 
-    res = await async_session.execute(select(ProjectDB))
+    res = await session.execute(select(ProjectDB))
     project_db_list = res.scalars().all()
 
     assert len(project_db_list) == 1
@@ -51,7 +51,7 @@ async def test_project_create(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_project_describe(async_session: AsyncSession):
+async def test_project_describe(session: AsyncSession):
     p1: ProjectDB = ProjectDB(
         project_id="P1",
         name="P1",
@@ -64,10 +64,10 @@ async def test_project_describe(async_session: AsyncSession):
         token="P2",
     )
 
-    async_session.add(p1)
-    async_session.add(p2)
+    session.add(p1)
+    session.add(p2)
 
-    await async_session.commit()
+    await session.commit()
 
     p1_view: ProjectView = await describe_project(token="P1")
 

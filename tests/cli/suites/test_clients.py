@@ -7,7 +7,7 @@ from ferdelance.database.schemas import Client as ClientView
 
 
 @pytest.mark.asyncio
-async def test_list_clients(async_session: AsyncSession):
+async def test_list_clients(session: AsyncSession):
 
     c1: Component = Component(
         component_id="C1",
@@ -31,11 +31,11 @@ async def test_list_clients(async_session: AsyncSession):
         type_name="CLIENT",
     )
 
-    async_session.add(c1)
+    session.add(c1)
 
-    async_session.add(c2)
+    session.add(c2)
 
-    await async_session.commit()
+    await session.commit()
 
     res: list[ClientView] = await list_clients()
 
@@ -43,7 +43,7 @@ async def test_list_clients(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_describe_client(async_session: AsyncSession):
+async def test_describe_client(session: AsyncSession):
     c1: Component = Component(
         component_id="C1",
         version="test",
@@ -54,9 +54,9 @@ async def test_describe_client(async_session: AsyncSession):
         ip_address="1",
         type_name="CLIENT",
     )
-    async_session.add(c1)
+    session.add(c1)
 
-    await async_session.commit()
+    await session.commit()
 
     res: ClientView = await describe_client(client_id=c1.component_id)
 

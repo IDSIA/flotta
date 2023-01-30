@@ -10,8 +10,6 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-import uvicorn
-
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -70,7 +68,3 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     LOGGER.error(f"{request}: {exc_str}")
     content = {"status_code": 10422, "message": exc_str, "data": None}
     return JSONResponse(content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-
-if __name__ == "__main__":
-    uvicorn.run(api, host=conf.SERVER_INTERFACE, port=conf.SERVER_PORT)

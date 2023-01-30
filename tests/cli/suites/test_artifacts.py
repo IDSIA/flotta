@@ -8,18 +8,18 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_artifacts_ls(async_session: AsyncSession):
+async def test_artifacts_ls(session: AsyncSession):
     artifact_id_1: str = "artifact1"
     artifact_id_2: str = "artifact2"
 
-    async_session.add(
+    session.add(
         ArtifactDB(
             artifact_id=artifact_id_1,
             path=".",
             status="",
         )
     )
-    async_session.add(
+    session.add(
         ArtifactDB(
             artifact_id=artifact_id_2,
             path=".",
@@ -27,7 +27,7 @@ async def test_artifacts_ls(async_session: AsyncSession):
         )
     )
 
-    await async_session.commit()
+    await session.commit()
 
     res = await list_artifacts()
 
@@ -35,18 +35,18 @@ async def test_artifacts_ls(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_artifacts_description(async_session: AsyncSession):
+async def test_artifacts_description(session: AsyncSession):
     artifact_id_1: str = "artifact1"
     artifact_id_2: str = "artifact2"
 
-    async_session.add(
+    session.add(
         ArtifactDB(
             artifact_id=artifact_id_1,
             path=".",
             status="",
         )
     )
-    async_session.add(
+    session.add(
         ArtifactDB(
             artifact_id=artifact_id_2,
             path=".",
@@ -54,7 +54,7 @@ async def test_artifacts_description(async_session: AsyncSession):
         )
     )
 
-    await async_session.commit()
+    await session.commit()
 
     res: Artifact = await describe_artifact(artifact_id=artifact_id_1)
 

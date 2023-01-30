@@ -40,7 +40,7 @@ class Token(BaseModel):
 
 
 class Job(BaseModel):
-    job_id: str
+    job_id: int
     artifact_id: str
     client_id: str
     status: str
@@ -74,8 +74,8 @@ class DataSource(BaseModel):
     update_time: datetime
     removed: bool
 
-    n_records: int
-    n_features: int
+    n_records: int | None
+    n_features: int | None
 
     client_id: str
 
@@ -87,3 +87,10 @@ class Project(BaseModel):
     token: str
     valid: bool
     active: bool
+
+
+class Event(BaseModel):
+    component_id: str
+    event_id: int
+    event_time: datetime
+    event: str

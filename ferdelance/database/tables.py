@@ -1,6 +1,8 @@
-from sqlalchemy import Column, ForeignKey, String, Float, DateTime, Integer, Boolean
+from sqlalchemy import ForeignKey, String, DateTime, Integer, Float
 from sqlalchemy.sql.functions import now
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, mapped_column, Mapped
+
+from datetime import datetime
 
 from . import Base
 
@@ -9,15 +11,15 @@ class Setting(Base):
     """Key-value store for settings, parameters, and arguments."""
 
     __tablename__ = "settings"
-    key = Column(String, primary_key=True, index=True)
-    value = Column(String)
+    key: Mapped[str] = mapped_column(primary_key=True)
+    value: Mapped[str] = mapped_column(String)
 
 
 class ComponentType(Base):
     """Table to store component types. Current valid types are SERVER, CLIENT, WORKER, WORKBENCH."""
 
     __tablename__ = "component_types"
-    type = Column(String, primary_key=True, index=True)
+    type: Mapped[str] = mapped_column(primary_key=True)
 
 
 class Component(Base):
@@ -25,29 +27,29 @@ class Component(Base):
 
     __tablename__ = "components"
 
-    component_id = Column(String, primary_key=True, index=True)
-    creation_time = Column(DateTime(timezone=True), server_default=now())
+    component_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
 
-    type_name = Column(String, ForeignKey("component_types.type"))
+    type_name: Mapped[str] = mapped_column(ForeignKey("component_types.type"))
     type = relationship("ComponentType")
 
-    active = Column(Boolean, default=True)
-    left = Column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(default=True)
+    left: Mapped[bool] = mapped_column(default=False)
 
     # this is b64+utf8 encoded bytes
-    public_key = Column(String, nullable=False)
+    public_key: Mapped[str] = mapped_column(nullable=False)
 
     # --- ds-client only part ---
-    blacklisted = Column(Boolean, default=False)
-    version = Column(String, nullable=True)
+    blacklisted: Mapped[bool] = mapped_column(default=False)
+    version: Mapped[str | None] = mapped_column(String, nullable=True)
     # platform.system()
-    machine_system = Column(String, nullable=True)
+    machine_system: Mapped[str | None] = mapped_column(String, nullable=True)
     # from getmac import get_mac_address; get_mac_address()
-    machine_mac_address = Column(String, nullable=True)
+    machine_mac_address: Mapped[str | None] = mapped_column(String, nullable=True)
     # uuid.getnode()
-    machine_node = Column(String, nullable=True)
+    machine_node: Mapped[str | None] = mapped_column(String, nullable=True)
     # client ip address
-    ip_address = Column(String, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Token(Base):
@@ -57,13 +59,13 @@ class Token(Base):
 
     __tablename__ = "tokens"
 
-    token_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    expiration_time = Column(Float, nullable=True)
-    token = Column(String, nullable=False, index=True, unique=True)
-    valid = Column(Boolean, default=True)
+    token_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    expiration_time: Mapped[float] = mapped_column(nullable=True)
+    token: Mapped[str] = mapped_column(nullable=False, index=True, unique=True)
+    valid: Mapped[bool] = mapped_column(default=True)
 
-    component_id = Column(String, ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
 
 
@@ -72,11 +74,11 @@ class Event(Base):
 
     __tablename__ = "events"
 
-    event_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    event_time = Column(DateTime(timezone=True), server_default=now())
-    event = Column(String, nullable=False)
+    event_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    event_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    event: Mapped[str] = mapped_column(nullable=False)
 
-    component_id = Column(String, ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
 
 
@@ -85,16 +87,14 @@ class Application(Base):
 
     __tablename__ = "applications"
 
-    app_id = Column(String, primary_key=True, index=True)
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    version = Column(
-        String,
-    )
-    active = Column(Boolean, default=False)
-    path = Column(String, nullable=False)
-    name = Column(String)
-    description = Column(String)
-    checksum = Column(String)
+    app_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    version: Mapped[str | None] = mapped_column(String)  # TODO: this should not be none!
+    active: Mapped[bool] = mapped_column(default=False)
+    path: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String)
+    description: Mapped[str | None] = mapped_column(String)
+    checksum: Mapped[str] = mapped_column(String)
 
 
 class Artifact(Base):
@@ -106,10 +106,10 @@ class Artifact(Base):
 
     __tablename__ = "artifacts"
 
-    artifact_id = Column(String, primary_key=True, index=True)
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    path = Column(String, nullable=False)
-    status = Column(String)
+    artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    path: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String)
 
 
 class Job(Base):
@@ -122,19 +122,19 @@ class Job(Base):
 
     __tablename__ = "jobs"
 
-    job_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    job_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, index=True)
 
-    artifact_id = Column(String, ForeignKey("artifacts.artifact_id"))
+    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))
     artifact = relationship("Artifact")
 
-    component_id = Column(String, ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
 
-    status = Column(String, nullable=True)
+    status: Mapped[str] = mapped_column(nullable=True)
 
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    execution_time = Column(DateTime(timezone=True))
-    termination_time = Column(DateTime(timezone=True))
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    execution_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Model(Base):
@@ -142,16 +142,16 @@ class Model(Base):
 
     __tablename__ = "models"
 
-    model_id = Column(String, primary_key=True, index=True)
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    path = Column(String, nullable=False)
-    aggregated = Column(Boolean, nullable=False, default=False)
+    model_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    path: Mapped[str] = mapped_column(String)
+    aggregated: Mapped[bool] = mapped_column(default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
-    artifact_id = Column(String, ForeignKey("artifacts.artifact_id"))
+    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))
     artifact = relationship("Artifact")
 
-    component_id = Column(String, ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
 
 
@@ -160,18 +160,18 @@ class DataSource(Base):
 
     __tablename__ = "datasources"
 
-    datasource_id = Column(String, primary_key=True, index=True)
+    datasource_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
 
-    name = Column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String)
 
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    update_time = Column(DateTime(timezone=True), server_default=now())
-    removed = Column(Boolean, nullable=False, default=False)
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    removed: Mapped[bool] = mapped_column(default=False)
 
-    n_records = Column(Integer)
-    n_features = Column(Integer)
+    n_records: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    n_features: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    component_id = Column(String, ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
 
 
@@ -180,29 +180,29 @@ class Feature(Base):
 
     __tablename__ = "features"
 
-    feature_id = Column(String, primary_key=True, index=True)
+    feature_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
 
-    name = Column(String, nullable=False)
-    dtype = Column(String)
+    name: Mapped[str] = mapped_column(String)
+    dtype: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    v_mean = Column(Float)
-    v_std = Column(Float)
-    v_min = Column(Float)
-    v_p25 = Column(Float)
-    v_p50 = Column(Float)
-    v_p75 = Column(Float)
-    v_max = Column(Float)
-    v_miss = Column(Float)
+    v_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_std: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_min: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_p25: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_p50: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_p75: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_max: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_miss: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    n_cats = Column(Integer)  # number of categorical values
+    n_cats: Mapped[int | None]  # number of categorical values
 
-    creation_time = Column(DateTime(timezone=True), server_default=now())
-    update_time = Column(DateTime(timezone=True), server_default=now())
-    removed = Column(Boolean, nullable=False, default=False)
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    removed: Mapped[bool] = mapped_column(default=False)
 
-    datasource_name = Column(String, nullable=False)
+    datasource_name: Mapped[str] = mapped_column(String)
 
-    datasource_id = Column(String, ForeignKey("datasources.datasource_id"))
+    datasource_id: Mapped[str] = mapped_column(String(36), ForeignKey("datasources.datasource_id"))
     datasource = relationship("DataSource")
 
 
@@ -211,15 +211,15 @@ class Project(Base):
 
     __tablename__ = "projects"
 
-    project_id = Column(String, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    project_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String)
 
-    creation_time = Column(DateTime(timezone=True), server_default=now())
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
 
-    token = Column(String, nullable=False, index=True, unique=True)
+    token: Mapped[str] = mapped_column(unique=True)
 
-    valid = Column(Boolean, default=True)
-    active = Column(Boolean, default=True)
+    valid: Mapped[bool] = mapped_column(default=True)
+    active: Mapped[bool] = mapped_column(default=True)
 
 
 class ProjectDataSource(Base):
@@ -227,8 +227,8 @@ class ProjectDataSource(Base):
 
     __tablename__ = "project_datasources"
 
-    project_id = Column(String, ForeignKey("projects.project_id"), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.project_id"), primary_key=True)
     project = relationship("Project")
 
-    datasource_id = Column(String, ForeignKey("datasources.datasource_id"), primary_key=True)
+    datasource_id: Mapped[str] = mapped_column(String(36), ForeignKey("datasources.datasource_id"), primary_key=True)
     datasource = relationship("DataSource")

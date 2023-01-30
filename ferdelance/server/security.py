@@ -8,8 +8,7 @@ from sqlalchemy.exc import NoResultFound
 from ferdelance.config import conf
 from ferdelance.database import AsyncSession, get_session
 from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
-from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.schemas import Component, Token
+from ferdelance.database.schemas import Client, Component, Token
 from ferdelance.database.services import ComponentService, KeyValueStore
 from ferdelance.shared.exchange import Exchange
 
@@ -70,7 +69,7 @@ async def generate_keys(session: AsyncSession) -> Exchange:
 
 async def check_token(
     credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)
-) -> Component | Component:
+) -> Component | Client:
     """Checks if the given token exists in the database.
 
     :param credentials:
@@ -107,7 +106,7 @@ async def check_token(
     LOGGER.debug(f"component_id={component_id}: received valid token")
 
     try:
-        component: Component | Component = await cs.get_by_id(component_id)
+        component: Component | Client = await cs.get_by_id(component_id)
 
         if component.left or not component.active:
             LOGGER.warning("Component that left or has been deactivated tried to connect!")
