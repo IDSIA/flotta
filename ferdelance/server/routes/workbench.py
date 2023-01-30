@@ -6,6 +6,7 @@ from ferdelance.database.services import (
     ComponentService,
     DataSourceService,
     ModelService,
+    ProjectService,
 )
 from ferdelance.database.schemas import Component, Model, Client, Token, DataSource as DataSourceView
 from ferdelance.server.security import check_token
@@ -27,6 +28,8 @@ from ferdelance.shared.schemas import (
     WorkbenchDataSourceList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
+    WorkbenchProjectList,
+    WorkbenchProject,
 )
 from ferdelance.shared.decode import decode_from_transfer
 
@@ -403,3 +406,33 @@ async def wb_get_partial_model(
             f"multiple partial models found for artifact_id={artifact_id} and user_id={builder_user_id}"
         )  # TODO: do we want to allow this?
         raise HTTPException(500)
+
+
+@workbench_router.get("/workbench/projects/list", response_class=Response)
+async def wb_get_projects_list(
+    request: Request, session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)
+):
+    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
+
+    pss: ProjectService = ProjectService(session)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.setup(user.public_key)
+
+    data = await ss.read_request(request)
+    token_list = data["project_tokens"]
+
+    invalid_tokens: list[str] = []
+    projects: list[WorkbenchProject] = []
+    for token in token_list:
+        try:
+            project = await pss.get_by_token(token=token)
+            projects.append(WorkbenchProject(**project.dict()))
+        except NoResultFound as _:
+            invalid_tokens.append(token)
+
+    LOGGER.info(f"found {len(projects)} project(s). Invalid tokens: {invalid_tokens}")
+
+    wbpl = WorkbenchProjectList(projects=projects)
+
+    return ss.create_response(wbpl.dict())

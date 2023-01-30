@@ -8,10 +8,14 @@ from ferdelance.shared.schemas import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchDataSourceList,
+    WorkbenchProjectList,
+    WorkbenchProject,
     WorkbenchDataSourceIdList,
     WorkbenchClientList,
 )
 from ferdelance.shared.exchange import Exchange
+
+from typing import Protocol
 
 import json
 import logging
@@ -20,14 +24,19 @@ import os
 
 LOGGER = logging.getLogger(__name__)
 
-HOME = os.path.expanduser('~')
-DATA_DIR = os.environ.get('DATA_HOME', os.path.join(HOME, '.local', 'share', 'ferdelance'))
-CONFIG_DIR = os.environ.get('CONFIG_HOME', os.path.join(HOME, '.config', 'ferdelance'))
-CACHE_DIR = os.environ.get('CACHE_HOME', os.path.join(HOME, '.cache', 'ferdelance'))
+HOME = os.path.expanduser("~")
+DATA_DIR = os.environ.get("DATA_HOME", os.path.join(HOME, ".local", "share", "ferdelance"))
+CONFIG_DIR = os.environ.get("CONFIG_HOME", os.path.join(HOME, ".config", "ferdelance"))
+CACHE_DIR = os.environ.get("CACHE_HOME", os.path.join(HOME, ".cache", "ferdelance"))
+
+
+class ProjectView(Protocol):
+    project_id: str
+    project_token: str
+    project_name: str
 
 
 class Context:
-
     def __init__(self, server: str, ssh_key_path: str | None = None, generate_keys: bool = True) -> None:
         """Connect to the given server, and establish all the requirements for a secure interaction.
 
@@ -39,7 +48,7 @@ class Context:
             If True and `ssh_key` is None, then a new SSH key will be generated locally. Otherwise
             if False, the key stored in `HOME/.ssh/rsa_id` will be used.
         """
-        self.server: str = server.rstrip('/')
+        self.server: str = server.rstrip("/")
 
         self.exc: Exchange = Exchange()
 
@@ -49,39 +58,34 @@ class Context:
 
         if ssh_key_path is None:
             if generate_keys:
-                ssh_key_path = os.path.join(DATA_DIR, 'rsa_id')
+                ssh_key_path = os.path.join(DATA_DIR, "rsa_id")
 
                 if os.path.exists(ssh_key_path):
-                    LOGGER.debug(f'loading private key from {ssh_key_path}')
+                    LOGGER.debug(f"loading private key from {ssh_key_path}")
 
                     self.exc.load_key(ssh_key_path)
 
                 else:
-                    LOGGER.debug(f'generating and saving private key to {ssh_key_path}')
+                    LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
 
                     self.exc.generate_key()
                     self.exc.save_private_key(ssh_key_path)
 
             else:
-                ssh_key_path = os.path.join(HOME, '.ssh', 'rsa_id')
+                ssh_key_path = os.path.join(HOME, ".ssh", "rsa_id")
 
-                LOGGER.debug(f'loading private key from {ssh_key_path}')
+                LOGGER.debug(f"loading private key from {ssh_key_path}")
 
                 self.exc.load_key(ssh_key_path)
 
         else:
-            LOGGER.debug(f'loading private key from {ssh_key_path}')
+            LOGGER.debug(f"loading private key from {ssh_key_path}")
 
             self.exc.load_key(ssh_key_path)
 
-        wjr = WorkbenchJoinRequest(
-            public_key=self.exc.transfer_public_key()
-        )
+        wjr = WorkbenchJoinRequest(public_key=self.exc.transfer_public_key())
 
-        res = requests.post(
-            f'{self.server}/workbench/connect',
-            data=json.dumps(wjr.dict())
-        )
+        res = requests.post(f"{self.server}/workbench/connect", data=json.dumps(wjr.dict()))
 
         res.raise_for_status()
 
@@ -101,7 +105,7 @@ class Context:
             A list of client ids.
         """
         res = requests.get(
-            f'{self.server}/workbench/client/list',
+            f"{self.server}/workbench/client/list",
             headers=self.exc.headers(),
         )
 
@@ -111,7 +115,7 @@ class Context:
 
         return data.client_ids
 
-    def detail_client(self, client_id: str) -> ClientDetails:
+    def describe_client(self, client_id: str) -> ClientDetails:
         """List the details of a client.
 
         :param client_id:
@@ -122,7 +126,7 @@ class Context:
             The details for the given client.
         """
         res = requests.get(
-            f'{self.server}/workbench/client/{client_id}',
+            f"{self.server}/workbench/client/{client_id}",
             headers=self.exc.headers(),
         )
 
@@ -139,7 +143,7 @@ class Context:
             A list of all datasources available.
         """
         res = requests.get(
-            f'{self.server}/workbench/datasource/list/',
+            f"{self.server}/workbench/datasource/list/",
             headers=self.exc.headers(),
         )
 
@@ -149,7 +153,7 @@ class Context:
 
         return data.datasource_ids
 
-    def datasource_by_id(self, datasource_id: str) -> DataSource:
+    def get_datasource_by_id(self, datasource_id: str) -> DataSource:
         """Returns the detail, like metadata, of the given datasource.
 
         :param datasource_id:
@@ -160,7 +164,7 @@ class Context:
             The details for the given datasource, with also features.
         """
         res = requests.get(
-            f'{self.server}/workbench/datasource/{datasource_id}',
+            f"{self.server}/workbench/datasource/{datasource_id}",
             headers=self.exc.headers(),
         )
 
@@ -168,7 +172,7 @@ class Context:
 
         return DataSource(**self.exc.get_payload(res.content))
 
-    def datasources_by_name(self, datasource_name: str) -> list[DataSource]:
+    def get_datasource_by_name(self, datasource_name: str) -> list[DataSource]:
         """Returns the detail, like metadata, of the datasources associated with the
         given name.
 
@@ -181,7 +185,7 @@ class Context:
             with also the features.
         """
         res = requests.get(
-            f'{self.server}/workbench/datasource/name/{datasource_name}',
+            f"{self.server}/workbench/datasource/name/{datasource_name}",
             headers=self.exc.headers(),
         )
 
@@ -204,7 +208,7 @@ class Context:
             If the `ret_status` flag is true, the status of the artifact is also returned.
         """
         res = requests.post(
-            f'{self.server}/workbench/artifact/submit',
+            f"{self.server}/workbench/artifact/submit",
             headers=self.exc.headers(),
             data=self.exc.create_payload(artifact.dict()),
         )
@@ -227,10 +231,10 @@ class Context:
             An ArtifactStatus object with the status of the artifact on the server.
         """
         if artifact.artifact_id is None:
-            raise ValueError('submit first the artifact to the server')
+            raise ValueError("submit first the artifact to the server")
 
         res = requests.get(
-            f'{self.server}/workbench/artifact/status/{artifact.artifact_id}',
+            f"{self.server}/workbench/artifact/status/{artifact.artifact_id}",
             headers=self.exc.headers(),
         )
 
@@ -249,7 +253,7 @@ class Context:
             The artifact saved on the server and associated with the given artifact_id.
         """
         res = requests.get(
-            f'{self.server}/workbench/artifact/{artifact_id}',
+            f"{self.server}/workbench/artifact/{artifact_id}",
             headers=self.exc.headers(),
         )
 
@@ -257,7 +261,7 @@ class Context:
 
         return Artifact(**self.exc.get_payload(res.content))
 
-    def get_model(self, artifact: Artifact, path: str = '') -> str:
+    def get_model(self, artifact: Artifact, path: str = "") -> str:
         """Get the trained and aggregated model from the artifact and save it to disk.
 
         :param artifact:
@@ -268,13 +272,13 @@ class Context:
             If the return code of the response is not a 2xx type.
         """
         if artifact.artifact_id is None:
-            raise ValueError('submit first the artifact to the server')
+            raise ValueError("submit first the artifact to the server")
 
         if not path:
-            path = f'{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model'
+            path = f"{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model"
 
         with requests.get(
-            f'{self.server}/workbench/model/{artifact.artifact_id}',
+            f"{self.server}/workbench/model/{artifact.artifact_id}",
             headers=self.exc.headers(),
             stream=True,
         ) as res:
@@ -285,7 +289,7 @@ class Context:
 
         return path
 
-    def get_partial_model(self, artifact: Artifact, client_id: str, path: str = '') -> str:
+    def get_partial_model(self, artifact: Artifact, client_id: str, path: str = "") -> str:
         """Get the trained partial model from the artifact and save it to disk.
 
         :param artifact:
@@ -298,19 +302,31 @@ class Context:
             If the return code of the response is not a 2xx type.
         """
         if artifact.artifact_id is None:
-            raise ValueError('submit first the artifact to the server')
+            raise ValueError("submit first the artifact to the server")
 
         if not path:
-            path = f'{artifact.artifact_id}.{artifact.model.name}.{client_id}.PARTIAL.model'
+            path = f"{artifact.artifact_id}.{artifact.model.name}.{client_id}.PARTIAL.model"
 
         with requests.get(
-            f'{self.server}/workbench/model/partial/{artifact.artifact_id}/{client_id}',
+            f"{self.server}/workbench/model/partial/{artifact.artifact_id}/{client_id}",
             headers=self.exc.headers(),
             stream=True,
         ) as res:
-
             res.raise_for_status()
-
             self.exc.stream_response_to_file(res, path)
-
         return path
+
+    def list_projects(self, tokens: list[str] = []) -> list[ProjectView]:
+        res = requests.get(
+            f"{self.server}/workbench/projects/list/",
+            headers=self.exc.headers(),
+            data=self.exc.create_payload({
+                "project_tokens": tokens
+            })
+        )
+
+        res.raise_for_status()
+
+        data = WorkbenchProjectList(**self.exc.get_payload(res.content))
+
+        return data

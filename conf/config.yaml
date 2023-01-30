@@ -8,13 +8,13 @@ datasources:
     type: csv
     path: data/file1.csv
     kind: file
-    token: example_123
+    token: 6ec7f883cb714716f95d70841826609738f7993dea1664b98c34e5813e20d7d4
 
   - name: source2
     type: tsv
     path: data/file2.tsv
     kind: file
-    token: example_123
+    token: 6ec7f883cb714716f95d70841826609738f7993dea1664b98c34e5813e20d7d4
 
   - name: iris
     type: csv

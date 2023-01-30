@@ -38,8 +38,8 @@ if __name__ == "__main__":
 
     ctx = Context(f'http://ferdelance.{os.environ.get("DOMAIN")}')
 
-    ds_california_1 = ctx.datasources_by_name("california1")[0]
-    ds_california_2 = ctx.datasources_by_name("california2")[0]
+    ds_california_1 = ctx.get_datasource_by_name("california1")[0]
+    ds_california_2 = ctx.get_datasource_by_name("california2")[0]
 
     q1 = ds_california_1.all_features()
     q2 = ds_california_2.all_features()
