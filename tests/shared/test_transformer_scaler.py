@@ -15,136 +15,142 @@ PATH_DIR = os.path.abspath(os.path.dirname(__file__))
 PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
 
 
-class TestTransformerScaler:
-    def test_mms_build(self):
-        fmms = FederatedMinMaxScaler("Latitude", "Latitude2", (0.5, 2.0))
-        qt: QueryTransformer = fmms.build()
+def test_mms_build():
+    fmms = FederatedMinMaxScaler("Latitude", "Latitude2", (0.5, 2.0))
+    qt: QueryTransformer = fmms.build()
 
-        assert len(qt.parameters) == 1
-        assert "feature_range" in qt.parameters
-        assert qt.parameters["feature_range"] == (0.5, 2.0)
+    assert len(qt.parameters) == 1
+    assert "feature_range" in qt.parameters
+    assert qt.parameters["feature_range"] == (0.5, 2.0)
 
-    def test_ssc_build(self):
-        fssc = FederatedStandardScaler("Latitude", "Latitude2", with_mean=False, with_std=False)
-        qt = fssc.build()
 
-        assert qt.name == FederatedStandardScaler.__name__
-        assert len(qt.parameters) == 2
-        assert "with_mean" in qt.parameters
-        assert "with_std" in qt.parameters
-        assert qt.parameters["with_mean"] == False
-        assert qt.parameters["with_std"] == False
+def test_ssc_build():
+    fssc = FederatedStandardScaler("Latitude", "Latitude2", with_mean=False, with_std=False)
+    qt = fssc.build()
 
-    def test_mms_scaling_one_feature(self):
-        df_a = pd.read_csv(PATH_CALIFORNIA)
-        df_b = df_a.copy()
+    assert qt.name == FederatedStandardScaler.__name__
+    assert len(qt.parameters) == 2
+    assert "with_mean" in qt.parameters
+    assert "with_std" in qt.parameters
+    assert qt.parameters["with_mean"] == False
+    assert qt.parameters["with_std"] == False
 
-        mms = MinMaxScaler()
-        mms.fit(df_a[["Latitude"]])
-        df_a[["Latitude_scaled"]] = mms.transform(df_a[["Latitude"]])
 
-        fmms = FederatedMinMaxScaler("Latitude", "Latitude_scaled")
-        df_b = fmms.transform(df_b)
+def test_mms_scaling_one_feature():
+    df_a = pd.read_csv(PATH_CALIFORNIA)
+    df_b = df_a.copy()
 
-        assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
-        assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
+    mms = MinMaxScaler()
+    mms.fit(df_a[["Latitude"]])
+    df_a[["Latitude_scaled"]] = mms.transform(df_a[["Latitude"]])
 
-    def test_ssc_scaling_one_feature(self):
-        df_a = pd.read_csv(PATH_CALIFORNIA)
-        df_b = df_a.copy()
+    fmms = FederatedMinMaxScaler("Latitude", "Latitude_scaled")
+    df_b = fmms.transform(df_b)
 
-        ssc = StandardScaler()
-        ssc.fit(df_a[["Latitude"]])
-        df_a[["Latitude_scaled"]] = ssc.transform(df_a[["Latitude"]])
+    assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
+    assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
 
-        fssc = FederatedStandardScaler("Latitude", "Latitude_scaled")
-        df_b = fssc.transform(df_b)
 
-        assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
-        assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
+def test_ssc_scaling_one_feature():
+    df_a = pd.read_csv(PATH_CALIFORNIA)
+    df_b = df_a.copy()
 
-    def test_mms_scaling_multiple_features(self):
-        df_a = pd.read_csv(PATH_CALIFORNIA)
-        df_b = df_a.copy()
+    ssc = StandardScaler()
+    ssc.fit(df_a[["Latitude"]])
+    df_a[["Latitude_scaled"]] = ssc.transform(df_a[["Latitude"]])
 
-        mms = MinMaxScaler()
-        mms.fit(df_a[["Latitude", "Longitude"]])
-        df_a[["Latitude_scaled", "Longitude_scaled"]] = mms.transform(df_a[["Latitude", "Longitude"]])
+    fssc = FederatedStandardScaler("Latitude", "Latitude_scaled")
+    df_b = fssc.transform(df_b)
 
-        fmms = FederatedMinMaxScaler(["Latitude", "Longitude"], ["Latitude_scaled", "Longitude_scaled"])
-        df_b = fmms.transform(df_b)
+    assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
+    assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
 
-        assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
-        assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
-        assert df_a["Longitude_scaled"].sum() == df_b["Longitude_scaled"].sum()
-        assert df_a["Longitude_scaled"].mean() == df_b["Longitude_scaled"].mean()
 
-    def test_sc_scaling_multiple_features(self):
-        df_a = pd.read_csv(PATH_CALIFORNIA)
-        df_b = df_a.copy()
+def test_mms_scaling_multiple_features():
+    df_a = pd.read_csv(PATH_CALIFORNIA)
+    df_b = df_a.copy()
 
-        ssc = StandardScaler()
-        ssc.fit(df_a[["Latitude", "Longitude"]])
-        df_a[["Latitude_scaled", "Longitude_scaled"]] = ssc.transform(df_a[["Latitude", "Longitude"]])
+    mms = MinMaxScaler()
+    mms.fit(df_a[["Latitude", "Longitude"]])
+    df_a[["Latitude_scaled", "Longitude_scaled"]] = mms.transform(df_a[["Latitude", "Longitude"]])
 
-        fssc = FederatedStandardScaler(["Latitude", "Longitude"], ["Latitude_scaled", "Longitude_scaled"])
-        df_b = fssc.transform(df_b)
+    fmms = FederatedMinMaxScaler(["Latitude", "Longitude"], ["Latitude_scaled", "Longitude_scaled"])
+    df_b = fmms.transform(df_b)
 
-        assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
-        assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
-        assert df_a["Longitude_scaled"].sum() == df_b["Longitude_scaled"].sum()
-        assert df_a["Longitude_scaled"].mean() == df_b["Longitude_scaled"].mean()
+    assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
+    assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
+    assert df_a["Longitude_scaled"].sum() == df_b["Longitude_scaled"].sum()
+    assert df_a["Longitude_scaled"].mean() == df_b["Longitude_scaled"].mean()
 
-    def test_mms_save_and_reload(self):
-        df = pd.read_csv(PATH_CALIFORNIA)
-        df_a = df.copy()
-        df_b = df.copy()
 
-        fmms = FederatedMinMaxScaler("Latitude", "Latitude_scaled")
+def test_sc_scaling_multiple_features():
+    df_a = pd.read_csv(PATH_CALIFORNIA)
+    df_b = df_a.copy()
 
-        TF_PATH = os.path.join(".", "mms.transformer")
+    ssc = StandardScaler()
+    ssc.fit(df_a[["Latitude", "Longitude"]])
+    df_a[["Latitude_scaled", "Longitude_scaled"]] = ssc.transform(df_a[["Latitude", "Longitude"]])
 
-        save(fmms, TF_PATH)
+    fssc = FederatedStandardScaler(["Latitude", "Longitude"], ["Latitude_scaled", "Longitude_scaled"])
+    df_b = fssc.transform(df_b)
 
-        loaded: FederatedMinMaxScaler = load(TF_PATH)
+    assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
+    assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
+    assert df_a["Longitude_scaled"].sum() == df_b["Longitude_scaled"].sum()
+    assert df_a["Longitude_scaled"].mean() == df_b["Longitude_scaled"].mean()
 
-        assert isinstance(loaded, FederatedMinMaxScaler)
-        assert fmms.name == loaded.name
-        assert fmms.features_in == loaded.features_in
-        assert fmms.features_out == loaded.features_out
-        assert fmms.params() == loaded.params()
 
-        df_a = fmms.transform(df_a)
-        df_b = loaded.transform(df_b)
+def test_mms_save_and_reload():
+    df = pd.read_csv(PATH_CALIFORNIA)
+    df_a = df.copy()
+    df_b = df.copy()
 
-        assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
-        assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
+    fmms = FederatedMinMaxScaler("Latitude", "Latitude_scaled")
 
-        os.remove(TF_PATH)
+    TF_PATH = os.path.join(".", "mms.transformer")
 
-    def test_ssc_save_and_reload(self):
-        df = pd.read_csv(PATH_CALIFORNIA)
-        df_a = df.copy()
-        df_b = df.copy()
+    save(fmms, TF_PATH)
 
-        fssc = FederatedStandardScaler("Latitude", "Latitude_scaled")
+    loaded: FederatedMinMaxScaler = load(TF_PATH)
 
-        TF_PATH = os.path.join(".", "mms.transformer")
+    assert isinstance(loaded, FederatedMinMaxScaler)
+    assert fmms.name == loaded.name
+    assert fmms.features_in == loaded.features_in
+    assert fmms.features_out == loaded.features_out
+    assert fmms.params() == loaded.params()
 
-        save(fssc, TF_PATH)
+    df_a = fmms.transform(df_a)
+    df_b = loaded.transform(df_b)
 
-        loaded: FederatedStandardScaler = load(TF_PATH)
+    assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
+    assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
 
-        assert isinstance(loaded, FederatedStandardScaler)
-        assert fssc.name == loaded.name
-        assert fssc.features_in == loaded.features_in
-        assert fssc.features_out == loaded.features_out
-        assert fssc.params() == loaded.params()
+    os.remove(TF_PATH)
 
-        df_a = fssc.transform(df_a)
-        df_b = loaded.transform(df_b)
 
-        assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
-        assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
+def test_ssc_save_and_reload():
+    df = pd.read_csv(PATH_CALIFORNIA)
+    df_a = df.copy()
+    df_b = df.copy()
 
-        os.remove(TF_PATH)
+    fssc = FederatedStandardScaler("Latitude", "Latitude_scaled")
+
+    TF_PATH = os.path.join(".", "mms.transformer")
+
+    save(fssc, TF_PATH)
+
+    loaded: FederatedStandardScaler = load(TF_PATH)
+
+    assert isinstance(loaded, FederatedStandardScaler)
+    assert fssc.name == loaded.name
+    assert fssc.features_in == loaded.features_in
+    assert fssc.features_out == loaded.features_out
+    assert fssc.params() == loaded.params()
+
+    df_a = fssc.transform(df_a)
+    df_b = loaded.transform(df_b)
+
+    assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
+    assert df_a["Latitude_scaled"].mean() == df_b["Latitude_scaled"].mean()
+
+    os.remove(TF_PATH)

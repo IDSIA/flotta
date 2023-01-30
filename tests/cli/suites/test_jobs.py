@@ -1,13 +1,13 @@
-import pytest
-
 from ferdelance.cli.fdl_suites.jobs.functions import list_jobs
 from ferdelance.database import AsyncSession
 from ferdelance.database.schemas import Job as JobView
 from ferdelance.database.tables import Artifact, Component, Job
 
+import pytest
+
 
 @pytest.mark.asyncio
-async def test_jobs_list(async_session: AsyncSession):
+async def test_jobs_list(session: AsyncSession):
 
     c1: Component = Component(
         component_id="C1",
@@ -22,11 +22,11 @@ async def test_jobs_list(async_session: AsyncSession):
     a1: Artifact = Artifact(artifact_id="A1", path="test-path", status="S1")
     j1: Job = Job(artifact_id="A1", component_id="C1", status="J1")
 
-    async_session.add(c1)
-    async_session.add(a1)
-    async_session.add(j1)
+    session.add(c1)
+    session.add(a1)
+    session.add(j1)
 
-    await async_session.commit()
+    await session.commit()
 
     res: list[JobView] = await list_jobs()
 

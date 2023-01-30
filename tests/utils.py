@@ -1,13 +1,14 @@
-import json
-import logging
-import random
+from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
+from ferdelance.shared.exchange import Exchange
+from ferdelance.shared.schemas import ClientJoinData, ClientJoinRequest
 
 from fastapi.testclient import TestClient
 from requests import Response
 
-from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
-from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.schemas import ClientJoinData, ClientJoinRequest
+import json
+import logging
+import random
+
 
 LOGGER = logging.getLogger(__name__)
 

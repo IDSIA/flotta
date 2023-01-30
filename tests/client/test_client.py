@@ -89,7 +89,7 @@ async def test_client_read_home(exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_client_connect_successful(async_session: AsyncSession, exchange: Exchange):
+async def test_client_connect_successful(session: AsyncSession, exchange: Exchange):
     """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
     - operative system
     - mac address
@@ -106,7 +106,7 @@ async def test_client_connect_successful(async_session: AsyncSession, exchange: 
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(async_session)
+        cs: ComponentService = ComponentService(session)
 
         db_client: Component | Client = await cs.get_by_id(client_id)
 
@@ -126,13 +126,13 @@ async def test_client_connect_successful(async_session: AsyncSession, exchange: 
 
 
 @pytest.mark.asyncio
-async def test_client_already_exists(async_session: AsyncSession, exchange: Exchange):
+async def test_client_already_exists(session: AsyncSession, exchange: Exchange):
     """This test will send twice the access information and expect the second time to receive a 403 error."""
 
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(async_session)
+        cs: ComponentService = ComponentService(session)
 
         client_db: Client = await cs.get_client_by_id(client_id)
 
@@ -159,13 +159,13 @@ async def test_client_already_exists(async_session: AsyncSession, exchange: Exch
 
 
 @pytest.mark.asyncio
-async def test_client_update(async_session: AsyncSession, exchange: Exchange):
+async def test_client_update(session: AsyncSession, exchange: Exchange):
     """This will test the endpoint for updates."""
 
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(async_session)
+        cs: ComponentService = ComponentService(session)
 
         status_code, action, _ = get_client_update(client, exchange)
 
@@ -182,12 +182,12 @@ async def test_client_update(async_session: AsyncSession, exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_client_leave(async_session: AsyncSession, exchange: Exchange):
+async def test_client_leave(session: AsyncSession, exchange: Exchange):
     """This will test the endpoint for leave a client."""
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(async_session)
+        cs: ComponentService = ComponentService(session)
 
         response_leave = client.post("/client/leave", headers=exchange.headers())
 
@@ -215,16 +215,16 @@ async def test_client_leave(async_session: AsyncSession, exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_client_update_token(async_session: AsyncSession, exchange: Exchange):
+async def test_client_update_token(session: AsyncSession, exchange: Exchange):
     """This will test the failure and update of a token."""
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(async_session)
+        cs: ComponentService = ComponentService(session)
 
         # expire token
-        await async_session.execute(update(TokenDB).where(TokenDB.component_id == client_id).values(expiration_time=0))
-        await async_session.commit()
+        await session.execute(update(TokenDB).where(TokenDB.component_id == client_id).values(expiration_time=0))
+        await session.commit()
 
         LOGGER.info("expiration_time for token set to 0")
 
@@ -241,10 +241,8 @@ async def test_client_update_token(async_session: AsyncSession, exchange: Exchan
         assert Action[action] == Action.UPDATE_TOKEN
 
         # extend expire token
-        await async_session.execute(
-            update(TokenDB).where(TokenDB.component_id == client_id).values(expiration_time=86400)
-        )
-        await async_session.commit()
+        await session.execute(update(TokenDB).where(TokenDB.component_id == client_id).values(expiration_time=86400))
+        await session.commit()
 
         LOGGER.info("expiration_time for token set to 24h")
 
@@ -262,12 +260,12 @@ async def test_client_update_token(async_session: AsyncSession, exchange: Exchan
 
 
 @pytest.mark.asyncio
-async def test_client_update_app(async_session: AsyncSession, exchange: Exchange):
+async def test_client_update_app(session: AsyncSession, exchange: Exchange):
     """This will test the upload of a new (fake) app, and the update process."""
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(async_session)
+        cs: ComponentService = ComponentService(session)
 
         client_db: Client = await cs.get_client_by_id(client_id)
 
@@ -309,18 +307,18 @@ async def test_client_update_app(async_session: AsyncSession, exchange: Exchange
 
         assert metadata_response.status_code == 200
 
-        res = await async_session.execute(select(Application).where(Application.app_id == upload_id))
+        res = await session.execute(select(Application).where(Application.app_id == upload_id))
         client_app: Application | None = res.scalar_one_or_none()
 
         assert client_app is not None
         assert client_app.version == version_app
         assert client_app.active
 
-        res = await async_session.execute(select(func.count()).select_from(Application).where(Application.active))
+        res = await session.execute(select(func.count()).select_from(Application).where(Application.active))
         n_apps: int = res.scalar_one()
         assert n_apps == 1
 
-        res = await async_session.execute(
+        res = await session.execute(
             select(Application).where(Application.active).order_by(Application.creation_time.desc()).limit(1)
         )
         newest_version: Application | None = res.scalar_one_or_none()
@@ -367,7 +365,7 @@ async def test_client_update_app(async_session: AsyncSession, exchange: Exchange
 
 
 @pytest.mark.asyncio
-async def test_update_metadata(async_session: AsyncSession, exchange: Exchange):
+async def test_update_metadata(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
@@ -378,7 +376,7 @@ async def test_update_metadata(async_session: AsyncSession, exchange: Exchange):
 
         assert upload_response.status_code == 200
 
-        res = await async_session.execute(select(DataSource).where(DataSource.component_id == client_id))
+        res = await session.execute(select(DataSource).where(DataSource.component_id == client_id))
         ds_db: DataSource = res.scalar_one()
 
         assert ds_db.name == metadata.datasources[0].name
@@ -388,7 +386,7 @@ async def test_update_metadata(async_session: AsyncSession, exchange: Exchange):
 
         ds_features = metadata.datasources[0].features
 
-        res = await async_session.scalars(select(Feature).where(Feature.datasource_id == ds_db.datasource_id))
+        res = await session.scalars(select(Feature).where(Feature.datasource_id == ds_db.datasource_id))
         ds_fs: list[Feature] = list(res.all())
 
         assert len(ds_fs) == 2
@@ -397,7 +395,7 @@ async def test_update_metadata(async_session: AsyncSession, exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_client_task_get(async_session: AsyncSession, exchange: Exchange):
+async def test_client_task_get(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
         client_id = create_client(server, exchange)
 
@@ -410,12 +408,12 @@ async def test_client_task_get(async_session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("setup artifact")
 
-        res = await async_session.execute(select(DataSource).where(DataSource.component_id == client_id))
+        res = await session.execute(select(DataSource).where(DataSource.component_id == client_id))
         ds_db: DataSource | None = res.scalar_one_or_none()
 
         assert ds_db is not None
 
-        res = await async_session.scalars(
+        res = await session.scalars(
             select(Feature).where(Feature.datasource_id == ds_db.datasource_id, Feature.removed == False)
         )
         fs = list(res.all())
@@ -480,13 +478,13 @@ async def test_client_task_get(async_session: AsyncSession, exchange: Exchange):
 
         artifact_status = ArtifactStatus(**wb_exc.get_payload(submit_response.content))
 
-        n = await async_session.scalar(select(func.count()).select_from(Job))
+        n = await session.scalar(select(func.count()).select_from(Job))
         assert n == 1
 
-        n = await async_session.scalar(select(func.count()).select_from(Job).where(Job.component_id == client_id))
+        n = await session.scalar(select(func.count()).select_from(Job).where(Job.component_id == client_id))
         assert n == 1
 
-        res = await async_session.scalars(select(Job).limit(1))
+        res = await session.scalars(select(Job).limit(1))
         job: Job = res.one()
 
         LOGGER.info("update client")
@@ -530,7 +528,7 @@ async def test_client_task_get(async_session: AsyncSession, exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_client_access(async_session: AsyncSession, exchange: Exchange):
+async def test_client_access(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
         create_client(client, exchange)
 

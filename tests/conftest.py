@@ -47,7 +47,7 @@ def delete_dirs() -> None:
 
 
 @pytest_asyncio.fixture()
-async def async_session() -> AsyncGenerator[AsyncSession, None]:
+async def session() -> AsyncGenerator[AsyncSession, None]:
 
     create_dirs()
 

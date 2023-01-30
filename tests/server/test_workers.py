@@ -40,8 +40,8 @@ import uuid
 LOGGER = logging.getLogger(__name__)
 
 
-async def setup_worker(async_session: AsyncSession, exchange: Exchange):
-    res = await async_session.execute(
+async def setup_worker(session: AsyncSession, exchange: Exchange):
+    res = await session.execute(
         select(Token.token)
         .select_from(Token)
         .join(Component, Component.component_id == Token.component_id)
@@ -57,7 +57,7 @@ async def setup_worker(async_session: AsyncSession, exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_worker_endpoints(async_session: AsyncSession, exchange: Exchange):
+async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
         create_client(server, exchange)
 
@@ -66,7 +66,7 @@ async def test_worker_endpoints(async_session: AsyncSession, exchange: Exchange)
 
         assert upload_response.status_code == 200
 
-        await setup_worker(async_session, exchange)
+        await setup_worker(session, exchange)
 
         # test artifact not found
         res = server.get(
@@ -77,13 +77,13 @@ async def test_worker_endpoints(async_session: AsyncSession, exchange: Exchange)
         assert res.status_code == 404
 
         # prepare new artifact
-        res = await async_session.scalars(select(DataSource).limit(1))
+        res = await session.scalars(select(DataSource).limit(1))
 
         ds: DataSource = res.one()
 
         assert ds is not None
 
-        res = await async_session.scalars(select(Feature).where(Feature.datasource_id == ds.datasource_id))
+        res = await session.scalars(select(Feature).where(Feature.datasource_id == ds.datasource_id))
         fs: list[Feature] = list(res.all())
 
         artifact = Artifact(
@@ -123,9 +123,7 @@ async def test_worker_endpoints(async_session: AsyncSession, exchange: Exchange)
         assert status.status is not None
         assert JobStatus[status.status] == JobStatus.SCHEDULED
 
-        res = await async_session.scalars(
-            select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).limit(1)
-        )
+        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).limit(1))
         art_db: ArtifactDB | None = res.one()
 
         assert art_db is not None
@@ -172,7 +170,7 @@ async def test_worker_endpoints(async_session: AsyncSession, exchange: Exchange)
 
         assert res.status_code == 200
 
-        res = await async_session.scalars(select(ModelDB))
+        res = await session.scalars(select(ModelDB))
         models: list[ModelDB] = list(res.all())
 
         assert len(models) == 1
@@ -202,9 +200,9 @@ async def test_worker_endpoints(async_session: AsyncSession, exchange: Exchange)
 
 
 @pytest.mark.asyncio
-async def test_worker_access(async_session: AsyncSession, exchange: Exchange):
+async def test_worker_access(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
-        await setup_worker(async_session, exchange)
+        await setup_worker(session, exchange)
 
         res = server.get(
             "/client/update",

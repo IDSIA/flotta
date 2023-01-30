@@ -75,11 +75,11 @@ def connect(server: TestClient) -> tuple[str, str, Exchange]:
 
 
 @pytest.mark.asyncio
-async def test_workbench_connect(async_session: AsyncSession):
+async def test_workbench_connect(session: AsyncSession):
     with TestClient(api) as server:
         client_id, wb_id, _ = connect(server)
 
-        cs: ComponentService = ComponentService(async_session)
+        cs: ComponentService = ComponentService(session)
 
         assert client_id is not None
         assert wb_id is not None
@@ -92,7 +92,7 @@ async def test_workbench_connect(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_workbench_read_home(async_session: AsyncSession):
+async def test_workbench_read_home(session: AsyncSession):
     """Generic test to check if the home works."""
     with TestClient(api) as server:
         _, _, wb_exc = connect(server)
@@ -107,7 +107,7 @@ async def test_workbench_read_home(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_workbench_list_client(async_session: AsyncSession):
+async def test_workbench_list_client(session: AsyncSession):
     with TestClient(api) as server:
         _, _, wb_exc = connect(server)
 
@@ -128,7 +128,7 @@ async def test_workbench_list_client(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_workbench_detail_client(async_session: AsyncSession):
+async def test_workbench_detail_client(session: AsyncSession):
     with TestClient(api) as server:
         client_id, _, wb_exc = connect(server)
 
@@ -146,7 +146,7 @@ async def test_workbench_detail_client(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_workflow_submit(async_session: AsyncSession):
+async def test_workflow_submit(session: AsyncSession):
     with TestClient(api) as server:
         _, _, wb_exc = connect(server)
 
@@ -251,7 +251,7 @@ async def test_workflow_submit(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_workbench_access(async_session):
+async def test_workbench_access(session):
     with TestClient(api) as server:
         _, _, wb_exc = connect(server)
 
