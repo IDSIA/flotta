@@ -28,191 +28,201 @@ from tests.utils import (
 
 from fastapi.testclient import TestClient
 from requests import Response
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
 import os
 import pickle
+import pytest
 import uuid
 
 LOGGER = logging.getLogger(__name__)
 
 
-class TestWorkersClass:
-    def setup_worker(self, session: Session, exchange: Exchange):
-        worker_token: str | None = session.execute(
-            select(Token.token)
-            .select_from(Token)
-            .join(Component, Component.component_id == Token.component_id)
-            .where(Component.type_name == TYPE_WORKER)
-            .limit(1)
-        ).scalar_one_or_none()
+async def setup_worker(async_session: AsyncSession, exchange: Exchange):
+    res = await async_session.execute(
+        select(Token.token)
+        .select_from(Token)
+        .join(Component, Component.component_id == Token.component_id)
+        .where(Component.type_name == TYPE_WORKER)
+        .limit(1)
+    )
+    worker_token: str | None = res.scalar_one_or_none()
 
-        assert worker_token is not None
-        assert isinstance(worker_token, str)
+    assert worker_token is not None
+    assert isinstance(worker_token, str)
 
-        exchange.set_token(worker_token)
+    exchange.set_token(worker_token)
 
-    def test_worker_endpoints(self, session: Session, exchange: Exchange):
-        with TestClient(api) as server:
-            create_client(server, exchange)
 
-            metadata: Metadata = get_metadata()
-            upload_response: Response = send_metadata(server, exchange, metadata)
+@pytest.mark.asyncio
+async def test_worker_endpoints(async_session: AsyncSession, exchange: Exchange):
+    with TestClient(api) as server:
+        create_client(server, exchange)
 
-            assert upload_response.status_code == 200
+        metadata: Metadata = get_metadata()
+        upload_response: Response = send_metadata(server, exchange, metadata)
 
-            self.setup_worker(session, exchange)
+        assert upload_response.status_code == 200
 
-            # test artifact not found
-            res = server.get(
-                f"/worker/artifact/{uuid.uuid4()}",
-                headers=exchange.headers(),
-            )
+        await setup_worker(async_session, exchange)
 
-            assert res.status_code == 404
+        # test artifact not found
+        res = server.get(
+            f"/worker/artifact/{uuid.uuid4()}",
+            headers=exchange.headers(),
+        )
 
-            # prepare new artifact
-            ds: DataSource | None = session.query(DataSource).first()
+        assert res.status_code == 404
 
-            assert ds is not None
+        # prepare new artifact
+        res = await async_session.scalars(select(DataSource).limit(1))
 
-            fs: list[Feature] = session.query(Feature).where(Feature.datasource_id == ds.datasource_id).all()
+        ds: DataSource = res.one()
 
-            artifact = Artifact(
-                artifact_id=None,
-                dataset=Dataset(
-                    queries=[
-                        Query(
-                            datasource_id=ds.datasource_id,
-                            datasource_name=ds.name,
-                            features=[
-                                QueryFeature(
-                                    datasource_id=f.datasource_id,
-                                    datasource_name=f.datasource_name,
-                                    feature_id=f.feature_id,
-                                    feature_name=f.name,
-                                )
-                                for f in fs
-                            ],
-                        )
-                    ]
-                ),
-                model=Model(name="model", strategy=""),
-            )
+        assert ds is not None
 
-            # test artifact submit
-            res = server.post("/worker/artifact", headers=exchange.headers(), json=artifact.dict())
+        res = await async_session.scalars(select(Feature).where(Feature.datasource_id == ds.datasource_id))
+        fs: list[Feature] = list(res.all())
 
-            assert res.status_code == 200
+        artifact = Artifact(
+            artifact_id=None,
+            dataset=Dataset(
+                queries=[
+                    Query(
+                        datasource_id=ds.datasource_id,
+                        datasource_name=ds.name,
+                        features=[
+                            QueryFeature(
+                                datasource_id=f.datasource_id,
+                                datasource_name=f.datasource_name,
+                                feature_id=f.feature_id,
+                                feature_name=f.name,
+                            )
+                            for f in fs
+                        ],
+                    )
+                ]
+            ),
+            model=Model(name="model", strategy=""),
+        )
 
-            status: ArtifactStatus = ArtifactStatus(**res.json())
+        # test artifact submit
+        res = server.post("/worker/artifact", headers=exchange.headers(), json=artifact.dict())
 
-            LOGGER.info(f"artifact_id: {status.artifact_id}")
+        assert res.status_code == 200
 
-            artifact.artifact_id = status.artifact_id
-            assert artifact.artifact_id is not None
+        status: ArtifactStatus = ArtifactStatus(**res.json())
 
-            assert status.status is not None
-            assert JobStatus[status.status] == JobStatus.SCHEDULED
+        LOGGER.info(f"artifact_id: {status.artifact_id}")
 
-            art_db: ArtifactDB | None = (
-                session.query(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).first()
-            )
+        artifact.artifact_id = status.artifact_id
+        assert artifact.artifact_id is not None
 
-            assert art_db is not None
-            assert os.path.exists(art_db.path)
+        assert status.status is not None
+        assert JobStatus[status.status] == JobStatus.SCHEDULED
 
-            # test artifact get
-            res = server.get(
-                f"/worker/artifact/{status.artifact_id}",
-                headers=exchange.headers(),
-            )
+        res = await async_session.scalars(
+            select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).limit(1)
+        )
+        art_db: ArtifactDB | None = res.one()
 
-            assert res.status_code == 200
+        assert art_db is not None
+        assert os.path.exists(art_db.path)
 
-            get_art: Artifact = Artifact(**res.json())
+        # test artifact get
+        res = server.get(
+            f"/worker/artifact/{status.artifact_id}",
+            headers=exchange.headers(),
+        )
 
-            assert artifact.artifact_id == get_art.artifact_id
+        assert res.status_code == 200
 
-            assert len(artifact.dataset.queries) == len(get_art.dataset.queries)
-            assert len(artifact.model.name) == len(get_art.model.name)
+        get_art: Artifact = Artifact(**res.json())
 
-            post_q = artifact.dataset.queries[0]
-            get_q = get_art.dataset.queries[0]
+        assert artifact.artifact_id == get_art.artifact_id
 
-            assert post_q.datasource_id == get_q.datasource_id
-            assert len(post_q.features) == len(get_q.features)
+        assert len(artifact.dataset.queries) == len(get_art.dataset.queries)
+        assert len(artifact.model.name) == len(get_art.model.name)
 
-            post_d = artifact.dict()
-            get_d = get_art.dict()
+        post_q = artifact.dataset.queries[0]
+        get_q = get_art.dataset.queries[0]
 
-            assert post_d == get_d
+        assert post_q.datasource_id == get_q.datasource_id
+        assert len(post_q.features) == len(get_q.features)
 
-            # test model submit
-            model_path = os.path.join(".", "model.bin")
-            model = {"model": "example_model"}
+        post_d = artifact.dict()
+        get_d = get_art.dict()
 
-            with open(model_path, "wb") as f:
-                pickle.dump(model, f)
+        assert post_d == get_d
 
-            res = server.post(
-                f"/worker/model/{artifact.artifact_id}",
-                headers=exchange.headers(),
-                files={"file": open(model_path, "rb")},
-            )
+        # test model submit
+        model_path = os.path.join(".", "model.bin")
+        model = {"model": "example_model"}
 
-            assert res.status_code == 200
+        with open(model_path, "wb") as f:
+            pickle.dump(model, f)
 
-            models: list[ModelDB] = session.query(ModelDB).all()
+        res = server.post(
+            f"/worker/model/{artifact.artifact_id}",
+            headers=exchange.headers(),
+            files={"file": open(model_path, "rb")},
+        )
 
-            assert len(models) == 1
+        assert res.status_code == 200
 
-            model_id = models[0].model_id
+        res = await async_session.scalars(select(ModelDB))
+        models: list[ModelDB] = list(res.all())
 
-            # test model get
-            res = server.get(
-                f"/worker/model/{model_id}",
-                headers=exchange.headers(),
-            )
+        assert len(models) == 1
 
-            assert res.status_code == 200
+        model_id = models[0].model_id
 
-            model_get = pickle.loads(res.content)
+        # test model get
+        res = server.get(
+            f"/worker/model/{model_id}",
+            headers=exchange.headers(),
+        )
 
-            assert isinstance(model_get, type(model))
-            assert "model" in model_get
-            assert model == model_get
+        assert res.status_code == 200
 
-            assert os.path.exists(models[0].path)
+        model_get = pickle.loads(res.content)
 
-            # cleanup
-            os.remove(art_db.path)
-            os.remove(models[0].path)
-            os.remove(model_path)
+        assert isinstance(model_get, type(model))
+        assert "model" in model_get
+        assert model == model_get
 
-    def test_worker_access(self, session: Session, exchange: Exchange):
-        with TestClient(api) as server:
-            self.setup_worker(session, exchange)
+        assert os.path.exists(models[0].path)
 
-            res = server.get(
-                "/client/update",
-                headers=exchange.headers(),
-            )
+        # cleanup
+        os.remove(art_db.path)
+        os.remove(models[0].path)
+        os.remove(model_path)
 
-            assert res.status_code == 403
 
-            res = server.get(
-                "/worker/artifact/none",
-                headers=exchange.headers(),
-            )
+@pytest.mark.asyncio
+async def test_worker_access(async_session: AsyncSession, exchange: Exchange):
+    with TestClient(api) as server:
+        await setup_worker(async_session, exchange)
 
-            assert res.status_code == 404  # there is no artifact, and 404 is correct
+        res = server.get(
+            "/client/update",
+            headers=exchange.headers(),
+        )
 
-            res = server.get(
-                "/workbench/client/list",
-                headers=exchange.headers(),
-            )
+        assert res.status_code == 403
 
-            assert res.status_code == 403
+        res = server.get(
+            "/worker/artifact/none",
+            headers=exchange.headers(),
+        )
+
+        assert res.status_code == 404  # there is no artifact, and 404 is correct
+
+        res = server.get(
+            "/workbench/client/list",
+            headers=exchange.headers(),
+        )
+
+        assert res.status_code == 403

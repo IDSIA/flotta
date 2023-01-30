@@ -87,3 +87,10 @@ class Project(BaseModel):
     token: str
     valid: bool
     active: bool
+
+
+class Event(BaseModel):
+    component_id: str
+    event_id: int
+    event_time: datetime
+    event: str

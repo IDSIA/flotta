@@ -1,8 +1,8 @@
-from ferdelance.database.schemas import Component, Client, Token
+from ferdelance.database.schemas import Component, Client, Token, Event
 from ferdelance.database.tables import (
     Component as ComponentDB,
-    Event,
     Token as TokenDB,
+    Event as EventDB,
     ComponentType,
 )
 from ferdelance.database.services.core import AsyncSession, DBSessionService
@@ -57,6 +57,15 @@ def viewToken(token: TokenDB) -> Token:
         creation_time=token.creation_time,
         expiration_time=token.expiration_time,
         valid=token.valid,
+    )
+
+
+def viewEvent(event: EventDB) -> Event:
+    return Event(
+        component_id=event.component_id,
+        event_id=event.event_id,
+        event_time=event.event_time,
+        event=event.event,
     )
 
 
@@ -279,14 +288,14 @@ class ComponentService(DBSessionService):
     async def create_event(self, component_id: str, event: str) -> Event:
         LOGGER.debug(f'component_id={component_id}: creating new event="{event}"')
 
-        session_event = Event(component_id=component_id, event=event)
+        event_db = EventDB(component_id=component_id, event=event)
 
-        self.session.add(session_event)
+        self.session.add(event_db)
         await self.session.commit()
-        await self.session.refresh(session_event)
+        await self.session.refresh(event_db)
 
-        return session_event
+        return viewEvent(event_db)
 
     async def get_events(self, component_id: str) -> list[Event]:
-        res = await self.session.scalars(select(Event).where(Event.component_id == component_id))
-        return list(res.all())
+        res = await self.session.scalars(select(EventDB).where(EventDB.component_id == component_id))
+        return [viewEvent(e) for e in res.all()]

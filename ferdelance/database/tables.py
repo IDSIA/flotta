@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, String, DateTime
+from sqlalchemy import ForeignKey, String, DateTime, Integer, Float
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
@@ -12,7 +12,7 @@ class Setting(Base):
 
     __tablename__ = "settings"
     key: Mapped[str] = mapped_column(primary_key=True)
-    value: Mapped[str]
+    value: Mapped[str] = mapped_column(String)
 
 
 class ComponentType(Base):
@@ -41,15 +41,15 @@ class Component(Base):
 
     # --- ds-client only part ---
     blacklisted: Mapped[bool] = mapped_column(default=False)
-    version: Mapped[str | None]
+    version: Mapped[str | None] = mapped_column(String, nullable=True)
     # platform.system()
-    machine_system: Mapped[str | None]
+    machine_system: Mapped[str | None] = mapped_column(String, nullable=True)
     # from getmac import get_mac_address; get_mac_address()
-    machine_mac_address: Mapped[str | None]
+    machine_mac_address: Mapped[str | None] = mapped_column(String, nullable=True)
     # uuid.getnode()
-    machine_node: Mapped[str | None]
+    machine_node: Mapped[str | None] = mapped_column(String, nullable=True)
     # client ip address
-    ip_address: Mapped[str | None]
+    ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Token(Base):
@@ -89,12 +89,12 @@ class Application(Base):
 
     app_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    version: Mapped[str]
+    version: Mapped[str | None] = mapped_column(String)  # TODO: this should not be none!
     active: Mapped[bool] = mapped_column(default=False)
-    path: Mapped[str]
-    name: Mapped[str]
-    description: Mapped[str]
-    checksum: Mapped[str]
+    path: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String)
+    description: Mapped[str | None] = mapped_column(String)
+    checksum: Mapped[str] = mapped_column(String)
 
 
 class Artifact(Base):
@@ -108,8 +108,8 @@ class Artifact(Base):
 
     artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    path: Mapped[str]
-    status: Mapped[str]
+    path: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String)
 
 
 class Job(Base):
@@ -133,8 +133,8 @@ class Job(Base):
     status: Mapped[str] = mapped_column(nullable=True)
 
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    execution_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    termination_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    execution_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Model(Base):
@@ -144,7 +144,7 @@ class Model(Base):
 
     model_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    path: Mapped[str]
+    path: Mapped[str] = mapped_column(String)
     aggregated: Mapped[bool] = mapped_column(default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
@@ -162,14 +162,14 @@ class DataSource(Base):
 
     datasource_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
 
-    name: Mapped[str]
+    name: Mapped[str] = mapped_column(String)
 
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     removed: Mapped[bool] = mapped_column(default=False)
 
-    n_records: Mapped[int | None]
-    n_features: Mapped[int | None]
+    n_records: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    n_features: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
@@ -182,17 +182,17 @@ class Feature(Base):
 
     feature_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
 
-    name: Mapped[str]
-    dtype: Mapped[str | None]
+    name: Mapped[str] = mapped_column(String)
+    dtype: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    v_mean: Mapped[float | None]
-    v_std: Mapped[float | None]
-    v_min: Mapped[float | None]
-    v_p25: Mapped[float | None]
-    v_p50: Mapped[float | None]
-    v_p75: Mapped[float | None]
-    v_max: Mapped[float | None]
-    v_miss: Mapped[float | None]
+    v_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_std: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_min: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_p25: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_p50: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_p75: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_max: Mapped[float | None] = mapped_column(Float, nullable=True)
+    v_miss: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     n_cats: Mapped[int | None]  # number of categorical values
 
@@ -200,7 +200,7 @@ class Feature(Base):
     update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     removed: Mapped[bool] = mapped_column(default=False)
 
-    datasource_name: Mapped[str]
+    datasource_name: Mapped[str] = mapped_column(String)
 
     datasource_id: Mapped[str] = mapped_column(String(36), ForeignKey("datasources.datasource_id"))
     datasource = relationship("DataSource")
@@ -212,7 +212,7 @@ class Project(Base):
     __tablename__ = "projects"
 
     project_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
-    name: Mapped[str]
+    name: Mapped[str] = mapped_column(String)
 
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
 

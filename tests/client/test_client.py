@@ -1,13 +1,19 @@
 from typing import Any
 
 from ferdelance.config import conf
+from ferdelance.database.services.component import ComponentService
 from ferdelance.database.tables import (
-    Component,
     Application,
     DataSource,
     Feature,
-    Token,
     Job,
+    Token as TokenDB,
+)
+from ferdelance.database.schemas import (
+    Component,
+    Client,
+    Event,
+    Token,
 )
 from ferdelance.server.api import api
 from ferdelance.shared.actions import Action
@@ -39,486 +45,513 @@ from tests.utils import (
     get_metadata,
     send_metadata,
 )
-from tests.crud import (
-    get_client_by_id,
-    get_token_by_id,
-    get_client_events,
-)
 
 from fastapi.testclient import TestClient
 
 from requests import Response
 from sqlalchemy import select, update, func
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import json
 import logging
 import os
+import pytest
 import shutil
 
 LOGGER = logging.getLogger(__name__)
 
 
-class TestClientClass:
-    def get_client_update(self, client: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
-        payload = ClientUpdate(action=Action.DO_NOTHING.name)
+def get_client_update(client: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
+    payload = ClientUpdate(action=Action.DO_NOTHING.name)
 
-        response = client.get(
-            "/client/update", data=exchange.create_payload(payload.dict()), headers=exchange.headers()
+    response = client.get("/client/update", data=exchange.create_payload(payload.dict()), headers=exchange.headers())
+
+    if response.status_code != 200:
+        return response.status_code, "", None
+
+    response_payload = exchange.get_payload(response.content)
+
+    assert "action" in response_payload
+
+    return response.status_code, response_payload["action"], response_payload
+
+
+@pytest.mark.asyncio
+async def test_client_read_home(exchange: Exchange):
+    """Generic test to check if the home works."""
+    with TestClient(api) as client:
+        create_client(client, exchange)
+
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert response.content.decode("utf8") == '"Hi! 😀"'
+
+
+@pytest.mark.asyncio
+async def test_client_connect_successful(async_session: AsyncSession, exchange: Exchange):
+    """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
+    - operative system
+    - mac address
+    - node identification number
+    - its public key
+    - the version of the software in use
+
+    Then the server will answer with:
+    - an encrypted token
+    - an encrypted client id
+    - a public key in str format
+    """
+
+    with TestClient(api) as client:
+        client_id = create_client(client, exchange)
+
+        cs: ComponentService = ComponentService(async_session)
+
+        db_client: Component | Client = await cs.get_by_id(client_id)
+
+        assert isinstance(db_client, Client)
+        assert db_client.active
+
+        db_token: Token = await cs.get_token_by_component_id(client_id)
+
+        assert db_token is not None
+        assert db_token.token == exchange.token
+        assert db_token.valid
+
+        db_events: list[Event] = await cs.get_events(client_id)
+
+        assert len(db_events) == 1
+        assert db_events[0].event == "creation"
+
+
+@pytest.mark.asyncio
+async def test_client_already_exists(async_session: AsyncSession, exchange: Exchange):
+    """This test will send twice the access information and expect the second time to receive a 403 error."""
+
+    with TestClient(api) as client:
+        client_id = create_client(client, exchange)
+
+        cs: ComponentService = ComponentService(async_session)
+
+        client_db: Client = await cs.get_client_by_id(client_id)
+
+        assert client_db is not None
+        assert client_db.machine_system is not None
+        assert client_db.machine_mac_address is not None
+        assert client_db.machine_node is not None
+
+        data = ClientJoinRequest(
+            system=client_db.machine_system,
+            mac_address=client_db.machine_mac_address,
+            node=client_db.machine_node,
+            public_key=exchange.transfer_public_key(),
+            version="test",
         )
 
-        if response.status_code != 200:
-            return response.status_code, "", None
+        response = client.post(
+            "/client/join",
+            json=data.dict(),
+        )
 
-        response_payload = exchange.get_payload(response.content)
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Invalid client data"
 
-        assert "action" in response_payload
 
-        return response.status_code, response_payload["action"], response_payload
+@pytest.mark.asyncio
+async def test_client_update(async_session: AsyncSession, exchange: Exchange):
+    """This will test the endpoint for updates."""
 
-    def test_client_read_home(self, exchange: Exchange):
-        """Generic test to check if the home works."""
-        with TestClient(api) as client:
-            create_client(client, exchange)
+    with TestClient(api) as client:
+        client_id = create_client(client, exchange)
 
-            response = client.get("/")
+        cs: ComponentService = ComponentService(async_session)
 
-            assert response.status_code == 200
-            assert response.content.decode("utf8") == '"Hi! 😀"'
+        status_code, action, _ = get_client_update(client, exchange)
 
-    def test_client_connect_successful(self, session: Session, exchange: Exchange):
-        """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
-        - operative system
-        - mac address
-        - node identification number
-        - its public key
-        - the version of the software in use
+        assert status_code == 200
+        assert Action[action] == Action.DO_NOTHING
 
-        Then the server will answer with:
-        - an encrypted token
-        - an encrypted client id
-        - a public key in str format
-        """
+        db_events: list[Event] = await cs.get_events(client_id)
+        events: list[str] = [e.event for e in db_events]
 
-        with TestClient(api) as client:
-            client_id = create_client(client, exchange)
+        assert len(events) == 3
+        assert "creation" in events
+        assert "update" in events
+        assert f"action:{Action.DO_NOTHING.name}" in events
 
-            db_client: Component | None = get_client_by_id(session, client_id)
 
-            assert db_client is not None
-            assert db_client.active
+@pytest.mark.asyncio
+async def test_client_leave(async_session: AsyncSession, exchange: Exchange):
+    """This will test the endpoint for leave a client."""
+    with TestClient(api) as client:
+        client_id = create_client(client, exchange)
 
-            db_token: Token | None = get_token_by_id(session, client_id)
+        cs: ComponentService = ComponentService(async_session)
 
-            assert db_token is not None
-            assert db_token.token == exchange.token
-            assert db_token.valid
+        response_leave = client.post("/client/leave", headers=exchange.headers())
 
-            db_events: list[str] = get_client_events(session, client_id)
+        LOGGER.info(f"response_leave={response_leave}")
 
-            assert len(db_events) == 1
-            assert db_events[0] == "creation"
+        assert response_leave.status_code == 200
 
-    def test_client_already_exists(self, session: Session, exchange: Exchange):
-        """This test will send twice the access information and expect the second time to receive a 403 error."""
+        # cannot get other updates
+        status_code, _, _ = get_client_update(client, exchange)
 
-        with TestClient(api) as client:
-            client_id = create_client(client, exchange)
+        assert status_code == 403
 
-            client_db = get_client_by_id(session, client_id)
+        db_client: Client = await cs.get_client_by_id(client_id)
 
-            assert client_db is not None
-            assert client_db.machine_system is not None
-            assert client_db.machine_mac_address is not None
-            assert client_db.machine_node is not None
+        assert db_client is not None
+        assert db_client.active is False
+        assert db_client.left
 
-            data = ClientJoinRequest(
-                system=client_db.machine_system,
-                mac_address=client_db.machine_mac_address,
-                node=client_db.machine_node,
-                public_key=exchange.transfer_public_key(),
-                version="test",
-            )
+        db_events: list[Event] = await cs.get_events(client_id)
+        events: list[str] = [e.event for e in db_events]
 
-            response = client.post(
-                "/client/join",
-                json=data.dict(),
-            )
+        assert "creation" in events
+        assert "left" in events
+        assert "update" not in events
 
-            assert response.status_code == 403
-            assert response.json()["detail"] == "Invalid client data"
 
-    def test_client_update(self, session: Session, exchange: Exchange):
-        """This will test the endpoint for updates."""
+@pytest.mark.asyncio
+async def test_client_update_token(async_session: AsyncSession, exchange: Exchange):
+    """This will test the failure and update of a token."""
+    with TestClient(api) as client:
+        client_id = create_client(client, exchange)
 
-        with TestClient(api) as client:
-            client_id = create_client(client, exchange)
+        cs: ComponentService = ComponentService(async_session)
 
-            status_code, action, _ = self.get_client_update(client, exchange)
+        # expire token
+        await async_session.execute(update(TokenDB).where(TokenDB.component_id == client_id).values(expiration_time=0))
+        await async_session.commit()
 
-            assert status_code == 200
-            assert Action[action] == Action.DO_NOTHING
+        LOGGER.info("expiration_time for token set to 0")
 
-            db_events: list[str] = get_client_events(session, client_id)
+        status_code, action, data = get_client_update(client, exchange)
 
-            assert len(db_events) == 3
-            assert "creation" in db_events
-            assert "update" in db_events
-            assert f"action:{Action.DO_NOTHING.name}" in db_events
+        assert "action" in data
+        assert Action[action] == Action.UPDATE_TOKEN
 
-    def test_client_leave(self, session: Session, exchange: Exchange):
-        """This will test the endpoint for leave a client."""
-        with TestClient(api) as client:
-            client_id = create_client(client, exchange)
+        update_token = UpdateToken(**data)
 
-            response_leave = client.post("/client/leave", headers=exchange.headers())
+        new_token = update_token.token
 
-            LOGGER.info(f"response_leave={response_leave}")
+        assert status_code == 200
+        assert Action[action] == Action.UPDATE_TOKEN
 
-            assert response_leave.status_code == 200
+        # extend expire token
+        await async_session.execute(
+            update(TokenDB).where(TokenDB.component_id == client_id).values(expiration_time=86400)
+        )
+        await async_session.commit()
 
-            # cannot get other updates
-            status_code, _, _ = self.get_client_update(client, exchange)
+        LOGGER.info("expiration_time for token set to 24h")
 
-            assert status_code == 403
+        status_code, _, _ = get_client_update(client, exchange)
 
-            db_client: Component | None = get_client_by_id(session, client_id)
+        assert status_code == 403
 
-            assert db_client is not None
-            assert db_client.active is False
-            assert db_client.left
+        exchange.set_token(new_token)
+        status_code, action, data = get_client_update(client, exchange)
 
-            db_events: list[str] = get_client_events(session, client_id)
+        assert status_code == 200
+        assert "action" in data
+        assert Action[action] == Action.DO_NOTHING
+        assert len(data) == 1
 
-            assert "creation" in db_events
-            assert "left" in db_events
-            assert "update" not in db_events
 
-    def test_client_update_token(self, session: Session, exchange: Exchange):
-        """This will test the failure and update of a token."""
-        with TestClient(api) as client:
-            client_id = create_client(client, exchange)
+@pytest.mark.asyncio
+async def test_client_update_app(async_session: AsyncSession, exchange: Exchange):
+    """This will test the upload of a new (fake) app, and the update process."""
+    with TestClient(api) as client:
+        client_id = create_client(client, exchange)
 
-            # expire token
-            session.execute(update(Token).where(Token.component_id == client_id).values(expiration_time=0))
-            session.commit()
+        cs: ComponentService = ComponentService(async_session)
 
-            LOGGER.info("expiration_time for token set to 0")
+        client_db: Client = await cs.get_client_by_id(client_id)
 
-            status_code, action, data = self.get_client_update(client, exchange)
+        assert client_db is not None
 
-            assert "action" in data
-            assert Action[action] == Action.UPDATE_TOKEN
+        client_version = client_db.version
 
-            update_token = UpdateToken(**data)
+        assert client_version == "test"
 
-            new_token = update_token.token
+        # create fake app (it's just a file)
+        version_app = "test_1.0"
+        filename_app = "fake_client_app.json"
+        path_fake_app = os.path.join(".", filename_app)
 
-            assert status_code == 200
-            assert Action[action] == Action.UPDATE_TOKEN
+        with open(path_fake_app, "w") as f:
+            json.dump({"version": version_app}, f)
 
-            # extend expire token
-            session.execute(update(Token).where(Token.component_id == client_id).values(expiration_time=86400))
-            session.commit()
+        LOGGER.info(f"created file={path_fake_app}")
 
-            LOGGER.info("expiration_time for token set to 24h")
+        # upload fake client app
+        upload_response = client.post(
+            "/manager/upload/client", files={"file": (filename_app, open(path_fake_app, "rb"))}
+        )
 
-            status_code, _, _ = self.get_client_update(client, exchange)
+        assert upload_response.status_code == 200
 
-            assert status_code == 403
+        upload_id = upload_response.json()["upload_id"]
 
-            exchange.set_token(new_token)
-            status_code, action, data = self.get_client_update(client, exchange)
+        # update metadata
+        metadata_response = client.post(
+            "/manager/upload/client/metadata",
+            json={
+                "upload_id": upload_id,
+                "version": version_app,
+                "name": "Testing_app",
+                "active": True,
+            },
+        )
 
-            assert status_code == 200
-            assert "action" in data
-            assert Action[action] == Action.DO_NOTHING
-            assert len(data) == 1
+        assert metadata_response.status_code == 200
 
-    def test_client_update_app(self, session: Session, exchange: Exchange):
-        """This will test the upload of a new (fake) app, and the update process."""
-        with TestClient(api) as client:
-            client_id = create_client(client, exchange)
+        res = await async_session.execute(select(Application).where(Application.app_id == upload_id))
+        client_app: Application | None = res.scalar_one_or_none()
 
-            client_db = get_client_by_id(session, client_id)
+        assert client_app is not None
+        assert client_app.version == version_app
+        assert client_app.active
 
-            assert client_db is not None
+        res = await async_session.execute(select(func.count()).select_from(Application).where(Application.active))
+        n_apps: int = res.scalar_one()
+        assert n_apps == 1
 
-            client_version = client_db.version
+        res = await async_session.execute(
+            select(Application).where(Application.active).order_by(Application.creation_time.desc()).limit(1)
+        )
+        newest_version: Application | None = res.scalar_one_or_none()
 
-            assert client_version == "test"
+        assert newest_version is not None
+        assert newest_version.version == version_app
 
-            # create fake app (it's just a file)
-            version_app = "test_1.0"
-            filename_app = "fake_client_app.json"
-            path_fake_app = os.path.join(".", filename_app)
+        # update request
+        status_code, action, data = get_client_update(client, exchange)
 
-            with open(path_fake_app, "w") as f:
-                json.dump({"version": version_app}, f)
+        assert status_code == 200
+        assert Action[action] == Action.UPDATE_CLIENT
 
-            LOGGER.info(f"created file={path_fake_app}")
+        update_client_app = UpdateClientApp(**data)
 
-            # upload fake client app
-            upload_response = client.post(
-                "/manager/upload/client", files={"file": (filename_app, open(path_fake_app, "rb"))}
-            )
+        assert update_client_app.version == version_app
 
-            assert upload_response.status_code == 200
+        download_app = DownloadApp(name=update_client_app.name, version=update_client_app.version)
 
-            upload_id = upload_response.json()["upload_id"]
+        assert exchange.remote_key is not None
 
-            # update metadata
-            metadata_response = client.post(
-                "/manager/upload/client/metadata",
-                json={
-                    "upload_id": upload_id,
-                    "version": version_app,
-                    "name": "Testing_app",
-                    "active": True,
-                },
-            )
+        # download new client
+        with client.get(
+            "/client/download/application",
+            data=exchange.create_payload(download_app.dict()),
+            headers=exchange.headers(),
+            stream=True,
+        ) as stream:
+            assert stream.status_code == 200
 
-            assert metadata_response.status_code == 200
+            content, checksum = exchange.stream_response(stream)
 
-            res = session.execute(select(Application).where(Application.app_id == upload_id))
-            client_app: Application | None = res.scalar_one_or_none()
+            assert update_client_app.checksum == checksum
+            assert json.loads(content) == {"version": version_app}
 
-            assert client_app is not None
-            assert client_app.version == version_app
-            assert client_app.active
+        client_db: Client = await cs.get_client_by_id(client_id)
 
-            n_apps: int = session.scalars(select(func.count()).select_from(Application).where(Application.active)).one()
-            assert n_apps == 1
+        assert client_db is not None
+        assert client_db.version == version_app
 
-            newest_version: Application | None = session.execute(
-                select(Application).where(Application.active).order_by(Application.creation_time.desc()).limit(1)
-            ).scalar_one_or_none()
+        # delete local fake client app
+        if os.path.exists(path_fake_app):
+            os.remove(path_fake_app)
 
-            assert newest_version is not None
-            assert newest_version.version == version_app
 
-            # update request
-            status_code, action, data = self.get_client_update(client, exchange)
+@pytest.mark.asyncio
+async def test_update_metadata(async_session: AsyncSession, exchange: Exchange):
+    with TestClient(api) as client:
+        client_id = create_client(client, exchange)
 
-            assert status_code == 200
-            assert Action[action] == Action.UPDATE_CLIENT
+        assert client_id is not None
 
-            update_client_app = UpdateClientApp(**data)
+        metadata: Metadata = get_metadata()
+        upload_response: Response = send_metadata(client, exchange, metadata)
 
-            assert update_client_app.version == version_app
+        assert upload_response.status_code == 200
 
-            download_app = DownloadApp(name=update_client_app.name, version=update_client_app.version)
+        res = await async_session.execute(select(DataSource).where(DataSource.component_id == client_id))
+        ds_db: DataSource = res.scalar_one()
 
-            assert exchange.remote_key is not None
+        assert ds_db.name == metadata.datasources[0].name
+        assert ds_db.removed == metadata.datasources[0].removed
+        assert ds_db.n_records == metadata.datasources[0].n_records
+        assert ds_db.n_features == metadata.datasources[0].n_features
 
-            # download new client
-            with client.get(
-                "/client/download/application",
-                data=exchange.create_payload(download_app.dict()),
-                headers=exchange.headers(),
-                stream=True,
-            ) as stream:
-                assert stream.status_code == 200
+        ds_features = metadata.datasources[0].features
 
-                content, checksum = exchange.stream_response(stream)
+        res = await async_session.scalars(select(Feature).where(Feature.datasource_id == ds_db.datasource_id))
+        ds_fs: list[Feature] = list(res.all())
 
-                assert update_client_app.checksum == checksum
-                assert json.loads(content) == {"version": version_app}
+        assert len(ds_fs) == 2
+        assert ds_fs[0].name == ds_features[0].name
+        assert ds_fs[1].name == ds_features[1].name
 
-            client_db = get_client_by_id(session, client_id)
-            session.refresh(client_db)
 
-            assert client_db is not None
-            assert client_db.version == version_app
+@pytest.mark.asyncio
+async def test_client_task_get(async_session: AsyncSession, exchange: Exchange):
+    with TestClient(api) as server:
+        client_id = create_client(server, exchange)
 
-            # delete local fake client app
-            if os.path.exists(path_fake_app):
-                os.remove(path_fake_app)
+        LOGGER.info("setup metadata for client")
 
-    def test_update_metadata(self, session: Session, exchange: Exchange):
-        with TestClient(api) as client:
-            client_id = create_client(client, exchange)
+        metadata: Metadata = get_metadata()
+        upload_response: Response = send_metadata(server, exchange, metadata)
 
-            assert client_id is not None
+        assert upload_response.status_code == 200
 
-            metadata: Metadata = get_metadata()
-            upload_response: Response = send_metadata(client, exchange, metadata)
+        LOGGER.info("setup artifact")
 
-            assert upload_response.status_code == 200
+        res = await async_session.execute(select(DataSource).where(DataSource.component_id == client_id))
+        ds_db: DataSource | None = res.scalar_one_or_none()
 
-            ds_db: DataSource = session.execute(
-                select(DataSource).where(DataSource.component_id == client_id)
-            ).scalar_one()
+        assert ds_db is not None
 
-            assert ds_db.name == metadata.datasources[0].name
-            assert ds_db.removed == metadata.datasources[0].removed
-            assert ds_db.n_records == metadata.datasources[0].n_records
-            assert ds_db.n_features == metadata.datasources[0].n_features
+        res = await async_session.scalars(
+            select(Feature).where(Feature.datasource_id == ds_db.datasource_id, Feature.removed == False)
+        )
+        fs = list(res.all())
 
-            ds_features = metadata.datasources[0].features
+        assert len(fs) == 2
 
-            ds_fs: list[Feature] = list(
-                session.scalars(select(Feature).where(Feature.datasource_id == ds_db.datasource_id)).all()
-            )
+        f1: Feature = fs[0]
+        f2: Feature = fs[1]
 
-            assert len(ds_fs) == 2
-            assert ds_fs[0].name == ds_features[0].name
-            assert ds_fs[1].name == ds_features[1].name
+        qf1 = QueryFeature(
+            feature_id=f1.feature_id,
+            feature_name=f1.name,
+            datasource_id=f1.datasource_id,
+            datasource_name=f1.datasource_name,
+        )
+        qf2 = QueryFeature(
+            feature_id=f2.feature_id,
+            feature_name=f2.name,
+            datasource_id=f2.datasource_id,
+            datasource_name=f2.datasource_name,
+        )
 
-    def test_client_task_get(self, session: Session, exchange: Exchange):
-        with TestClient(api) as server:
-            client_id = create_client(server, exchange)
+        artifact = Artifact(
+            artifact_id=None,
+            dataset=Dataset(
+                queries=[
+                    Query(
+                        datasource_id=ds_db.datasource_id,
+                        datasource_name=ds_db.name,
+                        features=[qf1, qf2],
+                        filters=[QueryFilter(feature=qf1, operation=Operations.NUM_LESS_THAN.name, parameter="1.0")],
+                        transformers=[],
+                    )
+                ],
+            ),
+            model=Model(name=""),
+        )
 
-            LOGGER.info("setup metadata for client")
+        LOGGER.info("submit artifact")
 
-            metadata: Metadata = get_metadata()
-            upload_response: Response = send_metadata(server, exchange, metadata)
+        wb_exc = Exchange()
+        wb_exc.generate_key()
 
-            assert upload_response.status_code == 200
+        wjr = WorkbenchJoinRequest(public_key=wb_exc.transfer_public_key())
 
-            LOGGER.info("setup artifact")
+        res = server.post("/workbench/connect", data=json.dumps(wjr.dict()))
 
-            ds_db: DataSource | None = session.execute(
-                select(DataSource).where(DataSource.component_id == client_id)
-            ).scalar_one_or_none()
+        res.raise_for_status()
 
-            assert ds_db is not None
+        wjd = WorkbenchJoinData(**wb_exc.get_payload(res.content))
 
-            fs = session.scalars(
-                select(Feature).where(Feature.datasource_id == ds_db.datasource_id, Feature.removed == False)
-            ).all()
+        wb_exc.set_remote_key(wjd.public_key)
+        wb_exc.set_token(wjd.token)
 
-            assert len(fs) == 2
+        submit_response = server.post(
+            "/workbench/artifact/submit",
+            data=wb_exc.create_payload(artifact.dict()),
+            headers=wb_exc.headers(),
+        )
 
-            f1: Feature = fs[0]
-            f2: Feature = fs[1]
+        assert submit_response.status_code == 200
 
-            qf1 = QueryFeature(
-                feature_id=f1.feature_id,
-                feature_name=f1.name,
-                datasource_id=f1.datasource_id,
-                datasource_name=f1.datasource_name,
-            )
-            qf2 = QueryFeature(
-                feature_id=f2.feature_id,
-                feature_name=f2.name,
-                datasource_id=f2.datasource_id,
-                datasource_name=f2.datasource_name,
-            )
+        artifact_status = ArtifactStatus(**wb_exc.get_payload(submit_response.content))
 
-            artifact = Artifact(
-                artifact_id=None,
-                dataset=Dataset(
-                    queries=[
-                        Query(
-                            datasource_id=ds_db.datasource_id,
-                            datasource_name=ds_db.name,
-                            features=[qf1, qf2],
-                            filters=[
-                                QueryFilter(feature=qf1, operation=Operations.NUM_LESS_THAN.name, parameter="1.0")
-                            ],
-                            transformers=[],
-                        )
-                    ],
-                ),
-                model=Model(name=""),
-            )
+        n = await async_session.scalar(select(func.count()).select_from(Job))
+        assert n == 1
 
-            LOGGER.info("submit artifact")
+        n = await async_session.scalar(select(func.count()).select_from(Job).where(Job.component_id == client_id))
+        assert n == 1
 
-            wb_exc = Exchange()
-            wb_exc.generate_key()
+        res = await async_session.scalars(select(Job).limit(1))
+        job: Job = res.one()
 
-            wjr = WorkbenchJoinRequest(public_key=wb_exc.transfer_public_key())
+        LOGGER.info("update client")
 
-            res = server.post("/workbench/connect", data=json.dumps(wjr.dict()))
+        status_code, action, data = get_client_update(server, exchange)
 
-            res.raise_for_status()
+        assert status_code == 200
+        assert Action[action] == Action.EXECUTE
 
-            wjd = WorkbenchJoinData(**wb_exc.get_payload(res.content))
+        update_execute = UpdateExecute(**data)
 
-            wb_exc.set_remote_key(wjd.public_key)
-            wb_exc.set_token(wjd.token)
+        assert update_execute.artifact_id == job.artifact_id
 
-            submit_response = server.post(
-                "/workbench/artifact/submit",
-                data=wb_exc.create_payload(artifact.dict()),
-                headers=wb_exc.headers(),
-            )
+        LOGGER.info("get task for client")
 
-            assert submit_response.status_code == 200
+        with server.get(
+            "/client/task/",
+            data=exchange.create_payload(update_execute.dict()),
+            headers=exchange.headers(),
+            stream=True,
+        ) as task_response:
+            assert task_response.status_code == 200
 
-            artifact_status = ArtifactStatus(**wb_exc.get_payload(submit_response.content))
+            content = exchange.get_payload(task_response.content)
 
-            n = session.scalar(select(func.count()).select_from(Job))
-            assert n == 1
+            assert "artifact_id" in content
+            assert "model" in content
+            assert "dataset" in content
 
-            n = session.scalar(select(func.count()).select_from(Job).where(Job.component_id == client_id))
-            assert n == 1
+            task = Artifact(**content)
 
-            job: Job = session.scalars(select(Job).limit(1)).one()
+            assert task.artifact_id == job.artifact_id
+            assert artifact_status.artifact_id is not None
+            assert task.artifact_id == artifact_status.artifact_id
+            assert len(task.dataset.queries) == 1
+            assert len(task.dataset.queries[0].features) == 2
 
-            LOGGER.info("update client")
+        # cleanup
+        LOGGER.info("cleaning up")
+        shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_status.artifact_id))
 
-            status_code, action, data = self.get_client_update(server, exchange)
 
-            assert status_code == 200
-            assert Action[action] == Action.EXECUTE
+@pytest.mark.asyncio
+async def test_client_access(async_session: AsyncSession, exchange: Exchange):
+    with TestClient(api) as client:
+        create_client(client, exchange)
 
-            update_execute = UpdateExecute(**data)
+        res = client.get(
+            "/client/update",
+            data=exchange.create_payload({}),
+            headers=exchange.headers(),
+        )
 
-            assert update_execute.artifact_id == job.artifact_id
+        assert res.status_code == 200
 
-            LOGGER.info("get task for client")
+        res = client.get(
+            "/worker/artifact/none",
+            headers=exchange.headers(),
+        )
 
-            with server.get(
-                "/client/task/",
-                data=exchange.create_payload(update_execute.dict()),
-                headers=exchange.headers(),
-                stream=True,
-            ) as task_response:
-                assert task_response.status_code == 200
+        assert res.status_code == 403
 
-                content = exchange.get_payload(task_response.content)
+        res = client.get(
+            "/workbench/client/list",
+            headers=exchange.headers(),
+        )
 
-                assert "artifact_id" in content
-                assert "model" in content
-                assert "dataset" in content
-
-                task = Artifact(**content)
-
-                assert task.artifact_id == job.artifact_id
-                assert artifact_status.artifact_id is not None
-                assert task.artifact_id == artifact_status.artifact_id
-                assert len(task.dataset.queries) == 1
-                assert len(task.dataset.queries[0].features) == 2
-
-            # cleanup
-            LOGGER.info("cleaning up")
-            shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_status.artifact_id))
-
-    def test_client_access(self, session: Session, exchange: Exchange):
-        with TestClient(api) as client:
-            create_client(client, exchange)
-
-            res = client.get(
-                "/client/update",
-                data=exchange.create_payload({}),
-                headers=exchange.headers(),
-            )
-
-            assert res.status_code == 200
-
-            res = client.get(
-                "/worker/artifact/none",
-                headers=exchange.headers(),
-            )
-
-            assert res.status_code == 403
-
-            res = client.get(
-                "/workbench/client/list",
-                headers=exchange.headers(),
-            )
-
-            assert res.status_code == 403
+        assert res.status_code == 403

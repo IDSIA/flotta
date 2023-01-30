@@ -1,4 +1,4 @@
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator
 
 from ferdelance.config import conf
 from ferdelance.database import Base, DataBase
@@ -6,9 +6,7 @@ from ferdelance.database.data import COMPONENT_TYPES
 from ferdelance.database.tables import ComponentType
 from ferdelance.shared.exchange import Exchange
 
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
 import logging
 import os
@@ -46,29 +44,6 @@ def delete_dirs() -> None:
     shutil.rmtree(conf.STORAGE_MODELS)
 
     os.remove(db_path)
-
-
-@pytest.fixture()
-def session() -> Generator[Session, None, None]:
-    """This will be executed once each test and it will create a new database on a sqlite local file.
-    The database will be used as the server's database and it will be populate this database with the required tables.
-    """
-
-    create_dirs()
-
-    engine = create_engine(conf.db_connection_url(True))
-
-    with engine.connect() as conn:
-        Base.metadata.create_all(conn, checkfirst=True)
-        try:
-            with Session(conn) as session:
-                for t in COMPONENT_TYPES:
-                    session.add(ComponentType(type=t))
-                session.commit()
-                yield session
-        finally:
-            Base.metadata.drop_all(conn)
-            delete_dirs()
 
 
 @pytest_asyncio.fixture()
