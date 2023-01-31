@@ -38,19 +38,27 @@ class Config:
         self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
 
         for ds in args.datasources:
+            # TODO: this is something that should come from the server, send the number of ds and the server will answer
             datasource_id = str(uuid.uuid4())
+
+            if ds.token is None:
+                tokens = list()
+            elif isinstance(ds.token, str):
+                tokens = [ds.token]
+            else:
+                tokens = ds.token
 
             if ds.kind == "db":
                 if ds.conn is None:
                     LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
                     continue
-                self.datasources[datasource_id] = DataSourceDB(datasource_id, ds.name, ds.type, ds.conn, ds.token)
+                self.datasources[datasource_id] = DataSourceDB(datasource_id, ds.name, ds.type, ds.conn, tokens)
 
             if ds.kind == "file":
                 if ds.path is None:
                     LOGGER.error(f"Missing path for datasource with name={ds.conn}")
                     continue
-                self.datasources[datasource_id] = DataSourceFile(datasource_id, ds.name, ds.type, ds.path, ds.token)
+                self.datasources[datasource_id] = DataSourceFile(datasource_id, ds.name, ds.type, ds.path, tokens)
 
         if not self.datasources:
             LOGGER.error("No valid datasource available!")

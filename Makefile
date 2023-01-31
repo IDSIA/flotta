@@ -5,6 +5,9 @@ client:
 standalone:
 	python -m ferdelance.standalone -c conf/config.yaml
 
+clean:
+	rm -rf workdir/ storage/ sqlite.db tests/test_sqlite.db
+
 # docker build 
 build-client:
 	docker-compose -f docker-compose.client.yaml -p ferdelance build

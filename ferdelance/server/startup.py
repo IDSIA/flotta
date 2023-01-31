@@ -2,7 +2,7 @@ from ferdelance import __version__
 from ferdelance.config import conf
 from ferdelance.database.const import PUBLIC_KEY
 from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER, TYPE_WORKER
-from ferdelance.database.services import DBSessionService, AsyncSession, ComponentService, KeyValueStore
+from ferdelance.database.services import DBSessionService, AsyncSession, ComponentService, KeyValueStore, ProjectService
 from ferdelance.database.services.settings import setup_settings
 from ferdelance.server import security
 
@@ -17,6 +17,7 @@ class ServerStartup(DBSessionService):
         super().__init__(session)
         self.cs: ComponentService = ComponentService(session)
         self.kvs = KeyValueStore(session)
+        self.ps: ProjectService = ProjectService(session)
 
     async def init_directories(self) -> None:
         LOGGER.info("directory initialization")
@@ -50,6 +51,7 @@ class ServerStartup(DBSessionService):
         await self.cs.create_types(COMPONENT_TYPES)
         await self.create_component(TYPE_SERVER, spk)
         await self.create_component(TYPE_WORKER, "")  # TODO: worker should have a public key
+        await self.ps.create("Project Zero", conf.DEFAULT_PROJECT)
         await self.session.commit()
 
     async def startup(self) -> None:
