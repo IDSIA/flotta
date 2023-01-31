@@ -255,7 +255,14 @@ async def client_update_metadata(
 
     for cds in client_data_source_list:
         features = await dss.get_features_by_datasource(cds)
-        ds_list.append(MetaDataSource(**cds.__dict__, features=[MetaFeature(**f.__dict__) for f in features]))
+        tokens = await dss.get_tokens_by_datasource(cds)
+        ds_list.append(
+            MetaDataSource(
+                **cds.__dict__,
+                features=[MetaFeature(**f.__dict__) for f in features],
+                tokens=tokens,
+            )
+        )
 
     m = Metadata(datasources=ds_list)
 
