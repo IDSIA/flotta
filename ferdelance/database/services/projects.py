@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.exc import NoReferenceError
 
 from ferdelance.database.schemas import Project
@@ -70,5 +70,13 @@ class ProjectService(DBSessionService):
     async def get_by_token(self, token: str) -> Project:
         """Can raise NoResultsException."""
         query = await self.session.execute(select(ProjectDB).where(ProjectDB.token == token))
+        res: ProjectDB = query.scalar_one()
+        return view(res)
+
+    async def get_by_name_and_token(self, name: str, token: str) -> Project:
+        """Can raise NoResultsException."""
+        query = await self.session.execute(
+            select(ProjectDB).where(and_(ProjectDB.name == name, ProjectDB.token == token))
+        )
         res: ProjectDB = query.scalar_one()
         return view(res)

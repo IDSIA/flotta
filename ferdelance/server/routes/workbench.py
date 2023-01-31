@@ -7,6 +7,7 @@ from ferdelance.database.services import (
     DataSourceService,
     ModelService,
     ProjectService,
+    DataSourceProjectService,
 )
 from ferdelance.database.schemas import Component, Model, Client, Token, DataSource as DataSourceView
 from ferdelance.server.security import check_token
@@ -28,7 +29,7 @@ from ferdelance.shared.schemas import (
     WorkbenchDataSourceList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
-    WorkbenchProjectList,
+    WorkbenchProjectDescription,
     WorkbenchProject,
 )
 from ferdelance.shared.decode import decode_from_transfer
@@ -436,3 +437,68 @@ async def wb_get_projects_list(
     wbpl = WorkbenchProjectList(projects=projects)
 
     return ss.create_response(wbpl.dict())
+
+
+@workbench_router.get("/workbench/projects", response_class=Response)
+async def wb_get_project(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    user: Component = Depends(check_access),
+):
+    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
+
+    pss: ProjectService = ProjectService(session)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.setup(user.public_key)
+
+    data = await ss.read_request(request)
+    project_token: str = data["project_token"]
+
+    try:
+        project = await pss.get_by_token(token=project_token)
+    except NoResultFound as _:
+        LOGGER.warning(f"invalid name + token combination for project token {project_token}")
+        raise HTTPException(404)
+
+    LOGGER.info(f"Loaded project {project}")
+
+    wbpl = WorkbenchProject(**{k: str(v) for k, v in project.dict().items()})
+
+    return ss.create_response(wbpl.dict())
+
+
+@workbench_router.get("/workbench/projects/descr", response_class=Response)
+async def wb_get_project_descr(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    user: Component = Depends(check_access),
+):
+    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
+
+    pss: ProjectService = ProjectService(session)
+    dsps: DataSourceProjectService = DataSourceProjectService(session)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.setup(user.public_key)
+
+    data = await ss.read_request(request)
+    project_token: str = data["project_token"]
+
+    try:
+        datasources = await dsps.get_datasources_by_project(project_token == project_token)
+    except NoResultFound as _:
+        LOGGER.warning(f"invalid name + token combination for project name {project_name} and token {project_token}")
+        raise HTTPException(404)
+
+    wbpd: WorkbenchProjectDescription = WorkbenchProjectDescription(
+        **{
+            **project.dict(),
+            "n_datasources": len(datasources),
+            "avg_n_features": sum([ds.n_features for ds in datasources]) / len(datasources),
+        }
+    )
+
+    LOGGER.info(f"Loaded project description for: {project}")
+
+    return ss.create_response(wbpd.dict())

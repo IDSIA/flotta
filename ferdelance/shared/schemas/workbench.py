@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from datetime import datetime
 from ferdelance.shared.artifacts import DataSource
 
 
@@ -32,7 +32,26 @@ class WorkbenchDataSourceList(BaseModel):
 class WorkbenchProject(BaseModel):
     project_id: str
     name: str
+    creation_time: str
+    token: str
+    valid: bool
+    active: bool
 
 
-class WorkbenchProjectList(BaseModel):
-    projects: list[WorkbenchProject]
+class WorkbenchProjectDescription(BaseModel):
+
+    project_id: str
+    name: str
+    creation_time: str
+    token: str
+    valid: bool
+    active: bool
+
+    n_datasources: int
+    avg_n_features: float
+
+
+class AggregatedDataSource(BaseModel):
+    """Acts like a single datasource, describes features with distributions instead of punctual values."""
+
+    datasources: list[DataSource]

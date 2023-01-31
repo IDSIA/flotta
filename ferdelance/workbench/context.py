@@ -8,14 +8,17 @@ from ferdelance.shared.schemas import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchDataSourceList,
-    WorkbenchProjectList,
     WorkbenchProject,
+    WorkbenchProjectDescription,
     WorkbenchDataSourceIdList,
     WorkbenchClientList,
+    AggregatedDataSource,
 )
 from ferdelance.shared.exchange import Exchange
 
 from typing import Protocol
+
+import pandas as pd
 
 import json
 import logging
@@ -316,17 +319,30 @@ class Context:
             self.exc.stream_response_to_file(res, path)
         return path
 
-    def list_projects(self, tokens: list[str] = []) -> list[ProjectView]:
+    def load_project(self, project_token: str) -> WorkbenchProject:
         res = requests.get(
-            f"{self.server}/workbench/projects/list/",
+            f"{self.server}/workbench/projects",
             headers=self.exc.headers(),
-            data=self.exc.create_payload({
-                "project_tokens": tokens
-            })
+            data=self.exc.create_payload({"project_token": project_token}),
         )
 
         res.raise_for_status()
 
-        data = WorkbenchProjectList(**self.exc.get_payload(res.content))
+        data = WorkbenchProject(**self.exc.get_payload(res.content))
+
+        return data
+
+    def describe_project(self, project: WorkbenchProject) -> pd.DataFrame | pd.Series:
+        res = requests.get(
+            f"{self.server}/workbench/projects/descr",
+            headers=self.exc.headers(),
+            data=self.exc.create_payload({"project_token": project.token}),
+        )
+
+        res.raise_for_status()
+
+        data = WorkbenchProjectDescription(**self.exc.get_payload(res.content))
+
+        print(pd.Series(data))
 
         return data

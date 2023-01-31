@@ -8,6 +8,7 @@ __all__ = [
     "DataSourceService",
     "ModelService",
     "ProjectService",
+    "DataSourceProjectService",
     "setup_settings",
     "KeyValueStore",
 ]
@@ -22,4 +23,5 @@ from .jobs import JobService
 from .model import ModelService
 
 from .projects import ProjectService
+from .datasource_project import DataSourceProjectService
 from .settings import KeyValueStore, setup_settings

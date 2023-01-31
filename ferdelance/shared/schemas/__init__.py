@@ -15,6 +15,9 @@ __all__ = [
     "WorkbenchClientList",
     "WorkbenchDataSourceIdList",
     "WorkbenchDataSourceList",
+    "AggregatedDataSource",
+    "WorkbenchProjectDescription",
+    "WorkbenchProject",
 ]
 
 from .client import (
@@ -39,6 +42,7 @@ from .workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchDataSourceList,
-    WorkbenchProjectList,
     WorkbenchProject,
+    WorkbenchProjectDescription,
+    AggregatedDataSource,
 )
