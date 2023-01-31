@@ -23,7 +23,7 @@ if __name__ == "__main__":
     conf.DB_HOST = "./sqlite.db"
     conf.SERVER_INTERFACE = "0.0.0.0"
     conf.STANDALONE_WORKERS = 7
-    conf.DEFAULT_PROJECT = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
+    conf.PROJECT_DEFAULT_TOKEN = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
 
     aggregation_queue = Queue()
 

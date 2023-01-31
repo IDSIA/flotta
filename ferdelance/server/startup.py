@@ -51,7 +51,7 @@ class ServerStartup(DBSessionService):
         await self.cs.create_types(COMPONENT_TYPES)
         await self.create_component(TYPE_SERVER, spk)
         await self.create_component(TYPE_WORKER, "")  # TODO: worker should have a public key
-        await self.ps.create("Project Zero", conf.DEFAULT_PROJECT)
+        await self.ps.create("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
         await self.session.commit()
 
     async def startup(self) -> None:

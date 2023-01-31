@@ -44,7 +44,7 @@ class Configuration(BaseModel):
     CLIENT_TOKEN_EXPIRATION = os.environ.get("TOKEN_CLIENT_EXPIRATION", str(parse("90 day")))
     USER_TOKEN_EXPIRATION = os.environ.get("TOKEN_USER_EXPIRATION", str(parse("30 day")))
 
-    DEFAULT_PROJECT: str = ""
+    PROJECT_DEFAULT_TOKEN: str = os.environ.get("PROJECT_DEFAULT_TOKEN", "")
 
     def server_url(self) -> str:
         return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
