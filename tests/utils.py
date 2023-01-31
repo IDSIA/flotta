@@ -53,6 +53,7 @@ def get_metadata() -> Metadata:
         datasources=[
             MetaDataSource(
                 datasource_id=datasource_id,
+                tokens=[""],
                 n_records=1000,
                 n_features=2,
                 name="ds1",

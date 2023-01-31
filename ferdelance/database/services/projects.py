@@ -8,6 +8,7 @@ from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.tokens import TokenService
 from ferdelance.database.tables import Project as ProjectDB
 from ferdelance.database.tables import ProjectDataSource as ProjectDataSourceDB
+from ferdelance.shared.artifacts import Metadata
 
 
 def view(project: ProjectDB) -> Project:
@@ -27,9 +28,10 @@ class ProjectService(DBSessionService):
 
         self.ts: TokenService = TokenService(session)
 
-    async def create(self, name: str = "") -> str:
+    async def create(self, name: str = "", token: str | None = None) -> str:
 
-        token = await self.ts.project_token(name)
+        if token is None:
+            token = await self.ts.project_token(name)
 
         project = ProjectDB(
             project_id=str(uuid.uuid4()),
@@ -55,6 +57,28 @@ class ProjectService(DBSessionService):
 
         except NoReferenceError:
             raise ValueError()
+
+    async def add_datasources_from_metadata(self, metadata: Metadata) -> None:
+        for ds in metadata.datasources:
+            if not ds.tokens:
+                continue
+
+            res = await self.session.scalars(select(ProjectDB.project_id).filter(ProjectDB.token.in_(ds.tokens)))
+            project_ids: list[str] = list(res.all())
+
+            if not project_ids:
+                # TODO: should this be an error?
+                continue
+
+            for project_id in project_ids:
+                self.session.add(
+                    ProjectDataSourceDB(
+                        project_id=project_id,
+                        datasource_id=ds.datasource_id,
+                    )
+                )
+
+            await self.session.commit()
 
     async def get_project_list(self) -> list[Project]:
         res = await self.session.execute(select(ProjectDB))

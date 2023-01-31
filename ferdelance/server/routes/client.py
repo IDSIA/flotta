@@ -6,6 +6,7 @@ from ferdelance.database.services import (
     ComponentService,
     DataSourceService,
     ModelService,
+    ProjectService,
 )
 from ferdelance.database.tables import (
     Application,
@@ -236,6 +237,7 @@ async def client_update_metadata(
 
     cs: ComponentService = ComponentService(session)
     dss: DataSourceService = DataSourceService(session)
+    ps: ProjectService = ProjectService(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
@@ -245,6 +247,7 @@ async def client_update_metadata(
     metadata = Metadata(**data)
 
     await dss.create_or_update_metadata(client.client_id, metadata)
+    await ps.add_datasources_from_metadata(metadata)
 
     client_data_source_list: list[DataSource] = await dss.get_datasource_by_client_id(client.client_id)
 
@@ -252,7 +255,14 @@ async def client_update_metadata(
 
     for cds in client_data_source_list:
         features = await dss.get_features_by_datasource(cds)
-        ds_list.append(MetaDataSource(**cds.__dict__, features=[MetaFeature(**f.__dict__) for f in features]))
+        tokens = await dss.get_tokens_by_datasource(cds)
+        ds_list.append(
+            MetaDataSource(
+                **cds.__dict__,
+                features=[MetaFeature(**f.__dict__) for f in features],
+                tokens=tokens,
+            )
+        )
 
     m = Metadata(datasources=ds_list)
 

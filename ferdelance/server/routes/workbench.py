@@ -191,12 +191,14 @@ async def wb_get_client_datasource(
         ds_session: DataSourceView = await dss.get_datasource_by_id(ds_id)
 
         f_session = await dss.get_features_by_datasource(ds_session)
+        tokens = await dss.get_tokens_by_datasource(ds_session)
 
         fs = [Feature(**f.__dict__) for f in f_session if not f.removed]
 
         ds = DataSource(
             **ds_session.__dict__,
             features=fs,
+            tokens=tokens,
         )
 
         return ss.create_response(ds.dict())

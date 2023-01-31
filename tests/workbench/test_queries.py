@@ -71,6 +71,7 @@ def datasource1() -> DataSource:
         n_features=len(features),
         client_id="client1",
         features=features,
+        tokens=[""],
     )
 
 
@@ -85,6 +86,7 @@ def datasource2() -> DataSource:
         n_features=len(features),
         client_id="client1",
         features=features,
+        tokens=[""],
     )
 
 

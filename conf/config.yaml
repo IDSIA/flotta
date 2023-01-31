@@ -8,19 +8,21 @@ datasources:
     type: csv
     path: data/file1.csv
     kind: file
-    token: 6ec7f883cb714716f95d70841826609738f7993dea1664b98c34e5813e20d7d4
+    token: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 
   - name: source2
     type: tsv
     path: data/file2.tsv
     kind: file
-    token: 6ec7f883cb714716f95d70841826609738f7993dea1664b98c34e5813e20d7d4
+    token: 
+    - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 
   - name: iris
     type: csv
     path: data/iris.csv
     kind: file
-    token: example_123
+    token: 
+    - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 
   # - name: database1
   #   type: sqlite
