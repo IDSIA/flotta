@@ -7,8 +7,8 @@ import pandas as pd
 
 
 class DataSourceFile(DataSource):
-    def __init__(self, datasource_id: str, name: str, type: str, path: str, token: str = "") -> None:
-        super().__init__(datasource_id, name, type, token)
+    def __init__(self, datasource_id: str, name: str, type: str, path: str, tokens: list[str] = list()) -> None:
+        super().__init__(datasource_id, name, type, tokens)
         self.path: Path = Path(path)
 
     def get(self) -> pd.DataFrame:
@@ -19,7 +19,7 @@ class DataSourceFile(DataSource):
         elif extension == ".tsv":
             return pd.read_csv(self.path, sep="\t")
 
-        raise NotImplemented(f"Don't know how to load {extension} format")
+        raise ValueError(f"Don't know how to load {extension} format")
 
     def dump(self) -> dict[str, str]:
         return super().dump() | {
@@ -75,4 +75,5 @@ class DataSourceFile(DataSource):
             n_records=n_records,
             n_features=n_features,
             features=features,
+            tokens=self.tokens,
         )

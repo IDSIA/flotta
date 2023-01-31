@@ -16,6 +16,8 @@ class BaseDataSource(BaseModel):
 
     name: str
 
+    tokens: list[str]
+
 
 class DataSource(BaseDataSource):
     """Information for the workbench."""

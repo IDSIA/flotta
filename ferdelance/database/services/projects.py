@@ -27,9 +27,10 @@ class ProjectService(DBSessionService):
 
         self.ts: TokenService = TokenService(session)
 
-    async def create(self, name: str = "") -> str:
+    async def create(self, name: str = "", token: str | None = None) -> str:
 
-        token = await self.ts.project_token(name)
+        if token is None:
+            token = await self.ts.project_token(name)
 
         project = ProjectDB(
             project_id=str(uuid.uuid4()),

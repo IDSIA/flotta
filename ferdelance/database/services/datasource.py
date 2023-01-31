@@ -33,9 +33,12 @@ class DataSourceService(DBSessionService):
 
     async def create_or_update_metadata(self, client_id: str, metadata: Metadata) -> None:
         for ds in metadata.datasources:
-            await self.create_or_update_datasource(client_id, ds)
+            await self.create_or_update_datasource(client_id, ds, False)
+        await self.session.commit()
 
-    async def create_or_update_datasource(self, client_id: str, ds: MetaDataSource) -> DataSource:
+        LOGGER.info(f"client_id={client_id}: added {len(metadata.datasources)} new datasources")
+
+    async def create_or_update_datasource(self, client_id: str, ds: MetaDataSource, commit: bool = True) -> DataSource:
         dt_now = datetime.now()
 
         res = await self.session.execute(
@@ -98,13 +101,12 @@ class DataSourceService(DBSessionService):
                 ds_db.n_features = ds.n_features
                 ds_db.update_time = dt_now
 
-        await self.session.commit()
-        await self.session.refresh(ds_db)
-
         for f in ds.features:
             await self.create_or_update_feature(ds_db, f, ds.removed, commit=False)
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
+            await self.session.refresh(ds_db)
 
         return ds_db
 
