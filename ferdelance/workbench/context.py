@@ -9,7 +9,6 @@ from ferdelance.shared.schemas import (
     WorkbenchJoinData,
     WorkbenchDataSourceList,
     WorkbenchProjectList,
-    WorkbenchProject,
     WorkbenchDataSourceIdList,
     WorkbenchClientList,
 )
@@ -316,13 +315,11 @@ class Context:
             self.exc.stream_response_to_file(res, path)
         return path
 
-    def list_projects(self, tokens: list[str] = []) -> list[ProjectView]:
+    def list_projects(self, tokens: list[str] = []) -> WorkbenchProjectList:
         res = requests.get(
             f"{self.server}/workbench/projects/list/",
             headers=self.exc.headers(),
-            data=self.exc.create_payload({
-                "project_tokens": tokens
-            })
+            data=self.exc.create_payload({"project_tokens": tokens}),
         )
 
         res.raise_for_status()

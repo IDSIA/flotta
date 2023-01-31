@@ -6,6 +6,8 @@ from ferdelance.database.services import DBSessionService, AsyncSession, Compone
 from ferdelance.database.services.settings import setup_settings
 from ferdelance.server import security
 
+from sqlalchemy.exc import NoResultFound
+
 import aiofiles.os
 import logging
 
@@ -40,6 +42,22 @@ class ServerStartup(DBSessionService):
 
         LOGGER.info(f"client {type} created")
 
+    async def create_default_project(self) -> None:
+        try:
+            await self.ps.get_by_token(conf.PROJECT_DEFAULT_TOKEN)
+            LOGGER.info("Default project already exists")
+
+        except NoResultFound as _:
+            try:
+                p = await self.ps.get_by_name("Project Zero")
+                await self.ps.update_token(p, conf.PROJECT_DEFAULT_TOKEN)
+
+                LOGGER.info("Updated token of default project")
+
+            except NoResultFound as _:
+                await self.ps.create("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
+                LOGGER.info("Created default project")
+
     async def init_security(self) -> None:
         LOGGER.info("setup setting and security keys")
         await setup_settings(self.session)
@@ -51,7 +69,7 @@ class ServerStartup(DBSessionService):
         await self.cs.create_types(COMPONENT_TYPES)
         await self.create_component(TYPE_SERVER, spk)
         await self.create_component(TYPE_WORKER, "")  # TODO: worker should have a public key
-        await self.ps.create("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
+        await self.create_default_project()
         await self.session.commit()
 
     async def startup(self) -> None:
