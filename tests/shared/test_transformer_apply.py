@@ -16,52 +16,52 @@ PATH_DIR = os.path.abspath(os.path.dirname(__file__))
 PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
 
 
-class TestTransformerApply:
-    def test_apply_transformer(self):
-        tr = FederatedKBinsDiscretizer("HouseAge", "HouseAgeBin", 10, random_state=42)
-        qt: QueryTransformer = tr.build()
+def test_apply_transformer():
+    tr = FederatedKBinsDiscretizer("HouseAge", "HouseAgeBin", 10, random_state=42)
+    qt: QueryTransformer = tr.build()
 
-        df = pd.read_csv(PATH_CALIFORNIA)
+    df = pd.read_csv(PATH_CALIFORNIA)
 
-        df = apply_transformer(qt, df)
+    df = apply_transformer(qt, df)
 
-        x = df[["HouseAgeBin"]].groupby("HouseAgeBin").size()
+    x = df[["HouseAgeBin"]].groupby("HouseAgeBin").size()
 
-        assert x.shape[0] == 10
-        assert df["HouseAgeBin"].mean() == 4.877858527131783
+    assert x.shape[0] == 10
+    assert df["HouseAgeBin"].mean() == 4.877858527131783
 
-    def test_apply_pipeline(self):
-        pipe = FederatedPipeline(
-            [
-                # remove unused features
-                FederatedDrop(["Latitude", "Longitude"]),
-                # prepare label feature
-                FederatedPipeline(
-                    [
-                        FederatedBinarizer("MedInc", "MedIncThresholded"),
-                        FederatedLabelBinarizer("MedIncThresholded", "Label", pos_label=1, neg_label=-1),
-                        FederatedDrop(["MedInc", "MedIncThresholded"]),
-                        FederatedRename("Label", "MedIncLabel"),
-                    ]
-                ),
-            ]
-        )
 
-        qt: QueryTransformer = pipe.build()
+def test_apply_pipeline():
+    pipe = FederatedPipeline(
+        [
+            # remove unused features
+            FederatedDrop(["Latitude", "Longitude"]),
+            # prepare label feature
+            FederatedPipeline(
+                [
+                    FederatedBinarizer("MedInc", "MedIncThresholded"),
+                    FederatedLabelBinarizer("MedIncThresholded", "Label", pos_label=1, neg_label=-1),
+                    FederatedDrop(["MedInc", "MedIncThresholded"]),
+                    FederatedRename("Label", "MedIncLabel"),
+                ]
+            ),
+        ]
+    )
 
-        df = pd.read_csv(PATH_CALIFORNIA)
+    qt: QueryTransformer = pipe.build()
 
-        df = apply_transformer(qt, df)
+    df = pd.read_csv(PATH_CALIFORNIA)
 
-        assert "Latitude" not in df.columns
-        assert "Longitude" not in df.columns
-        assert "MedIncThresholded" not in df.columns
-        assert "MedInc" not in df.columns
-        assert "Label" not in df.columns
+    df = apply_transformer(qt, df)
 
-        assert "MedIncLabel" in df.columns
+    assert "Latitude" not in df.columns
+    assert "Longitude" not in df.columns
+    assert "MedIncThresholded" not in df.columns
+    assert "MedInc" not in df.columns
+    assert "Label" not in df.columns
 
-        labels = df.groupby("MedIncLabel").size()
+    assert "MedIncLabel" in df.columns
 
-        assert labels[-1] == 12004
-        assert labels[1] == 8636
+    labels = df.groupby("MedIncLabel").size()
+
+    assert labels[-1] == 12004
+    assert labels[1] == 8636

@@ -1,6 +1,6 @@
 from ferdelance import __version__
 from ferdelance.client.config import Config, ConfigError
-from ferdelance.client.exceptions import RelaunchClient, UpdateClient, ErrorClient
+from ferdelance.client.exceptions import RelaunchClient, ErrorClient
 from ferdelance.client.services.actions import ActionService
 from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action

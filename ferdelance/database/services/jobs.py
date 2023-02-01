@@ -45,11 +45,13 @@ class JobService(DBSessionService):
         return view(job)
 
     async def start_execution(self, job: JobView) -> JobView:
+        """Can raise NoResultException."""
 
         # TODO: add checks like in stop_execution method
 
         stmt = select(JobDB).where(JobDB.job_id == job.job_id)
-        job_db: JobDB = await self.session.scalar(stmt)
+        res = await self.session.scalars(stmt)
+        job_db: JobDB = res.one()
 
         job_db.status = JobStatus.RUNNING.name
         job_db.execution_time = datetime.now(tz=job.creation_time.tzinfo)
@@ -99,12 +101,14 @@ class JobService(DBSessionService):
             )
 
     async def error(self, job: JobView) -> JobView:
+        """Can raise NoResultException."""
 
         # TODO: add checks like in stop_execution method
 
-        job_db: JobDB = await self.session.scalar(select(JobDB).where(JobDB.job_id == job.job_id))
+        res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.job_id))
+        job_db: JobDB = res.one()
 
-        job_db.status = (JobStatus.ERROR.name,)
+        job_db.status = JobStatus.ERROR.name
         job_db.termination_time = datetime.now(tz=job.creation_time.tzinfo)
 
         await self.session.commit()
@@ -135,14 +139,16 @@ class JobService(DBSessionService):
         return [view(j) for j in res.all()]
 
     async def count_jobs_for_artifact(self, artifact_id: str) -> int:
-        return await self.session.scalar(
+        res = await self.session.scalars(
             select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id)
         )
+        return res.one()
 
     async def count_jobs_by_status(self, artifact_id: str, status: JobStatus) -> int:
-        return await self.session.scalar(
+        res = await self.session.scalars(
             select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id, JobDB.status == status.name)
         )
+        return res.one()
 
     async def next_job_for_client(self, client_id: str) -> JobView:
         """Can raise NoResultFound."""

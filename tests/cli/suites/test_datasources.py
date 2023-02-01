@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import pytest
 
 
-async def populate_test_db(async_session: AsyncSession):
+async def populate_test_db(session: AsyncSession):
     c1: Component = Component(
         component_id="C1",
         version="test",
@@ -41,23 +41,23 @@ async def populate_test_db(async_session: AsyncSession):
         datasource_id="DS3", name="DS3", n_records=69, n_features=69, component_id=c2.component_id
     )
 
-    async_session.add(c1)
-    async_session.add(c2)
-    async_session.add(ds1)
-    async_session.add(ds2)
-    async_session.add(ds3)
+    session.add(c1)
+    session.add(c2)
+    session.add(ds1)
+    session.add(ds2)
+    session.add(ds3)
 
-    await async_session.commit()
+    await session.commit()
 
 
 @pytest.mark.asyncio
-async def test_datasources_ls(async_session: AsyncSession):
+async def test_datasources_ls(session: AsyncSession):
 
     res: list[DataSourceView] = await list_datasources()
 
     assert len(res) == 0
 
-    await populate_test_db(async_session)
+    await populate_test_db(session)
 
     res: list[DataSourceView] = await list_datasources()
 
@@ -69,9 +69,9 @@ async def test_datasources_ls(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_artifacts_description(async_session: AsyncSession):
+async def test_artifacts_description(session: AsyncSession):
 
-    await populate_test_db(async_session)
+    await populate_test_db(session)
 
     res: DataSourceView = await describe_datasource(datasource_id="DS1")
 

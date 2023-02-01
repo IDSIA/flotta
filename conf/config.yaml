@@ -14,13 +14,15 @@ datasources:
     type: tsv
     path: data/file2.tsv
     kind: file
-    token: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
+    token: 
+    - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 
   - name: iris
     type: csv
     path: data/iris.csv
     kind: file
-    token: example_123
+    token: 
+    - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 
   # - name: database1
   #   type: sqlite

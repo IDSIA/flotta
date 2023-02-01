@@ -20,101 +20,106 @@ import os
 LOG = logging.getLogger(__name__)
 
 
-class TestEncodeDecode:
-    def _random_string(self, length: int) -> str:
-        return "".join(random.choice(string.ascii_letters) for _ in range(length))
+def _random_string(length: int) -> str:
+    return "".join(random.choice(string.ascii_letters) for _ in range(length))
 
-    def test_transfer(self):
-        """Test an encoding and decoding of a string. This is just a change of encoding and not an encrypting."""
-        content: str = self._random_string(10000)
 
-        content_encoded: str = encode_to_transfer(content)
-        content_decoded: str = decode_from_transfer(content_encoded)
+def test_transfer():
+    """Test an encoding and decoding of a string. This is just a change of encoding and not an encrypting."""
+    content: str = _random_string(10000)
 
-        assert content == content_decoded
+    content_encoded: str = encode_to_transfer(content)
+    content_decoded: str = decode_from_transfer(content_encoded)
 
-    def test_encrypt_decrypt(self):
-        """Uses a pair of asymmetric keys to encrypt and decrypt a small message."""
-        private_key: RSAPrivateKey = generate_asymmetric_key()
-        public_key: RSAPublicKey = private_key.public_key()
+    assert content == content_decoded
 
-        content: str = self._random_string(250)
 
-        content_encrypted: str = encrypt(public_key, content)
-        content_decrypted: str = decrypt(private_key, content_encrypted)
+def test_encrypt_decrypt():
+    """Uses a pair of asymmetric keys to encrypt and decrypt a small message."""
+    private_key: RSAPrivateKey = generate_asymmetric_key()
+    public_key: RSAPublicKey = private_key.public_key()
 
-        assert content == content_decrypted
+    content: str = _random_string(250)
 
-    def test_symmetric_key_generation(self):
-        """Test the encrypting and decrypting of the symmetric key"""
-        private_key: RSAPrivateKey = generate_asymmetric_key()
-        public_key: RSAPublicKey = private_key.public_key()
+    content_encrypted: str = encrypt(public_key, content)
+    content_decrypted: str = decrypt(private_key, content_encrypted)
 
-        data, key_enc = generate_hybrid_encryption_key(public_key)
+    assert content == content_decrypted
 
-        key_dec = decrypt_hybrid_key(data, private_key)
 
-        assert key_enc.iv == key_dec.iv
-        assert key_enc.key == key_dec.key
+def test_symmetric_key_generation():
+    """Test the encrypting and decrypting of the symmetric key"""
+    private_key: RSAPrivateKey = generate_asymmetric_key()
+    public_key: RSAPublicKey = private_key.public_key()
 
-    def test_stream_from_memory(self):
-        """Test the encrypting and decrypting of a stream of bytes from a content in memory."""
-        private_key: RSAPrivateKey = generate_asymmetric_key()
-        public_key: RSAPublicKey = private_key.public_key()
+    data, key_enc = generate_hybrid_encryption_key(public_key)
 
-        content = self._random_string(10000)
+    key_dec = decrypt_hybrid_key(data, private_key)
 
-        enc = HybridEncrypter(public_key)
-        dec = HybridDecrypter(private_key)
+    assert key_enc.iv == key_dec.iv
+    assert key_enc.key == key_dec.key
 
-        chunks_encrypted: list[bytes] = []
-        for chunk in enc.encrypt_to_stream(content):
-            chunks_encrypted.append(chunk)
 
-        dec_content = dec.decrypt_stream(iter(chunks_encrypted))
+def test_stream_from_memory():
+    """Test the encrypting and decrypting of a stream of bytes from a content in memory."""
+    private_key: RSAPrivateKey = generate_asymmetric_key()
+    public_key: RSAPublicKey = private_key.public_key()
 
-        assert content == dec_content
+    content = _random_string(10000)
 
-    def test_stream_from_file(self):
-        """Test the encrypting and decrypting of a stream of bytes from a file."""
-        private_key: RSAPrivateKey = generate_asymmetric_key()
-        public_key: RSAPublicKey = private_key.public_key()
+    enc = HybridEncrypter(public_key)
+    dec = HybridDecrypter(private_key)
 
-        enc = HybridEncrypter(public_key)
-        dec = HybridDecrypter(private_key)
+    chunks_encrypted: list[bytes] = []
+    for chunk in enc.encrypt_to_stream(content):
+        chunks_encrypted.append(chunk)
 
-        content_from: str = self._random_string(7637)
+    dec_content = dec.decrypt_stream(iter(chunks_encrypted))
 
-        path_content_from: str = os.path.join(".", "file_in.txt")
-        path_content_to: str = os.path.join(".", "file_out.txt")
+    assert content == dec_content
 
-        with open(path_content_from, "w") as f:
-            f.write(content_from)
 
-        chunks_encrypted: list[bytes] = []
-        for chunk in enc.encrypt_file_to_stream(path_content_from):
-            chunks_encrypted.append(chunk)
+def test_stream_from_file():
+    """Test the encrypting and decrypting of a stream of bytes from a file."""
+    private_key: RSAPrivateKey = generate_asymmetric_key()
+    public_key: RSAPublicKey = private_key.public_key()
 
-        dec.decrypt_stream_to_file(iter(chunks_encrypted), path_content_to)
+    enc = HybridEncrypter(public_key)
+    dec = HybridDecrypter(private_key)
 
-        with open(path_content_to, "rb") as f:
-            content_to = f.read().decode("utf8")
+    content_from: str = _random_string(7637)
 
-        os.remove(path_content_from)
-        os.remove(path_content_to)
+    path_content_from: str = os.path.join(".", "file_in.txt")
+    path_content_to: str = os.path.join(".", "file_out.txt")
 
-        assert content_from == content_to
+    with open(path_content_from, "w") as f:
+        f.write(content_from)
 
-    def test_hybrid_encryption(self):
-        private_key: RSAPrivateKey = generate_asymmetric_key()
-        public_key: RSAPublicKey = private_key.public_key()
+    chunks_encrypted: list[bytes] = []
+    for chunk in enc.encrypt_file_to_stream(path_content_from):
+        chunks_encrypted.append(chunk)
 
-        content: str = self._random_string(1234)
+    dec.decrypt_stream_to_file(iter(chunks_encrypted), path_content_to)
 
-        enc = HybridEncrypter(public_key)
-        dec = HybridDecrypter(private_key)
+    with open(path_content_to, "rb") as f:
+        content_to = f.read().decode("utf8")
 
-        secret: bytes = enc.encrypt(content)
-        message: str = dec.decrypt(secret)
+    os.remove(path_content_from)
+    os.remove(path_content_to)
 
-        assert content == message
+    assert content_from == content_to
+
+
+def test_hybrid_encryption():
+    private_key: RSAPrivateKey = generate_asymmetric_key()
+    public_key: RSAPublicKey = private_key.public_key()
+
+    content: str = _random_string(1234)
+
+    enc = HybridEncrypter(public_key)
+    dec = HybridDecrypter(private_key)
+
+    secret: bytes = enc.encrypt(content)
+    message: str = dec.decrypt(secret)
+
+    assert content == message

@@ -32,7 +32,7 @@ class ArtifactService(DBSessionService):
             select(func.count()).select_from(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id)
         )
 
-        if existing > 0:
+        if existing:
             raise ValueError("artifact already exists!")
 
         self.session.add(db_artifact)
@@ -50,9 +50,10 @@ class ArtifactService(DBSessionService):
         return res
 
     async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> None:
-        artifact: ArtifactDB = await self.session.scalar(
-            select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id)
-        )
+        """Can raise NoResultException."""
+        res = await self.session.execute(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id))
+
+        artifact: ArtifactDB = res.scalar_one()
         artifact.status = new_status.name
 
         await self.session.commit()

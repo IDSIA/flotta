@@ -12,20 +12,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_jobs_next(async_session: AsyncSession):
+async def test_jobs_next(session: AsyncSession):
     artifact_id_1: str = "artifact1"
     artifact_id_2: str = "artifact2"
     client_id_1: str = "client1"
     client_id_2: str = "client2"
 
-    async_session.add(
+    session.add(
         Artifact(
             artifact_id=artifact_id_1,
             path=".",
             status="",
         )
     )
-    async_session.add(
+    session.add(
         Artifact(
             artifact_id=artifact_id_2,
             path=".",
@@ -33,7 +33,7 @@ async def test_jobs_next(async_session: AsyncSession):
         )
     )
 
-    async_session.add(
+    session.add(
         Component(
             component_id=client_id_1,
             version="test",
@@ -45,7 +45,7 @@ async def test_jobs_next(async_session: AsyncSession):
             type_name=TYPE_CLIENT,
         )
     )
-    async_session.add(
+    session.add(
         Component(
             component_id=client_id_2,
             version="test",
@@ -58,9 +58,9 @@ async def test_jobs_next(async_session: AsyncSession):
         )
     )
 
-    await async_session.commit()
+    await session.commit()
 
-    js: JobService = JobService(async_session)
+    js: JobService = JobService(session)
 
     sc_1 = await js.schedule_job(artifact_id_1, client_id_1)
     sc_2 = await js.schedule_job(artifact_id_1, client_id_2)
