@@ -1,3 +1,5 @@
+from ferdelance.database.tables import Project as ProjectDB
+
 from ferdelance.shared.artifacts import (
     DataSource,
     Artifact,
@@ -7,12 +9,10 @@ from ferdelance.shared.schemas import (
     ClientDetails,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
-    WorkbenchDataSourceList,
     WorkbenchProject,
     WorkbenchProjectDescription,
     WorkbenchDataSourceIdList,
     WorkbenchClientList,
-    AggregatedDataSource,
 )
 from ferdelance.shared.exchange import Exchange
 
@@ -319,9 +319,9 @@ class Context:
             self.exc.stream_response_to_file(res, path)
         return path
 
-    def load_project(self, project_token: str) -> WorkbenchProject:
+    def load(self, project_token: str) -> ProjectDB:
         res = requests.get(
-            f"{self.server}/workbench/projects",
+            f"{self.server}/workbench/project",
             headers=self.exc.headers(),
             data=self.exc.create_payload({"project_token": project_token}),
         )

@@ -25,17 +25,35 @@ class WorkbenchDataSourceIdList(BaseModel):
     datasource_ids: list[str]
 
 
-class WorkbenchDataSourceList(BaseModel):
-    datasources: list[DataSource]
+class WorkbenchFeature(BaseModel):
+    pass
+
+
+class WorkbenchDataSource(BaseModel):
+
+    component_id: str
+    datasource_id: str
+    name: str
+    n_features: int
+
+    # features: list[Feature]
+    # features_by_id: dict[str, Feature] = dict()
+    # features_by_name: dict[str, Feature] = dict()
 
 
 class WorkbenchProject(BaseModel):
+
     project_id: str
     name: str
+
     creation_time: str
+
     token: str
+
     valid: bool
     active: bool
+
+    datasources: list[WorkbenchDataSource]
 
 
 class WorkbenchProjectDescription(BaseModel):

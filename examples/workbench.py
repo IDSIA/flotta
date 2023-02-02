@@ -9,7 +9,7 @@ from ferdelance.shared.models import (
     ParametersRandomForestClassifier,
     StrategyRandomForestClassifier,
 )
-from ferdelance.workbench import Context, Project
+from ferdelance.workbench.context import Context
 
 # %% create the context
 ctx = Context("http://localhost:1456")

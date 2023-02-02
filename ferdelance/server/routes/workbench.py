@@ -1,3 +1,6 @@
+from ferdelance.database.tables import Project as ProjectDB
+from ferdelance.shared.schemas.workbench import WorkbenchProject, WorkbenchDataSource
+
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_USER
@@ -25,7 +28,6 @@ from ferdelance.shared.schemas import (
     ClientDetails,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
-    WorkbenchDataSourceList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchProjectDescription,
@@ -410,37 +412,7 @@ async def wb_get_partial_model(
         raise HTTPException(500)
 
 
-@workbench_router.get("/workbench/projects/list", response_class=Response)
-async def wb_get_projects_list(
-    request: Request, session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)
-):
-    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
-
-    pss: ProjectService = ProjectService(session)
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(user.public_key)
-
-    data = await ss.read_request(request)
-    token_list = data["project_tokens"]
-
-    invalid_tokens: list[str] = []
-    projects: list[WorkbenchProject] = []
-    for token in token_list:
-        try:
-            project = await pss.get_by_token(token=token)
-            projects.append(WorkbenchProject(**project.dict()))
-        except NoResultFound as _:
-            invalid_tokens.append(token)
-
-    LOGGER.info(f"found {len(projects)} project(s). Invalid tokens: {invalid_tokens}")
-
-    wbpl = WorkbenchProjectList(projects=projects)
-
-    return ss.create_response(wbpl.dict())
-
-
-@workbench_router.get("/workbench/projects", response_class=Response)
+@workbench_router.get("/workbench/project", response_class=Response)
 async def wb_get_project(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -457,16 +429,20 @@ async def wb_get_project(
     project_token: str = data["project_token"]
 
     try:
-        project = await pss.get_by_token(token=project_token)
+        project: ProjectDB = await pss.get_by_token(token=project_token)
     except NoResultFound as _:
         LOGGER.warning(f"invalid name + token combination for project token {project_token}")
         raise HTTPException(404)
 
     LOGGER.info(f"Loaded project {project}")
 
-    wbpl = WorkbenchProject(**{k: str(v) for k, v in project.dict().items()})
+    res: WorkbenchProject = WorkbenchProject(
+        **project.__dict__,
+        creation_time=str(project.creation_time),
+        datasources=[WorkbenchDataSource(**ds.__dict__) for ds in project.datasources],
+    )
 
-    return ss.create_response(wbpl.dict())
+    return ss.create_response(res.dict())
 
 
 @workbench_router.get("/workbench/projects/descr", response_class=Response)

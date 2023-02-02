@@ -103,11 +103,13 @@ class ProjectService(DBSessionService):
         res: ProjectDB = query.scalar_one()
         return view(res)
 
-    async def get_by_token(self, token: str) -> Project:
+    async def get_by_token(self, token: str) -> ProjectDB:
         """Can raise NoResultsException."""
-        query = await self.session.execute(select(ProjectDB).where(ProjectDB.token == token))
+        query = await self.session.execute(
+            select(ProjectDB).where(ProjectDB.token == token).options(selectinload(ProjectDB.datasources))
+        )
         res: ProjectDB = query.scalar_one()
-        return view(res)
+        return res
 
     async def get_by_name_and_token(self, name: str, token: str) -> Project:
         """Can raise NoResultsException."""
