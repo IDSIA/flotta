@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, String, DateTime, Integer, Float
+from __future__ import annotations
+
+from sqlalchemy import ForeignKey, String, DateTime, Integer, Float, Table, Column
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
@@ -155,26 +157,6 @@ class Model(Base):
     component = relationship("Component")
 
 
-class DataSource(Base):
-    """Table that collects the data source available on each client."""
-
-    __tablename__ = "datasources"
-
-    datasource_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
-
-    name: Mapped[str] = mapped_column(String)
-
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    removed: Mapped[bool] = mapped_column(default=False)
-
-    n_records: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    n_features: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
-    component = relationship("Component")
-
-
 class Feature(Base):
     """Table that collects all metadata sent by the client."""
 
@@ -200,10 +182,16 @@ class Feature(Base):
     update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     removed: Mapped[bool] = mapped_column(default=False)
 
-    datasource_name: Mapped[str] = mapped_column(String)
+    datasource_id: Mapped[int] = mapped_column(ForeignKey("datasources.datasource_id"))
+    datasource: Mapped["DataSource"] = relationship(back_populates="features")
 
-    datasource_id: Mapped[str] = mapped_column(String(36), ForeignKey("datasources.datasource_id"))
-    datasource = relationship("DataSource")
+
+project_datasource = Table(
+    "project_datasource",
+    Base.metadata,
+    Column("project_id", ForeignKey("projects.project_id")),
+    Column("datasource_id", ForeignKey("datasources.datasource_id")),
+)
 
 
 class Project(Base):
@@ -221,14 +209,27 @@ class Project(Base):
     valid: Mapped[bool] = mapped_column(default=True)
     active: Mapped[bool] = mapped_column(default=True)
 
+    datasources: Mapped[list["DataSource"]] = relationship(secondary=project_datasource, back_populates="projects")
 
-class ProjectDataSource(Base):
-    """Connection table between projects and datasource."""
 
-    __tablename__ = "project_datasources"
+class DataSource(Base):
+    """Table that collects the data source available on each client."""
 
-    project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.project_id"), primary_key=True)
-    project = relationship("Project")
+    __tablename__ = "datasources"
 
-    datasource_id: Mapped[str] = mapped_column(String(36), ForeignKey("datasources.datasource_id"), primary_key=True)
-    datasource = relationship("DataSource")
+    datasource_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+
+    name: Mapped[str] = mapped_column(String)
+
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    removed: Mapped[bool] = mapped_column(default=False)
+
+    n_records: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    n_features: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
+    component = relationship("Component")
+
+    projects: Mapped[list["Project"]] = relationship(secondary=project_datasource, back_populates="datasources")
+    features: Mapped[list["Feature"]] = relationship(back_populates="datasource")

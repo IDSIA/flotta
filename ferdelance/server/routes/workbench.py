@@ -7,7 +7,6 @@ from ferdelance.database.services import (
     DataSourceService,
     ModelService,
     ProjectService,
-    DataSourceProjectService,
 )
 from ferdelance.database.schemas import Component, Model, Client, Token, DataSource as DataSourceView
 from ferdelance.server.security import check_token
@@ -479,7 +478,6 @@ async def wb_get_project_descr(
     LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
 
     pss: ProjectService = ProjectService(session)
-    dsps: DataSourceProjectService = DataSourceProjectService(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(user.public_key)
@@ -488,19 +486,7 @@ async def wb_get_project_descr(
     project_token: str = data["project_token"]
 
     try:
-        datasources = await dsps.get_datasources_by_project(project_token == project_token)
+        raise NotImplementedError()
     except NoResultFound as _:
         LOGGER.warning(f"invalid name + token combination for project name {project_name} and token {project_token}")
         raise HTTPException(404)
-
-    wbpd: WorkbenchProjectDescription = WorkbenchProjectDescription(
-        **{
-            **project.dict(),
-            "n_datasources": len(datasources),
-            "avg_n_features": sum([ds.n_features for ds in datasources]) / len(datasources),
-        }
-    )
-
-    LOGGER.info(f"Loaded project description for: {project}")
-
-    return ss.create_response(wbpd.dict())

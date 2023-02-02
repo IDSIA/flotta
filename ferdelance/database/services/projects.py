@@ -5,9 +5,9 @@ from sqlalchemy.exc import NoReferenceError
 
 from ferdelance.database.schemas import Project
 from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.database.services.datasource import DataSourceService
 from ferdelance.database.services.tokens import TokenService
-from ferdelance.database.tables import Project as ProjectDB
-from ferdelance.database.tables import ProjectDataSource as ProjectDataSourceDB
+from ferdelance.database.tables import DataSource, Project as ProjectDB
 from ferdelance.shared.artifacts import Metadata
 
 
@@ -27,6 +27,7 @@ class ProjectService(DBSessionService):
         super().__init__(session)
 
         self.ts: TokenService = TokenService(session)
+        self.dss: DataSourceService = DataSourceService(session)
 
     async def create(self, name: str = "", token: str | None = None) -> str:
 
@@ -47,23 +48,31 @@ class ProjectService(DBSessionService):
     async def add_datasource(self, datasource_id: str, project_id: str) -> None:
         """Can raise ValueError."""
         try:
-            pds = ProjectDataSourceDB(
-                project_id=project_id,
-                datasource_id=datasource_id,
-            )
 
-            self.session.add(pds)
+            ds: DataSource = await self.session.scalar(
+                select(DataSource).where(DataSource.datasource_id == datasource_id)
+            )
+            p: ProjectDB = await self.session.scalar(select(ProjectDB).where(ProjectDB.project_id == project_id))
+
+            p.datasources.append(ds)
+
+            self.session.add(p)
             await self.session.commit()
 
         except NoReferenceError:
             raise ValueError()
 
     async def add_datasources_from_metadata(self, metadata: Metadata) -> None:
-        for ds in metadata.datasources:
-            if not ds.tokens:
+        for mdds in metadata.datasources:
+
+            ds: DataSource = await self.session.scalar(
+                select(DataSource).where(DataSource.datasource_id == mdds.datasource_id)
+            )
+
+            if not mdds.tokens:
                 continue
 
-            res = await self.session.scalars(select(ProjectDB.project_id).filter(ProjectDB.token.in_(ds.tokens)))
+            res = await self.session.scalars(select(ProjectDB.project_id).filter(ProjectDB.token.in_(mdds.tokens)))
             project_ids: list[str] = list(res.all())
 
             if not project_ids:
@@ -71,12 +80,9 @@ class ProjectService(DBSessionService):
                 continue
 
             for project_id in project_ids:
-                self.session.add(
-                    ProjectDataSourceDB(
-                        project_id=project_id,
-                        datasource_id=ds.datasource_id,
-                    )
-                )
+                p: ProjectDB = await self.session.scalar(select(ProjectDB).where(ProjectDB.project_id == project_id))
+                p.datasources.append(ds)
+                self.session.add(p)
 
             await self.session.commit()
 

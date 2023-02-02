@@ -1,4 +1,4 @@
-from ferdelance.database.tables import DataSource, Feature, ProjectDataSource, Project
+from ferdelance.database.tables import DataSource, Feature, Project
 from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.schemas import DataSource as DataSourceView
@@ -140,8 +140,7 @@ class DataSourceService(DBSessionService):
                 v_miss=f.v_miss,
                 v_max=f.v_max,
                 removed=remove,
-                datasource_id=ds.datasource_id,
-                datasource_name=ds.name,
+                datasource=ds,
             )
 
             self.session.add(f_db)
@@ -232,10 +231,10 @@ class DataSourceService(DBSessionService):
         )
         return list(res.all())
 
-    async def get_tokens_by_datasource(self, ds: DataSourceView) -> list[str]:
-        res = await self.session.scalars(
-            select(Project.token)
-            .join(ProjectDataSource, ProjectDataSource.project_id == Project.project_id)
-            .where(ProjectDataSource.datasource_id == ds.datasource_id)
-        )
-        return list(res.all())
+    # async def get_tokens_by_datasource(self, ds: DataSourceView) -> list[str]:
+    #     res = await self.session.scalars(
+    #         select(Project.token)
+    #         .join(, .project_id == Project.project_id)
+    #         .where(.datasource_id == ds.datasource_id)
+    #     )
+    #     return list(res.all())
