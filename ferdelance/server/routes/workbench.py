@@ -18,7 +18,7 @@ from ferdelance.server.services import (
     SecurityService,
 )
 from ferdelance.standalone.services import JobManagementLocalService
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     DataSource,
     Feature,
     ArtifactStatus,

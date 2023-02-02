@@ -1,4 +1,4 @@
-from ferdelance.shared.artifacts import Metadata, MetaDataSource, MetaFeature
+from ferdelance.schemas.artifacts import Metadata, MetaDataSource, MetaFeature
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.schemas import ClientJoinData, ClientJoinRequest
 

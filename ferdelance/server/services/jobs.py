@@ -10,8 +10,8 @@ from ferdelance.database.services import (
     ComponentService,
 )
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
-from ferdelance.shared.artifacts import Artifact, ArtifactStatus
-from ferdelance.shared.models import Metrics
+from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
+from ferdelance.schemas.models import Metrics
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 from ferdelance.worker.tasks import aggregation
 

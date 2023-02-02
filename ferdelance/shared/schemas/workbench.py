@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from ferdelance.shared.artifacts import DataSource
+from ferdelance.schemas.artifacts import DataSource
 
 
 class WorkbenchJoinRequest(BaseModel):

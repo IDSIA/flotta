@@ -20,7 +20,7 @@ from ferdelance.server.services import (
 from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     MetaFeature,
     Metadata,
     MetaDataSource,
@@ -31,7 +31,7 @@ from ferdelance.shared.schemas import (
     DownloadApp,
     UpdateExecute,
 )
-from ferdelance.shared.models import Metrics
+from ferdelance.schemas.models import Metrics
 from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import (

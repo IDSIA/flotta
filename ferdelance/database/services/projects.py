@@ -3,7 +3,7 @@ from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.datasource import DataSourceService
 from ferdelance.database.services.tokens import TokenService
 from ferdelance.database.tables import DataSource, Project as ProjectDB
-from ferdelance.shared.artifacts import Metadata
+from ferdelance.schemas.artifacts import Metadata
 
 from sqlalchemy import select, and_
 from sqlalchemy.exc import NoReferenceError

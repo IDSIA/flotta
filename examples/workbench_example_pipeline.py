@@ -1,6 +1,6 @@
 # %%
 from ferdelance.workbench.context import Context
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     Dataset,
     Query,
     DataSource,

@@ -8,7 +8,7 @@ from ferdelance.database.tables import (
     Model as ModelDB,
 )
 from ferdelance.server.api import api
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
     Metadata,
@@ -17,7 +17,7 @@ from ferdelance.shared.artifacts import (
     QueryFeature,
 )
 from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.models import Model
+from ferdelance.schemas.models import Model
 from ferdelance.shared.status import JobStatus
 
 from tests.utils import (

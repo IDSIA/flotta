@@ -1,6 +1,6 @@
 from ferdelance.database.tables import Project as ProjectDB
 
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     DataSource,
     Artifact,
     ArtifactStatus,

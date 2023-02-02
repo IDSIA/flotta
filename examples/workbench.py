@@ -3,8 +3,8 @@ import json
 
 import numpy as np
 
-from ferdelance.shared.artifacts import Artifact, ArtifactStatus, Dataset, DataSource, Query
-from ferdelance.shared.models import (
+from ferdelance.schemas.artifacts import Artifact, ArtifactStatus, Dataset, DataSource, Query
+from ferdelance.schemas.models import (
     FederatedRandomForestClassifier,
     ParametersRandomForestClassifier,
     StrategyRandomForestClassifier,

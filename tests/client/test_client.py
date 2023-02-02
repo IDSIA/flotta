@@ -17,7 +17,7 @@ from ferdelance.database.schemas import (
 )
 from ferdelance.server.api import api
 from ferdelance.shared.actions import Action
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
     Dataset,
@@ -26,9 +26,9 @@ from ferdelance.shared.artifacts import (
     QueryFeature,
     QueryFilter,
 )
-from ferdelance.shared.artifacts.operations import Operations
+from ferdelance.schemas.artifacts.operations import Operations
 from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.models import Model
+from ferdelance.schemas.models import Model
 from ferdelance.shared.schemas import (
     ClientUpdate,
     ClientJoinRequest,

@@ -1,28 +1,23 @@
 __all__ = [
-    'apply_transformer',
-    'save',
-    'load',
-    'Transformer',
-
-    'FederatedPipeline',
-
-    'FederatedMinMaxScaler',
-    'FederatedStandardScaler',
-
-    'FederatedKBinsDiscretizer',
-    'FederatedBinarizer',
-    'FederatedLabelBinarizer',
-    'FederatedOneHotEncoder',
-    'FederatedClamp',
-
-    'FederatedSimpleImputer',
-
-    'FederatedDrop',
-    'FederatedRename',
+    "apply_transformer",
+    "save",
+    "load",
+    "Transformer",
+    "FederatedPipeline",
+    "FederatedMinMaxScaler",
+    "FederatedStandardScaler",
+    "FederatedKBinsDiscretizer",
+    "FederatedBinarizer",
+    "FederatedLabelBinarizer",
+    "FederatedOneHotEncoder",
+    "FederatedClamp",
+    "FederatedSimpleImputer",
+    "FederatedDrop",
+    "FederatedRename",
 ]
 
 from typing import Any
-from ferdelance.shared.artifacts import QueryTransformer
+from ferdelance.schemas.artifacts import QueryTransformer
 
 from .core import (
     Transformer,
@@ -75,10 +70,10 @@ def rebuild_pipeline(query_transformer: QueryTransformer) -> FederatedPipeline:
 
     params = query_transformer.params()
 
-    for stage in params['stages']:
+    for stage in params["stages"]:
         qt = QueryTransformer(**stage)
 
-        if stage['name'] == 'FederatedPipeline':
+        if stage["name"] == "FederatedPipeline":
             transformer = rebuild_pipeline(qt)
         else:
             transformer = rebuild_transformer(qt)
@@ -90,7 +85,7 @@ def rebuild_pipeline(query_transformer: QueryTransformer) -> FederatedPipeline:
 
 def apply_transformer(query_transformer: QueryTransformer, df: pd.DataFrame) -> pd.DataFrame:
 
-    if query_transformer.name == 'FederatedPipeline':
+    if query_transformer.name == "FederatedPipeline":
         transformer = rebuild_pipeline(query_transformer)
 
     else:

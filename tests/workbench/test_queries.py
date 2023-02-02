@@ -1,5 +1,5 @@
-from ferdelance.shared.artifacts import Feature, Query, QueryFilter, DataSource
-from ferdelance.shared.artifacts.operations import Operations
+from ferdelance.schemas.artifacts import Feature, Query, QueryFilter, DataSource
+from ferdelance.schemas.artifacts.operations import Operations
 
 DS1_NAME, DS1_ID = "data_source_1", "ds1"
 DS2_NAME, DS2_ID = "data_source_2", "ds2"

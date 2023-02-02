@@ -1,8 +1,8 @@
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     Artifact,
     Dataset,
 )
-from ferdelance.shared.models import (
+from ferdelance.schemas.models import (
     FederatedRandomForestClassifier,
     StrategyRandomForestClassifier,
     ParametersRandomForestClassifier,

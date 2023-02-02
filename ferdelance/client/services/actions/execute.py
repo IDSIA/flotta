@@ -1,8 +1,8 @@
 from ferdelance.client.config import Config
 from ferdelance.client.services.actions.action import Action
 from ferdelance.client.services.routes import RouteService
-from ferdelance.shared.artifacts import Artifact
-from ferdelance.shared.models import model_creator
+from ferdelance.schemas.artifacts import Artifact
+from ferdelance.schemas.models import model_creator
 from ferdelance.shared.schemas import UpdateExecute
 from ferdelance.shared.transformers import apply_transformer
 

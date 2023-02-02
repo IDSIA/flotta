@@ -5,7 +5,7 @@ from ferdelance.database.services import ModelService
 from ferdelance.database.schemas import Component, Model
 from ferdelance.server.services import JobManagementService
 from ferdelance.server.security import check_token
-from ferdelance.shared.artifacts import Artifact, ArtifactStatus
+from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse

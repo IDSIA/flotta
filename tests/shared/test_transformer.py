@@ -1,5 +1,5 @@
 from ferdelance.shared.transformers import Transformer
-from ferdelance.shared.artifacts import QueryTransformer, QueryFeature
+from ferdelance.schemas.artifacts import QueryTransformer, QueryFeature
 
 
 def test_ft_build():

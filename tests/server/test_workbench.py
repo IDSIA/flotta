@@ -2,7 +2,7 @@ from ferdelance.config import conf
 from ferdelance.database.services import ComponentService
 from ferdelance.database.schemas import Component
 from ferdelance.server.api import api
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
     Dataset,
@@ -12,7 +12,7 @@ from ferdelance.shared.artifacts import (
     QueryFeature,
 )
 from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.models import Model
+from ferdelance.schemas.models import Model
 from ferdelance.shared.schemas import (
     ClientDetails,
     WorkbenchJoinRequest,
