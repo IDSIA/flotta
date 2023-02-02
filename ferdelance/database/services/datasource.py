@@ -1,4 +1,4 @@
-from ferdelance.database.tables import DataSource, Feature
+from ferdelance.database.tables import DataSource, Feature, Project
 from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.schemas import DataSource as DataSourceView
@@ -33,15 +33,18 @@ class DataSourceService(DBSessionService):
 
     async def create_or_update_metadata(self, client_id: str, metadata: Metadata) -> None:
         for ds in metadata.datasources:
-            await self.create_or_update_datasource(client_id, ds)
+            await self.create_or_update_datasource(client_id, ds, False)
+        await self.session.commit()
 
-    async def create_or_update_datasource(self, client_id: str, ds: MetaDataSource) -> DataSource:
+        LOGGER.info(f"client_id={client_id}: added {len(metadata.datasources)} new datasources")
+
+    async def create_or_update_datasource(self, client_id: str, ds: MetaDataSource, commit: bool = True) -> DataSource:
         dt_now = datetime.now()
 
         res = await self.session.execute(
             select(DataSource).where(
                 DataSource.component_id == client_id,
-                DataSource.name == ds.name,
+                DataSource.datasource_hash == ds.datasource_hash,
             )
         )
 
@@ -52,8 +55,11 @@ class DataSourceService(DBSessionService):
             # create a new data source for this client
             LOGGER.info(f"client_id={client_id}: creating new data source={ds.name}")
 
+            ds.datasource_id = str(uuid4())
+
             ds_db = DataSource(
-                datasource_id=str(uuid4()),
+                datasource_id=ds.datasource_id,
+                datasource_hash=ds.datasource_hash,
                 name=ds.name,
                 n_records=ds.n_records,
                 n_features=ds.n_features,
@@ -98,13 +104,12 @@ class DataSourceService(DBSessionService):
                 ds_db.n_features = ds.n_features
                 ds_db.update_time = dt_now
 
-        await self.session.commit()
-        await self.session.refresh(ds_db)
-
         for f in ds.features:
             await self.create_or_update_feature(ds_db, f, ds.removed, commit=False)
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
+            await self.session.refresh(ds_db)
 
         return ds_db
 
@@ -138,8 +143,7 @@ class DataSourceService(DBSessionService):
                 v_miss=f.v_miss,
                 v_max=f.v_max,
                 removed=remove,
-                datasource_id=ds.datasource_id,
-                datasource_name=ds.name,
+                datasource=ds,
             )
 
             self.session.add(f_db)
@@ -229,3 +233,11 @@ class DataSourceService(DBSessionService):
             )
         )
         return list(res.all())
+
+    # async def get_tokens_by_datasource(self, ds: DataSourceView) -> list[str]:
+    #     res = await self.session.scalars(
+    #         select(Project.token)
+    #         .join(, .project_id == Project.project_id)
+    #         .where(.datasource_id == ds.datasource_id)
+    #     )
+    #     return list(res.all())

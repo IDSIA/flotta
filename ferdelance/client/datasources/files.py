@@ -7,8 +7,9 @@ import pandas as pd
 
 
 class DataSourceFile(DataSource):
-    def __init__(self, datasource_id: str, name: str, type: str, path: str, token: str = "") -> None:
-        super().__init__(datasource_id, name, type, token)
+    def __init__(self, name: str, type: str, path: str, tokens: list[str] = list()) -> None:
+        super().__init__(name, type, path, tokens)
+
         self.path: Path = Path(path)
 
     def get(self) -> pd.DataFrame:
@@ -19,7 +20,7 @@ class DataSourceFile(DataSource):
         elif extension == ".tsv":
             return pd.read_csv(self.path, sep="\t")
 
-        raise NotImplemented(f"Don't know how to load {extension} format")
+        raise ValueError(f"Don't know how to load {extension} format")
 
     def dump(self) -> dict[str, str]:
         return super().dump() | {
@@ -40,7 +41,7 @@ class DataSourceFile(DataSource):
 
             if feature in df_desc:
                 f = MetaFeature(
-                    datasource_id=self.datasource_id,
+                    datasource_hash=self.datasource_hash,
                     name=str(feature),
                     dtype=dtype,
                     v_mean=df_desc[feature]["mean"],
@@ -54,7 +55,7 @@ class DataSourceFile(DataSource):
                 )
             else:
                 f = MetaFeature(
-                    datasource_id=self.datasource_id,
+                    datasource_hash=self.datasource_hash,
                     name=str(feature),
                     dtype=dtype,
                     v_mean=None,
@@ -69,10 +70,11 @@ class DataSourceFile(DataSource):
             features.append(f)
 
         return MetaDataSource(
-            datasource_id=self.datasource_id,
+            datasource_hash=self.datasource_hash,
             name=self.name,
             removed=False,
             n_records=n_records,
             n_features=n_features,
             features=features,
+            tokens=self.tokens,
         )

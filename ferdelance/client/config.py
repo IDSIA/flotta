@@ -38,19 +38,26 @@ class Config:
         self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
 
         for ds in args.datasources:
-            datasource_id = str(uuid.uuid4())
+            if ds.token is None:
+                tokens = list()
+            elif isinstance(ds.token, str):
+                tokens = [ds.token]
+            else:
+                tokens = ds.token
 
             if ds.kind == "db":
                 if ds.conn is None:
                     LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
                     continue
-                self.datasources[datasource_id] = DataSourceDB(datasource_id, ds.name, ds.type, ds.conn, ds.token)
+                datasource = DataSourceDB(ds.name, ds.type, ds.conn, tokens)
+                self.datasources[datasource.datasource_hash] = datasource
 
             if ds.kind == "file":
                 if ds.path is None:
                     LOGGER.error(f"Missing path for datasource with name={ds.conn}")
                     continue
-                self.datasources[datasource_id] = DataSourceFile(datasource_id, ds.name, ds.type, ds.path, ds.token)
+                datasource = DataSourceFile(ds.name, ds.type, ds.path, tokens)
+                self.datasources[datasource.datasource_hash] = datasource
 
         if not self.datasources:
             LOGGER.error("No valid datasource available!")
@@ -91,6 +98,9 @@ class Config:
             self.client_id = props["client_id"]
             self.client_token = props["client_token"]
             self.server_public_key = props["server_public_key"]
+
+            self.exc.set_token(self.client_token)
+            self.exc.set_remote_key(self.server_public_key)
 
     def dump_props(self):
         """Save current configuration to a file in the working directory."""

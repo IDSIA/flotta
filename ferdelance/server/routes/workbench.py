@@ -1,3 +1,6 @@
+from ferdelance.database.tables import Project as ProjectDB
+from ferdelance.shared.schemas.workbench import WorkbenchProject, WorkbenchDataSource
+
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_USER
@@ -6,6 +9,7 @@ from ferdelance.database.services import (
     ComponentService,
     DataSourceService,
     ModelService,
+    ProjectService,
 )
 from ferdelance.database.schemas import Component, Model, Client, Token, DataSource as DataSourceView
 from ferdelance.server.security import check_token
@@ -24,9 +28,10 @@ from ferdelance.shared.schemas import (
     ClientDetails,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
-    WorkbenchDataSourceList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
+    WorkbenchProjectDescription,
+    WorkbenchProject,
 )
 from ferdelance.shared.decode import decode_from_transfer
 
@@ -188,12 +193,14 @@ async def wb_get_client_datasource(
         ds_session: DataSourceView = await dss.get_datasource_by_id(ds_id)
 
         f_session = await dss.get_features_by_datasource(ds_session)
+        tokens = await dss.get_tokens_by_datasource(ds_session)
 
         fs = [Feature(**f.__dict__) for f in f_session if not f.removed]
 
         ds = DataSource(
             **ds_session.__dict__,
             features=fs,
+            tokens=tokens,
         )
 
         return ss.create_response(ds.dict())
@@ -403,3 +410,59 @@ async def wb_get_partial_model(
             f"multiple partial models found for artifact_id={artifact_id} and user_id={builder_user_id}"
         )  # TODO: do we want to allow this?
         raise HTTPException(500)
+
+
+@workbench_router.get("/workbench/project", response_class=Response)
+async def wb_get_project(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    user: Component = Depends(check_access),
+):
+    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
+
+    pss: ProjectService = ProjectService(session)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.setup(user.public_key)
+
+    data = await ss.read_request(request)
+    project_token: str = data["project_token"]
+
+    try:
+        project: ProjectDB = await pss.get_by_token(token=project_token)
+    except NoResultFound as _:
+        LOGGER.warning(f"invalid name + token combination for project token {project_token}")
+        raise HTTPException(404)
+
+    LOGGER.info(f"Loaded project {project}")
+
+    res: WorkbenchProject = WorkbenchProject(
+        **project.__dict__,
+        creation_time=str(project.creation_time),
+        datasources=[WorkbenchDataSource(**ds.__dict__) for ds in project.datasources],
+    )
+
+    return ss.create_response(res.dict())
+
+
+@workbench_router.get("/workbench/projects/descr", response_class=Response)
+async def wb_get_project_descr(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    user: Component = Depends(check_access),
+):
+    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
+
+    pss: ProjectService = ProjectService(session)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.setup(user.public_key)
+
+    data = await ss.read_request(request)
+    project_token: str = data["project_token"]
+
+    try:
+        raise NotImplementedError()
+    except NoResultFound as _:
+        LOGGER.warning(f"invalid name + token combination for project name {project_name} and token {project_token}")
+        raise HTTPException(404)

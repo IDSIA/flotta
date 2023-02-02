@@ -27,7 +27,7 @@ def check_for_environment_variables(value: str | bool | int | float) -> Any:
 
 class DataSourceConfig(BaseModel):
     name: str
-    token: str
+    token: list[str] | str | None
     kind: str
     type: str
     conn: str | None = None

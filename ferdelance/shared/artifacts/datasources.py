@@ -11,10 +11,15 @@ from .queries import (
 class BaseDataSource(BaseModel):
     """Common information to all data sources."""
 
+    datasource_id: str | None
+    datasource_hash: str
+
     n_records: int | None
     n_features: int | None
 
     name: str
+
+    tokens: list[str]
 
 
 class DataSource(BaseDataSource):
@@ -84,7 +89,6 @@ class DataSource(BaseDataSource):
 class MetaDataSource(BaseDataSource):
     """Information on data source stored in the client."""
 
-    datasource_id: str
     removed: bool = False
 
     features: list[MetaFeature]
