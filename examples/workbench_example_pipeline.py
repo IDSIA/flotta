@@ -18,13 +18,13 @@ from ferdelance.shared.transformers import (
 )
 
 # %% create the context
-ctx = Context('http://ferdelance.artemis.idsia.ch')
+ctx = Context("http://ferdelance.artemis.idsia.ch")
 
 # %% ask the context for available metadata
 data_sources_id: list[str] = ctx.list_datasources()
 
-ds1: DataSource = ctx.datasource_by_id(data_sources_id[0])
-ds2: DataSource = ctx.datasource_by_id(data_sources_id[1])
+ds1: DataSource = ctx.get_datasource_by_id(data_sources_id[0])
+ds2: DataSource = ctx.get_datasource_by_id(data_sources_id[1])
 
 # %% develop a filter query
 q: Query = ds1.all_features()
@@ -43,22 +43,24 @@ rm = FederatedDrop(ohe.out[2])
 dsc = FederatedKBinsDiscretizer(f5, f5)
 le = FederatedLabelBinarizer(f9, f9)
 
-p = FederatedPipeline([
-    mms,
-    im,
-    cl,
-    bi,
-    ohe1,
-    ohe2,
-    rm,
-    dsc,
-    le,
-])
+p = FederatedPipeline(
+    [
+        mms,
+        im,
+        cl,
+        bi,
+        ohe1,
+        ohe2,
+        rm,
+        dsc,
+        le,
+    ]
+)
 
 # %% create dataset
 d = Dataset(
     test_percentage=0.2,
     val_percentage=0.1,
-    label='variety',
+    label="variety",
 )
 d.add_query(q)

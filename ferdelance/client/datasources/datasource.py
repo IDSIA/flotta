@@ -3,11 +3,12 @@ from typing import Any
 from ferdelance.shared.artifacts import MetaDataSource
 
 import pandas as pd
+import hashlib
 
 
 class DataSource:
-    def __init__(self, datasource_id: str, name: str, type: str, tokens: list[str] = list()) -> None:
-        self.datasource_id: str = datasource_id
+    def __init__(self, name: str, type: str, extra: str, tokens: list[str] = list()) -> None:
+        self.datasource_hash: str = hashlib.sha256(f"{name}{type}{extra}{tokens}".encode("utf8")).hexdigest()
         self.name: str = name
         self.type: str = type
         self.tokens: list[str] = tokens
