@@ -44,7 +44,7 @@ class DataSourceService(DBSessionService):
         res = await self.session.execute(
             select(DataSource).where(
                 DataSource.component_id == client_id,
-                DataSource.name == ds.name,
+                DataSource.datasource_hash == ds.datasource_hash,
             )
         )
 
@@ -55,8 +55,11 @@ class DataSourceService(DBSessionService):
             # create a new data source for this client
             LOGGER.info(f"client_id={client_id}: creating new data source={ds.name}")
 
+            ds.datasource_id = str(uuid4())
+
             ds_db = DataSource(
-                datasource_id=str(uuid4()),
+                datasource_id=ds.datasource_id,
+                datasource_hash=ds.datasource_hash,
                 name=ds.name,
                 n_records=ds.n_records,
                 n_features=ds.n_features,

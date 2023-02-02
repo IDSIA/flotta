@@ -218,6 +218,7 @@ class DataSource(Base):
     __tablename__ = "datasources"
 
     datasource_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    datasource_hash: Mapped[str] = mapped_column(String(64))
 
     name: Mapped[str] = mapped_column(String)
 

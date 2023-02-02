@@ -270,7 +270,7 @@ class Feature(BaseFeature):
 class MetaFeature(BaseFeature):
     """Information on features stored in the client."""
 
-    datasource_id: str
+    datasource_hash: str
     removed: bool = False
 
 

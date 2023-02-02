@@ -1,14 +1,15 @@
-import uuid
-
-from sqlalchemy import select, and_
-from sqlalchemy.exc import NoReferenceError
-
 from ferdelance.database.schemas import Project
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.datasource import DataSourceService
 from ferdelance.database.services.tokens import TokenService
 from ferdelance.database.tables import DataSource, Project as ProjectDB
 from ferdelance.shared.artifacts import Metadata
+
+from sqlalchemy import select, and_
+from sqlalchemy.exc import NoReferenceError
+from sqlalchemy.orm import selectinload
+
+import uuid
 
 
 def view(project: ProjectDB) -> Project:
@@ -48,11 +49,11 @@ class ProjectService(DBSessionService):
     async def add_datasource(self, datasource_id: str, project_id: str) -> None:
         """Can raise ValueError."""
         try:
+            res = await self.session.scalars(select(DataSource).where(DataSource.datasource_id == datasource_id))
+            ds: DataSource = res.one()
 
-            ds: DataSource = await self.session.scalar(
-                select(DataSource).where(DataSource.datasource_id == datasource_id)
-            )
-            p: ProjectDB = await self.session.scalar(select(ProjectDB).where(ProjectDB.project_id == project_id))
+            res = await self.session.scalars(select(ProjectDB).where(ProjectDB.project_id == project_id))
+            p: ProjectDB = res.one()
 
             p.datasources.append(ds)
 
@@ -65,9 +66,8 @@ class ProjectService(DBSessionService):
     async def add_datasources_from_metadata(self, metadata: Metadata) -> None:
         for mdds in metadata.datasources:
 
-            ds: DataSource = await self.session.scalar(
-                select(DataSource).where(DataSource.datasource_id == mdds.datasource_id)
-            )
+            res = await self.session.scalars(select(DataSource).where(DataSource.datasource_id == mdds.datasource_id))
+            ds: DataSource = res.one()
 
             if not mdds.tokens:
                 continue
@@ -80,7 +80,13 @@ class ProjectService(DBSessionService):
                 continue
 
             for project_id in project_ids:
-                p: ProjectDB = await self.session.scalar(select(ProjectDB).where(ProjectDB.project_id == project_id))
+                res = await self.session.scalars(
+                    select(ProjectDB)
+                    .where(ProjectDB.project_id == project_id)
+                    .options(selectinload(ProjectDB.datasources))
+                )
+                p: ProjectDB = res.one()
+
                 p.datasources.append(ds)
                 self.session.add(p)
 

@@ -66,6 +66,7 @@ def datasource1() -> DataSource:
     ]
     return DataSource(
         datasource_id=DS1_ID,
+        datasource_hash="1",
         name=DS1_NAME,
         n_records=1000,
         n_features=len(features),
@@ -81,6 +82,7 @@ def datasource2() -> DataSource:
     ]
     return DataSource(
         datasource_id=DS2_ID,
+        datasource_hash="2",
         name=DS2_NAME,
         n_records=1000,
         n_features=len(features),
