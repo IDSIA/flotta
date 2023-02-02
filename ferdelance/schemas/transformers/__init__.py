@@ -16,7 +16,6 @@ __all__ = [
     "FederatedRename",
 ]
 
-from typing import Any
 from ferdelance.schemas.artifacts import QueryTransformer
 
 from .core import (
