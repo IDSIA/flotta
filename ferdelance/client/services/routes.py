@@ -82,7 +82,7 @@ class RouteService:
         # return metadata
 
     def get_update(self, content: dict) -> tuple[Action, dict]:
-        LOGGER.info("requesting update")
+        LOGGER.debug("requesting update")
 
         res = get(
             f"{self.config.server}/client/update",
