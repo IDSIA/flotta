@@ -1,5 +1,5 @@
 from ferdelance.database.tables import Project as ProjectDB
-from ferdelance.shared.schemas.workbench import WorkbenchProject, WorkbenchDataSource
+from ferdelance.schemas.workbench import WorkbenchProject, WorkbenchDataSource
 
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
@@ -24,7 +24,7 @@ from ferdelance.schemas.artifacts import (
     ArtifactStatus,
     Artifact,
 )
-from ferdelance.shared.schemas import (
+from ferdelance.schemas import (
     ClientDetails,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,

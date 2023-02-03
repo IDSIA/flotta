@@ -1,7 +1,7 @@
 from typing import Any
 from ferdelance.client.config import Config, ConfigError
 from ferdelance.client.exceptions import ErrorClient
-from ferdelance.client.schemas import ArgumentsConfig
+from ferdelance.schemas.client import ArgumentsConfig
 
 from argparse import ArgumentParser
 
