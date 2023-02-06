@@ -1,4 +1,4 @@
-from ferdelance.shared.schemas import UpdateClientApp
+from ferdelance.schemas import UpdateClientApp
 
 from ferdelance.client.config import Config
 from ferdelance.client.services.actions.action import Action

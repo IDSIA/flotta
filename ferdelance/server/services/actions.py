@@ -9,7 +9,7 @@ from ferdelance.database.services import (
 )
 from ferdelance.database.services import ComponentService
 from ferdelance.shared.actions import Action
-from ferdelance.shared.schemas import (
+from ferdelance.schemas import (
     UpdateClientApp,
     UpdateExecute,
     UpdateNothing,

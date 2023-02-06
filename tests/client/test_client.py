@@ -29,7 +29,7 @@ from ferdelance.schemas.artifacts import (
 from ferdelance.schemas.artifacts.operations import Operations
 from ferdelance.shared.exchange import Exchange
 from ferdelance.schemas.models import Model
-from ferdelance.shared.schemas import (
+from ferdelance.schemas import (
     ClientUpdate,
     ClientJoinRequest,
     DownloadApp,

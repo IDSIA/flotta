@@ -25,7 +25,7 @@ from ferdelance.schemas.artifacts import (
     Metadata,
     MetaDataSource,
 )
-from ferdelance.shared.schemas import (
+from ferdelance.schemas import (
     ClientJoinRequest,
     ClientJoinData,
     DownloadApp,
