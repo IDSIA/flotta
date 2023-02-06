@@ -1,5 +1,6 @@
 from ferdelance.database.tables import Project as ProjectDB
 from ferdelance.schemas.workbench import WorkbenchProject, WorkbenchDataSource
+from ferdelance.schemas.project.core import Project, DataSource, Feature
 
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
@@ -30,8 +31,6 @@ from ferdelance.schemas import (
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
-    WorkbenchProjectDescription,
-    WorkbenchProject,
 )
 from ferdelance.shared.decode import decode_from_transfer
 
