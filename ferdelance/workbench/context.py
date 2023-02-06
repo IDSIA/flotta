@@ -5,7 +5,7 @@ from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.shared.schemas import (
+from ferdelance.schemas import (
     ClientDetails,
     WorkbenchJoinRequest,
     WorkbenchJoinData,

@@ -182,8 +182,8 @@ class Feature(Base):
     update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     removed: Mapped[bool] = mapped_column(default=False)
 
-    datasource_id: Mapped[int] = mapped_column(ForeignKey("datasources.datasource_id"))
-    datasource: Mapped["DataSource"] = relationship(back_populates="features")
+    datasource_id: Mapped[str] = mapped_column(ForeignKey("datasources.datasource_id"))
+    datasource: Mapped[DataSource] = relationship(back_populates="features")
 
 
 project_datasource = Table(
@@ -232,5 +232,5 @@ class DataSource(Base):
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
 
-    projects: Mapped[list["Project"]] = relationship(secondary=project_datasource, back_populates="datasources")
-    features: Mapped[list["Feature"]] = relationship(back_populates="datasource")
+    projects: Mapped[list[Project]] = relationship(secondary=project_datasource, back_populates="datasources")
+    features: Mapped[list[Feature]] = relationship(back_populates="datasource")

@@ -24,8 +24,9 @@ class QueryFeature(BaseModel):
     """Query feature to use in a query from the workbench."""
 
     feature_id: str
-    datasource_id: str
     feature_name: str
+
+    datasource_id: str
     datasource_name: str
 
     def __eq__(self, other: QueryFeature | Feature) -> bool:
@@ -132,6 +133,8 @@ class QueryTransformer(BaseModel):
 class BaseFeature(BaseModel):
     """Common information to all features."""
 
+    datasource_id: str
+
     name: str
     dtype: str | None
 
@@ -149,7 +152,6 @@ class Feature(BaseFeature):
     """Information for the workbench."""
 
     feature_id: str
-    datasource_id: str
     datasource_name: str
 
     def _filter(self, operation: Operations, value):

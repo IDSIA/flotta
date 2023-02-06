@@ -1,9 +1,9 @@
-import pytest
-
 from ferdelance.cli.fdl_suites.clients.functions import describe_client, list_clients
 from ferdelance.database import AsyncSession
 from ferdelance.database.tables import Component
 from ferdelance.database.schemas import Client as ClientView
+
+import pytest
 
 
 @pytest.mark.asyncio

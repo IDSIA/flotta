@@ -1,4 +1,4 @@
-from ferdelance.shared.transformers import Transformer
+from ferdelance.schemas.transformers import Transformer
 from ferdelance.schemas.artifacts import QueryTransformer, QueryFeature
 
 

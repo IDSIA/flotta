@@ -13,7 +13,7 @@ class LocalWorker(Process):
         # BaseManager.register('get_queue') TODO: maybe we need this? Already defined in the main...
         self.m = BaseManager(address=("", 14560))
         self.m.connect()
-        self.task_queue: Queue = self.m.get_queue()
+        self.task_queue: Queue = self.m.get_queue()  # type: ignore
         self.stop = False
 
         # TODO: connect/join/register on server

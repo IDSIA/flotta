@@ -11,7 +11,7 @@ from ferdelance.database.services import (
 from ferdelance.database.tables import (
     Application,
 )
-from ferdelance.database.schemas import Client, Model, DataSource
+from ferdelance.database.schemas import Client, Model
 from ferdelance.server.services import (
     ActionService,
     SecurityService,
@@ -20,12 +20,8 @@ from ferdelance.server.services import (
 from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
-from ferdelance.schemas.artifacts import (
-    MetaFeature,
-    Metadata,
-    MetaDataSource,
-)
-from ferdelance.shared.schemas import (
+from ferdelance.schemas.artifacts import Metadata
+from ferdelance.schemas import (
     ClientJoinRequest,
     ClientJoinData,
     DownloadApp,

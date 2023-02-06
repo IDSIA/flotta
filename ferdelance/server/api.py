@@ -1,4 +1,3 @@
-from ferdelance.config import conf
 from ferdelance.database import DataBase, Base
 from ferdelance.server.routes.client import client_router
 from ferdelance.server.routes.manager import manager_router
