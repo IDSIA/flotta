@@ -19,4 +19,4 @@ class JobManagementLocalService(JobManagementService):
     def _start_aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> None:
         LOGGER.info("standalone: starting local aggregation")
 
-        self.m.get_queue().put((token, artifact_id, model_ids))
+        self.m.get_queue().put((token, artifact_id, model_ids))  # type: ignore

@@ -50,6 +50,7 @@ from fastapi.testclient import TestClient
 
 from requests import Response
 from sqlalchemy import select, update, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import json
@@ -408,32 +409,27 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("setup artifact")
 
-        res = await session.execute(select(DataSource).where(DataSource.component_id == client_id))
-        ds_db: DataSource | None = res.scalar_one_or_none()
-
-        assert ds_db is not None
-
         res = await session.scalars(
-            select(Feature).where(Feature.datasource_id == ds_db.datasource_id, Feature.removed == False)
+            select(DataSource).where(DataSource.component_id == client_id).options(selectinload(DataSource.features))
         )
-        fs = list(res.all())
+        ds_db: DataSource = res.one()
 
-        assert len(fs) == 2
+        assert len(ds_db.features) == 2
 
-        f1: Feature = fs[0]
-        f2: Feature = fs[1]
+        f1: Feature = ds_db.features[0]
+        f2: Feature = ds_db.features[1]
 
         qf1 = QueryFeature(
             feature_id=f1.feature_id,
             feature_name=f1.name,
-            datasource_id=f1.datasource_id,
-            datasource_name=f1.datasource_name,
+            datasource_id=ds_db.datasource_id,
+            datasource_name=ds_db.name,
         )
         qf2 = QueryFeature(
             feature_id=f2.feature_id,
             feature_name=f2.name,
-            datasource_id=f2.datasource_id,
-            datasource_name=f2.datasource_name,
+            datasource_id=ds_db.datasource_id,
+            datasource_name=ds_db.name,
         )
 
         artifact = Artifact(

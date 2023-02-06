@@ -35,6 +35,12 @@ class ProjectService(DBSessionService):
         if token is None:
             token = await self.ts.project_token(name)
 
+        res = await self.session.scalars(select(ProjectDB).where(ProjectDB.token == token))
+        p = res.one_or_none()
+
+        if p is not None:
+            raise ValueError("A project with the given token already exists")
+
         project = ProjectDB(
             project_id=str(uuid.uuid4()),
             name=name,

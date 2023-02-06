@@ -1,6 +1,6 @@
 from ferdelance.schemas.artifacts import Metadata, MetaDataSource, MetaFeature
-from ferdelance.shared.exchange import Exchange
 from ferdelance.schemas import ClientJoinData, ClientJoinRequest
+from ferdelance.shared.exchange import Exchange
 
 from fastapi.testclient import TestClient
 from requests import Response
@@ -53,6 +53,7 @@ def get_metadata() -> Metadata:
         datasources=[
             MetaDataSource(
                 datasource_id=datasource_id,
+                datasource_hash="",
                 tokens=[""],
                 n_records=1000,
                 n_features=2,
@@ -61,6 +62,7 @@ def get_metadata() -> Metadata:
                 features=[
                     MetaFeature(
                         datasource_id=datasource_id,
+                        datasource_hash="",
                         name="feature1",
                         dtype="float",
                         v_mean=0.1,
@@ -74,6 +76,7 @@ def get_metadata() -> Metadata:
                     ),
                     MetaFeature(
                         datasource_id=datasource_id,
+                        datasource_hash="",
                         name="label",
                         dtype="int",
                         v_mean=0.8,

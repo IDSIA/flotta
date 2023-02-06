@@ -1,7 +1,7 @@
 from ferdelance import __version__
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
 from ferdelance.client.exceptions import ConfigError
-from ferdelance.client.schemas import ArgumentsConfig
+from ferdelance.schemas.client import ArgumentsConfig
 from ferdelance.shared.exchange import Exchange
 
 from getmac import get_mac_address

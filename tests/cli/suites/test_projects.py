@@ -1,11 +1,9 @@
-from typing import List
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
 from ferdelance.cli.fdl_suites.projects.functions import create_project, describe_project, list_projects
 from ferdelance.database.schemas import Project as ProjectView
 from ferdelance.database.tables import Project as ProjectDB
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 import pytest
 
@@ -27,12 +25,12 @@ async def test_projects_list(session: AsyncSession):
     session.add(p1)
     session.add(p2)
 
-    res: List[ProjectView] = await list_projects()
+    res: list[ProjectView] = await list_projects()
     assert len(res) == 0
 
     await session.commit()
 
-    res: List[ProjectView] = await list_projects()
+    res: list[ProjectView] = await list_projects()
     assert len(res) == 2
 
     assert res[0].name == "P1"

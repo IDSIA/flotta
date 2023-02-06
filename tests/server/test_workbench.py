@@ -1,6 +1,5 @@
 from ferdelance.config import conf
 from ferdelance.database.services import ComponentService
-from ferdelance.database.schemas import Component
 from ferdelance.server.api import api
 from ferdelance.schemas.artifacts import (
     Artifact,

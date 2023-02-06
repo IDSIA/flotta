@@ -1,4 +1,5 @@
 from ferdelance.database.tables import Project as ProjectDB
+from ferdelance.schemas.workbench import WorkbenchProject, WorkbenchDataSource
 from ferdelance.schemas.project.core import Project, DataSource, Feature
 
 from ferdelance.config import conf

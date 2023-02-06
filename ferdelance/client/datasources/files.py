@@ -70,6 +70,7 @@ class DataSourceFile(DataSource):
             features.append(f)
 
         return MetaDataSource(
+            datasource_id=None,
             datasource_hash=self.datasource_hash,
             name=self.name,
             removed=False,

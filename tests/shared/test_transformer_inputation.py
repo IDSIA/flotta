@@ -1,4 +1,4 @@
-from ferdelance.shared.transformers import (
+from ferdelance.schemas.transformers import (
     FederatedSimpleImputer,
 )
 from ferdelance.schemas.artifacts import QueryTransformer
