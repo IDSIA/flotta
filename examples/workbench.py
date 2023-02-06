@@ -1,15 +1,23 @@
 # %%
-import json
-
-import numpy as np
-
-from ferdelance.schemas.artifacts import Artifact, ArtifactStatus, Dataset, DataSource, Query
 from ferdelance.schemas.models import (
     FederatedRandomForestClassifier,
     ParametersRandomForestClassifier,
     StrategyRandomForestClassifier,
 )
 from ferdelance.workbench.context import Context
+from ferdelance.workbench.interface import (
+    Project,
+    Client,
+    Artifact,
+    ArtifactStatus,
+    DataSource,
+    AggregatedDataSource,
+)
+
+import numpy as np
+
+import json
+
 
 # %% create the context
 ctx = Context("http://localhost:1456")
