@@ -1,34 +1,38 @@
 from __future__ import annotations
-from pydantic import BaseModel
-from .queries import (
+
+from ferdelance.schemas.artifacts.queries import (
     Query,
     QueryFeature,
-    Feature,
-    MetaFeature,
 )
+
+from pydantic import BaseModel
+from datetime import datetime
 
 
 class BaseDataSource(BaseModel):
     """Common information to all data sources."""
 
-    datasource_id: str | None
-    datasource_hash: str
-
-    n_records: int | None
-    n_features: int | None
+    datasource_id: str
 
     name: str
 
-    tokens: list[str]
+    creation_time: datetime
+    update_time: datetime
+    removed: datetime
+
+    n_records: int
+    n_features: int
 
 
 class DataSource(BaseDataSource):
-    """Information for the workbench."""
+    # TODO: this need to keep track of everything through a query node
 
     client_id: str
-    datasource_id: str
 
-    features: list[Feature]
+    datasource_id: str
+    datasource_hash: str
+
+    features: list[Feature] = list()
     features_by_id: dict[str, Feature] = dict()
     features_by_name: dict[str, Feature] = dict()
 
@@ -86,15 +90,53 @@ class DataSource(BaseDataSource):
         return super().__str__() + f"client_id={self.client_id} features=[{self.features}]"
 
 
-class MetaDataSource(BaseDataSource):
-    """Information on data source stored in the client."""
+class Feature(BaseModel):
+    """Common information to all features."""
 
-    removed: bool = False
+    feature_id: str
+    name: str
 
-    features: list[MetaFeature]
+    datasource_id: str
+    datasource_name: str
 
+    dtype: str | None
 
-class Metadata(BaseModel):
-    """Information on data stored in the client."""
+    v_mean: float | None
+    v_std: float | None
+    v_min: float | None
+    v_p25: float | None
+    v_p50: float | None
+    v_p75: float | None
+    v_max: float | None
+    v_miss: float | None
 
-    datasources: list[MetaDataSource]
+    n_cats: int | None
+
+    def qf(self) -> QueryFeature:
+        return QueryFeature(
+            feature_id=self.feature_id,
+            datasource_id=self.datasource_id,
+            feature_name=self.name,
+            datasource_name=self.datasource_name,
+            dtype=self.dtype,
+        )
+
+    def info(self) -> str:
+        lines: list[str] = [
+            f"{self.name}",
+            f"Data type:            {self.dtype}",
+        ]
+
+        if self.dtype != "object":
+            lines += [
+                f"Value min:            {self.v_min:.2f}",
+                f"Value max:            {self.v_max:.2f}",
+                f"Mean:                 {self.v_mean:.2f}",
+                f"Std deviation:        {self.v_std:.2f}",
+                f"Value 25° percentile: {self.v_p25:.2f}",
+                f"Value 50° percentile: {self.v_p50:.2f}",
+                f"Value 75° percentile: {self.v_p75:.2f}",
+                f"Missing value:        {self.v_miss:.2f}",
+            ]
+
+        return "\n".join(lines)

@@ -1,6 +1,7 @@
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.schemas.database import ServerArtifact
+from ferdelance.schemas.artifacts import ArtifactStatus
 from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy import func, select
@@ -46,6 +47,23 @@ class ArtifactService(DBSessionService):
         res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
 
         return view(res.one())
+
+    async def get_artifact_path(self, artifact_id: str) -> str:
+        """Can raise NoResultException."""
+        res = await self.session.scalars(select(ArtifactDB.path).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+
+        return res.one()
+
+    async def get_status(self, artifact_id: str) -> ArtifactStatus:
+        """Can raise NoResultException."""
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+
+        artifact = res.one()
+
+        return ArtifactStatus(
+            artifact_id=artifact.artifact_id,
+            status=artifact.status,
+        )
 
     async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> None:
         """Can raise NoResultException."""

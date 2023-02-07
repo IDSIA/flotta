@@ -1,8 +1,3 @@
-# ferdelance.database.schemas <---------------- to move under schemas
-
-DataSource <----------------------------------- to remove in favor of ferdelance.schemas.project.DataSource
-Project <-------------------------------------- to remove in favor of ferdelance.schemas.project.Project
-
 # ferdelance.schemas.database
 
 ServerArtifact                                  (internal representation)
@@ -31,20 +26,24 @@ ClientUpdate
 DataSourceConfig
 ArgumentsConfig
 
-# ferdelance.schemas.project
+# ferdelance.schemas.projects.datasources
 
-                                               consider split in multiple files
-ProjectBase
-    Project(ProjectBase)
-    ProjectCreate(ProjectBase) <--------------- consider if remove
-DataSourceBase
-    DataSource(DataSourceBase)
-    AggregatedDataSource(DataSourceBase)
-    DataSourceCreate(DataSourceBase) <--------- consider if remove
-FeatureBase
-    Feature(FeatureBase)
-    AggregatedFeature(FeatureBase)
-    FeatureCreate(FeatureBase) <--------------- consider if remove
+BaseDataSource
+DataSource(BaseDataSource)
+Feature
+
+# ferdelance.schemas.projects.metadata
+
+Metadata
+MetaDataSource(BaseDataSource)
+MetaFeature(Feature)
+
+# ferdelance.schemas.projects.projects
+
+BaseProject
+Project(BaseProject)
+AggregatedDataSource(BaseDataSource)
+AggregatedFeature(Feature)
 
 # ferdelance.schemas.updates
 
@@ -79,19 +78,9 @@ BaseArtifact
 
 Dataset <-------------------------------------- remove in favor of ferdelance.schemas.project.AggregatedDataSource
 
-# ferdelance.schemas.artifacts.datasources
-
-BaseDataSource <------------------------------- remove in favor of ferdelance.schemas.project.DataSource (move code)
-    DataSource(BaseDataSource) <--------------- remove in favor of ferdelance.schemas.project.DataSource (move code)
-    MetaDataSource(BaseDataSource) <----------- move with ferdelance.schemas.project.DataSource (move code)
-Metadata <------------------------------------- move with ferdelance.schemas.project (move code)
-
 # ferdelance.schemas.artifacts.queries
 
-QueryFeature <--------------------------------- consider new in ferdelance.schemas.project.Feature 
+QueryFeature
 QueryFilter
 QueryTransformer
-BaseFeature <---------------------------------- remove in favor of ferdelance.schemas.project.Feature (move code)
-    Feature(BaseFeature) <--------------------- remove in favor of ferdelance.schemas.project.Feature (move code)
-    MetaFeature(BaseFeature) <----------------- remove in favor of ferdelance.schemas.project.Feature (move code)
 Query

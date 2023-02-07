@@ -56,12 +56,12 @@ class JobManagementService(DBSessionService):
 
     async def load_artifact(self, artifact_id: str) -> Artifact:
         try:
-            artifact: ServerArtifact = await self.ars.get_artifact(artifact_id)
+            artifact_path: str = await self.ars.get_artifact_path(artifact_id)
 
-            if not os.path.exists(artifact.path):
+            if not os.path.exists(artifact_path):
                 raise ValueError(f"artifact_id={artifact_id} not found")
 
-            with open(artifact.path, "r") as f:
+            with open(artifact_path, "r") as f:
                 return Artifact(**json.load(f))
         except NoResultFound:
             raise ValueError(f"artifact_id={artifact_id} not found")

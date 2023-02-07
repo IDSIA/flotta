@@ -16,7 +16,6 @@ from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
 from ferdelance.schemas.artifacts import Metadata
-from ferdelance.schemas.database import ServerModel
 from ferdelance.schemas import (
     ClientJoinRequest,
     ClientJoinData,
@@ -294,10 +293,10 @@ async def client_post_task(
     jm: JobManagementService = JobManagementService(session)
     ms: ModelService = ModelService(session)
 
-    model_session: ServerModel = await ms.create_local_model(artifact_id, client.client_id)
+    model_db = await ms.create_local_model(artifact_id, client.client_id)
 
     await ss.setup(client.public_key)
-    await ss.stream_decrypt_file(request, model_session.path)
+    await ss.stream_decrypt_file(request, model_db.path)
 
     await jm.client_local_model_completed(artifact_id, client.client_id)
 

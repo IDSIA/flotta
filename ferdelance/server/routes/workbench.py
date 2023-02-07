@@ -22,8 +22,8 @@ from ferdelance.schemas.artifacts import (
     Artifact,
 )
 from ferdelance.schemas.components import Component, Client, Token
-from ferdelance.schemas.database import ServerArtifact, ServerModel
-from ferdelance.schemas.project import Project, DataSource, Feature
+from ferdelance.schemas.database import ServerModel
+from ferdelance.schemas.projects import Project, DataSource, Feature
 from ferdelance.schemas.workbench import (
     WorkbenchProject,
     WorkbenchDataSource,
@@ -294,11 +294,9 @@ async def wb_get_artifact_status(
     await ss.setup(user.public_key)
 
     try:
-        sa: ServerArtifact = await ars.get_artifact(artifact_id)
+        status: ArtifactStatus = await ars.get_status(artifact_id)
 
         # TODO: get status from celery
-
-        status = sa.get_status()
 
         return ss.create_response(status.dict())
     except NoResultFound as _:

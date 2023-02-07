@@ -7,7 +7,7 @@ __all__ = [
     "Project",
 ]
 
-from ferdelance.schemas.project import (
+from ferdelance.schemas.projects import (
     Project,
     DataSource,
     AggregatedDataSource,

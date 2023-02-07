@@ -1,15 +1,38 @@
-from ferdelance.database.schemas import Project
 from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.services.datasource import DataSourceService
 from ferdelance.database.services.tokens import TokenService
-from ferdelance.database.tables import DataSource, Project as ProjectDB
-from ferdelance.schemas.artifacts import Metadata
+from ferdelance.database.tables import (
+    DataSource as DataSourceDB,
+    Project as ProjectDB,
+)
+from ferdelance.schemas.projects import (
+    Metadata,
+    Project,
+    BaseProject,
+    AggregatedDataSource,
+)
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.exc import NoReferenceError
 from sqlalchemy.orm import selectinload
 
 import uuid
+
+
+def simpleView(project: ProjectDB) -> BaseProject:
+    return BaseProject(
+        project_id=project.project_id,
+        name=project.name,
+        creation_time=project.creation_time,
+        token=project.token,
+        valid=project.valid,
+        active=project.active,
+    )
+
+
+def aggregate_datasource(datasources: list[DataSourceDB]) -> AggregatedDataSource:
+    ds = AggregatedDataSource()
+
+    return ds
 
 
 def view(project: ProjectDB) -> Project:
@@ -20,6 +43,9 @@ def view(project: ProjectDB) -> Project:
         token=project.token,
         valid=project.valid,
         active=project.active,
+        n_clients=len(set([ds.component_id for ds in project.datasources])),
+        n_datasources=len(project.datasources),
+        data=aggregate_datasource(project.datasources),
     )
 
 
@@ -28,7 +54,6 @@ class ProjectService(DBSessionService):
         super().__init__(session)
 
         self.ts: TokenService = TokenService(session)
-        self.dss: DataSourceService = DataSourceService(session)
 
     async def create(self, name: str = "", token: str | None = None) -> str:
 
@@ -55,8 +80,8 @@ class ProjectService(DBSessionService):
     async def add_datasource(self, datasource_id: str, project_id: str) -> None:
         """Can raise ValueError."""
         try:
-            res = await self.session.scalars(select(DataSource).where(DataSource.datasource_id == datasource_id))
-            ds: DataSource = res.one()
+            res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.datasource_id == datasource_id))
+            ds: DataSourceDB = res.one()
 
             res = await self.session.scalars(select(ProjectDB).where(ProjectDB.project_id == project_id))
             p: ProjectDB = res.one()
@@ -72,8 +97,10 @@ class ProjectService(DBSessionService):
     async def add_datasources_from_metadata(self, metadata: Metadata) -> None:
         for mdds in metadata.datasources:
 
-            res = await self.session.scalars(select(DataSource).where(DataSource.datasource_id == mdds.datasource_id))
-            ds: DataSource = res.one()
+            res = await self.session.scalars(
+                select(DataSourceDB).where(DataSourceDB.datasource_id == mdds.datasource_id)
+            )
+            ds: DataSourceDB = res.one()
 
             if not mdds.tokens:
                 continue
@@ -98,29 +125,21 @@ class ProjectService(DBSessionService):
 
             await self.session.commit()
 
-    async def get_project_list(self) -> list[Project]:
+    async def get_project_list(self) -> list[BaseProject]:
         res = await self.session.execute(select(ProjectDB))
         project_db_list = res.scalars().all()
-        return [view(p) for p in project_db_list]
+        return [simpleView(p) for p in project_db_list]
 
     async def get_by_id(self, project_id: str) -> Project:
         """Can raise NoResultsException."""
-        query = await self.session.execute(select(ProjectDB).where(ProjectDB.project_id == project_id))
-        res: ProjectDB = query.scalar_one()
-        return view(res)
+        res = await self.session.scalars(select(ProjectDB).where(ProjectDB.project_id == project_id))
 
-    async def get_by_token(self, token: str) -> ProjectDB:
+        return view(res.one())
+
+    async def get_by_token(self, token: str) -> Project:
         """Can raise NoResultsException."""
-        query = await self.session.execute(
+        res = await self.session.scalars(
             select(ProjectDB).where(ProjectDB.token == token).options(selectinload(ProjectDB.datasources))
         )
-        res: ProjectDB = query.scalar_one()
-        return res
 
-    async def get_by_name_and_token(self, name: str, token: str) -> Project:
-        """Can raise NoResultsException."""
-        query = await self.session.execute(
-            select(ProjectDB).where(and_(ProjectDB.name == name, ProjectDB.token == token))
-        )
-        res: ProjectDB = query.scalar_one()
-        return view(res)
+        return view(res.one())
