@@ -102,7 +102,7 @@ class BaseFeature(BaseModel):
     v_max: float | None
     v_miss: float | None
 
-    n_cats: int | None
+    n_cats: int | None = None
 
 
 class Feature(BaseFeature):

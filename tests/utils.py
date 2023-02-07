@@ -1,4 +1,4 @@
-from ferdelance.schemas.artifacts import Metadata, MetaDataSource, MetaFeature
+from ferdelance.schemas.projects import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas import ClientJoinData, ClientJoinRequest
 from ferdelance.shared.exchange import Exchange
 
@@ -61,7 +61,6 @@ def get_metadata() -> Metadata:
                 removed=False,
                 features=[
                     MetaFeature(
-                        datasource_id=datasource_id,
                         datasource_hash="",
                         name="feature1",
                         dtype="float",
@@ -75,7 +74,6 @@ def get_metadata() -> Metadata:
                         v_max=0.8,
                     ),
                     MetaFeature(
-                        datasource_id=datasource_id,
                         datasource_hash="",
                         name="label",
                         dtype="int",

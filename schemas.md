@@ -7,7 +7,7 @@ ServerModel                                     (internal representation)
 
 BaseComponent
     Component(BaseComponent)
-    Client(BaseComponent) <-------------------- consider if remove
+    Client(BaseComponent) <-------------------- consider if remove (not now)
 Token
 Event
 

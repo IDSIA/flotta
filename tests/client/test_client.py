@@ -9,26 +9,22 @@ from ferdelance.database.tables import (
     Job,
     Token as TokenDB,
 )
-from ferdelance.database.schemas import (
-    Component,
-    Client,
-    Event,
-    Token,
-)
-from ferdelance.server.api import api
-from ferdelance.shared.actions import Action
 from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
-    Dataset,
-    Metadata,
     Query,
     QueryFeature,
     QueryFilter,
 )
 from ferdelance.schemas.artifacts.operations import Operations
-from ferdelance.shared.exchange import Exchange
+from ferdelance.schemas.components import (
+    Component,
+    Client,
+    Event,
+    Token,
+)
 from ferdelance.schemas.models import Model
+from ferdelance.schemas.projects import Metadata
 from ferdelance.schemas import (
     ClientUpdate,
     ClientJoinRequest,
@@ -39,6 +35,9 @@ from ferdelance.schemas import (
     WorkbenchJoinData,
     WorkbenchJoinRequest,
 )
+from ferdelance.server.api import api
+from ferdelance.shared.actions import Action
+from ferdelance.shared.exchange import Exchange
 
 from tests.utils import (
     create_client,
@@ -424,12 +423,14 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
             feature_name=f1.name,
             datasource_id=ds_db.datasource_id,
             datasource_name=ds_db.name,
+            dtype=f1.dtype,
         )
         qf2 = QueryFeature(
             feature_id=f2.feature_id,
             feature_name=f2.name,
             datasource_id=ds_db.datasource_id,
             datasource_name=ds_db.name,
+            dtype=f2.dtype,
         )
 
         artifact = Artifact(

@@ -4,14 +4,11 @@ from ferdelance.server.api import api
 from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
-    Dataset,
-    DataSource,
-    Metadata,
     Query,
     QueryFeature,
 )
-from ferdelance.shared.exchange import Exchange
 from ferdelance.schemas.models import Model
+from ferdelance.schemas.projects import DataSource, Metadata
 from ferdelance.schemas import (
     ClientDetails,
     WorkbenchJoinRequest,
@@ -19,6 +16,7 @@ from ferdelance.schemas import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
 )
+from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus
 
 from tests.utils import (

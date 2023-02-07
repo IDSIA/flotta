@@ -10,13 +10,12 @@ from ferdelance.server.api import api
 from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
-    Metadata,
-    Dataset,
     Query,
     QueryFeature,
 )
-from ferdelance.shared.exchange import Exchange
 from ferdelance.schemas.models import Model
+from ferdelance.schemas.projects import Metadata
+from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus
 
 from tests.utils import (
