@@ -8,8 +8,8 @@ from sqlalchemy.exc import NoResultFound
 from ferdelance.config import conf
 from ferdelance.database import AsyncSession, get_session
 from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
-from ferdelance.database.schemas import Client, Component, Token
 from ferdelance.database.services import ComponentService, KeyValueStore
+from ferdelance.schemas.components import Client, Component, Token
 from ferdelance.shared.exchange import Exchange
 
 LOGGER = logging.getLogger(__name__)

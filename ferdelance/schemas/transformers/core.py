@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..artifacts.queries import QueryTransformer, QueryFeature
+from ferdelance.schemas.artifacts.queries import QueryTransformer, QueryFeature
 
 import pandas as pd
 import pickle
@@ -8,13 +8,19 @@ import pickle
 
 class Transformer:
     """Basic class that defines a transformer. A transformer is an object that can transform
-    input data. This transformation is used as a pre-processing that need to be applied 
+    input data. This transformation is used as a pre-processing that need to be applied
     before the input data can be used by a FederatedModel.
 
     For a pipeline, a sequence of transformations, check the FederatedPipeline class.
     """
 
-    def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None, features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None, check_for_len: bool = True) -> None:
+    def __init__(
+        self,
+        name: str,
+        features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+        features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+        check_for_len: bool = True,
+    ) -> None:
         self.name: str = name
         self.features_in: list[str] = convert_features_to_list(features_in)
         self.features_out: list[str] = convert_features_to_list(features_out)
@@ -24,13 +30,13 @@ class Transformer:
         self.fitted: bool = False
 
         if check_for_len and len(self.features_in) != len(self.features_out):
-            raise ValueError('Input and output features are not of the same length')
+            raise ValueError("Input and output features are not of the same length")
 
     def params(self) -> dict[str, Any]:
         """Utility method to convert to dictionary any input parameter for the transformer.
         This excludes `name`, `features_in`, and `features_out`.
 
-        All classes that extend the Transformer class need to implement this method by 
+        All classes that extend the Transformer class need to implement this method by
         including the parameters required to build the transformer.
 
         :return:
@@ -45,10 +51,10 @@ class Transformer:
             A dictionary with the description of all internal data of a transformer.
         """
         return {
-            'name': self.name,
-            'features_in': self.features_in,
-            'features_out': self.features_out,
-            'parameters': self.params(),
+            "name": self.name,
+            "features_in": self.features_in,
+            "features_out": self.features_out,
+            "parameters": self.params(),
         }
 
     def aggregate(self) -> None:
@@ -63,8 +69,8 @@ class Transformer:
         The fitting part will be executed only once. Multiple call to the same transformer
         will apply the already fitted transformer.
 
-        If a transformer need to override this method, remember to check for and assign 
-        the `self.fitted` field to distingue between the first call to this method and 
+        If a transformer need to override this method, remember to check for and assign
+        the `self.fitted` field to distingue between the first call to this method and
         other future calls.
 
         :param df:
@@ -114,10 +120,10 @@ def convert_features_to_list(features: QueryFeature | list[QueryFeature] | str |
 
 
 def save(obj: Transformer, path: str) -> None:
-    with open(path, 'wb') as f:
+    with open(path, "wb") as f:
         pickle.dump(obj, f)
 
 
 def load(path: str) -> Any:
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         return pickle.load(f)

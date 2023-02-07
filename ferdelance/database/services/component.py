@@ -8,7 +8,13 @@ from ferdelance.database.tables import (
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.tokens import TokenService
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.schemas.components import Component, Client, Token, Event, Application
+from ferdelance.schemas.components import (
+    Component,
+    Client,
+    Token,
+    Event,
+    Application,
+)
 
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound

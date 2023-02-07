@@ -12,6 +12,7 @@ from ferdelance.workbench.interface import (
     ArtifactStatus,
     DataSource,
     AggregatedDataSource,
+    ExecutionPlan,
 )
 
 import numpy as np
@@ -100,7 +101,7 @@ m = FederatedRandomForestClassifier(
 
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
-    data=ds,
+    data=ds.data(),
     label="variety",
     model=m.build(),
     how=ExecutionPlan(

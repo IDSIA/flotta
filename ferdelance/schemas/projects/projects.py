@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .datasources import BaseDataSource, Feature
+from ferdelance.schemas.artifacts.queries import Query
 
 from pydantic import BaseModel
 from datetime import datetime
@@ -33,11 +34,23 @@ class Project(BaseProject):
 
 
 class AggregatedDataSource(BaseDataSource):
+    queries: list[Query] = list()
+
     features: list[AggregatedFeature] = list()
 
     def describe(self) -> str:
         # TODO
         raise NotImplementedError()
+
+    def add_query(self, query: Query) -> None:
+        self.queries.append(query)
+
+    def __add__(self, other: Query) -> AggregatedDataSource:
+        if isinstance(other, Query):
+            self.add_query(other)
+            return self
+
+        raise ValueError("Cannot add something that is not a Query")
 
 
 class AggregatedFeature(Feature):

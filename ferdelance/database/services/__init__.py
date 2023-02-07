@@ -18,6 +18,5 @@ from .component import ComponentService
 from .datasource import DataSourceService
 from .jobs import JobService
 from .model import ModelService
-
 from .projects import ProjectService
 from .settings import KeyValueStore, setup_settings

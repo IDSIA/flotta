@@ -16,8 +16,6 @@ from ferdelance.schemas import (
     WorkbenchJoinData,
 )
 from ferdelance.schemas.artifacts import (
-    DataSource,
-    Feature,
     ArtifactStatus,
     Artifact,
 )

@@ -1,4 +1,4 @@
-from ferdelance.schemas.artifacts import DataSource
+from ferdelance.schemas.projects import DataSource
 from ferdelance.schemas.client import ClientDetails
 
 from pydantic import BaseModel

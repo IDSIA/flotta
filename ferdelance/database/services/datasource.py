@@ -1,8 +1,11 @@
-from ferdelance.database.tables import DataSource, Feature, Project
+from ferdelance.database.tables import (
+    DataSource as DataSourceDB,
+    Feature as FeatureDB,
+    Project as ProjectDB,
+)
 from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.schemas import DataSource as DataSourceView
-from ferdelance.schemas.artifacts import Metadata, MetaDataSource, MetaFeature
+from ferdelance.schemas.projects import DataSource, Metadata, MetaDataSource, MetaFeature
 
 from datetime import datetime
 from uuid import uuid4
@@ -14,8 +17,8 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def view(datasource: DataSource) -> DataSourceView:
-    return DataSourceView(
+def view(datasource: DataSourceDB) -> DataSource:
+    return DataSource(
         datasource_id=datasource.datasource_id,
         name=datasource.name,
         creation_time=datasource.creation_time,
@@ -42,14 +45,14 @@ class DataSourceService(DBSessionService):
         dt_now = datetime.now()
 
         res = await self.session.execute(
-            select(DataSource).where(
-                DataSource.component_id == client_id,
-                DataSource.datasource_hash == ds.datasource_hash,
+            select(DataSourceDB).where(
+                DataSourceDB.component_id == client_id,
+                DataSourceDB.datasource_hash == ds.datasource_hash,
             )
         )
 
         # check if ds exists:
-        ds_db: DataSource | None = res.scalar_one_or_none()
+        ds_db: DataSourceDB | None = res.scalar_one_or_none()
 
         if ds_db is None:
             # create a new data source for this client
@@ -57,7 +60,7 @@ class DataSourceService(DBSessionService):
 
             ds.datasource_id = str(uuid4())
 
-            ds_db = DataSource(
+            ds_db = DataSourceDB(
                 datasource_id=ds.datasource_id,
                 datasource_hash=ds.datasource_hash,
                 name=ds.name,
@@ -79,9 +82,9 @@ class DataSourceService(DBSessionService):
                 ds_db.update_time = dt_now
 
                 # remove features assigned with this data source
-                x = await self.session.execute(select(Feature).where(Feature.datasource_id == ds_db.component_id))
+                x = await self.session.execute(select(FeatureDB).where(FeatureDB.datasource_id == ds_db.component_id))
 
-                features: list[Feature] = list(x.scalars().all())
+                features: list[FeatureDB] = list(x.scalars().all())
 
                 for f in features:
                     f.removed = True
@@ -111,26 +114,26 @@ class DataSourceService(DBSessionService):
             await self.session.commit()
             await self.session.refresh(ds_db)
 
-        return ds_db
+        return view(ds_db)
 
     async def create_or_update_feature(
-        self, ds: DataSource, f: MetaFeature, remove: bool = False, commit: bool = True
-    ) -> Feature:
+        self, ds: DataSourceDB, f: MetaFeature, remove: bool = False, commit: bool = True
+    ) -> FeatureDB:
         dt_now = datetime.now()
 
         res = await self.session.execute(
-            select(Feature).where(
-                Feature.datasource_id == ds.datasource_id,
-                Feature.name == f.name,
+            select(FeatureDB).where(
+                FeatureDB.datasource_id == ds.datasource_id,
+                FeatureDB.name == f.name,
             )
         )
 
-        f_db: Feature | None = res.scalar_one_or_none()
+        f_db: FeatureDB | None = res.scalar_one_or_none()
 
         if f_db is None:
             LOGGER.info(f"datasource_id={ds.datasource_id}: creating new feature={f.name}")
 
-            f_db = Feature(
+            f_db = FeatureDB(
                 feature_id=str(uuid4()),
                 name=f.name,
                 dtype=f.dtype,
@@ -185,56 +188,59 @@ class DataSourceService(DBSessionService):
 
         return f_db
 
-    async def get_datasource_list(self) -> list[DataSourceView]:
-        res = await self.session.scalars(select(DataSource))
+    async def get_datasource_list(self) -> list[DataSource]:
+        res = await self.session.scalars(select(DataSourceDB))
         return [view(d) for d in res.all()]
 
-    async def get_datasource_by_client_id(self, client_id: str) -> list[DataSourceView]:
-        res = await self.session.scalars(select(DataSource).where(DataSource.component_id == client_id))
+    async def get_datasource_by_client_id(self, client_id: str) -> list[DataSource]:
+        res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
         return [view(d) for d in res.all()]
 
     async def get_datasource_ids_by_client_id(self, client_id: str) -> list[str]:
-        res = await self.session.scalars(select(DataSource.datasource_id).where(DataSource.component_id == client_id))
+        res = await self.session.scalars(
+            select(DataSourceDB.datasource_id).where(DataSourceDB.component_id == client_id)
+        )
 
         return list(res.all())
 
-    async def get_datasource_by_id(self, ds_id: str) -> DataSourceView:
+    async def get_datasource_by_id(self, ds_id: str) -> DataSource:
         """Can raise NoResultsFound."""
-        res = await self.session.execute(
-            select(DataSource).where(
-                DataSource.datasource_id == ds_id,
-                DataSource.removed == False,
+        res = await self.session.scalars(
+            select(DataSourceDB).where(
+                DataSourceDB.datasource_id == ds_id,
+                DataSourceDB.removed == False,
             )
         )
-        return view(res.scalar_one())
+        return view(res.one())
 
-    async def get_datasource_by_name(self, ds_name: str) -> list[DataSourceView]:
+    async def get_datasource_by_name(self, ds_name: str) -> list[DataSource]:
         res = await self.session.scalars(
-            select(DataSource).where(DataSource.name == ds_name, DataSource.removed == False)
+            select(DataSourceDB).where(DataSourceDB.name == ds_name, DataSourceDB.removed == False)
         )
         return [view(d) for d in res.all()]
 
     async def get_client_by_datasource_id(self, ds_id: str) -> Client:
-        res = await self.session.execute(
+        """Can raise NoResultFound."""
+        res = await self.session.scalars(
             select(ComponentDB)
-            .join(DataSource, ComponentDB.component_id == DataSource.component_id)
+            .join(DataSourceDB, ComponentDB.component_id == DataSourceDB.component_id)
             .where(
-                DataSource.datasource_id == ds_id,
-                DataSource.removed == False,
+                DataSourceDB.datasource_id == ds_id,
+                DataSourceDB.removed == False,
             )
         )
-        return viewClient(res.scalar_one())
+        return viewClient(res.one())
 
-    async def get_features_by_datasource(self, ds: DataSourceView) -> list[Feature]:
+    async def get_features_by_datasource(self, ds: DataSource) -> list[FeatureDB]:
         res = await self.session.scalars(
-            select(Feature).where(
-                Feature.datasource_id == ds.datasource_id,
-                Feature.removed == False,
+            select(FeatureDB).where(
+                FeatureDB.datasource_id == ds.datasource_id,
+                FeatureDB.removed == False,
             )
         )
         return list(res.all())
 
-    # async def get_tokens_by_datasource(self, ds: DataSourceView) -> list[str]:
+    # async def get_tokens_by_datasource(self, ds: DataSource) -> list[str]:
     #     res = await self.session.scalars(
     #         select(Project.token)
     #         .join(, .project_id == Project.project_id)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .datasources import BaseDataSource, Feature
+from .datasources import BaseDataSource, BaseFeature
 
 from pydantic import BaseModel
 
@@ -17,11 +17,13 @@ class MetaDataSource(BaseDataSource):
     datasource_id: str | None
     datasource_hash: str
 
+    tokens: list[str]
+
     removed: bool = False
     features: list[MetaFeature]
 
 
-class MetaFeature(Feature):
+class MetaFeature(BaseFeature):
     """Information on features stored in the client."""
 
     datasource_hash: str  # identifier for datasource client-side

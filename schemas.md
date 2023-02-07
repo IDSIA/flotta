@@ -74,10 +74,6 @@ BaseArtifact
     Artifact(BaseArtifact)
     ArtifactStatus(BaseArtifact)
 
-# ferdelance.schemas.artifacts.datasets
-
-Dataset <-------------------------------------- remove in favor of ferdelance.schemas.project.AggregatedDataSource
-
 # ferdelance.schemas.artifacts.queries
 
 QueryFeature

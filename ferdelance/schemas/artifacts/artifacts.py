@@ -1,4 +1,6 @@
-from ..models import Model
+from ferdelance.schemas.models import Model
+from ferdelance.schemas.plans import ExecutionPlan
+from ferdelance.schemas.projects import AggregatedDataSource
 
 from pydantic import BaseModel
 
@@ -14,7 +16,7 @@ class Artifact(BaseModel):
     """Artifact created in the workbench."""
 
     artifact_id: str | None = None
-    data: None  # TODO
-    label: str
+    data: AggregatedDataSource
+    label: str | None = None
     model: Model
-    how: None  # TODO
+    how: ExecutionPlan

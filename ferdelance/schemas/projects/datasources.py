@@ -16,8 +16,6 @@ class BaseDataSource(BaseModel):
 
     name: str
 
-    creation_time: datetime
-    update_time: datetime
     removed: datetime
 
     n_records: int
@@ -90,14 +88,8 @@ class DataSource(BaseDataSource):
         return super().__str__() + f"client_id={self.client_id} features=[{self.features}]"
 
 
-class Feature(BaseModel):
-    """Common information to all features."""
-
-    feature_id: str
+class BaseFeature(BaseModel):
     name: str
-
-    datasource_id: str
-    datasource_name: str
 
     dtype: str | None
 
@@ -111,6 +103,14 @@ class Feature(BaseModel):
     v_miss: float | None
 
     n_cats: int | None
+
+
+class Feature(BaseFeature):
+    """Common information to all features."""
+
+    feature_id: str
+    datasource_id: str
+    datasource_name: str
 
     def qf(self) -> QueryFeature:
         return QueryFeature(

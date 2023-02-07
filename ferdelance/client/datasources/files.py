@@ -1,5 +1,5 @@
 from ferdelance.client.datasources.datasource import DataSource
-from ferdelance.schemas.artifacts import MetaDataSource, MetaFeature
+from ferdelance.schemas.projects import MetaDataSource, MetaFeature
 
 from pathlib import Path
 
@@ -52,6 +52,7 @@ class DataSourceFile(DataSource):
                     v_p75=df_desc[feature]["75%"],
                     v_max=df_desc[feature]["max"],
                     v_miss=df[feature].isna().sum(),
+                    n_cats=0,  # TODO
                 )
             else:
                 f = MetaFeature(
@@ -66,6 +67,7 @@ class DataSourceFile(DataSource):
                     v_p75=None,
                     v_max=None,
                     v_miss=None,
+                    n_cats=0,  # TODO
                 )
             features.append(f)
 
