@@ -157,7 +157,7 @@ async def test_workflow_submit(session: AsyncSession):
         assert res.status_code == 200
 
         wdsl = WorkbenchDataSourceIdList(**wb_exc.get_payload(res.content))
-        ds_list = wdsl.datasource_ids
+        ds_list = wdsl.datasources
 
         assert len(ds_list) == 1
 

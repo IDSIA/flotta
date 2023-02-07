@@ -1,6 +1,10 @@
 from ferdelance.database.tables import Project as ProjectDB
-from ferdelance.schemas.workbench import WorkbenchProject, WorkbenchDataSource
-from ferdelance.schemas.project.core import Project, DataSource, Feature
+from ferdelance.schemas.workbench import (
+    WorkbenchProject,
+    WorkbenchDataSource,
+    WorkbenchProjectToken,
+)
+from ferdelance.schemas.project import Project, DataSource, Feature
 
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
@@ -171,7 +175,7 @@ async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), u
 
     LOGGER.info(f"found {len(ds_session)} datasource(s)")
 
-    wdsl = WorkbenchDataSourceIdList(datasource_ids=[ds.datasource_id for ds in ds_session if ds.removed is False])
+    wdsl = WorkbenchDataSourceIdList(datasources=[ds.datasource_id for ds in ds_session if ds.removed is False])
 
     return ss.create_response(wdsl.dict())
 
@@ -425,12 +429,12 @@ async def wb_get_project(
     await ss.setup(user.public_key)
 
     data = await ss.read_request(request)
-    project_token: str = data["project_token"]
+    wpt = WorkbenchProjectToken(**data)
 
     try:
-        project: ProjectDB = await pss.get_by_token(token=project_token)
+        project: ProjectDB = await pss.get_by_token(token=wpt.token)
     except NoResultFound as _:
-        LOGGER.warning(f"invalid name + token combination for project token {project_token}")
+        LOGGER.warning(f"invalid name + token combination for project token {wpt.token}")
         raise HTTPException(404)
 
     LOGGER.info(f"Loaded project {project}")

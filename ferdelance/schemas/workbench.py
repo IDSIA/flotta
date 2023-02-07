@@ -1,5 +1,7 @@
-from pydantic import BaseModel
 from ferdelance.schemas.artifacts import DataSource
+from ferdelance.schemas.client import ClientDetails
+
+from pydantic import BaseModel
 
 
 class WorkbenchJoinRequest(BaseModel):
@@ -16,12 +18,19 @@ class WorkbenchJoinData(BaseModel):
     public_key: str
 
 
+class WorkbenchProjectToken(BaseModel):
+    token: str
+
+
 class WorkbenchClientList(BaseModel):
-    client_ids: list[str]
+    clients: list[ClientDetails]
 
 
 class WorkbenchDataSourceIdList(BaseModel):
-    datasource_ids: list[str]
+    datasources: list[DataSource]
+
+
+# OLD SCHEMAS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
 
 class WorkbenchFeature(BaseModel):
