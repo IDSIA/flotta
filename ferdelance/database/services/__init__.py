@@ -1,7 +1,6 @@
 __all__ = [
     "DBSessionService",
     "AsyncSession",
-    "ApplicationService",
     "ArtifactService",
     "ComponentService",
     "JobService",
@@ -14,7 +13,6 @@ __all__ = [
 
 from .core import AsyncSession, DBSessionService
 
-from .application import ApplicationService
 from .artifact import ArtifactService
 from .component import ComponentService
 from .datasource import DataSourceService

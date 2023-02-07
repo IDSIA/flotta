@@ -1,7 +1,9 @@
 from __future__ import annotations
+from typing import Any
+
 from .metrics import Metrics
 
-from typing import Any
+from datetime import datetime
 from pydantic import BaseModel
 
 import numpy as np
@@ -17,11 +19,12 @@ from sklearn.metrics import (
 
 
 class Model(BaseModel):
-    """Exchange model description defined in the workbench, trained in 
+    """Exchange model description defined in the workbench, trained in
     the clients, and aggregated in the server.
     """
+
     name: str
-    strategy: str = ''
+    strategy: str = ""
     parameters: dict[str, Any] = dict()
 
 
@@ -35,7 +38,7 @@ class GenericModel:
         :param path:
             A valid path to a model downloaded from the aggregation server.
         """
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             self.model = pickle.load(f)
 
     def save(self, path: str) -> None:
@@ -43,9 +46,9 @@ class GenericModel:
         can be loaded again using the `load()` method.
 
         :param path:
-            A valid path to the disk. 
+            A valid path to the disk.
         """
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             pickle.dump(self.model, f)
 
     def train(self, x, y) -> None:
@@ -62,7 +65,7 @@ class GenericModel:
     def aggregate(self, strategy: str, model_a, model_b):
         """Aggregates two models and produces a new one, following the given strategy. This aggregation
         function is called from the workers on the server that perform aggregations.
-        Aggregations are done between two partial models, producing a new aggregated model. This 
+        Aggregations are done between two partial models, producing a new aggregated model. This
         aggregated model is considered a partial model until all models have been aggregated.
 
         Keep in mind that this aggregation function will be called upon a list of partial models:
@@ -94,7 +97,7 @@ class GenericModel:
             True target labels values aligned with the feature values.
         """
         y_prob = self.predict(x)
-        y_pred = (y_prob > 0.5)
+        y_pred = y_prob > 0.5
 
         cf = confusion_matrix(y, y_pred)
 

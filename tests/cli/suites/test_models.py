@@ -1,6 +1,6 @@
 from ferdelance.cli.fdl_suites.models.functions import describe_model, list_models
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.schemas import Model as ModelView
+from ferdelance.database.schemas import Model as Model
 from ferdelance.database.tables import Artifact, Component, Model
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,13 +34,13 @@ async def test_models_list(session: AsyncSession):
 
     session.add(Model(model_id="mid1", path=".", artifact_id="aid1", component_id="cid1"))
 
-    res: list[ModelView] = await list_models()
+    res: list[Model] = await list_models()
 
     assert len(res) == 0
 
     await session.commit()
 
-    res: list[ModelView] = await list_models()
+    res: list[Model] = await list_models()
 
     assert len(res) == 1
 
@@ -74,7 +74,7 @@ async def test_describe_client(session: AsyncSession):
 
     await session.commit()
 
-    res: ModelView = await describe_model(model_id="mid1")
+    res: Model = await describe_model(model_id="mid1")
 
     assert res.model_id == "mid1"
     assert res.path == "."

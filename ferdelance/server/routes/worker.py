@@ -2,7 +2,8 @@ from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
 from ferdelance.database.services import ModelService
-from ferdelance.database.schemas import Component, Model
+from ferdelance.schemas.database import ServerModel
+from ferdelance.schemas.components import Component
 from ferdelance.server.services import JobManagementService
 from ferdelance.server.security import check_token
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
@@ -77,9 +78,9 @@ async def post_model(
         ms: ModelService = ModelService(session)
         js: JobManagementService = JobManagementService(session)
 
-        model_session = await ms.create_model_aggregated(artifact_id, worker.component_id)
+        model_db: ServerModel = await ms.create_model_aggregated(artifact_id, worker.component_id)
 
-        async with aiofiles.open(model_session.path, "wb") as out_file:
+        async with aiofiles.open(model_db.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
@@ -98,12 +99,12 @@ async def get_model(
     try:
         ms: ModelService = ModelService(session)
 
-        model_session: Model = await ms.get_model_by_id(model_id)
+        model_db: ServerModel = await ms.get_model_by_id(model_id)
 
-        if not os.path.exists(model_session.path):
+        if not os.path.exists(model_db.path):
             raise NoResultFound()
 
-        return FileResponse(model_session.path)
+        return FileResponse(model_db.path)
 
     except NoResultFound:
         raise HTTPException(404)

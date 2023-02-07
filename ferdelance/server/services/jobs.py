@@ -1,5 +1,4 @@
 from ferdelance.config import conf
-from ferdelance.database.schemas import Client, Job
 from ferdelance.database.services import (
     DBSessionService,
     AsyncSession,
@@ -9,9 +8,12 @@ from ferdelance.database.services import (
     ModelService,
     ComponentService,
 )
-from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
+from ferdelance.schemas.database import ServerArtifact, ServerModel
+from ferdelance.schemas.components import Client
+from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
+from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 from ferdelance.worker.tasks import aggregation
 
@@ -54,7 +56,7 @@ class JobManagementService(DBSessionService):
 
     async def load_artifact(self, artifact_id: str) -> Artifact:
         try:
-            artifact = await self.ars.get_artifact(artifact_id)
+            artifact: ServerArtifact = await self.ars.get_artifact(artifact_id)
 
             if not os.path.exists(artifact.path):
                 raise ValueError(f"artifact_id={artifact_id} not found")
@@ -70,7 +72,11 @@ class JobManagementService(DBSessionService):
         try:
             path = await self.dump_artifact(artifact)
 
-            artifact_db = await self.ars.create_artifact(artifact.artifact_id, path, ArtifactJobStatus.SCHEDULED.name)
+            artifact_db: ServerArtifact = await self.ars.create_artifact(
+                artifact.artifact_id,
+                path,
+                ArtifactJobStatus.SCHEDULED.name,
+            )
 
             client_ids = set()
 
@@ -84,10 +90,7 @@ class JobManagementService(DBSessionService):
 
                 client_ids.add(client.client_id)
 
-            return ArtifactStatus(
-                artifact_id=artifact.artifact_id,
-                status=artifact_db.status,
-            )
+            return artifact_db.get_status()
         except ValueError as e:
             raise e
 
@@ -95,7 +98,7 @@ class JobManagementService(DBSessionService):
         return await self.load_artifact(artifact_id)
 
     async def client_local_model_start(self, artifact_id: str, client_id: str) -> Artifact:
-        artifact_db = await self.ars.get_artifact(artifact_id)
+        artifact_db: ServerArtifact = await self.ars.get_artifact(artifact_id)
 
         if artifact_db is None:
             LOGGER.warning(f"client_id={client_id}: artifact_id={artifact_id} does not exists")
@@ -140,7 +143,7 @@ class JobManagementService(DBSessionService):
 
         await self.js.stop_execution(artifact_id, client_id)
 
-        artifact = await self.ars.get_artifact(artifact_id)
+        artifact: ServerArtifact = await self.ars.get_artifact(artifact_id)
 
         if artifact is None:
             LOGGER.error(f"Cannot aggregate: artifact_id={artifact_id} not found")
@@ -166,7 +169,7 @@ class JobManagementService(DBSessionService):
             LOGGER.error("Cannot aggregate: no worker available")
             return
 
-        models = await self.ms.get_models_by_artifact_id(artifact_id)
+        models: list[ServerModel] = await self.ms.get_models_by_artifact_id(artifact_id)
 
         model_ids: list[str] = [m.model_id for m in models]
 

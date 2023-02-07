@@ -1,19 +1,20 @@
-from pydantic import BaseModel
-from .datasets import Dataset
 from ..models import Model
 
-
-class BaseArtifact(BaseModel):
-    """Basic structure for artifact"""
-    artifact_id: str | None = None
+from pydantic import BaseModel
 
 
-class Artifact(BaseArtifact):
-    """Artifact created in the workbench."""
-    dataset: Dataset
-    model: Model
+class ArtifactStatus(BaseModel):
+    """Details on the artifact status."""
 
-
-class ArtifactStatus(BaseArtifact):
-    """Details on the artifact."""
+    artifact_id: str | None
     status: str | None
+
+
+class Artifact(BaseModel):
+    """Artifact created in the workbench."""
+
+    artifact_id: str | None = None
+    data: None  # TODO
+    label: str
+    model: Model
+    how: None  # TODO

@@ -2,7 +2,7 @@ from ferdelance.database.tables import Token
 from ferdelance.database.services import DBSessionService, AsyncSession
 from ferdelance.database.services.settings import KeyValueStore, KEY_CLIENT_TOKEN_EXPIRATION, KEY_USER_TOKEN_EXPIRATION
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from hashlib import sha256
 from uuid import uuid4
@@ -116,3 +116,11 @@ class TokenService(DBSessionService):
         await self.session.refresh(token)
 
         return token
+
+    async def count_valid_tokens(self, client_id: str) -> int:
+        n_tokens = await self.session.scalar(
+            select(func.count()).select_from(Token).where(Token.component_id == client_id, Token.valid)
+        )
+        if n_tokens is None:
+            return 0
+        return n_tokens

@@ -1,13 +1,14 @@
-from ferdelance.database.schemas import Component, Client, Token, Event
 from ferdelance.database.tables import (
+    Application as ApplicationDB,
     Component as ComponentDB,
-    Token as TokenDB,
-    Event as EventDB,
     ComponentType,
+    Event as EventDB,
+    Token as TokenDB,
 )
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.tokens import TokenService
 from ferdelance.database.data import TYPE_CLIENT
+from ferdelance.schemas.components import Component, Client, Token, Event, Application
 
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
@@ -17,7 +18,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def view(component: ComponentDB) -> Component:
+def viewComponent(component: ComponentDB) -> Component:
     return Component(
         component_id=component.component_id,
         public_key=component.public_key,
@@ -67,6 +68,10 @@ def viewEvent(event: EventDB) -> Event:
         event_time=event.event_time,
         event=event.event,
     )
+
+
+def viewApplication(app: ApplicationDB) -> Application:
+    return Application(**app.__dict__)
 
 
 class ComponentService(DBSessionService):
@@ -172,7 +177,14 @@ class ComponentService(DBSessionService):
         await self.session.refresh(component)
         await self.session.refresh(token)
 
-        return view(component), viewToken(token)
+        return viewComponent(component), viewToken(token)
+
+    async def has_valid_token(self, client_id: str) -> bool:
+        n_tokens: int = await self.ts.count_valid_tokens(client_id)
+
+        LOGGER.debug(f"client_id={client_id}: found {n_tokens} valid token(s)")
+
+        return n_tokens == 0
 
     async def update_client(self, client_id: str, version: str = "") -> None:
         """Can raise NoResultException."""
@@ -206,7 +218,7 @@ class ComponentService(DBSessionService):
         o: ComponentDB = res.one()
         if o.type_name == TYPE_CLIENT:
             return viewClient(o)
-        return view(o)
+        return viewComponent(o)
 
     async def get_client_by_id(self, component_id: str) -> Client:
         """Can raise NoResultFound"""
@@ -219,7 +231,7 @@ class ComponentService(DBSessionService):
 
         component: ComponentDB = res.one()
 
-        return view(component)
+        return viewComponent(component)
 
     async def get_by_token(self, token: str) -> Component:
         """Can raise NoResultFound"""
@@ -231,11 +243,11 @@ class ComponentService(DBSessionService):
 
         component: ComponentDB = res.one()
 
-        return view(component)
+        return viewComponent(component)
 
     async def list_all(self) -> list[Component]:
         res = await self.session.scalars(select(ComponentDB))
-        return [view(c) for c in res.all()]
+        return [viewComponent(c) for c in res.all()]
 
     async def list_clients(self) -> list[Client]:
         res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_CLIENT))
@@ -299,3 +311,10 @@ class ComponentService(DBSessionService):
     async def get_events(self, component_id: str) -> list[Event]:
         res = await self.session.scalars(select(EventDB).where(EventDB.component_id == component_id))
         return [viewEvent(e) for e in res.all()]
+
+    async def get_newest_app(self) -> Application:
+        """Can raise NoResultFound"""
+        result = await self.session.scalars(
+            select(ApplicationDB).where(ApplicationDB.active).order_by(ApplicationDB.creation_time.desc()).limit(1)
+        )
+        return viewApplication(result.one())

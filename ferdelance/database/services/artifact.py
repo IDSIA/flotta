@@ -1,14 +1,13 @@
-from ferdelance.database.schemas import Artifact as ArtifactView
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.services.core import AsyncSession, DBSessionService
-
+from ferdelance.schemas.database import ServerArtifact
 from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy import func, select
 
 
-def view(artifact: ArtifactDB) -> ArtifactView:
-    return ArtifactView(
+def view(artifact: ArtifactDB) -> ServerArtifact:
+    return ServerArtifact(
         artifact_id=artifact.artifact_id,
         creation_time=artifact.creation_time,
         path=artifact.path,
@@ -20,12 +19,13 @@ class ArtifactService(DBSessionService):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def get_artifact_list(self) -> list[ArtifactView]:
+    async def get_artifact_list(self) -> list[ServerArtifact]:
         res = await self.session.execute(select(ArtifactDB))
         artifact_db_list = res.scalars().all()
         return [view(a) for a in artifact_db_list]
 
-    async def create_artifact(self, artifact_id: str, path: str, status: str) -> ArtifactView:
+    async def create_artifact(self, artifact_id: str, path: str, status: str) -> ServerArtifact:
+        """Can raise ValueError"""
         db_artifact = ArtifactDB(artifact_id=artifact_id, path=path, status=status)
 
         existing = await self.session.scalar(
@@ -41,19 +41,17 @@ class ArtifactService(DBSessionService):
 
         return view(db_artifact)
 
-    async def get_artifact(self, artifact_id: str) -> ArtifactView:
+    async def get_artifact(self, artifact_id: str) -> ServerArtifact:
         """Can raise NoResultException."""
-        query = await self.session.execute(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
-        res = query.scalar_one()
-        if res:
-            return view(res)
-        return res
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+
+        return view(res.one())
 
     async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> None:
         """Can raise NoResultException."""
-        res = await self.session.execute(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id))
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id))
 
-        artifact: ArtifactDB = res.scalar_one()
+        artifact: ArtifactDB = res.one()
         artifact.status = new_status.name
 
         await self.session.commit()

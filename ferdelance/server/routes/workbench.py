@@ -1,11 +1,3 @@
-from ferdelance.database.tables import Project as ProjectDB
-from ferdelance.schemas.workbench import (
-    WorkbenchProject,
-    WorkbenchDataSource,
-    WorkbenchProjectToken,
-)
-from ferdelance.schemas.project import Project, DataSource, Feature
-
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_USER
@@ -16,19 +8,6 @@ from ferdelance.database.services import (
     ModelService,
     ProjectService,
 )
-from ferdelance.database.schemas import Component, Model, Client, Token, DataSource as DataSourceView
-from ferdelance.server.security import check_token
-from ferdelance.server.services import (
-    JobManagementService,
-    SecurityService,
-)
-from ferdelance.standalone.services import JobManagementLocalService
-from ferdelance.schemas.artifacts import (
-    DataSource,
-    Feature,
-    ArtifactStatus,
-    Artifact,
-)
 from ferdelance.schemas import (
     ClientDetails,
     WorkbenchClientList,
@@ -36,6 +15,26 @@ from ferdelance.schemas import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
 )
+from ferdelance.schemas.artifacts import (
+    DataSource,
+    Feature,
+    ArtifactStatus,
+    Artifact,
+)
+from ferdelance.schemas.components import Component, Client, Token
+from ferdelance.schemas.database import ServerArtifact, ServerModel
+from ferdelance.schemas.project import Project, DataSource, Feature
+from ferdelance.schemas.workbench import (
+    WorkbenchProject,
+    WorkbenchDataSource,
+    WorkbenchProjectToken,
+)
+from ferdelance.server.security import check_token
+from ferdelance.server.services import (
+    JobManagementService,
+    SecurityService,
+)
+from ferdelance.standalone.services import JobManagementLocalService
 from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -294,20 +293,17 @@ async def wb_get_artifact_status(
 
     await ss.setup(user.public_key)
 
-    artifact_session = await ars.get_artifact(artifact_id)
+    try:
+        sa: ServerArtifact = await ars.get_artifact(artifact_id)
 
-    # TODO: get status from celery
+        # TODO: get status from celery
 
-    if artifact_session is None:
+        status = sa.get_status()
+
+        return ss.create_response(status.dict())
+    except NoResultFound as _:
         LOGGER.warning(f"artifact_id={artifact_id} not found in database")
         raise HTTPException(404)
-
-    status = ArtifactStatus(
-        artifact_id=artifact_id,
-        status=artifact_session.status,
-    )
-
-    return ss.create_response(status.dict())
 
 
 @workbench_router.get("/workbench/artifact/{artifact_id}", response_class=Response)
@@ -347,12 +343,12 @@ async def wb_get_model(
 
         await ss.setup(user.public_key)
 
-        model_session: Model = await ms.get_aggregated_model(artifact_id)
+        model_db: ServerModel = await ms.get_aggregated_model(artifact_id)
 
-        model_path = model_session.path
+        model_path = model_db.path
 
         if not os.path.exists(model_path):
-            raise ValueError(f"model_id={model_session.model_id} not found at path={model_path}")
+            raise ValueError(f"model_id={model_db.model_id} not found at path={model_path}")
 
         return ss.encrypt_file(model_path)
 
@@ -391,12 +387,12 @@ async def wb_get_partial_model(
 
         await ss.setup(user.public_key)
 
-        model_session: Model = await ms.get_partial_model(artifact_id, builder_user_id)
+        model_db: ServerModel = await ms.get_partial_model(artifact_id, builder_user_id)
 
-        model_path = model_session.path
+        model_path = model_db.path
 
         if not os.path.exists(model_path):
-            raise ValueError(f"partial model_id={model_session.model_id} not found at path={model_path}")
+            raise ValueError(f"partial model_id={model_db.model_id} not found at path={model_path}")
 
         return ss.encrypt_file(model_path)
 

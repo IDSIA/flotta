@@ -91,7 +91,7 @@ class Application(Base):
 
     app_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    version: Mapped[str | None] = mapped_column(String)  # TODO: this should not be none!
+    version: Mapped[str] = mapped_column(String)
     active: Mapped[bool] = mapped_column(default=False)
     path: Mapped[str] = mapped_column(String)
     name: Mapped[str] = mapped_column(String)

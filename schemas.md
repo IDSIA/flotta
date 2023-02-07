@@ -1,19 +1,28 @@
 # ferdelance.database.schemas <---------------- to move under schemas
 
-BaseComponent
-    Component(BaseComponent)
-    Client(BaseComponent)
-Token
-Job
-Artifact <------------------------------------- to remove in favor of ferdelance.schemas.artifacts.Artifact
-Model <---------------------------------------- to remove in favor of ferdelance.schemas.models.core.Model
 DataSource <----------------------------------- to remove in favor of ferdelance.schemas.project.DataSource
 Project <-------------------------------------- to remove in favor of ferdelance.schemas.project.Project
+
+# ferdelance.schemas.database
+
+ServerArtifact                                  (internal representation)
+ServerModel                                     (internal representation)
+
+# ferdelance.schemas.components
+
+BaseComponent
+    Component(BaseComponent)
+    Client(BaseComponent) <-------------------- consider if remove
+Token
 Event
+
+# ferdelance.schemas.jobs
+
+Job
 
 # ferdelance.schemas.client
 
-                                               remove unused
+                                                remove unused
 ClientJoinRequest
 ClientJoinData
 ClientDetails
@@ -48,7 +57,7 @@ DownloadApp
 
 # ferdelance.schemas.workbench
                                                
-                                               remove unused
+                                                remove unused
 WorkbenchJoinRequest
 WorkbenchJoinData
 WorkbenchProjectToken
