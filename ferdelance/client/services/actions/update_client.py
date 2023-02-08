@@ -1,7 +1,7 @@
 from ferdelance.client.config import Config
 from ferdelance.client.services.actions.action import Action
 from ferdelance.client.services.routes import RouteService
-from ferdelance.schemas import UpdateClientApp
+from ferdelance.schemas.updates import UpdateClientApp
 
 
 class UpdateClientAction(Action):

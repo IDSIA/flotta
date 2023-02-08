@@ -1,5 +1,5 @@
 from ferdelance.schemas.artifacts import Query, QueryFilter
-from ferdelance.schemas.projects import Feature, DataSource
+from ferdelance.schemas.datasources import Feature, DataSource
 from ferdelance.schemas.artifacts.operations import Operations
 
 DS1_NAME, DS1_ID = "data_source_1", "ds1"

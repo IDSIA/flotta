@@ -8,8 +8,8 @@ __all__ = [
     "Project",
 ]
 
-from ferdelance.schemas.projects import (
-    Project,
+from ferdelance.schemas.project import Project
+from ferdelance.schemas.datasources import (
     DataSource,
     AggregatedDataSource,
 )

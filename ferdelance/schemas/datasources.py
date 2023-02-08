@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+from ferdelance.schemas.artifacts import Query, QueryFeature
+
+from pydantic import BaseModel
+from hashlib import sha256
+
+import pandas as pd
+
+
+class BaseFeature(BaseModel):
+    name: str
+
+    dtype: str | None = None
+
+    v_mean: float | None = None
+    v_std: float | None = None
+    v_min: float | None = None
+    v_p25: float | None = None
+    v_p50: float | None = None
+    v_p75: float | None = None
+    v_max: float | None = None
+    v_miss: float | None = None
+
+    n_cats: int | None = None
+
+
+class Feature(BaseFeature):
+    """Common information to all features."""
+
+    def qf(self) -> QueryFeature:
+        return QueryFeature(
+            feature_name=self.name,
+            dtype=self.dtype,
+        )
+
+    def info(self) -> str:
+        lines: list[str] = [
+            f"{self.name}",
+            f"Data type:            {self.dtype}",
+        ]
+
+        if self.dtype != "object":
+            lines += [
+                f"Value min:            {self.v_min:.2f}",
+                f"Value max:            {self.v_max:.2f}",
+                f"Mean:                 {self.v_mean:.2f}",
+                f"Std deviation:        {self.v_std:.2f}",
+                f"Value 25th percentile: {self.v_p25:.2f}",
+                f"Value 50th percentile: {self.v_p50:.2f}",
+                f"Value 75th percentile: {self.v_p75:.2f}",
+                f"Missing value:        {self.v_miss:.2f}",
+            ]
+
+        return "\n".join(lines)
+
+
+class AggregatedFeature(Feature):
+    n_datasources: int = 1
+
+    @staticmethod
+    def aggregate(features: list[Feature]) -> AggregatedFeature:
+
+        df = pd.DataFrame(features)
+
+        return AggregatedFeature(
+            name=features[0].name,
+            dtype=features[0].dtype,
+            v_mean=df["v_mean"].mean(),
+            v_std=df["v_std"].mean(),
+            v_min=df["v_min"].mean(),
+            v_p25=df["v_p25"].mean(),
+            v_p50=df["v_p50"].mean(),
+            v_p75=df["v_p75"].mean(),
+            v_max=df["v_max"].mean(),
+            v_miss=df["v_miss"].mean(),
+            n_datasources=len(features),
+        )
+
+
+class BaseDataSource(BaseModel):
+    """Common information to all data sources."""
+
+    name: str
+
+    n_records: int
+    n_features: int
+
+
+class DataSource(BaseDataSource):
+    # TODO: this need to keep track of everything through a query node
+
+    client_id: str
+
+    datasource_id: str
+    datasource_hash: str
+
+    features: list[Feature] = list()
+    features_by_name: dict[str, Feature] = dict()
+
+    def __init__(self, **data):
+        super().__init__(**data)
+
+        self.features_by_name: dict[str, Feature] = {f.name: f for f in self.features}
+
+    def all_features(self):
+        return Query(
+            datasource_id=self.datasource_id, datasource_name=self.name, features=[f.qf() for f in self.features]
+        )
+
+    def __eq__(self, other: DataSource) -> bool:
+        if not isinstance(other, DataSource):
+            return False
+
+        return self.datasource_id == other.datasource_id
+
+    def __hash__(self) -> int:
+        return hash(self.datasource_id)
+
+    def info(self) -> str:
+        lines: list[str] = list()
+
+        lines.append(f"{self.datasource_id} {self.name} ({self.n_features}x{self.n_records})")
+
+        for df in self.features:
+            mean = 0.0 if df.v_mean is None else df.v_mean
+            lines.append(f"- {df.dtype:8} {df.name:32} {mean:.2}")
+
+        return f"\n".join(lines)
+
+    def features_dict(self) -> dict[str, QueryFeature]:
+        return {f.name: f.qf() for f in self.features}
+
+    def __getitem__(self, key: str | QueryFeature) -> Feature:
+
+        # TODO: add support for list of keys in / list of features out
+
+        if isinstance(key, str):
+            f = self.features_by_name.get(key, None) or self.features_by_name.get(key, None)
+            if f:
+                return f
+
+        if isinstance(key, QueryFeature):
+            f = self.features_by_name.get(key.feature_name, None)
+            if f:
+                return f
+
+        raise ValueError(f'Feature "{str(key)}" not found in this datasource')
+
+    def __str__(self) -> str:
+        return super().__str__() + f"client_id={self.client_id} features=[{self.features}]"
+
+
+class AggregatedDataSource(BaseDataSource):
+
+    datasource_hash: str
+
+    queries: list[Query] = list()
+
+    features: list[AggregatedFeature] = list()
+    features_by_name: dict[str, AggregatedFeature] = dict()
+
+    n_clients: int = 0
+
+    def __init__(self, **data):
+        super().__init__(**data)
+
+        self.features_by_name: dict[str, AggregatedFeature] = {f.name: f for f in self.features}
+
+    @staticmethod
+    def aggregate(datasources: list[DataSource]) -> AggregatedDataSource:
+        n_records = 0
+        clients = set()
+        features: dict[tuple[str, str], list[Feature]] = dict()
+        hashes = sha256()
+
+        for ds in datasources:
+            n_records += ds.n_records
+            clients.update(ds.client_id)
+            hashes.update(ds.datasource_hash.encode("utf8"))
+
+            for f in ds.features:
+                if f.dtype is None:
+                    continue
+                key = (f.name, f.dtype)
+                if f.name not in features:
+                    features[key] = [f]
+                else:
+                    features[key].append(f)
+
+        return AggregatedDataSource(
+            name="",
+            n_records=n_records,
+            n_features=len(features),
+            n_clients=len(clients),
+            features=[AggregatedFeature.aggregate(f) for _, f in features.items()],
+            datasource_hash=hashes.hexdigest(),
+        )
+
+    def describe(self) -> str:
+        # TODO
+        raise NotImplementedError()
+
+    def add_query(self, query: Query) -> None:
+        self.queries.append(query)
+
+    def __eq__(self, other: AggregatedDataSource) -> bool:
+        if not isinstance(other, AggregatedDataSource):
+            return False
+
+        return self.datasource_hash == other.datasource_hash
+
+    def __add__(self, other: Query) -> AggregatedDataSource:
+        if isinstance(other, Query):
+            self.add_query(other)
+            return self
+
+        raise ValueError("Cannot add something that is not a Query")

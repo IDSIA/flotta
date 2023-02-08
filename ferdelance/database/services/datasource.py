@@ -5,7 +5,8 @@ from ferdelance.database.tables import (
 )
 from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.schemas.projects import DataSource, Metadata, MetaDataSource, MetaFeature
+from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
+from ferdelance.schemas.datasources import DataSource
 
 from datetime import datetime
 from uuid import uuid4

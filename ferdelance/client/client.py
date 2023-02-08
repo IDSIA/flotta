@@ -4,7 +4,7 @@ from ferdelance.client.exceptions import RelaunchClient, ErrorClient
 from ferdelance.client.services.actions import ActionService
 from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action
-from ferdelance.schemas import ClientJoinData, ClientJoinRequest
+from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
 
 from time import sleep
 

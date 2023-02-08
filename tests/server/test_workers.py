@@ -14,7 +14,7 @@ from ferdelance.schemas.artifacts import (
     QueryFeature,
 )
 from ferdelance.schemas.models import Model
-from ferdelance.schemas.projects import Metadata
+from ferdelance.schemas.metadata import Metadata
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus
 

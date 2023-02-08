@@ -4,8 +4,8 @@ from ferdelance.database.tables import (
     DataSource as DataSourceDB,
     Project as ProjectDB,
 )
-from ferdelance.schemas.projects import (
-    Metadata,
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.project import (
     Project,
     BaseProject,
     AggregatedDataSource,

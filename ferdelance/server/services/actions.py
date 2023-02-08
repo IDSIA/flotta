@@ -8,7 +8,7 @@ from ferdelance.database.services import ComponentService
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.components import Client, Token, Application
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas import (
+from ferdelance.schemas.updates import (
     UpdateClientApp,
     UpdateExecute,
     UpdateNothing,

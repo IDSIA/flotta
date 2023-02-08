@@ -15,13 +15,9 @@ from ferdelance.server.services import (
 from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
-from ferdelance.schemas.projects import Metadata
-from ferdelance.schemas import (
-    ClientJoinRequest,
-    ClientJoinData,
-    DownloadApp,
-    UpdateExecute,
-)
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.client import ClientJoinRequest, ClientJoinData
+from ferdelance.schemas.updates import DownloadApp, UpdateExecute
 from ferdelance.schemas.components import (
     Client,
     Application,

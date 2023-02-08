@@ -8,9 +8,10 @@ from ferdelance.schemas.artifacts import (
     QueryFeature,
 )
 from ferdelance.schemas.models import Model
-from ferdelance.schemas.projects import DataSource, Metadata
-from ferdelance.schemas import (
-    ClientDetails,
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.datasources import DataSource
+from ferdelance.schemas.client import ClientDetails
+from ferdelance.schemas.workbench import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchClientList,

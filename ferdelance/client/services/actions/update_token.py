@@ -1,6 +1,6 @@
 from ferdelance.client.config import Config
 from ferdelance.client.services.actions.action import Action
-from ferdelance.schemas import UpdateToken
+from ferdelance.schemas.updates import UpdateToken
 
 import logging
 

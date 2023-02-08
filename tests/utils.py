@@ -1,5 +1,5 @@
-from ferdelance.schemas.projects import Metadata, MetaDataSource, MetaFeature
-from ferdelance.schemas import ClientJoinData, ClientJoinRequest
+from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
+from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
 from ferdelance.shared.exchange import Exchange
 
 from fastapi.testclient import TestClient

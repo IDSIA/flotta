@@ -24,17 +24,15 @@ from ferdelance.schemas.components import (
     Token,
 )
 from ferdelance.schemas.models import Model
-from ferdelance.schemas.projects import Metadata
-from ferdelance.schemas import (
-    ClientUpdate,
-    ClientJoinRequest,
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.client import ClientUpdate, ClientJoinRequest
+from ferdelance.schemas.updates import (
     DownloadApp,
     UpdateClientApp,
     UpdateExecute,
     UpdateToken,
-    WorkbenchJoinData,
-    WorkbenchJoinRequest,
 )
+from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
 from ferdelance.server.api import api
 from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange

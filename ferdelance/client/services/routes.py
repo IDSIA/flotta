@@ -3,8 +3,9 @@ from ferdelance.client.exceptions import ErrorClient
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import Metrics
-from ferdelance.schemas.projects import Metadata
-from ferdelance.schemas import ClientJoinData, ClientJoinRequest, DownloadApp, UpdateClientApp, UpdateExecute
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
+from ferdelance.schemas.updates import DownloadApp, UpdateClientApp, UpdateExecute
 
 from requests import Session, get, post
 from requests.adapters import HTTPAdapter, Retry

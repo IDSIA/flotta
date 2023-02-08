@@ -109,11 +109,7 @@ class QueryTransformer(BaseModel):
 class QueryFeature(BaseModel):
     """Query feature to use in a query from the workbench."""
 
-    feature_id: str
     feature_name: str
-
-    datasource_id: str
-    datasource_name: str
 
     dtype: str | None
 
@@ -164,7 +160,7 @@ class QueryFeature(BaseModel):
 
     def __eq__(self, other) -> bool | QueryFilter:
         if isinstance(other, QueryFeature):
-            return self.datasource_id == other.datasource_id and self.feature_id == other.feature_id
+            return self.feature_name == other.feature_name
 
         if self._dtype_numeric():
             if is_numeric(other):
@@ -192,10 +188,10 @@ class QueryFeature(BaseModel):
         raise ValueError('operator not equals "!=" can be used only for int, float, str, or time values')
 
     def __hash__(self) -> int:
-        return hash((self.datasource_id, self.feature_id, self.feature_name, self.dtype))
+        return hash((self.feature_name, self.dtype))
 
     def __str__(self) -> str:
-        return f"{self.feature_name}@{self.datasource_name}"
+        return f"{self.feature_name}"
 
 
 class Query(BaseModel):
@@ -217,16 +213,10 @@ class Query(BaseModel):
         )
 
     def add_feature(self, feature: QueryFeature) -> None:
-        if feature.datasource_id != self.datasource_id:
-            raise ValueError("Cannot add features from a different data source")
-
         if feature not in self.features:
             self.features.append(feature)
 
     def add_filter(self, filter: QueryFilter) -> None:
-        if filter.feature.datasource_id != self.datasource_id:
-            raise ValueError("Cannot add filter for features from a different data source")
-
         self.filters.append(filter)
 
     def add_transformer(self, transformer: QueryTransformer) -> None:
@@ -261,17 +251,11 @@ class Query(BaseModel):
         )
 
     def remove_feature(self, feature: QueryFeature) -> None:
-        if feature.datasource_id != self.datasource_id:
-            raise ValueError("Cannot remove features from a different data source")
-
         self.features = [f for f in self.features if f != feature]
         self.filters = [f for f in self.filters if f.feature != feature]
         self.transformers = [f for f in self.transformers if f.features_in != feature]
 
     def remove_filter(self, filter: QueryFilter) -> None:
-        if filter.feature.datasource_id != self.datasource_id:
-            raise ValueError("Cannot remove filter for features from a different data source")
-
         self.filters.remove(filter)
 
     def __sub__(self, other: QueryFeature) -> Query:

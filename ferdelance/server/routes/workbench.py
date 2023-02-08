@@ -8,8 +8,8 @@ from ferdelance.database.services import (
     ModelService,
     ProjectService,
 )
-from ferdelance.schemas import (
-    ClientDetails,
+from ferdelance.schemas.client import ClientDetails
+from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
@@ -21,7 +21,7 @@ from ferdelance.schemas.artifacts import (
 )
 from ferdelance.schemas.components import Component, Client, Token
 from ferdelance.schemas.database import ServerModel
-from ferdelance.schemas.projects import Project, DataSource, Feature
+from ferdelance.schemas.datasources import DataSource, Feature
 from ferdelance.schemas.workbench import (
     WorkbenchProject,
     WorkbenchDataSource,
