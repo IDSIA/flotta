@@ -1,6 +1,8 @@
 from ferdelance.schemas.datasources import AggregatedDataSource, Feature, DataSource
 from ferdelance.schemas.artifacts.dtypes import DataType
 
+import json
+
 
 def test_aggregation():
 
@@ -55,12 +57,14 @@ def test_aggregation():
 
     ads = AggregatedDataSource.aggregate([ds1, ds2, ds3])
 
-    assert ads.features_by_name["feature1"].n_datasources == 3
-    assert ads.features_by_name["feature2"].n_datasources == 2
-    assert ads.features_by_name["feature3"].n_datasources == 1
-    assert ads.features_by_name["feature4"].n_datasources == 1
+    assert ads["feature1"].n_datasources == 3
+    assert ads["feature2"].n_datasources == 2
+    assert ads["feature3"].n_datasources == 1
+    assert ads["feature4"].n_datasources == 1
 
     assert ads.n_clients == 2
     assert ads.n_datasources == 3
     assert ads.n_features == 4
     assert ads.n_records == 40
+
+    print(json.dumps(ads.dict(), indent=True))

@@ -2,26 +2,31 @@ from ferdelance.config import conf
 from ferdelance.database.services import ComponentService
 from ferdelance.server.api import api
 from ferdelance.schemas.artifacts import (
-    Artifact,
-    ArtifactStatus,
     Query,
     QueryFeature,
 )
+from ferdelance.workbench.interface import (
+    DataSource,
+    Project,
+    Artifact,
+    ArtifactStatus,
+    Client,
+)
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.datasources import DataSource
-from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.workbench import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
+    WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus
 
 from tests.utils import (
     create_client,
+    create_project,
     get_metadata,
     send_metadata,
 )
@@ -105,6 +110,37 @@ async def test_workbench_read_home(session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_workbench_get_project(session: AsyncSession):
+    """Generic test to check if the home works."""
+
+    token: str = "123456789"
+    ds_hash: str = "abcdefghijklmnopqrstuvwxyz"
+
+    await create_project(session, token, ds_hash)
+
+    with TestClient(api) as server:
+        _, _, wb_exc = connect(server)
+
+        wpt = WorkbenchProjectToken(token=token)
+
+        res = server.get(
+            "/workbench/project",
+            headers=wb_exc.headers(),
+            data=wb_exc.create_payload(wpt.dict()),
+        )
+
+        assert res.status_code == 200
+
+        project = Project(**wb_exc.get_payload(res.content))
+
+        assert project.token == token
+        assert project.n_datasources == 1
+        assert project.data.n_features == 2
+        assert project.data.n_datasources == 1
+        assert project.data.n_clients == 1
+
+
+@pytest.mark.asyncio
 async def test_workbench_list_client(session: AsyncSession):
     with TestClient(api) as server:
         _, _, wb_exc = connect(server)
@@ -137,7 +173,7 @@ async def test_workbench_detail_client(session: AsyncSession):
 
         assert res.status_code == 200
 
-        cd = ClientDetails(**wb_exc.get_payload(res.content))
+        cd = Client(**wb_exc.get_payload(res.content))
 
         assert cd.client_id == client_id
         assert cd.version == "test"

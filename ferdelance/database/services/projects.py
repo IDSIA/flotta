@@ -1,5 +1,6 @@
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.tokens import TokenService
+from ferdelance.database.services.datasource import view as viewDataSource
 from ferdelance.database.tables import (
     DataSource as DataSourceDB,
     Project as ProjectDB,
@@ -21,21 +22,18 @@ import uuid
 def simpleView(project: ProjectDB) -> BaseProject:
     return BaseProject(
         project_id=project.project_id,
+        token=project.token,
         name=project.name,
         creation_time=project.creation_time,
-        token=project.token,
         valid=project.valid,
         active=project.active,
     )
 
 
-def aggregate_datasource(datasources: list[DataSourceDB]) -> AggregatedDataSource:
-    ds = AggregatedDataSource()
-
-    return ds
-
-
 def view(project: ProjectDB) -> Project:
+
+    data = AggregatedDataSource.aggregate([viewDataSource(ds) for ds in project.datasources])
+
     return Project(
         project_id=project.project_id,
         name=project.name,
@@ -45,7 +43,7 @@ def view(project: ProjectDB) -> Project:
         active=project.active,
         n_clients=len(set([ds.component_id for ds in project.datasources])),
         n_datasources=len(project.datasources),
-        data=aggregate_datasource(project.datasources),
+        data=data,
     )
 
 
@@ -79,6 +77,7 @@ class ProjectService(DBSessionService):
 
     async def add_datasource(self, datasource_id: str, project_id: str) -> None:
         """Can raise ValueError."""
+        # TODO: remove this
         try:
             res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.datasource_id == datasource_id))
             ds: DataSourceDB = res.one()
@@ -132,7 +131,9 @@ class ProjectService(DBSessionService):
 
     async def get_by_id(self, project_id: str) -> Project:
         """Can raise NoResultsException."""
-        res = await self.session.scalars(select(ProjectDB).where(ProjectDB.project_id == project_id))
+        res = await self.session.scalars(
+            select(ProjectDB).where(ProjectDB.project_id == project_id).options(selectinload(ProjectDB.datasources))
+        )
 
         return view(res.one())
 

@@ -1,26 +1,31 @@
 from ferdelance.database.tables import (
     DataSource as DataSourceDB,
     Feature as FeatureDB,
-    Project as ProjectDB,
 )
 from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
-from ferdelance.schemas.datasources import DataSource
+from ferdelance.schemas.datasources import DataSource, Feature
 
 from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 import logging
 
 LOGGER = logging.getLogger(__name__)
 
 
+def viewFeature(feature: FeatureDB) -> Feature:
+    return Feature(**feature.__dict__)
+
+
 def view(datasource: DataSourceDB) -> DataSource:
     return DataSource(
         datasource_id=datasource.datasource_id,
+        datasource_hash=datasource.datasource_hash,
         name=datasource.name,
         creation_time=datasource.creation_time,
         update_time=datasource.update_time,
@@ -28,6 +33,7 @@ def view(datasource: DataSourceDB) -> DataSource:
         n_records=datasource.n_records,
         n_features=datasource.n_features,
         client_id=datasource.component_id,
+        features=[viewFeature(f) for f in datasource.features],
     )
 
 
@@ -190,16 +196,22 @@ class DataSourceService(DBSessionService):
         return f_db
 
     async def get_datasource_list(self) -> list[DataSource]:
-        res = await self.session.scalars(select(DataSourceDB))
+        res = await self.session.scalars(select(DataSourceDB).options(selectinload(DataSourceDB.features)))
         return [view(d) for d in res.all()]
 
     async def get_datasource_by_client_id(self, client_id: str) -> list[DataSource]:
-        res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
+        res = await self.session.scalars(
+            select(DataSourceDB)
+            .where(DataSourceDB.component_id == client_id)
+            .options(selectinload(DataSourceDB.features))
+        )
         return [view(d) for d in res.all()]
 
     async def get_datasource_ids_by_client_id(self, client_id: str) -> list[str]:
         res = await self.session.scalars(
-            select(DataSourceDB.datasource_id).where(DataSourceDB.component_id == client_id)
+            select(DataSourceDB.datasource_id)
+            .where(DataSourceDB.component_id == client_id)
+            .options(selectinload(DataSourceDB.features))
         )
 
         return list(res.all())
@@ -207,16 +219,20 @@ class DataSourceService(DBSessionService):
     async def get_datasource_by_id(self, ds_id: str) -> DataSource:
         """Can raise NoResultsFound."""
         res = await self.session.scalars(
-            select(DataSourceDB).where(
+            select(DataSourceDB)
+            .where(
                 DataSourceDB.datasource_id == ds_id,
                 DataSourceDB.removed == False,
             )
+            .options(selectinload(DataSourceDB.features))
         )
         return view(res.one())
 
     async def get_datasource_by_name(self, ds_name: str) -> list[DataSource]:
         res = await self.session.scalars(
-            select(DataSourceDB).where(DataSourceDB.name == ds_name, DataSourceDB.removed == False)
+            select(DataSourceDB)
+            .where(DataSourceDB.name == ds_name, DataSourceDB.removed == False)
+            .options(selectinload(DataSourceDB.features))
         )
         return [view(d) for d in res.all()]
 
@@ -240,11 +256,3 @@ class DataSourceService(DBSessionService):
             )
         )
         return list(res.all())
-
-    # async def get_tokens_by_datasource(self, ds: DataSource) -> list[str]:
-    #     res = await self.session.scalars(
-    #         select(Project.token)
-    #         .join(, .project_id == Project.project_id)
-    #         .where(.datasource_id == ds.datasource_id)
-    #     )
-    #     return list(res.all())

@@ -8,9 +8,6 @@ DS2_NAME, DS2_ID = "data_source_2", "ds2"
 
 def feature1() -> Feature:
     return Feature(
-        datasource_id=DS1_ID,
-        datasource_name=DS1_NAME,
-        feature_id="ds1-f1",
         name="feature1",
         dtype="str",
         v_mean=None,
@@ -26,9 +23,6 @@ def feature1() -> Feature:
 
 def feature2() -> Feature:
     return Feature(
-        datasource_id=DS1_ID,
-        datasource_name=DS1_NAME,
-        feature_id="ds1-f2",
         name="feature2",
         dtype="str",
         v_mean=None,
@@ -44,9 +38,6 @@ def feature2() -> Feature:
 
 def feature3() -> Feature:
     return Feature(
-        datasource_id=DS2_ID,
-        datasource_name=DS2_NAME,
-        feature_id="ds2-f3",
         name="feature3",
         dtype="str",
         v_mean=None,
@@ -99,8 +90,6 @@ def test_features():
 
     fq1 = f1.qf()
 
-    assert fq1.datasource_id == f1.datasource_id
-    assert fq1.feature_id == f1.feature_id
     assert fq1 == f1
     assert fq1 == f1.qf()
     assert fq1 is not f1

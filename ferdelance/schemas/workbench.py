@@ -45,7 +45,6 @@ class WorkbenchDataSource(BaseModel):
     n_features: int
 
     # features: list[Feature]
-    # features_by_id: dict[str, Feature] = dict()
     # features_by_name: dict[str, Feature] = dict()
 
 

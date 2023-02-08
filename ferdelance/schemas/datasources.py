@@ -103,6 +103,7 @@ class BaseDataSource(BaseModel):
 
 
 class DataSource(BaseDataSource):
+    # TODO: should we remove this in favor of AggregatedDataSource?
     # TODO: this need to keep track of everything through a query node
 
     client_id: str
@@ -111,12 +112,13 @@ class DataSource(BaseDataSource):
     datasource_hash: str
 
     features: list[Feature] = list()
-    features_by_name: dict[str, Feature] = dict()
+    _features_by_name: dict[str, Feature] = dict()
 
     def __init__(self, **data):
         super().__init__(**data)
 
-        self.features_by_name: dict[str, Feature] = {f.name: f for f in self.features}
+        for f in self.features:
+            self._features_by_name[f.name] = f
 
     def all_features(self):
         return Query(
@@ -151,12 +153,12 @@ class DataSource(BaseDataSource):
         # TODO: add support for list of keys in / list of features out
 
         if isinstance(key, str):
-            f = self.features_by_name.get(key, None)
+            f = self._features_by_name.get(key, None)
             if f:
                 return f
 
         if isinstance(key, QueryFeature):
-            f = self.features_by_name.get(key.feature_name, None)
+            f = self._features_by_name.get(key.feature_name, None)
             if f:
                 return f
 
@@ -173,7 +175,7 @@ class AggregatedDataSource(BaseDataSource):
     queries: list[Query] = list()
 
     features: list[AggregatedFeature] = list()
-    features_by_name: dict[str, AggregatedFeature] = dict()
+    _features_by_name: dict[str, AggregatedFeature] = dict()
 
     n_clients: int = 0
     n_datasources: int = 0
@@ -181,7 +183,8 @@ class AggregatedDataSource(BaseDataSource):
     def __init__(self, **data):
         super().__init__(**data)
 
-        self.features_by_name: dict[str, AggregatedFeature] = {f.name: f for f in self.features}
+        for f in self.features:
+            self._features_by_name[f.name] = f
 
     @staticmethod
     def aggregate(datasources: list[DataSource]) -> AggregatedDataSource:
@@ -237,22 +240,22 @@ class AggregatedDataSource(BaseDataSource):
 
         raise ValueError("Cannot add something that is not a Query")
 
-    def __getitem__(self, key: str | AggregatedFeature | QueryFeature) -> Feature:
+    def __getitem__(self, key: str | AggregatedFeature | QueryFeature) -> AggregatedFeature:
 
         # TODO: add support for list of keys in / list of features out
 
         if isinstance(key, str):
-            f = self.features_by_name.get(key, None)
+            f = self._features_by_name.get(key, None)
             if f:
                 return f
 
         if isinstance(key, AggregatedFeature):
-            f = self.features_by_name.get(key.name, None)
+            f = self._features_by_name.get(key.name, None)
             if f:
                 return f
 
         if isinstance(key, QueryFeature):
-            f = self.features_by_name.get(key.feature_name, None)
+            f = self._features_by_name.get(key.feature_name, None)
             if f:
                 return f
 

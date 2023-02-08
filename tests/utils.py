@@ -1,9 +1,11 @@
+from ferdelance.database.services import ProjectService, DataSourceService
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
 from ferdelance.shared.exchange import Exchange
 
 from fastapi.testclient import TestClient
 from requests import Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import json
 import logging
@@ -100,3 +102,31 @@ def send_metadata(client: TestClient, exc: Exchange, metadata: Metadata) -> Resp
     )
 
     return upload_response
+
+
+async def create_project(session: AsyncSession, p_token: str, ds_hash: str) -> tuple[ProjectService, DataSourceService]:
+    ps = ProjectService(session)
+    ds = DataSourceService(session)
+
+    metadata = Metadata(
+        datasources=[
+            MetaDataSource(
+                name="ds1",
+                n_records=10,
+                n_features=2,
+                datasource_id=None,
+                datasource_hash=ds_hash,
+                tokens=[p_token],
+                features=[
+                    MetaFeature(name="feature1", datasource_hash=ds_hash, dtype="object"),
+                    MetaFeature(name="feature2", datasource_hash=ds_hash, dtype="object"),
+                ],
+            )
+        ]
+    )
+
+    await ps.create("example", p_token)
+    await ds.create_or_update_metadata("client1", metadata)
+    await ps.add_datasources_from_metadata(metadata)
+
+    return ps, ds

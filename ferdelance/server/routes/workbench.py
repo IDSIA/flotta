@@ -21,6 +21,7 @@ from ferdelance.schemas.artifacts import (
 )
 from ferdelance.schemas.components import Component, Client, Token
 from ferdelance.schemas.database import ServerModel
+from ferdelance.schemas.project import Project
 from ferdelance.schemas.datasources import DataSource, Feature
 from ferdelance.schemas.workbench import (
     WorkbenchProject,
@@ -413,7 +414,7 @@ async def wb_get_project(
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
+    LOGGER.info(f"user_id={user.component_id}: requested a project given its token")
 
     pss: ProjectService = ProjectService(session)
     ss: SecurityService = SecurityService(session)
@@ -424,20 +425,17 @@ async def wb_get_project(
     wpt = WorkbenchProjectToken(**data)
 
     try:
-        project: ProjectDB = await pss.get_by_token(token=wpt.token)
+        LOGGER.info(f"user_id={user.component_id}: requested a project given its token")
+
+        project: Project = await pss.get_by_token(token=wpt.token)
+
+        LOGGER.info(f"Loaded project with project_id={project.project_id}")
+
+        return ss.create_response(project.dict())
+
     except NoResultFound as _:
-        LOGGER.warning(f"invalid name + token combination for project token {wpt.token}")
+        LOGGER.warning(f"user_id={user.component_id}: request project with invalid token={wpt.token}")
         raise HTTPException(404)
-
-    LOGGER.info(f"Loaded project {project}")
-
-    res: WorkbenchProject = WorkbenchProject(
-        **project.__dict__,
-        creation_time=str(project.creation_time),
-        datasources=[WorkbenchDataSource(**ds.__dict__) for ds in project.datasources],
-    )
-
-    return ss.create_response(res.dict())
 
 
 @workbench_router.get("/workbench/projects/descr", response_class=Response)

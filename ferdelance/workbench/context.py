@@ -16,8 +16,6 @@ from ferdelance.schemas.workbench import (
 )
 from ferdelance.shared.exchange import Exchange
 
-from typing import Protocol
-
 import pandas as pd
 
 import json
