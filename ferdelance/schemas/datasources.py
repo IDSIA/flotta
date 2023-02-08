@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ferdelance.schemas.artifacts import Query, QueryFeature
+from ferdelance.schemas.artifacts.dtypes import DataType
 
 from pydantic import BaseModel
 from hashlib import sha256
@@ -37,19 +38,19 @@ class Feature(BaseFeature):
     def info(self) -> str:
         lines: list[str] = [
             f"{self.name}",
-            f"Data type:            {self.dtype}",
+            f"Data type:             {self.dtype}",
         ]
 
         if self.dtype != "object":
             lines += [
-                f"Value min:            {self.v_min:.2f}",
-                f"Value max:            {self.v_max:.2f}",
-                f"Mean:                 {self.v_mean:.2f}",
-                f"Std deviation:        {self.v_std:.2f}",
+                f"Value min:             {self.v_min:.2f}",
+                f"Value max:             {self.v_max:.2f}",
+                f"Mean:                  {self.v_mean:.2f}",
+                f"Std deviation:         {self.v_std:.2f}",
                 f"Value 25th percentile: {self.v_p25:.2f}",
                 f"Value 50th percentile: {self.v_p50:.2f}",
                 f"Value 75th percentile: {self.v_p75:.2f}",
-                f"Missing value:        {self.v_miss:.2f}",
+                f"Missing value:         {self.v_miss:.2f}",
             ]
 
         return "\n".join(lines)
@@ -58,23 +59,37 @@ class Feature(BaseFeature):
 class AggregatedFeature(Feature):
     n_datasources: int = 1
 
+    # TODO: aggregated features should have distributions, not punctual values!
+
     @staticmethod
     def aggregate(features: list[Feature]) -> AggregatedFeature:
 
-        df = pd.DataFrame(features)
+        name = features[0].name
+        dtype = features[0].dtype
+
+        df = pd.DataFrame([f.dict() for f in features])
+
+        if dtype == DataType.NUMERIC.name:
+
+            return AggregatedFeature(
+                name=name,
+                dtype=dtype,
+                n_datasources=len(features),
+                v_mean=df["v_mean"].mean(),
+                v_std=df["v_std"].mean(),
+                v_min=df["v_min"].mean(),
+                v_p25=df["v_p25"].mean(),
+                v_p50=df["v_p50"].mean(),
+                v_p75=df["v_p75"].mean(),
+                v_max=df["v_max"].mean(),
+                v_miss=df["v_miss"].mean(),
+            )
 
         return AggregatedFeature(
-            name=features[0].name,
-            dtype=features[0].dtype,
-            v_mean=df["v_mean"].mean(),
-            v_std=df["v_std"].mean(),
-            v_min=df["v_min"].mean(),
-            v_p25=df["v_p25"].mean(),
-            v_p50=df["v_p50"].mean(),
-            v_p75=df["v_p75"].mean(),
-            v_max=df["v_max"].mean(),
-            v_miss=df["v_miss"].mean(),
+            name=name,
+            dtype=dtype,
             n_datasources=len(features),
+            v_miss=df["v_miss"].mean(),
         )
 
 
@@ -136,7 +151,7 @@ class DataSource(BaseDataSource):
         # TODO: add support for list of keys in / list of features out
 
         if isinstance(key, str):
-            f = self.features_by_name.get(key, None) or self.features_by_name.get(key, None)
+            f = self.features_by_name.get(key, None)
             if f:
                 return f
 
@@ -161,6 +176,7 @@ class AggregatedDataSource(BaseDataSource):
     features_by_name: dict[str, AggregatedFeature] = dict()
 
     n_clients: int = 0
+    n_datasources: int = 0
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -176,14 +192,14 @@ class AggregatedDataSource(BaseDataSource):
 
         for ds in datasources:
             n_records += ds.n_records
-            clients.update(ds.client_id)
+            clients.add(ds.client_id)
             hashes.update(ds.datasource_hash.encode("utf8"))
 
             for f in ds.features:
                 if f.dtype is None:
                     continue
                 key = (f.name, f.dtype)
-                if f.name not in features:
+                if key not in features:
                     features[key] = [f]
                 else:
                     features[key].append(f)
@@ -193,9 +209,13 @@ class AggregatedDataSource(BaseDataSource):
             n_records=n_records,
             n_features=len(features),
             n_clients=len(clients),
+            n_datasources=len(datasources),
             features=[AggregatedFeature.aggregate(f) for _, f in features.items()],
             datasource_hash=hashes.hexdigest(),
         )
+
+    def build(self) -> list[Query]:
+        return self.queries
 
     def describe(self) -> str:
         # TODO
@@ -216,3 +236,27 @@ class AggregatedDataSource(BaseDataSource):
             return self
 
         raise ValueError("Cannot add something that is not a Query")
+
+    def __getitem__(self, key: str | AggregatedFeature | QueryFeature) -> Feature:
+
+        # TODO: add support for list of keys in / list of features out
+
+        if isinstance(key, str):
+            f = self.features_by_name.get(key, None)
+            if f:
+                return f
+
+        if isinstance(key, AggregatedFeature):
+            f = self.features_by_name.get(key.name, None)
+            if f:
+                return f
+
+        if isinstance(key, QueryFeature):
+            f = self.features_by_name.get(key.feature_name, None)
+            if f:
+                return f
+
+        raise ValueError(f'Feature "{str(key)}" not found in this datasource')
+
+    def __str__(self) -> str:
+        return super().__str__() + f"datasource_hash={self.datasource_hash} features=[{self.features}]"
