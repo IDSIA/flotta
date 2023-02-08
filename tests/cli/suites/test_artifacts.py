@@ -1,6 +1,6 @@
 from ferdelance.cli.fdl_suites.artifacts.functions import describe_artifact, list_artifacts
 from ferdelance.database.tables import Artifact as ArtifactDB
-from ferdelance.database.schemas import Artifact
+from ferdelance.schemas.database import ServerArtifact
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,8 +56,9 @@ async def test_artifacts_description(session: AsyncSession):
 
     await session.commit()
 
-    res: Artifact = await describe_artifact(artifact_id=artifact_id_1)
+    res: ServerArtifact | None = await describe_artifact(artifact_id=artifact_id_1)
 
+    assert res is not None
     assert res.artifact_id == "artifact1"
     assert res.path == "."
     assert res.status == ""

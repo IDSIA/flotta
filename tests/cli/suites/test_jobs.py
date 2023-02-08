@@ -1,6 +1,6 @@
 from ferdelance.cli.fdl_suites.jobs.functions import list_jobs
 from ferdelance.database import AsyncSession
-from ferdelance.database.schemas import Job as JobView
+from ferdelance.schemas.jobs import Job as JobView
 from ferdelance.database.tables import Artifact, Component, Job
 
 import pytest

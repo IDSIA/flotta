@@ -1,14 +1,14 @@
 """Implementation of the CLI features regarding artifacts"""
 
 from ferdelance.database import DataBase
-from ferdelance.database.schemas import Artifact
+from ferdelance.schemas.database import ServerArtifact
 from ferdelance.database.services import ArtifactService
 from ferdelance.cli.visualization import show_many, show_one
 
 from sqlalchemy.exc import NoResultFound
 
 
-async def list_artifacts() -> list[Artifact]:
+async def list_artifacts() -> list[ServerArtifact]:
     """Print and Return Artifact objects list
 
     Returns:
@@ -17,12 +17,12 @@ async def list_artifacts() -> list[Artifact]:
     db = DataBase()
     async with db.async_session() as session:
         artifact_service: ArtifactService = ArtifactService(session)
-        artifacts: list[Artifact] = await artifact_service.get_artifact_list()
+        artifacts: list[ServerArtifact] = await artifact_service.get_artifact_list()
         show_many(artifacts)
         return artifacts
 
 
-async def describe_artifact(artifact_id: str) -> Artifact:
+async def describe_artifact(artifact_id: str | None) -> ServerArtifact | None:
     """Print and return a single Artifact object
 
     Args:
@@ -42,7 +42,7 @@ async def describe_artifact(artifact_id: str) -> Artifact:
         artifact_service: ArtifactService = ArtifactService(session)
 
         try:
-            artifact: Artifact = await artifact_service.get_artifact(artifact_id=artifact_id)
+            artifact: ServerArtifact = await artifact_service.get_artifact(artifact_id=artifact_id)
             show_one(artifact)
             return artifact
 

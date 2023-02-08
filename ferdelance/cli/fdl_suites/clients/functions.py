@@ -1,16 +1,12 @@
-from typing import List
-
-import pandas as pd
-
 from ferdelance.database import DataBase
-from ferdelance.database.schemas import Client
+from ferdelance.schemas.components import Client
 from ferdelance.database.services import ComponentService
 from ferdelance.cli.visualization import show_many, show_one
 
 from sqlalchemy.exc import NoResultFound
 
 
-async def list_clients() -> List[Client]:
+async def list_clients() -> list[Client]:
     """Print and return Component objects list
 
     Returns:
@@ -19,7 +15,7 @@ async def list_clients() -> List[Client]:
     db = DataBase()
     async with db.async_session() as session:
         component_service = ComponentService(session)
-        clients: List[Client] = await component_service.list_clients()
+        clients: list[Client] = await component_service.list_clients()
         show_many(result=clients)
         return clients
 

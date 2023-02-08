@@ -1,18 +1,14 @@
-"""Implementation of the CLI features regarding models
-"""
+"""Implementation of the CLI features regarding models"""
 
-from typing import List
-
-import pandas as pd
 from sqlalchemy.exc import NoResultFound
 
-from ....database import DataBase
-from ....database.schemas import Model
-from ....database.services import ModelService
-from ...visualization import show_many, show_one
+from ferdelance.database import DataBase
+from ferdelance.schemas.database import ServerModel
+from ferdelance.database.services import ModelService
+from ferdelance.cli.visualization import show_many, show_one
 
 
-async def list_models(artifact_id: str | None = None) -> List[Model]:
+async def list_models(artifact_id: str | None = None) -> list[ServerModel]:
     """Print model list, with or without filters on ARTIFACT_ID, MODEL_ID"""
     # TODO depending on 1:1, 1:n relations with artifacts arguments change or disappear
 
@@ -22,16 +18,16 @@ async def list_models(artifact_id: str | None = None) -> List[Model]:
         model_service = ModelService(session)
 
         if artifact_id is not None:
-            models: list[Model] = await model_service.get_models_by_artifact_id(artifact_id)
+            models: list[ServerModel] = await model_service.get_models_by_artifact_id(artifact_id)
         else:
-            models: list[Model] = await model_service.get_model_list()
+            models: list[ServerModel] = await model_service.get_model_list()
 
         show_many(models)
 
         return models
 
 
-async def describe_model(model_id: str | None = None) -> Model | None:
+async def describe_model(model_id: str | None = None) -> ServerModel | None:
     """Describe single model by printing its db record.
 
     Args:
@@ -53,7 +49,7 @@ async def describe_model(model_id: str | None = None) -> Model | None:
         model_service = ModelService(session)
 
         try:
-            model: Model = await model_service.get_model_by_id(model_id)
+            model: ServerModel = await model_service.get_model_by_id(model_id)
             show_one(model)
 
             return model

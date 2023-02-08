@@ -1,5 +1,5 @@
 from ferdelance.cli.fdl_suites.projects.functions import create_project, describe_project, list_projects
-from ferdelance.database.schemas import Project as ProjectView
+from ferdelance.schemas.project import BaseProject as ProjectView
 from ferdelance.database.tables import Project as ProjectDB
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,13 +67,15 @@ async def test_project_describe(session: AsyncSession):
 
     await session.commit()
 
-    p1_view: ProjectView = await describe_project(token="P1")
+    p1_view: ProjectView | None = await describe_project(token="P1")
 
+    assert p1_view is not None
     assert p1_view.name == "P1"
     assert p1_view.token == "P1"
 
-    p1_view: ProjectView = await describe_project(project_id="P1")
+    p1_view: ProjectView | None = await describe_project(project_id="P1")
 
+    assert p1_view is not None
     assert p1_view.name == "P1"
     assert p1_view.token == "P1"
 

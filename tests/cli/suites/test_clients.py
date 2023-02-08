@@ -1,7 +1,7 @@
 from ferdelance.cli.fdl_suites.clients.functions import describe_client, list_clients
 from ferdelance.database import AsyncSession
 from ferdelance.database.tables import Component
-from ferdelance.database.schemas import Client as ClientView
+from ferdelance.schemas.components import Client as ClientView
 
 import pytest
 
@@ -58,8 +58,9 @@ async def test_describe_client(session: AsyncSession):
 
     await session.commit()
 
-    res: ClientView = await describe_client(client_id=c1.component_id)
+    res: ClientView | None = await describe_client(client_id=c1.component_id)
 
+    assert res is not None
     assert isinstance(res, ClientView)
     assert res.client_id == "C1"
     assert res.version == "test"
