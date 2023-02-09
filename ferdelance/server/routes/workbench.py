@@ -24,8 +24,6 @@ from ferdelance.schemas.database import ServerModel
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.datasources import DataSource, Feature
 from ferdelance.schemas.workbench import (
-    WorkbenchProject,
-    WorkbenchDataSource,
     WorkbenchProjectToken,
 )
 from ferdelance.server.security import check_token

@@ -5,7 +5,6 @@ from ferdelance.database.services.component import ComponentService
 from ferdelance.database.tables import (
     Application,
     DataSource,
-    Feature,
     Job,
     Token as TokenDB,
 )
@@ -514,8 +513,8 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
             assert task.artifact_id == job.artifact_id
             assert artifact_status.artifact_id is not None
             assert task.artifact_id == artifact_status.artifact_id
-            assert len(task.dataset.queries) == 1
-            assert len(task.dataset.queries[0].features) == 2
+            assert len(task.data) == 1
+            assert len(task.data[0].features) == 2
 
         # cleanup
         LOGGER.info("cleaning up")

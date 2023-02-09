@@ -1,10 +1,11 @@
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.tokens import TokenService
-from ferdelance.database.services.datasource import view as viewDataSource
+from ferdelance.database.services.datasource import DataSourceService
 from ferdelance.database.tables import (
     DataSource as DataSourceDB,
     Project as ProjectDB,
 )
+from ferdelance.schemas.datasources import DataSource
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import (
     Project,
@@ -30,10 +31,7 @@ def simpleView(project: ProjectDB) -> BaseProject:
     )
 
 
-def view(project: ProjectDB) -> Project:
-
-    data = AggregatedDataSource.aggregate([viewDataSource(ds) for ds in project.datasources])
-
+def view(project: ProjectDB, data: AggregatedDataSource) -> Project:
     return Project(
         project_id=project.project_id,
         name=project.name,
@@ -52,6 +50,7 @@ class ProjectService(DBSessionService):
         super().__init__(session)
 
         self.ts: TokenService = TokenService(session)
+        self.dss: DataSourceService = DataSourceService(session)
 
     async def create(self, name: str = "", token: str | None = None) -> str:
 
@@ -134,13 +133,23 @@ class ProjectService(DBSessionService):
         res = await self.session.scalars(
             select(ProjectDB).where(ProjectDB.project_id == project_id).options(selectinload(ProjectDB.datasources))
         )
+        p = res.one()
 
-        return view(res.one())
+        dss: list[DataSource] = [await self.dss.load(ds.datasource_id) for ds in p.datasources]
+
+        data = AggregatedDataSource.aggregate(dss)
+
+        return view(p, data)
 
     async def get_by_token(self, token: str) -> Project:
         """Can raise NoResultsException."""
         res = await self.session.scalars(
             select(ProjectDB).where(ProjectDB.token == token).options(selectinload(ProjectDB.datasources))
         )
+        p = res.one()
 
-        return view(res.one())
+        dss: list[DataSource] = [await self.dss.load(ds.datasource_id) for ds in p.datasources]
+
+        data = AggregatedDataSource.aggregate(dss)
+
+        return view(p, data)

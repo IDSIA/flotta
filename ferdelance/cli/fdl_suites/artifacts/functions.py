@@ -17,7 +17,7 @@ async def list_artifacts() -> list[ServerArtifact]:
     db = DataBase()
     async with db.async_session() as session:
         artifact_service: ArtifactService = ArtifactService(session)
-        artifacts: list[ServerArtifact] = await artifact_service.get_artifact_list()
+        artifacts: list[ServerArtifact] = await artifact_service.list()
         show_many(artifacts)
         return artifacts
 

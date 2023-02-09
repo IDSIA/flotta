@@ -1,6 +1,3 @@
-from ferdelance.database.services import ProjectService, DataSourceService
-from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
-
 from tests.utils import create_project
 
 from sqlalchemy.ext.asyncio import AsyncSession

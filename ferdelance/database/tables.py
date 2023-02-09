@@ -157,35 +157,6 @@ class Model(Base):
     component = relationship("Component")
 
 
-class Feature(Base):
-    """Table that collects all metadata sent by the client."""
-
-    __tablename__ = "features"
-
-    feature_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
-
-    name: Mapped[str] = mapped_column(String)
-    dtype: Mapped[str | None] = mapped_column(String, nullable=True)
-
-    v_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_std: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_min: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_p25: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_p50: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_p75: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_max: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_miss: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-    n_cats: Mapped[int | None]  # number of categorical values
-
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    removed: Mapped[bool] = mapped_column(default=False)
-
-    datasource_id: Mapped[str] = mapped_column(ForeignKey("datasources.datasource_id"))
-    datasource: Mapped[DataSource] = relationship(back_populates="features")
-
-
 project_datasource = Table(
     "project_datasource",
     Base.metadata,
@@ -221,6 +192,7 @@ class DataSource(Base):
     datasource_hash: Mapped[str] = mapped_column(String(64))
 
     name: Mapped[str] = mapped_column(String)
+    path: Mapped[str] = mapped_column(String)
 
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
@@ -233,4 +205,3 @@ class DataSource(Base):
     component = relationship("Component")
 
     projects: Mapped[list[Project]] = relationship(secondary=project_datasource, back_populates="datasources")
-    features: Mapped[list[Feature]] = relationship(back_populates="datasource")
