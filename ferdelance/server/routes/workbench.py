@@ -141,24 +141,33 @@ async def wb_get_client_list(
 
     wcl = WorkbenchClientList(clients=client_details)
 
+    LOGGER.info(f"found {len(wcl.clients)} datasource(s)")
+
     return ss.create_response(wcl.dict())
 
 
-# TODO: to remove
-@workbench_router.get("/workbench/datasource/list", response_class=Response)
-async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)):
+@workbench_router.get("/workbench/datasources", response_class=Response)
+async def wb_get_datasource_list(
+    request: Request, session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)
+):
     LOGGER.info(f"user_id={user.component_id}: requested a list of available data source")
 
     dss: DataSourceService = DataSourceService(session)
     ss: SecurityService = SecurityService(session)
+    ps: ProjectService = ProjectService(session)
 
     await ss.setup(user.public_key)
 
-    ds_session: list[DataSourceView] = await dss.get_datasource_list()
+    data = await ss.read_request(request)
+    wpt = WorkbenchProjectToken(**data)
 
-    LOGGER.info(f"found {len(ds_session)} datasource(s)")
+    datasource_ids = await ps.datasources_ids(wpt.token)
 
-    wdsl = WorkbenchDataSourceIdList(datasources=[ds.datasource_id for ds in ds_session if ds.removed is False])
+    datasources = [await dss.load(ds_id) for ds_id in datasource_ids]
+
+    wdsl = WorkbenchDataSourceIdList(datasources=datasources)
+
+    LOGGER.info(f"found {len(wdsl.datasources)} datasource(s)")
 
     return ss.create_response(wdsl.dict())
 

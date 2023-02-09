@@ -161,6 +161,27 @@ async def test_workbench_list_client(session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_workbench_list_datasources(session: AsyncSession):
+
+    with TestClient(api) as server:
+        _, _, wb_exc, _ = await connect(server, session)
+
+        wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
+
+        res = server.get(
+            "/workbench/datasources",
+            headers=wb_exc.headers(),
+            data=wb_exc.create_payload(wpt.dict()),
+        )
+
+        res.raise_for_status()
+
+        wcl = WorkbenchDataSourceIdList(**wb_exc.get_payload(res.content))
+
+        assert len(wcl.datasources) == 1
+
+
+@pytest.mark.asyncio
 async def test_workflow_submit(session: AsyncSession):
     with TestClient(api) as server:
         _, _, wb_exc, _ = await connect(server, session)

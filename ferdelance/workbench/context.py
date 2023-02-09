@@ -119,7 +119,7 @@ class Context:
         wpt = WorkbenchProjectToken(token=project.token)
 
         res = requests.get(
-            f"{self.server}/workbench/client/list",
+            f"{self.server}/workbench/clients",
             headers=self.exc.headers(),
             data=self.exc.create_payload(wpt.dict()),
         )
@@ -141,7 +141,7 @@ class Context:
         wpt = WorkbenchProjectToken(token=project.token)
 
         res = requests.get(
-            f"{self.server}/workbench/datasource/list/",
+            f"{self.server}/workbench/datasources",
             headers=self.exc.headers(),
             data=self.exc.create_payload(wpt.dict()),
         )
