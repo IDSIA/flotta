@@ -542,7 +542,7 @@ async def test_client_access(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 403
 
         res = client.get(
-            "/workbench/client/list",
+            "/workbench/clients",
             headers=exchange.headers(),
         )
 

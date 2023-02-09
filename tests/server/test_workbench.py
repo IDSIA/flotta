@@ -29,6 +29,7 @@ from tests.utils import (
     create_project,
     get_metadata,
     send_metadata,
+    TEST_PROJECT_TOKEN,
 )
 
 from fastapi.testclient import TestClient
@@ -50,7 +51,9 @@ def setup_exchange() -> Exchange:
     return exc
 
 
-def connect(server: TestClient) -> tuple[str, str, Exchange]:
+async def connect(server: TestClient, session: AsyncSession) -> tuple[str, str, Exchange, str]:
+    p_token = await create_project(session)
+
     cl_exc = setup_exchange()
     wb_exc = setup_exchange()
 
@@ -74,13 +77,13 @@ def connect(server: TestClient) -> tuple[str, str, Exchange]:
     wb_exc.set_remote_key(wjd.public_key)
     wb_exc.set_token(wjd.token)
 
-    return client_id, wjd.id, wb_exc
+    return client_id, wjd.id, wb_exc, p_token
 
 
 @pytest.mark.asyncio
 async def test_workbench_connect(session: AsyncSession):
     with TestClient(api) as server:
-        client_id, wb_id, _ = connect(server)
+        client_id, wb_id, _, _ = await connect(server, session)
 
         cs: ComponentService = ComponentService(session)
 
@@ -98,7 +101,7 @@ async def test_workbench_connect(session: AsyncSession):
 async def test_workbench_read_home(session: AsyncSession):
     """Generic test to check if the home works."""
     with TestClient(api) as server:
-        _, _, wb_exc = connect(server)
+        _, _, wb_exc, _ = await connect(server, session)
 
         res = server.get(
             "/workbench",
@@ -113,13 +116,8 @@ async def test_workbench_read_home(session: AsyncSession):
 async def test_workbench_get_project(session: AsyncSession):
     """Generic test to check if the home works."""
 
-    token: str = "123456789"
-    ds_hash: str = "abcdefghijklmnopqrstuvwxyz"
-
-    await create_project(session, token, ds_hash)
-
     with TestClient(api) as server:
-        _, _, wb_exc = connect(server)
+        _, _, wb_exc, token = await connect(server, session)
 
         wpt = WorkbenchProjectToken(token=token)
 
@@ -142,47 +140,30 @@ async def test_workbench_get_project(session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_workbench_list_client(session: AsyncSession):
+
     with TestClient(api) as server:
-        _, _, wb_exc = connect(server)
+        _, _, wb_exc, _ = await connect(server, session)
+
+        wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
         res = server.get(
-            "/workbench/client/list",
+            "/workbench/clients",
             headers=wb_exc.headers(),
+            data=wb_exc.create_payload(wpt.dict()),
         )
 
         res.raise_for_status()
 
         wcl = WorkbenchClientList(**wb_exc.get_payload(res.content))
-        client_list = wcl.client_ids
+        client_list = wcl.clients
 
         assert len(client_list) == 1
-        assert "SERVER" not in client_list
-        assert "WORKER" not in client_list
-        assert "WORKBENCH" not in client_list
-
-
-@pytest.mark.asyncio
-async def test_workbench_detail_client(session: AsyncSession):
-    with TestClient(api) as server:
-        client_id, _, wb_exc = connect(server)
-
-        res = server.get(
-            f"/workbench/client/{client_id}",
-            headers=wb_exc.headers(),
-        )
-
-        assert res.status_code == 200
-
-        cd = Client(**wb_exc.get_payload(res.content))
-
-        assert cd.client_id == client_id
-        assert cd.version == "test"
 
 
 @pytest.mark.asyncio
 async def test_workflow_submit(session: AsyncSession):
     with TestClient(api) as server:
-        _, _, wb_exc = connect(server)
+        _, _, wb_exc, _ = await connect(server, session)
 
         res = server.get(
             "/workbench/datasource/list",
@@ -220,23 +201,21 @@ async def test_workflow_submit(session: AsyncSession):
 
         artifact = Artifact(
             artifact_id=None,
-            dataset=Dataset(
-                queries=[
-                    Query(
-                        datasource_id=datasource.datasource_id,
-                        datasource_name=datasource.name,
-                        features=[
-                            QueryFeature(
-                                datasource_id=f.datasource_id,
-                                datasource_name=f.datasource_name,
-                                feature_id=f.feature_id,
-                                feature_name=f.name,
-                            )
-                            for f in datasource.features
-                        ],
-                    )
-                ]
-            ),
+            data=[
+                Query(
+                    datasource_id=datasource.datasource_id,
+                    datasource_name=datasource.name,
+                    features=[
+                        QueryFeature(
+                            datasource_id=f.datasource_id,
+                            datasource_name=f.datasource_name,
+                            feature_id=f.feature_id,
+                            feature_name=f.name,
+                        )
+                        for f in datasource.features
+                    ],
+                )
+            ],
             model=Model(name="model", strategy=""),
         )
 
@@ -277,9 +256,9 @@ async def test_workflow_submit(session: AsyncSession):
         downloaded_artifact = Artifact(**wb_exc.get_payload(res.content))
 
         assert downloaded_artifact.artifact_id is not None
-        assert len(downloaded_artifact.dataset.queries) == 1
-        assert downloaded_artifact.dataset.queries[0].datasource_id == datasource_id
-        assert len(downloaded_artifact.dataset.queries[0].features) == 2
+        assert len(downloaded_artifact.data) == 1
+        assert downloaded_artifact.data[0].datasource_id == datasource_id
+        assert len(downloaded_artifact.data[0].features) == 2
 
         shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
 
@@ -287,7 +266,7 @@ async def test_workflow_submit(session: AsyncSession):
 @pytest.mark.asyncio
 async def test_workbench_access(session):
     with TestClient(api) as server:
-        _, _, wb_exc = connect(server)
+        _, _, wb_exc, token = await connect(server, session)
 
         res = server.get(
             "/client/update",
@@ -303,9 +282,12 @@ async def test_workbench_access(session):
 
         assert res.status_code == 403
 
+        wpt = WorkbenchProjectToken(token=token)
+
         res = server.get(
-            "/workbench/client/list",
+            "/workbench/clients",
             headers=wb_exc.headers(),
+            data=wb_exc.create_payload(wpt.dict()),
         )
 
         assert res.status_code == 200

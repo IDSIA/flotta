@@ -1,4 +1,4 @@
-from ferdelance.database.services import ProjectService, DataSourceService
+from ferdelance.database.services import ProjectService
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
 from ferdelance.shared.exchange import Exchange
@@ -49,21 +49,29 @@ def create_client(client: TestClient, exc: Exchange) -> str:
     return cjd.id
 
 
-def get_metadata() -> Metadata:
-    datasource_id: str = "5751619c-ea8a-4a24-b2cb-35c50124c16a"
+TEST_PROJECT_TOKEN: str = "a02a9e2ad5901e39bf53388d19e4be46d3ac7efd1366a961cf54c4a4eeb7faa0"
+TEST_DATASOURCE_ID: str = "5751619c-ea8a-4a24-b2cb-35c50124c16a"
+TEST_DATASOURCE_HASH: str = "ccdd195b3c5611779987fa62194e2e8d89a04651d29ae50de742941ad953e24a"
+
+
+def get_metadata(
+    project_token: str = TEST_PROJECT_TOKEN,
+    datasource_id: str = TEST_DATASOURCE_ID,
+    ds_hash: str = TEST_DATASOURCE_HASH,
+) -> Metadata:
     return Metadata(
         datasources=[
             MetaDataSource(
                 datasource_id=datasource_id,
                 datasource_hash="",
-                tokens=[""],
+                tokens=[project_token],
                 n_records=1000,
                 n_features=2,
                 name="ds1",
                 removed=False,
                 features=[
                     MetaFeature(
-                        datasource_hash="",
+                        datasource_hash=ds_hash,
                         name="feature1",
                         dtype="float",
                         v_mean=0.1,
@@ -76,7 +84,7 @@ def get_metadata() -> Metadata:
                         v_max=0.8,
                     ),
                     MetaFeature(
-                        datasource_hash="",
+                        datasource_hash=ds_hash,
                         name="label",
                         dtype="int",
                         v_mean=0.8,
@@ -104,29 +112,9 @@ def send_metadata(client: TestClient, exc: Exchange, metadata: Metadata) -> Resp
     return upload_response
 
 
-async def create_project(session: AsyncSession, p_token: str, ds_hash: str) -> tuple[ProjectService, DataSourceService]:
+async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> str:
     ps = ProjectService(session)
-    ds = DataSourceService(session)
-
-    metadata = Metadata(
-        datasources=[
-            MetaDataSource(
-                name="ds1",
-                n_records=10,
-                n_features=2,
-                datasource_id=None,
-                datasource_hash=ds_hash,
-                tokens=[p_token],
-                features=[
-                    MetaFeature(name="feature1", datasource_hash=ds_hash, dtype="object"),
-                    MetaFeature(name="feature2", datasource_hash=ds_hash, dtype="object"),
-                ],
-            )
-        ]
-    )
 
     await ps.create("example", p_token)
-    await ds.create_or_update_metadata("client1", metadata)
-    await ps.add_datasources_from_metadata(metadata)
 
-    return ps, ds
+    return p_token

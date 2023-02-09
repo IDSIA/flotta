@@ -6,6 +6,7 @@ from ferdelance.database.data import COMPONENT_TYPES
 from ferdelance.database.tables import ComponentType
 from ferdelance.shared.exchange import Exchange
 
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
