@@ -257,7 +257,12 @@ class ComponentService(DBSessionService):
 
     async def list_clients(self) -> list[Client]:
         res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_CLIENT))
-        return [viewClient(c) for c in res]
+        return [viewClient(c) for c in res.all()]
+
+    async def list_clients_by_ids(self, client_ids: list[str]) -> list[Client]:
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.component_id.in_(client_ids)))
+
+        return [viewClient(c) for c in res.all()]
 
     async def invalidate_tokens(self, component_id: str) -> None:
         await self.ts.invalidate_tokens(component_id)

@@ -153,3 +153,13 @@ class ProjectService(DBSessionService):
         data = AggregatedDataSource.aggregate(dss)
 
         return view(p, data)
+
+    async def client_ids(self, token: str) -> list[str]:
+        """Can raise NoResultException"""
+        res = await self.session.scalars(
+            select(ProjectDB).where(ProjectDB.token == token).options(selectinload(ProjectDB.datasources))
+        )
+
+        p = res.one()
+
+        return [ds.component_id for ds in p.datasources]

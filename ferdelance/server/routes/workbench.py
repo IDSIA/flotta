@@ -118,46 +118,33 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
         raise HTTPException(403, "Invalid client data")
 
 
-@workbench_router.get("/workbench/client/list", response_class=Response)
-async def wb_get_client_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)):
+@workbench_router.get("/workbench/clients", response_class=Response)
+async def wb_get_client_list(
+    request: Request, session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)
+):
     LOGGER.info(f"user_id={user.component_id}: requested a list of clients")
 
     cs: ComponentService = ComponentService(session)
     ss: SecurityService = SecurityService(session)
+    ps: ProjectService = ProjectService(session)
 
     await ss.setup(user.public_key)
 
-    clients = await cs.list_clients()
+    data = await ss.read_request(request)
+    wpt = WorkbenchProjectToken(**data)
 
-    wcl = WorkbenchClientList(client_ids=[c.client_id for c in clients if c.active is True])
+    client_ids = await ps.client_ids(wpt.token)
+
+    clients = await cs.list_clients_by_ids(client_ids)
+
+    client_details = [ClientDetails(**c.dict()) for c in clients]
+
+    wcl = WorkbenchClientList(clients=client_details)
 
     return ss.create_response(wcl.dict())
 
 
-@workbench_router.get("/workbench/client/{req_client_id}", response_class=Response)
-async def wb_get_user_detail(
-    req_client_id: str,
-    session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_access),
-):
-    LOGGER.info(f"user_id={user.component_id}: requested details on client_id={req_client_id}")
-
-    cs: ComponentService = ComponentService(session)
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(user.public_key)
-
-    client: Client = await cs.get_client_by_id(req_client_id)
-
-    if client.active is False:
-        LOGGER.warning(f"client_id={req_client_id} not found in database or is not active")
-        raise HTTPException(404)
-
-    cd = ClientDetails(client_id=client.client_id, version=client.version)
-
-    return ss.create_response(cd.dict())
-
-
+# TODO: to remove
 @workbench_router.get("/workbench/datasource/list", response_class=Response)
 async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)):
     LOGGER.info(f"user_id={user.component_id}: requested a list of available data source")
@@ -176,6 +163,7 @@ async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), u
     return ss.create_response(wdsl.dict())
 
 
+# TODO: to remove
 @workbench_router.get("/workbench/datasource/{ds_id}", response_class=Response)
 async def wb_get_client_datasource(
     ds_id: str,
@@ -209,6 +197,7 @@ async def wb_get_client_datasource(
         raise HTTPException(404)
 
 
+# TODO: to remove
 @workbench_router.get("/workbench/datasource/name/{ds_name}", response_class=Response)
 async def wb_get_client_datasource_by_name(
     ds_name: str,
@@ -436,6 +425,7 @@ async def wb_get_project(
         raise HTTPException(404)
 
 
+# TODO: to remove
 @workbench_router.get("/workbench/projects/descr", response_class=Response)
 async def wb_get_project_descr(
     request: Request,
