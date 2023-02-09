@@ -154,6 +154,7 @@ class Context:
 
     # OLD METHODS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
+    # TODO: remove
     def get_datasource_by_id(self, datasource_id: str) -> DataSource:
         """Returns the detail, like metadata, of the given datasource.
 
@@ -173,6 +174,7 @@ class Context:
 
         return DataSource(**self.exc.get_payload(res.content))
 
+    # TODO: remove
     def get_datasource_by_name(self, datasource_name: str) -> list[DataSource]:
         """Returns the detail, like metadata, of the datasources associated with the
         given name.
