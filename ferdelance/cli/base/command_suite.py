@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 from ferdelance.cli.base import CLICommand
 
@@ -9,4 +8,4 @@ class CLICommandSuite:
     """Suite of all supported commands"""
 
     entity: str
-    commands: List[CLICommand]
+    commands: list[CLICommand]

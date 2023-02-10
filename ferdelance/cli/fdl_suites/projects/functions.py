@@ -1,18 +1,16 @@
-from typing import List
-
 from ferdelance.cli.visualization import show_many, show_one, show_string
 from ferdelance.database import DataBase
-from ferdelance.database.schemas import Project as ProjectView
+from ferdelance.schemas.project import BaseProject as ProjectView
 from ferdelance.database.services import ProjectService
 
 from sqlalchemy.exc import NoResultFound
 
 
-async def list_projects() -> List[ProjectView]:
+async def list_projects() -> list[ProjectView]:
     db = DataBase()
     async with db.async_session() as session:
         project_service: ProjectService = ProjectService(session)
-        projects: List[ProjectView] = await project_service.get_project_list()
+        projects: list[ProjectView] = await project_service.get_project_list()
         show_many(projects)
         return projects
 

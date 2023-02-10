@@ -1,22 +1,20 @@
-from ferdelance.database.tables import Project as ProjectDB
-
-from ferdelance.shared.artifacts import (
+from ferdelance.workbench.interface import (
+    Project,
+    Client,
     DataSource,
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.shared.schemas import (
-    ClientDetails,
+from ferdelance.schemas.workbench import (
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchProject,
     WorkbenchProjectDescription,
     WorkbenchDataSourceIdList,
     WorkbenchClientList,
+    WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
-
-from typing import Protocol
 
 import pandas as pd
 
@@ -33,13 +31,9 @@ CONFIG_DIR = os.environ.get("CONFIG_HOME", os.path.join(HOME, ".config", "ferdel
 CACHE_DIR = os.environ.get("CACHE_HOME", os.path.join(HOME, ".cache", "ferdelance"))
 
 
-class ProjectView(Protocol):
-    project_id: str
-    project_token: str
-    project_name: str
-
-
 class Context:
+    """Main point of contact between the workbench and the server."""
+
     def __init__(self, server: str, ssh_key_path: str | None = None, generate_keys: bool = True) -> None:
         """Connect to the given server, and establish all the requirements for a secure interaction.
 
@@ -99,7 +93,22 @@ class Context:
         self.exc.set_token(data.token)
         self.exc.set_remote_key(data.public_key)
 
-    def list_clients(self) -> list[str]:
+    def load(self, token: str) -> Project:
+        wpt = WorkbenchProjectToken(token=token)
+
+        res = requests.get(
+            f"{self.server}/workbench/project",
+            headers=self.exc.headers(),
+            data=self.exc.create_payload(wpt.dict()),
+        )
+
+        res.raise_for_status()
+
+        data = Project(**self.exc.get_payload(res.content))
+
+        return data
+
+    def clients(self, project: Project) -> list[Client]:
         """List all clients available on the server.
 
         :raises HTTPError:
@@ -107,37 +116,21 @@ class Context:
         :returns:
             A list of client ids.
         """
+        wpt = WorkbenchProjectToken(token=project.token)
+
         res = requests.get(
-            f"{self.server}/workbench/client/list",
+            f"{self.server}/workbench/clients",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wpt.dict()),
         )
 
         res.raise_for_status()
 
         data = WorkbenchClientList(**self.exc.get_payload(res.content))
 
-        return data.client_ids
+        return data.clients
 
-    def describe_client(self, client_id: str) -> ClientDetails:
-        """List the details of a client.
-
-        :param client_id:
-            This is one of the ids returned with the `list_clients()` method.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        :returns:
-            The details for the given client.
-        """
-        res = requests.get(
-            f"{self.server}/workbench/client/{client_id}",
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        return ClientDetails(**self.exc.get_payload(res.content))
-
-    def list_datasources(self) -> list[str]:
+    def datasources(self, project: Project) -> list[DataSource]:
         """List all data sources available.
 
         :raises HTTPError:
@@ -145,17 +138,23 @@ class Context:
         :returns:
             A list of all datasources available.
         """
+        wpt = WorkbenchProjectToken(token=project.token)
+
         res = requests.get(
-            f"{self.server}/workbench/datasource/list/",
+            f"{self.server}/workbench/datasources",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wpt.dict()),
         )
 
         res.raise_for_status()
 
         data = WorkbenchDataSourceIdList(**self.exc.get_payload(res.content))
 
-        return data.datasource_ids
+        return data.datasources
 
+    # OLD METHODS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+    # TODO: remove
     def get_datasource_by_id(self, datasource_id: str) -> DataSource:
         """Returns the detail, like metadata, of the given datasource.
 
@@ -175,6 +174,7 @@ class Context:
 
         return DataSource(**self.exc.get_payload(res.content))
 
+    # TODO: remove
     def get_datasource_by_name(self, datasource_name: str) -> list[DataSource]:
         """Returns the detail, like metadata, of the datasources associated with the
         given name.
@@ -318,19 +318,6 @@ class Context:
             res.raise_for_status()
             self.exc.stream_response_to_file(res, path)
         return path
-
-    def load(self, project_token: str) -> ProjectDB:
-        res = requests.get(
-            f"{self.server}/workbench/project",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload({"project_token": project_token}),
-        )
-
-        res.raise_for_status()
-
-        data = WorkbenchProject(**self.exc.get_payload(res.content))
-
-        return data
 
     def describe_project(self, project: WorkbenchProject) -> pd.DataFrame | pd.Series:
         res = requests.get(

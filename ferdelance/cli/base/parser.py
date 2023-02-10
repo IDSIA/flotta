@@ -1,5 +1,5 @@
 from argparse import ArgumentParser, Namespace
-from typing import List, Dict, Any
+from typing import Any
 from ferdelance.cli.base import CLICommand, CLICommandSuite
 
 
@@ -18,10 +18,10 @@ class CLIParser:
         )
         self.parser.add_argument("command", metavar="C", type=str, help="Which command to execute")
 
-        self.suites: List[CLICommandSuite] = []
+        self.suites: list[CLICommandSuite] = []
         self.selected_suite: CLICommandSuite = None
         self.selected_command: CLICommand = None
-        self.args = Dict[str, Any]
+        self.args = dict[str, Any]
 
         self.avail_args_set: set = set()
 
@@ -44,7 +44,7 @@ class CLIParser:
                     )
         self.suites.append(command_suite)
 
-    def parse_args(self, command_line_args: List[str] = None) -> None:
+    def parse_args(self, command_line_args: list[str] = None) -> None:
         """Parse command line arguments with argparse and identify which action has to be performed with which arguments
 
         Raises:

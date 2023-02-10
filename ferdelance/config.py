@@ -35,9 +35,11 @@ class Configuration(BaseModel):
 
     DB_MEMORY: bool = "TRUE" == os.environ.get("DB_MEMORY", "False").upper()
 
-    STORAGE_ARTIFACTS: str = str(os.path.join(".", "storage", "artifacts"))
-    STORAGE_CLIENTS: str = str(os.path.join(".", "storage", "clients"))
-    STORAGE_MODELS: str = str(os.path.join(".", "storage", "models"))
+    STORAGE_BASE_DIR: str = os.environ.get("STORAGE_BASE_DIR", os.path.join(".", "storage"))
+    STORAGE_DATASOURCES: str = str(os.path.join(STORAGE_BASE_DIR, "datasources"))
+    STORAGE_ARTIFACTS: str = str(os.path.join(STORAGE_BASE_DIR, "artifacts"))
+    STORAGE_CLIENTS: str = str(os.path.join(STORAGE_BASE_DIR, "clients"))
+    STORAGE_MODELS: str = str(os.path.join(STORAGE_BASE_DIR, "models"))
 
     FILE_CHUNK_SIZE: int = int(os.environ.get("FILE_CHUNK_SIZE", 4096))
 
@@ -45,6 +47,18 @@ class Configuration(BaseModel):
     USER_TOKEN_EXPIRATION = os.environ.get("TOKEN_USER_EXPIRATION", str(parse("30 day")))
 
     PROJECT_DEFAULT_TOKEN: str = os.environ.get("PROJECT_DEFAULT_TOKEN", "")
+
+    def storage_dir_datasources(self, datasource_hash: str) -> str:
+        return os.path.join(conf.STORAGE_DATASOURCES, datasource_hash)
+
+    def storage_dir_artifact(self, artifact_id: str) -> str:
+        return os.path.join(conf.STORAGE_ARTIFACTS, artifact_id)
+
+    def storage_dir_clients(self, client_id: str) -> str:
+        return os.path.join(conf.STORAGE_CLIENTS, client_id)
+
+    def storage_dir_models(self, model_id: str) -> str:
+        return os.path.join(conf.STORAGE_MODELS, model_id)
 
     def server_url(self) -> str:
         return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"

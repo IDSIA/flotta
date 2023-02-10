@@ -1,7 +1,7 @@
 from typing import Any
 
 from .core import Transformer
-from ..artifacts import QueryFeature
+from ferdelance.schemas.artifacts import QueryFeature
 
 from sklearn.impute import SimpleImputer
 
@@ -9,12 +9,18 @@ import numpy as np
 
 
 class FederatedSimpleImputer(Transformer):
-
-    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str], features_out: QueryFeature | list[QueryFeature] | str | list[str], missing_values: float = np.nan, strategy: str = "mean", fill_value=None) -> None:
+    def __init__(
+        self,
+        features_in: QueryFeature | list[QueryFeature] | str | list[str],
+        features_out: QueryFeature | list[QueryFeature] | str | list[str],
+        missing_values: float = np.nan,
+        strategy: str = "mean",
+        fill_value=None,
+    ) -> None:
         super().__init__(FederatedSimpleImputer.__name__, features_in, features_out)
 
         if fill_value is not None:
-            strategy = 'constant'
+            strategy = "constant"
 
         self.transformer: SimpleImputer = SimpleImputer(
             missing_values=missing_values,
@@ -27,9 +33,9 @@ class FederatedSimpleImputer(Transformer):
 
     def params(self) -> dict[str, Any]:
         return super().params() | {
-            'missing_values': self.missing_values,
-            'strategy': self.strategy,
-            'fill_value': self.fill_value,
+            "missing_values": self.missing_values,
+            "strategy": self.strategy,
+            "fill_value": self.fill_value,
         }
 
     def aggregate(self) -> None:

@@ -1,18 +1,37 @@
-from ferdelance.database.schemas import Project
 from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.services.datasource import DataSourceService
 from ferdelance.database.services.tokens import TokenService
-from ferdelance.database.tables import DataSource, Project as ProjectDB
-from ferdelance.shared.artifacts import Metadata
+from ferdelance.database.services.datasource import DataSourceService
+from ferdelance.database.tables import (
+    DataSource as DataSourceDB,
+    Project as ProjectDB,
+)
+from ferdelance.schemas.datasources import DataSource
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.project import (
+    Project,
+    BaseProject,
+    AggregatedDataSource,
+)
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.exc import NoReferenceError
 from sqlalchemy.orm import selectinload
 
 import uuid
 
 
-def view(project: ProjectDB) -> Project:
+def simpleView(project: ProjectDB) -> BaseProject:
+    return BaseProject(
+        project_id=project.project_id,
+        token=project.token,
+        name=project.name,
+        creation_time=project.creation_time,
+        valid=project.valid,
+        active=project.active,
+    )
+
+
+def view(project: ProjectDB, data: AggregatedDataSource) -> Project:
     return Project(
         project_id=project.project_id,
         name=project.name,
@@ -20,6 +39,9 @@ def view(project: ProjectDB) -> Project:
         token=project.token,
         valid=project.valid,
         active=project.active,
+        n_clients=len(set([ds.component_id for ds in project.datasources])),
+        n_datasources=len(project.datasources),
+        data=data,
     )
 
 
@@ -35,6 +57,12 @@ class ProjectService(DBSessionService):
         if token is None:
             token = await self.ts.project_token(name)
 
+        res = await self.session.scalars(select(ProjectDB).where(ProjectDB.token == token))
+        p = res.one_or_none()
+
+        if p is not None:
+            raise ValueError("A project with the given token already exists")
+
         project = ProjectDB(
             project_id=str(uuid.uuid4()),
             name=name,
@@ -48,9 +76,10 @@ class ProjectService(DBSessionService):
 
     async def add_datasource(self, datasource_id: str, project_id: str) -> None:
         """Can raise ValueError."""
+        # TODO: remove this
         try:
-            res = await self.session.scalars(select(DataSource).where(DataSource.datasource_id == datasource_id))
-            ds: DataSource = res.one()
+            res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.datasource_id == datasource_id))
+            ds: DataSourceDB = res.one()
 
             res = await self.session.scalars(select(ProjectDB).where(ProjectDB.project_id == project_id))
             p: ProjectDB = res.one()
@@ -66,8 +95,10 @@ class ProjectService(DBSessionService):
     async def add_datasources_from_metadata(self, metadata: Metadata) -> None:
         for mdds in metadata.datasources:
 
-            res = await self.session.scalars(select(DataSource).where(DataSource.datasource_id == mdds.datasource_id))
-            ds: DataSource = res.one()
+            res = await self.session.scalars(
+                select(DataSourceDB).where(DataSourceDB.datasource_id == mdds.datasource_id)
+            )
+            ds: DataSourceDB = res.one()
 
             if not mdds.tokens:
                 continue
@@ -92,29 +123,53 @@ class ProjectService(DBSessionService):
 
             await self.session.commit()
 
-    async def get_project_list(self) -> list[Project]:
+    async def get_project_list(self) -> list[BaseProject]:
         res = await self.session.execute(select(ProjectDB))
         project_db_list = res.scalars().all()
-        return [view(p) for p in project_db_list]
+        return [simpleView(p) for p in project_db_list]
 
     async def get_by_id(self, project_id: str) -> Project:
         """Can raise NoResultsException."""
-        query = await self.session.execute(select(ProjectDB).where(ProjectDB.project_id == project_id))
-        res: ProjectDB = query.scalar_one()
-        return view(res)
+        res = await self.session.scalars(
+            select(ProjectDB).where(ProjectDB.project_id == project_id).options(selectinload(ProjectDB.datasources))
+        )
+        p = res.one()
 
-    async def get_by_token(self, token: str) -> ProjectDB:
+        dss: list[DataSource] = [await self.dss.load(ds.datasource_id) for ds in p.datasources]
+
+        data = AggregatedDataSource.aggregate(dss)
+
+        return view(p, data)
+
+    async def get_by_token(self, token: str) -> Project:
         """Can raise NoResultsException."""
-        query = await self.session.execute(
+        res = await self.session.scalars(
             select(ProjectDB).where(ProjectDB.token == token).options(selectinload(ProjectDB.datasources))
         )
-        res: ProjectDB = query.scalar_one()
-        return res
+        p = res.one()
 
-    async def get_by_name_and_token(self, name: str, token: str) -> Project:
-        """Can raise NoResultsException."""
-        query = await self.session.execute(
-            select(ProjectDB).where(and_(ProjectDB.name == name, ProjectDB.token == token))
+        dss: list[DataSource] = [await self.dss.load(ds.datasource_id) for ds in p.datasources]
+
+        data = AggregatedDataSource.aggregate(dss)
+
+        return view(p, data)
+
+    async def client_ids(self, token: str) -> list[str]:
+        """Can raise NoResultException"""
+        res = await self.session.scalars(
+            select(ProjectDB).where(ProjectDB.token == token).options(selectinload(ProjectDB.datasources))
         )
-        res: ProjectDB = query.scalar_one()
-        return view(res)
+
+        p = res.one()
+
+        return [ds.component_id for ds in p.datasources]
+
+    async def datasources_ids(self, token: str) -> list[str]:
+        """Can raise NoResultException"""
+        res = await self.session.scalars(
+            select(ProjectDB).where(ProjectDB.token == token).options(selectinload(ProjectDB.datasources))
+        )
+
+        p = res.one()
+
+        return [ds.datasource_id for ds in p.datasources]

@@ -2,22 +2,20 @@ from ferdelance.database.data import TYPE_WORKER
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
     DataSource,
-    Feature,
     Token,
     Component,
     Model as ModelDB,
 )
 from ferdelance.server.api import api
-from ferdelance.shared.artifacts import (
+from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
-    Metadata,
-    Dataset,
     Query,
     QueryFeature,
 )
+from ferdelance.schemas.models import Model
+from ferdelance.schemas.metadata import Metadata
 from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.models import Model
 from ferdelance.shared.status import JobStatus
 
 from tests.utils import (
@@ -28,7 +26,8 @@ from tests.utils import (
 
 from fastapi.testclient import TestClient
 from requests import Response
-from sqlalchemy import select, func
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
@@ -77,14 +76,9 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 404
 
         # prepare new artifact
-        res = await session.scalars(select(DataSource).limit(1))
+        res = await session.scalars(select(DataSource).limit(1).options(selectinload(DataSource.features)))
 
         ds: DataSource = res.one()
-
-        assert ds is not None
-
-        res = await session.scalars(select(Feature).where(Feature.datasource_id == ds.datasource_id))
-        fs: list[Feature] = list(res.all())
 
         artifact = Artifact(
             artifact_id=None,
@@ -95,12 +89,12 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
                         datasource_name=ds.name,
                         features=[
                             QueryFeature(
-                                datasource_id=f.datasource_id,
-                                datasource_name=f.datasource_name,
+                                datasource_id=ds.datasource_id,
+                                datasource_name=ds.name,
                                 feature_id=f.feature_id,
                                 feature_name=f.name,
                             )
-                            for f in fs
+                            for f in ds.features
                         ],
                     )
                 ]

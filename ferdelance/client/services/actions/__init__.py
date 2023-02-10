@@ -7,11 +7,7 @@ from ferdelance.client.services.actions.execute import ExecuteAction
 from ferdelance.client.services.actions.update_client import UpdateClientAction
 from ferdelance.client.services.actions.update_token import UpdateTokenAction
 from ferdelance.shared.actions import Action as ActionType
-from ferdelance.shared.schemas import (
-    UpdateToken,
-    UpdateExecute,
-    UpdateClientApp,
-)
+from ferdelance.schemas.updates import UpdateToken, UpdateExecute, UpdateClientApp
 
 import logging
 

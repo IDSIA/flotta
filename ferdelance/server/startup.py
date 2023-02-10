@@ -40,6 +40,13 @@ class ServerStartup(DBSessionService):
 
         LOGGER.info(f"client {type} created")
 
+    async def create_project(self) -> None:
+        try:
+            await self.ps.create("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
+
+        except ValueError:
+            LOGGER.warning("Project zero already exists")
+
     async def init_security(self) -> None:
         LOGGER.info("setup setting and security keys")
         await setup_settings(self.session)
@@ -51,8 +58,7 @@ class ServerStartup(DBSessionService):
         await self.cs.create_types(COMPONENT_TYPES)
         await self.create_component(TYPE_SERVER, spk)
         await self.create_component(TYPE_WORKER, "")  # TODO: worker should have a public key
-        await self.ps.create("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
-        await self.session.commit()
+        await self.create_project()
 
     async def startup(self) -> None:
         await self.init_directories()

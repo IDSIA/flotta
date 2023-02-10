@@ -1,6 +1,6 @@
 from ferdelance.config import conf
-from ferdelance.shared.artifacts import Artifact
-from ferdelance.shared.models import FederatedRandomForestClassifier
+from ferdelance.schemas.artifacts import Artifact
+from ferdelance.schemas.models import FederatedRandomForestClassifier
 from ferdelance.worker.celery import worker
 
 import logging

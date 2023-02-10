@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 from typing import Any
-from pydantic import BaseModel
+
 from .operations import Operations
 
 from datetime import datetime
-
 from pandas import DataFrame, to_datetime
+from pydantic import BaseModel
 
 
 def is_numeric(other) -> bool:
@@ -18,30 +19,6 @@ def is_string(other) -> bool:
 
 def is_time(other) -> bool:
     return isinstance(other, datetime)
-
-
-class QueryFeature(BaseModel):
-    """Query feature to use in a query from the workbench."""
-
-    feature_id: str
-    datasource_id: str
-    feature_name: str
-    datasource_name: str
-
-    def __eq__(self, other: QueryFeature | Feature) -> bool:
-        if not isinstance(other, QueryFeature | Feature):
-            return False
-
-        if isinstance(other, Feature):
-            other = other.qf()
-
-        return self.datasource_id == other.datasource_id and self.feature_id == other.feature_id
-
-    def __hash__(self) -> int:
-        return hash((self.datasource_id, self.feature_id))
-
-    def __str__(self) -> str:
-        return f"{self.feature_name}@{self.datasource_name}"
 
 
 class QueryFilter(BaseModel):
@@ -129,63 +106,19 @@ class QueryTransformer(BaseModel):
         return f"{self.name}({self.features_in} -> {self.features_out})"
 
 
-class BaseFeature(BaseModel):
-    """Common information to all features."""
+class QueryFeature(BaseModel):
+    """Query feature to use in a query from the workbench."""
 
-    name: str
+    feature_name: str
+
     dtype: str | None
-
-    v_mean: float | None
-    v_std: float | None
-    v_min: float | None
-    v_p25: float | None
-    v_p50: float | None
-    v_p75: float | None
-    v_max: float | None
-    v_miss: float | None
-
-
-class Feature(BaseFeature):
-    """Information for the workbench."""
-
-    feature_id: str
-    datasource_id: str
-    datasource_name: str
 
     def _filter(self, operation: Operations, value):
         return QueryFilter(
-            feature=self.qf(),
+            feature=self,
             operation=operation.name,
             parameter=f"{value}",
         )
-
-    def qf(self) -> QueryFeature:
-        return QueryFeature(
-            feature_id=self.feature_id,
-            datasource_id=self.datasource_id,
-            feature_name=self.name,
-            datasource_name=self.datasource_name,
-        )
-
-    def info(self) -> str:
-        lines: list[str] = [
-            f"{self.name}",
-            f"Data type:            {self.dtype}",
-        ]
-
-        if self.dtype != "object":
-            lines += [
-                f"Value min:            {self.v_min:.2f}",
-                f"Value max:            {self.v_max:.2f}",
-                f"Mean:                 {self.v_mean:.2f}",
-                f"Std deviation:        {self.v_std:.2f}",
-                f"Value 25° percentile: {self.v_p25:.2f}",
-                f"Value 50° percentile: {self.v_p50:.2f}",
-                f"Value 75° percentile: {self.v_p75:.2f}",
-                f"Missing value:        {self.v_miss:.2f}",
-            ]
-
-        return "\n".join(lines)
 
     def _dtype_numeric(self):
         return self.dtype in ("int", "float", "int64", "float64")
@@ -226,14 +159,8 @@ class Feature(BaseFeature):
         raise ValueError('operator greater equal ">=" can be used only for int or float values')
 
     def __eq__(self, other) -> bool | QueryFilter:
-        if isinstance(other, Feature):
-            return (
-                self.datasource_id == other.datasource_id
-                and self.datasource_name == other.datasource_name
-                and self.feature_id == other.feature_id
-                and self.name == other.name
-                and self.dtype == other.dtype
-            )
+        if isinstance(other, QueryFeature):
+            return self.feature_name == other.feature_name
 
         if self._dtype_numeric():
             if is_numeric(other):
@@ -261,17 +188,10 @@ class Feature(BaseFeature):
         raise ValueError('operator not equals "!=" can be used only for int, float, str, or time values')
 
     def __hash__(self) -> int:
-        return hash((self.datasource_id, self.feature_id, self.name, self.dtype))
+        return hash((self.feature_name, self.dtype))
 
     def __str__(self) -> str:
-        return f"{self.name}@{self.datasource_name}"
-
-
-class MetaFeature(BaseFeature):
-    """Information on features stored in the client."""
-
-    datasource_hash: str
-    removed: bool = False
+        return f"{self.feature_name}"
 
 
 class Query(BaseModel):
@@ -292,31 +212,17 @@ class Query(BaseModel):
             transformers=self.transformers.copy(),
         )
 
-    def add_feature(self, feature: Feature | QueryFeature) -> None:
-        if isinstance(feature, Feature):
-            feature = feature.qf()
-
-        if feature.datasource_id != self.datasource_id:
-            raise ValueError("Cannot add features from a different data source")
-
+    def add_feature(self, feature: QueryFeature) -> None:
         if feature not in self.features:
             self.features.append(feature)
 
     def add_filter(self, filter: QueryFilter) -> None:
-        if filter.feature.datasource_id != self.datasource_id:
-            raise ValueError("Cannot add filter for features from a different data source")
-
         self.filters.append(filter)
 
     def add_transformer(self, transformer: QueryTransformer) -> None:
         self.transformers.append(transformer)
 
-    def __add__(self, other: Feature | QueryFeature | QueryFilter | QueryTransformer) -> Query:
-        if isinstance(other, Feature | QueryFeature):
-            q = self.copy()
-            q.add_feature(other)
-            return q
-
+    def __add__(self, other: QueryFeature | QueryFilter | QueryTransformer) -> Query:
         if isinstance(other, QueryFilter):
             q = self.copy()
             q.add_filter(other)
@@ -331,11 +237,7 @@ class Query(BaseModel):
             "Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects"
         )
 
-    def __iadd__(self, other: QueryFeature | Feature | QueryFilter) -> Query:
-        if isinstance(other, Feature | QueryFeature):
-            self.add_feature(other)
-            return self
-
+    def __iadd__(self, other: QueryFeature | QueryFilter) -> Query:
         if isinstance(other, QueryFilter):
             self.add_filter(other)
             return self
@@ -348,25 +250,16 @@ class Query(BaseModel):
             "Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects"
         )
 
-    def remove_feature(self, feature: Feature | QueryFeature) -> None:
-        if isinstance(feature, Feature):
-            feature = feature.qf()
-
-        if feature.datasource_id != self.datasource_id:
-            raise ValueError("Cannot remove features from a different data source")
-
+    def remove_feature(self, feature: QueryFeature) -> None:
         self.features = [f for f in self.features if f != feature]
         self.filters = [f for f in self.filters if f.feature != feature]
         self.transformers = [f for f in self.transformers if f.features_in != feature]
 
     def remove_filter(self, filter: QueryFilter) -> None:
-        if filter.feature.datasource_id != self.datasource_id:
-            raise ValueError("Cannot remove filter for features from a different data source")
-
         self.filters.remove(filter)
 
-    def __sub__(self, other: QueryFeature | Feature) -> Query:
-        if isinstance(other, Feature | QueryFeature):
+    def __sub__(self, other: QueryFeature) -> Query:
+        if isinstance(other, QueryFeature):
             q = self.copy()
             q.remove_feature(other)
             return q
@@ -378,8 +271,8 @@ class Query(BaseModel):
 
         raise ValueError("only Feature or QueryFeature objects can be removed from Query objects")
 
-    def __isub__(self, other: QueryFeature | Feature) -> Query:
-        if isinstance(other, Feature | QueryFeature):
+    def __isub__(self, other: QueryFeature) -> Query:
+        if isinstance(other, QueryFeature):
             self.remove_feature(other)
             return self
 

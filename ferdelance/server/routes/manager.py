@@ -1,6 +1,7 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
-from ferdelance.database.schemas import Client, Model
+from ferdelance.schemas.database import ServerModel
+from ferdelance.schemas.components import Client
 from ferdelance.database.services import (
     ModelService,
     ComponentService,
@@ -193,7 +194,7 @@ async def manager_client_job_status(client_id: str, session: AsyncSession = Depe
 async def manager_models_list(session: AsyncSession = Depends(get_session)):
     ms = ModelService(session)
 
-    model_sessions: list[Model] = await ms.get_model_list()
+    model_sessions: list[ServerModel] = await ms.get_model_list()
 
     return [
         {

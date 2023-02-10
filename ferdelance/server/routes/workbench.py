@@ -1,6 +1,3 @@
-from ferdelance.database.tables import Project as ProjectDB
-from ferdelance.shared.schemas.workbench import WorkbenchProject, WorkbenchDataSource
-
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_USER
@@ -11,28 +8,30 @@ from ferdelance.database.services import (
     ModelService,
     ProjectService,
 )
-from ferdelance.database.schemas import Component, Model, Client, Token, DataSource as DataSourceView
+from ferdelance.schemas.client import ClientDetails
+from ferdelance.schemas.workbench import (
+    WorkbenchClientList,
+    WorkbenchDataSourceIdList,
+    WorkbenchJoinRequest,
+    WorkbenchJoinData,
+)
+from ferdelance.schemas.artifacts import (
+    ArtifactStatus,
+    Artifact,
+)
+from ferdelance.schemas.components import Component, Client, Token
+from ferdelance.schemas.database import ServerModel
+from ferdelance.schemas.project import Project
+from ferdelance.schemas.datasources import DataSource, Feature
+from ferdelance.schemas.workbench import (
+    WorkbenchProjectToken,
+)
 from ferdelance.server.security import check_token
 from ferdelance.server.services import (
     JobManagementService,
     SecurityService,
 )
 from ferdelance.standalone.services import JobManagementLocalService
-from ferdelance.shared.artifacts import (
-    DataSource,
-    Feature,
-    ArtifactStatus,
-    Artifact,
-)
-from ferdelance.shared.schemas import (
-    ClientDetails,
-    WorkbenchClientList,
-    WorkbenchDataSourceIdList,
-    WorkbenchJoinRequest,
-    WorkbenchJoinData,
-    WorkbenchProjectDescription,
-    WorkbenchProject,
-)
 from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -119,64 +118,61 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
         raise HTTPException(403, "Invalid client data")
 
 
-@workbench_router.get("/workbench/client/list", response_class=Response)
-async def wb_get_client_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)):
+@workbench_router.get("/workbench/clients", response_class=Response)
+async def wb_get_client_list(
+    request: Request, session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)
+):
     LOGGER.info(f"user_id={user.component_id}: requested a list of clients")
 
     cs: ComponentService = ComponentService(session)
     ss: SecurityService = SecurityService(session)
+    ps: ProjectService = ProjectService(session)
 
     await ss.setup(user.public_key)
 
-    clients = await cs.list_clients()
+    data = await ss.read_request(request)
+    wpt = WorkbenchProjectToken(**data)
 
-    wcl = WorkbenchClientList(client_ids=[c.client_id for c in clients if c.active is True])
+    client_ids = await ps.client_ids(wpt.token)
+
+    clients = await cs.list_clients_by_ids(client_ids)
+
+    client_details = [ClientDetails(**c.dict()) for c in clients]
+
+    wcl = WorkbenchClientList(clients=client_details)
+
+    LOGGER.info(f"found {len(wcl.clients)} datasource(s)")
 
     return ss.create_response(wcl.dict())
 
 
-@workbench_router.get("/workbench/client/{req_client_id}", response_class=Response)
-async def wb_get_user_detail(
-    req_client_id: str,
-    session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_access),
+@workbench_router.get("/workbench/datasources", response_class=Response)
+async def wb_get_datasource_list(
+    request: Request, session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)
 ):
-    LOGGER.info(f"user_id={user.component_id}: requested details on client_id={req_client_id}")
-
-    cs: ComponentService = ComponentService(session)
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(user.public_key)
-
-    client: Client = await cs.get_client_by_id(req_client_id)
-
-    if client.active is False:
-        LOGGER.warning(f"client_id={req_client_id} not found in database or is not active")
-        raise HTTPException(404)
-
-    cd = ClientDetails(client_id=client.client_id, version=client.version)
-
-    return ss.create_response(cd.dict())
-
-
-@workbench_router.get("/workbench/datasource/list", response_class=Response)
-async def wb_get_datasource_list(session: AsyncSession = Depends(get_session), user: Component = Depends(check_access)):
     LOGGER.info(f"user_id={user.component_id}: requested a list of available data source")
 
     dss: DataSourceService = DataSourceService(session)
     ss: SecurityService = SecurityService(session)
+    ps: ProjectService = ProjectService(session)
 
     await ss.setup(user.public_key)
 
-    ds_session: list[DataSourceView] = await dss.get_datasource_list()
+    data = await ss.read_request(request)
+    wpt = WorkbenchProjectToken(**data)
 
-    LOGGER.info(f"found {len(ds_session)} datasource(s)")
+    datasource_ids = await ps.datasources_ids(wpt.token)
 
-    wdsl = WorkbenchDataSourceIdList(datasource_ids=[ds.datasource_id for ds in ds_session if ds.removed is False])
+    datasources = [await dss.load(ds_id) for ds_id in datasource_ids]
+
+    wdsl = WorkbenchDataSourceIdList(datasources=datasources)
+
+    LOGGER.info(f"found {len(wdsl.datasources)} datasource(s)")
 
     return ss.create_response(wdsl.dict())
 
 
+# TODO: to remove
 @workbench_router.get("/workbench/datasource/{ds_id}", response_class=Response)
 async def wb_get_client_datasource(
     ds_id: str,
@@ -210,6 +206,7 @@ async def wb_get_client_datasource(
         raise HTTPException(404)
 
 
+# TODO: to remove
 @workbench_router.get("/workbench/datasource/name/{ds_name}", response_class=Response)
 async def wb_get_client_datasource_by_name(
     ds_name: str,
@@ -291,20 +288,15 @@ async def wb_get_artifact_status(
 
     await ss.setup(user.public_key)
 
-    artifact_session = await ars.get_artifact(artifact_id)
+    try:
+        status: ArtifactStatus = await ars.get_status(artifact_id)
 
-    # TODO: get status from celery
+        # TODO: get status from celery
 
-    if artifact_session is None:
+        return ss.create_response(status.dict())
+    except NoResultFound as _:
         LOGGER.warning(f"artifact_id={artifact_id} not found in database")
         raise HTTPException(404)
-
-    status = ArtifactStatus(
-        artifact_id=artifact_id,
-        status=artifact_session.status,
-    )
-
-    return ss.create_response(status.dict())
 
 
 @workbench_router.get("/workbench/artifact/{artifact_id}", response_class=Response)
@@ -344,12 +336,12 @@ async def wb_get_model(
 
         await ss.setup(user.public_key)
 
-        model_session: Model = await ms.get_aggregated_model(artifact_id)
+        model_db: ServerModel = await ms.get_aggregated_model(artifact_id)
 
-        model_path = model_session.path
+        model_path = model_db.path
 
         if not os.path.exists(model_path):
-            raise ValueError(f"model_id={model_session.model_id} not found at path={model_path}")
+            raise ValueError(f"model_id={model_db.model_id} not found at path={model_path}")
 
         return ss.encrypt_file(model_path)
 
@@ -388,12 +380,12 @@ async def wb_get_partial_model(
 
         await ss.setup(user.public_key)
 
-        model_session: Model = await ms.get_partial_model(artifact_id, builder_user_id)
+        model_db: ServerModel = await ms.get_partial_model(artifact_id, builder_user_id)
 
-        model_path = model_session.path
+        model_path = model_db.path
 
         if not os.path.exists(model_path):
-            raise ValueError(f"partial model_id={model_session.model_id} not found at path={model_path}")
+            raise ValueError(f"partial model_id={model_db.model_id} not found at path={model_path}")
 
         return ss.encrypt_file(model_path)
 
@@ -418,7 +410,7 @@ async def wb_get_project(
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
+    LOGGER.info(f"user_id={user.component_id}: requested a project given its token")
 
     pss: ProjectService = ProjectService(session)
     ss: SecurityService = SecurityService(session)
@@ -426,25 +418,23 @@ async def wb_get_project(
     await ss.setup(user.public_key)
 
     data = await ss.read_request(request)
-    project_token: str = data["project_token"]
+    wpt = WorkbenchProjectToken(**data)
 
     try:
-        project: ProjectDB = await pss.get_by_token(token=project_token)
+        LOGGER.info(f"user_id={user.component_id}: requested a project given its token")
+
+        project: Project = await pss.get_by_token(token=wpt.token)
+
+        LOGGER.info(f"Loaded project with project_id={project.project_id}")
+
+        return ss.create_response(project.dict())
+
     except NoResultFound as _:
-        LOGGER.warning(f"invalid name + token combination for project token {project_token}")
+        LOGGER.warning(f"user_id={user.component_id}: request project with invalid token={wpt.token}")
         raise HTTPException(404)
 
-    LOGGER.info(f"Loaded project {project}")
 
-    res: WorkbenchProject = WorkbenchProject(
-        **project.__dict__,
-        creation_time=str(project.creation_time),
-        datasources=[WorkbenchDataSource(**ds.__dict__) for ds in project.datasources],
-    )
-
-    return ss.create_response(res.dict())
-
-
+# TODO: to remove
 @workbench_router.get("/workbench/projects/descr", response_class=Response)
 async def wb_get_project_descr(
     request: Request,

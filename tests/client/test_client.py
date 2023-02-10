@@ -5,40 +5,36 @@ from ferdelance.database.services.component import ComponentService
 from ferdelance.database.tables import (
     Application,
     DataSource,
-    Feature,
     Job,
     Token as TokenDB,
 )
-from ferdelance.database.schemas import (
+from ferdelance.schemas.artifacts import (
+    Artifact,
+    ArtifactStatus,
+    Query,
+    QueryFeature,
+    QueryFilter,
+)
+from ferdelance.schemas.artifacts.operations import Operations
+from ferdelance.schemas.components import (
     Component,
     Client,
     Event,
     Token,
 )
-from ferdelance.server.api import api
-from ferdelance.shared.actions import Action
-from ferdelance.shared.artifacts import (
-    Artifact,
-    ArtifactStatus,
-    Dataset,
-    Metadata,
-    Query,
-    QueryFeature,
-    QueryFilter,
-)
-from ferdelance.shared.artifacts.operations import Operations
-from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.models import Model
-from ferdelance.shared.schemas import (
-    ClientUpdate,
-    ClientJoinRequest,
+from ferdelance.schemas.models import Model
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.client import ClientUpdate, ClientJoinRequest
+from ferdelance.schemas.updates import (
     DownloadApp,
     UpdateClientApp,
     UpdateExecute,
     UpdateToken,
-    WorkbenchJoinData,
-    WorkbenchJoinRequest,
 )
+from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
+from ferdelance.server.api import api
+from ferdelance.shared.actions import Action
+from ferdelance.shared.exchange import Exchange
 
 from tests.utils import (
     create_client,
@@ -50,6 +46,7 @@ from fastapi.testclient import TestClient
 
 from requests import Response
 from sqlalchemy import select, update, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import json
@@ -408,32 +405,29 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("setup artifact")
 
-        res = await session.execute(select(DataSource).where(DataSource.component_id == client_id))
-        ds_db: DataSource | None = res.scalar_one_or_none()
-
-        assert ds_db is not None
-
         res = await session.scalars(
-            select(Feature).where(Feature.datasource_id == ds_db.datasource_id, Feature.removed == False)
+            select(DataSource).where(DataSource.component_id == client_id).options(selectinload(DataSource.features))
         )
-        fs = list(res.all())
+        ds_db: DataSource = res.one()
 
-        assert len(fs) == 2
+        assert len(ds_db.features) == 2
 
-        f1: Feature = fs[0]
-        f2: Feature = fs[1]
+        f1: Feature = ds_db.features[0]
+        f2: Feature = ds_db.features[1]
 
         qf1 = QueryFeature(
             feature_id=f1.feature_id,
             feature_name=f1.name,
-            datasource_id=f1.datasource_id,
-            datasource_name=f1.datasource_name,
+            datasource_id=ds_db.datasource_id,
+            datasource_name=ds_db.name,
+            dtype=f1.dtype,
         )
         qf2 = QueryFeature(
             feature_id=f2.feature_id,
             feature_name=f2.name,
-            datasource_id=f2.datasource_id,
-            datasource_name=f2.datasource_name,
+            datasource_id=ds_db.datasource_id,
+            datasource_name=ds_db.name,
+            dtype=f2.dtype,
         )
 
         artifact = Artifact(
@@ -519,8 +513,8 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
             assert task.artifact_id == job.artifact_id
             assert artifact_status.artifact_id is not None
             assert task.artifact_id == artifact_status.artifact_id
-            assert len(task.dataset.queries) == 1
-            assert len(task.dataset.queries[0].features) == 2
+            assert len(task.data) == 1
+            assert len(task.data[0].features) == 2
 
         # cleanup
         LOGGER.info("cleaning up")
@@ -548,7 +542,7 @@ async def test_client_access(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 403
 
         res = client.get(
-            "/workbench/client/list",
+            "/workbench/clients",
             headers=exchange.headers(),
         )
 

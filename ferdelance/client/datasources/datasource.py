@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.shared.artifacts import MetaDataSource
+from ferdelance.schemas.metadata import MetaDataSource
 
 import pandas as pd
 import hashlib

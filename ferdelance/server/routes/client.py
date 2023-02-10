@@ -2,16 +2,11 @@ from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.services import (
     AsyncSession,
-    ApplicationService,
     ComponentService,
     DataSourceService,
     ModelService,
     ProjectService,
 )
-from ferdelance.database.tables import (
-    Application,
-)
-from ferdelance.database.schemas import Client, Model, DataSource
 from ferdelance.server.services import (
     ActionService,
     SecurityService,
@@ -20,18 +15,14 @@ from ferdelance.server.services import (
 from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
-from ferdelance.shared.artifacts import (
-    MetaFeature,
-    Metadata,
-    MetaDataSource,
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.client import ClientJoinRequest, ClientJoinData
+from ferdelance.schemas.updates import DownloadApp, UpdateExecute
+from ferdelance.schemas.components import (
+    Client,
+    Application,
 )
-from ferdelance.shared.schemas import (
-    ClientJoinRequest,
-    ClientJoinData,
-    DownloadApp,
-    UpdateExecute,
-)
-from ferdelance.shared.models import Metrics
+from ferdelance.schemas.models import Metrics
 from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import (
@@ -195,7 +186,6 @@ async def client_update_files(
     """
     LOGGER.info(f"client_id={client.client_id}: update files request")
 
-    cas: ApplicationService = ApplicationService(session)
     cs: ComponentService = ComponentService(session)
     ss: SecurityService = SecurityService(session)
 
@@ -205,22 +195,22 @@ async def client_update_files(
     data = await ss.read_request(request)
     payload = DownloadApp(**data)
 
-    new_app: Application | None = await cas.get_newest_app()
+    try:
+        new_app: Application = await cs.get_newest_app()
 
-    if new_app is None:
-        raise HTTPException(400, "no newest version found")
+        if new_app.version != payload.version:
+            LOGGER.warning(
+                f"client_id={client.client_id} requested app version={payload.version} while latest version={new_app.version}"
+            )
+            raise HTTPException(400, "Old versions are not permitted")
 
-    if new_app.version != payload.version:
-        LOGGER.warning(
-            f"client_id={client.client_id} requested app version={payload.version} while latest version={new_app.version}"
-        )
-        raise HTTPException(400, "Old versions are not permitted")
+        await cs.update_client(client.client_id, version=payload.version)
 
-    await cs.update_client(client.client_id, version=payload.version)
+        LOGGER.info(f"client_id={client.client_id}: requested new client version={payload.version}")
 
-    LOGGER.info(f"client_id={client.client_id}: requested new client version={payload.version}")
-
-    return ss.encrypt_file(new_app.path)
+        return ss.encrypt_file(new_app.path)
+    except NoResultFound as _:
+        raise HTTPException(404, "no newest version found")
 
 
 @client_router.post("/client/update/metadata")
@@ -299,10 +289,10 @@ async def client_post_task(
     jm: JobManagementService = JobManagementService(session)
     ms: ModelService = ModelService(session)
 
-    model_session: Model = await ms.create_local_model(artifact_id, client.client_id)
+    model_db = await ms.create_local_model(artifact_id, client.client_id)
 
     await ss.setup(client.public_key)
-    await ss.stream_decrypt_file(request, model_session.path)
+    await ss.stream_decrypt_file(request, model_db.path)
 
     await jm.client_local_model_completed(artifact_id, client.client_id)
 

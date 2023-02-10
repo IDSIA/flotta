@@ -1,6 +1,4 @@
-"""Projects CLI suite
-"""
-
+"""Projects CLI suite"""
 
 from ferdelance.cli.base import CLICommand, CLICommandSuite
 from ferdelance.cli.fdl_suites.args import FDLCLIArgs

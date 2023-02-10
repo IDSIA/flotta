@@ -1,5 +1,4 @@
-"""Clients CLI suite
-"""
+"""Clients CLI suite"""
 
 from ferdelance.cli.base import CLICommand, CLICommandSuite
 

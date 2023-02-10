@@ -1,6 +1,6 @@
-from ferdelance.database.schemas import Job as JobView
 from ferdelance.database.tables import Job as JobDB
 from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.schemas.jobs import Job
 from ferdelance.shared.status import JobStatus
 
 from sqlalchemy import func, select
@@ -13,8 +13,8 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def view(job: JobDB) -> JobView:
-    return JobView(
+def view(job: JobDB) -> Job:
+    return Job(
         job_id=job.job_id,
         artifact_id=job.artifact_id,
         client_id=job.component_id,
@@ -29,7 +29,7 @@ class JobService(DBSessionService):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def schedule_job(self, artifact_id: str, client_id: str) -> JobView:
+    async def schedule_job(self, artifact_id: str, client_id: str) -> Job:
         LOGGER.info(f"component_id={client_id}: scheduled new job for artifact_id={artifact_id}")
 
         job = JobDB(
@@ -44,7 +44,7 @@ class JobService(DBSessionService):
 
         return view(job)
 
-    async def start_execution(self, job: JobView) -> JobView:
+    async def start_execution(self, job: Job) -> Job:
         """Can raise NoResultException."""
 
         # TODO: add checks like in stop_execution method
@@ -65,7 +65,7 @@ class JobService(DBSessionService):
 
         return view(job_db)
 
-    async def stop_execution(self, artifact_id: str, client_id: str) -> JobView:
+    async def stop_execution(self, artifact_id: str, client_id: str) -> Job:
         try:
             stmt = select(JobDB).where(
                 JobDB.artifact_id == artifact_id,
@@ -100,7 +100,7 @@ class JobService(DBSessionService):
                 f"Multiple job in status RUNNING found for artifact_id={artifact_id} client_id={client_id}"
             )
 
-    async def error(self, job: JobView) -> JobView:
+    async def error(self, job: Job) -> Job:
         """Can raise NoResultException."""
 
         # TODO: add checks like in stop_execution method
@@ -120,21 +120,21 @@ class JobService(DBSessionService):
 
         return view(job_db)
 
-    async def get(self, job: JobView) -> JobView:
+    async def get(self, job: Job) -> Job:
         """Can raise NoResultFound."""
         res = await self.session.execute(select(JobDB).where(JobDB.job_id == job.job_id))
         return view(res.scalar_one())
 
-    async def get_jobs_for_client(self, client_id: str) -> list[JobView]:
+    async def get_jobs_for_client(self, client_id: str) -> list[Job]:
         res = await self.session.scalars(select(JobDB).where(JobDB.component_id == client_id))
         return [view(j) for j in res.all()]
 
-    async def get_jobs_all(self) -> list[JobView]:
+    async def get_jobs_all(self) -> list[Job]:
         res = await self.session.scalars(select(JobDB))
         job_list = [view(j) for j in res.all()]
         return job_list
 
-    async def get_jobs_for_artifact(self, artifact_id: str) -> list[JobView]:
+    async def get_jobs_for_artifact(self, artifact_id: str) -> list[Job]:
         res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
         return [view(j) for j in res.all()]
 
@@ -150,7 +150,7 @@ class JobService(DBSessionService):
         )
         return res.one()
 
-    async def next_job_for_client(self, client_id: str) -> JobView:
+    async def next_job_for_client(self, client_id: str) -> Job:
         """Can raise NoResultFound."""
         ret = await self.session.execute(
             select(JobDB)

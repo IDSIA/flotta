@@ -1,15 +1,24 @@
 # %%
-import json
-
-import numpy as np
-
-from ferdelance.shared.artifacts import Artifact, ArtifactStatus, Dataset, DataSource, Query
-from ferdelance.shared.models import (
+from ferdelance.schemas.models import (
     FederatedRandomForestClassifier,
     ParametersRandomForestClassifier,
     StrategyRandomForestClassifier,
 )
 from ferdelance.workbench.context import Context
+from ferdelance.workbench.interface import (
+    Project,
+    Client,
+    Artifact,
+    ArtifactStatus,
+    DataSource,
+    AggregatedDataSource,
+    ExecutionPlan,
+)
+
+import numpy as np
+
+import json
+
 
 # %% create the context
 ctx = Context("http://localhost:1456")
@@ -53,7 +62,6 @@ datasources: list[DataSource] = ctx.datasources(project)
 for datasource in datasources:
     print(datasource)  # <--- non aggregated
 
-
 # %% working with data
 
 ds: AggregatedDataSource = project.data  # <--- aggregated data source
@@ -75,13 +83,44 @@ for feature in ds.features:
 # # add filters
 ds = ds[ds["variety"] < 2]  # returns a datasource updated
 
+# datasource (ds) is composed by a series of stages
+# each stage keep track of the current available features
+# a stage is updated each time a new operation is added on the features
+#
+# stage 0:  f1  f2  f3  f4
+#  ---> drop f1
+# stage 1:      f2  f3  f4
+#  ---> discretize f5 in 2 bins
+# stage 2:      f2  f3  f41  f42
+#  ---> filter f2 > x
+# stage 3:      f2x f3x f41x f42x
+#
+#  -> keep track of available features and dtypes at current stage
+#
+# this will create a single pipelines of opearations:
+#
+#  [
+#        select(f1, f2, f3, f4),
+#        drop(f1),
+#        discretize(f4, 2),
+#        filter(f2 > x),
+#  ]
+#
+# each client will receive the whole pipeline adapted for its features
+#  -> check that some operations (such as filter) need to have the feature available on all clients
+#  -> add the number of clients that have have the feature to all AggregatedFeature
+#  -> raise error workbench-side with certain operations
+
 # other implementations of filters, transformers, ...
 
 # %% statistics
+"""
+TODO: these statistics requires a new scheduler and a cache system on the client
 stats = Statistics(
     data=ds,
 )
 ret = ctx.statistics(stats)  # partial submit
+"""
 
 # %% develop a model
 
@@ -92,7 +131,7 @@ m = FederatedRandomForestClassifier(
 
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
-    data=ds,
+    data=ds.build(),
     label="variety",
     model=m.build(),
     how=ExecutionPlan(
