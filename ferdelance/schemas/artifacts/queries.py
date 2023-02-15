@@ -78,8 +78,8 @@ class QueryFilter(BaseModel):
 class QueryTransformer(BaseModel):
     """Query transformation to apply to the feature from the workbench."""
 
-    features_in: QueryFeature | list[QueryFeature] | str | list[str]
-    features_out: QueryFeature | list[QueryFeature] | str | list[str]
+    features_in: list[QueryFeature]
+    features_out: list[QueryFeature]
     name: str
     parameters: dict[str, Any]
 
@@ -113,14 +113,14 @@ class QueryFeature(BaseModel):
 
     dtype: str | None
 
-    def _filter(self, operation: Operations, value):
+    def _filter(self, operation: Operations, value) -> QueryFilter:
         return QueryFilter(
             feature=self,
             operation=operation.name,
             parameter=f"{value}",
         )
 
-    def _dtype_numeric(self):
+    def _dtype_numeric(self) -> bool:
         return self.dtype in ("int", "float", "int64", "float64")
 
     def __lt__(self, other) -> QueryFilter:
@@ -194,40 +194,59 @@ class QueryFeature(BaseModel):
         return f"{self.feature_name}"
 
 
-class Query(BaseModel):
-    """Query to apply to the selected data from the workbench."""
+class QueryStage(BaseModel):
+    """A stage is a single transformation applied to a list of features."""
 
-    datasource_id: str
-    datasource_name: str
-    features: list[QueryFeature] = list()
-    filters: list[QueryFilter] = list()
-    transformers: list[QueryTransformer] = list()
+    features: list[QueryFeature]  # list of available features (after the transformation below)
+    transformer: QueryTransformer | None = None  # transformation to apply
+
+    _features: dict[str, QueryFeature] = dict()
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+
+        self._features = {f.feature_name: f for f in self.features}
+
+    def __getitem__(self, key: str | QueryFeature) -> QueryFeature:
+        if isinstance(key, QueryFeature):
+            key = key.feature_name
+
+        if key not in self._features:
+            raise ValueError(f"feature {key} not found")
+
+        return self._features[key]
+
+
+class Query(BaseModel):
+    """A query is just a list of stages applied to the input data."""
+
+    stages: list[QueryStage] = list()
 
     def copy(self) -> Query:
-        return Query(
-            datasource_id=self.datasource_id,
-            datasource_name=self.datasource_name,
-            features=self.features.copy(),
-            filters=self.filters.copy(),
-            transformers=self.transformers.copy(),
-        )
+        # this is a shallow copy!
+        return Query(stages=self.stages.copy())
 
-    def add_feature(self, feature: QueryFeature) -> None:
-        if feature not in self.features:
-            self.features.append(feature)
+    def features(self) -> list[QueryFeature]:
+        return self.stages[-1].features
 
-    def add_filter(self, filter: QueryFilter) -> None:
-        self.filters.append(filter)
+    def feature(self, key: str | QueryFeature) -> QueryFeature:
+        if isinstance(key, QueryFeature):
+            key = key.feature_name
+
+        return self.stages[-1][key]
 
     def add_transformer(self, transformer: QueryTransformer) -> None:
-        self.transformers.append(transformer)
+        fs = [f for f in self.features() if f not in transformer.features_in]
+        fs += transformer.features_out
 
-    def __add__(self, other: QueryFeature | QueryFilter | QueryTransformer) -> Query:
-        if isinstance(other, QueryFilter):
-            q = self.copy()
-            q.add_filter(other)
-            return q
+        self.stages.append(
+            QueryStage(
+                features=fs,
+                transformer=transformer,
+            )
+        )
 
+    def __add__(self, other: QueryFeature | QueryTransformer) -> Query:
         if isinstance(other, QueryTransformer):
             q = self.copy()
             q.add_transformer(other)
@@ -237,11 +256,7 @@ class Query(BaseModel):
             "Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects"
         )
 
-    def __iadd__(self, other: QueryFeature | QueryFilter) -> Query:
-        if isinstance(other, QueryFilter):
-            self.add_filter(other)
-            return self
-
+    def __iadd__(self, other: QueryFeature | QueryTransformer) -> Query:
         if isinstance(other, QueryTransformer):
             self.add_transformer(other)
             return self
@@ -250,55 +265,18 @@ class Query(BaseModel):
             "Only Feature, QueryFeature, QueryFilter, or QueryTransformer objects can be added to Query objects"
         )
 
-    def remove_feature(self, feature: QueryFeature) -> None:
-        self.features = [f for f in self.features if f != feature]
-        self.filters = [f for f in self.filters if f.feature != feature]
-        self.transformers = [f for f in self.transformers if f.features_in != feature]
+    def __getitem__(self, key: str | QueryFeature) -> QueryFeature:
 
-    def remove_filter(self, filter: QueryFilter) -> None:
-        self.filters.remove(filter)
+        if isinstance(key, QueryFeature):
+            key = key.feature_name
 
-    def __sub__(self, other: QueryFeature) -> Query:
-        if isinstance(other, QueryFeature):
-            q = self.copy()
-            q.remove_feature(other)
-            return q
-
-        if isinstance(other, QueryFilter):
-            q = self.copy()
-            q.remove_filter(other)
-            return q
-
-        raise ValueError("only Feature or QueryFeature objects can be removed from Query objects")
-
-    def __isub__(self, other: QueryFeature) -> Query:
-        if isinstance(other, QueryFeature):
-            self.remove_feature(other)
-            return self
-
-        if isinstance(other, QueryFilter):
-            self.remove_filter(other)
-            return self
-
-        raise ValueError("only Feature or QueryFeature objects can be removed from Query objects")
+        return self.stages[-1][key]
 
     def __eq__(self, other: Query) -> bool:
         if not isinstance(other, Query):
             return False
 
-        return (
-            self.datasource_id == other.datasource_id
-            and self.datasource_name == other.datasource_name
-            and self.features == other.features
-            and self.filters == other.filters
-            and self.transformers == other.transformers
-        )
+        return self.stages == other.stages
 
     def __hash__(self) -> int:
-        return hash((self.datasource_id, self.features, self.filters, self.transformers))
-
-    def __getitem__(self, key: QueryFilter) -> Query:
-        if isinstance(key, QueryFilter):
-            return self + key
-
-        raise ValueError("unsupported key type")
+        return hash(self.stages)

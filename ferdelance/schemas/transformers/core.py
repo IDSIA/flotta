@@ -95,6 +95,9 @@ class Transformer:
         """
         return QueryTransformer(**self.dict())
 
+    def __call__(self, df: pd.DataFrame) -> Any:
+        return self.transform(df)
+
 
 def convert_features_to_list(features: QueryFeature | list[QueryFeature] | str | list[str] | None = None) -> list[str]:
     """Sanitize the input list of features in a list of string.

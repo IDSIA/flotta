@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from ferdelance.schemas.artifacts import Query, QueryFeature
+from ferdelance.schemas.artifacts.queries import (
+    Query,
+    QueryFeature,
+    QueryStage,
+)
 from ferdelance.schemas.artifacts.dtypes import DataType
 
 from pydantic import BaseModel
@@ -120,11 +124,6 @@ class DataSource(BaseDataSource):
         for f in self.features:
             self._features_by_name[f.name] = f
 
-    def all_features(self):
-        return Query(
-            datasource_id=self.datasource_id, datasource_name=self.name, features=[f.qf() for f in self.features]
-        )
-
     def __eq__(self, other: DataSource) -> bool:
         if not isinstance(other, DataSource):
             return False
@@ -172,8 +171,7 @@ class AggregatedDataSource(BaseDataSource):
 
     datasource_hash: str
 
-    queries: list[Query] = list()
-
+    # list of initial features
     features: list[AggregatedFeature] = list()
     _features_by_name: dict[str, AggregatedFeature] = dict()
 
@@ -217,49 +215,52 @@ class AggregatedDataSource(BaseDataSource):
             datasource_hash=hashes.hexdigest(),
         )
 
-    def build(self) -> list[Query]:
-        return self.queries
+    def info(self) -> str:
+        lines: list[str] = list()
+
+        lines.append(f"{self.name} ({self.n_features}x{self.n_records})")
+
+        for df in self.features:
+            mean = 0.0 if df.v_mean is None else df.v_mean
+            lines.append(f"- {df.dtype:8} {df.name:32} {mean:.2}")
+
+        return f"\n".join(lines)
 
     def describe(self) -> str:
         # TODO
         raise NotImplementedError()
 
-    def add_query(self, query: Query) -> None:
-        self.queries.append(query)
+    def extract(self) -> Query:
+        """Proceeds on extracting all the features and creating a transformation
+        query from this data source.
+
+        :return:
+            A new query object with the first stage initialized from the
+            available features.
+        """
+
+        return Query(
+            stages=[
+                QueryStage(
+                    features=[f.qf() for f in self.features],
+                )
+            ]
+        )
+
+    def __getitem__(self, key: str | QueryFeature) -> AggregatedFeature:
+        if isinstance(key, QueryFeature):
+            key = key.feature_name
+
+        if key not in self._features_by_name:
+            raise ValueError(f"feature {key} is not part of the Data Source")
+
+        return self._features_by_name[key]
 
     def __eq__(self, other: AggregatedDataSource) -> bool:
         if not isinstance(other, AggregatedDataSource):
             return False
 
         return self.datasource_hash == other.datasource_hash
-
-    def __add__(self, other: Query) -> AggregatedDataSource:
-        if isinstance(other, Query):
-            self.add_query(other)
-            return self
-
-        raise ValueError("Cannot add something that is not a Query")
-
-    def __getitem__(self, key: str | AggregatedFeature | QueryFeature) -> AggregatedFeature:
-
-        # TODO: add support for list of keys in / list of features out
-
-        if isinstance(key, str):
-            f = self._features_by_name.get(key, None)
-            if f:
-                return f
-
-        if isinstance(key, AggregatedFeature):
-            f = self._features_by_name.get(key.name, None)
-            if f:
-                return f
-
-        if isinstance(key, QueryFeature):
-            f = self._features_by_name.get(key.feature_name, None)
-            if f:
-                return f
-
-        raise ValueError(f'Feature "{str(key)}" not found in this datasource')
 
     def __str__(self) -> str:
         return super().__str__() + f"datasource_hash={self.datasource_hash} features=[{self.features}]"

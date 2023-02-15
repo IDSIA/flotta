@@ -16,7 +16,8 @@ class Artifact(BaseModel):
     """Artifact created in the workbench."""
 
     artifact_id: str | None = None
-    data: list[Query]
     label: str | None = None
     model: Model
-    how: ExecutionPlan
+    # extract ?
+    transform: Query
+    load: ExecutionPlan

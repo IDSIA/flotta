@@ -12,6 +12,7 @@ from ferdelance.workbench.interface import (
     ArtifactStatus,
     DataSource,
     AggregatedDataSource,
+    AggregatedFeature,
     ExecutionPlan,
 )
 
@@ -64,7 +65,7 @@ for datasource in datasources:
 
 # %% working with data
 
-ds: AggregatedDataSource = project.data  # <--- aggregated data source
+ds = project.data  # <--- AggregatedDataSource
 
 print(ds.describe())
 
@@ -76,11 +77,23 @@ print(ds.describe())
 
 # this is like a describe, but per single feature
 for feature in ds.features:
-    print(ds[feature])
+    print(feature)
 
 # %% develop a filter query
 
-# # add filters
+from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
+
+q = ds.extract()
+
+feature = q["variety"]
+filter = q["variety"] < 2
+transformer = FederatedKBinsDiscretizer(q["variety"], "variety_discr")
+
+q.add_transformer(q["variety"] < 2)
+q.add_transformer(transformer.build())
+
+# add filters
+
 ds = ds[ds["variety"] < 2]  # returns a datasource updated
 
 # datasource (ds) is composed by a series of stages
@@ -131,10 +144,10 @@ m = FederatedRandomForestClassifier(
 
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
-    data=ds.build(),
     label="variety",
     model=m.build(),
-    how=ExecutionPlan(
+    transform=q,
+    load=ExecutionPlan(
         test_percentage=0.2,
         val_percentage=0.1,
         # metrics to track...
