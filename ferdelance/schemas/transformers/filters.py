@@ -1,8 +1,7 @@
 from typing import Any
 
-from .core import Transformer
-from ferdelance.schemas.artifacts import QueryFeature
-from ferdelance.schemas.artifacts.operations import Operations
+from ferdelance.schemas.transformers.core import Transformer
+from ferdelance.schemas.queries import QueryFeature, Operations
 
 import pandas as pd
 

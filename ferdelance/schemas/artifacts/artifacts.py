@@ -1,4 +1,4 @@
-from ferdelance.schemas.artifacts.queries import Query
+from ferdelance.schemas.queries.queries import Query
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import ExecutionPlan
 

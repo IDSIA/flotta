@@ -4,6 +4,7 @@ __all__ = [
     "load",
     "Transformer",
     "FederatedPipeline",
+    "FederatedFilter",
     "FederatedMinMaxScaler",
     "FederatedStandardScaler",
     "FederatedKBinsDiscretizer",
@@ -16,14 +17,16 @@ __all__ = [
     "FederatedRename",
 ]
 
-from ferdelance.schemas.artifacts import QueryTransformer
+from ferdelance.schemas.queries import QueryTransformer
 
 from .core import (
     Transformer,
     save,
     load,
 )
-
+from .filters import (
+    FederatedFilter,
+)
 from .pipelines import (
     FederatedPipeline,
 )

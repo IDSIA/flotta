@@ -89,12 +89,10 @@ feature = q["variety"]
 filter = q["variety"] < 2
 transformer = FederatedKBinsDiscretizer(q["variety"], "variety_discr")
 
-q.add_transformer(q["variety"] < 2)
-q.add_transformer(transformer.build())
+q.add(q["variety"] < 2)
+q.add(transformer)
 
 # add filters
-
-ds = ds[ds["variety"] < 2]  # returns a datasource updated
 
 # datasource (ds) is composed by a series of stages
 # each stage keep track of the current available features

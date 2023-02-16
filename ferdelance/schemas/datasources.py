@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.schemas.artifacts.queries import (
+from ferdelance.schemas.queries.queries import (
     Query,
     QueryFeature,
     QueryStage,
@@ -165,6 +165,23 @@ class DataSource(BaseDataSource):
 
     def __str__(self) -> str:
         return super().__str__() + f"client_id={self.client_id} features=[{self.features}]"
+
+    def extract(self) -> Query:
+        """Proceeds on extracting all the features and creating a transformation
+        query from this data source.
+
+        :return:
+            A new query object with the first stage initialized from the
+            available features.
+        """
+
+        return Query(
+            stages=[
+                QueryStage(
+                    features=[f.qf() for f in self.features],
+                )
+            ]
+        )
 
 
 class AggregatedDataSource(BaseDataSource):

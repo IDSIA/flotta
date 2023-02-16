@@ -1,6 +1,6 @@
 from typing import Any
 
-from .core import Transformer
+from ferdelance.schemas.transformers.core import Transformer
 
 import pandas as pd
 

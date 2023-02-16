@@ -1,5 +1,5 @@
-from .core import Transformer
-from ferdelance.schemas.artifacts import QueryFeature
+from ferdelance.schemas.transformers.core import Transformer
+from ferdelance.schemas.queries import QueryFeature
 
 import pandas as pd
 

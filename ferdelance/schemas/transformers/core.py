@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.artifacts.queries import QueryTransformer, QueryFeature
+from ferdelance.schemas.queries import QueryTransformer, QueryFeature
 
 import pandas as pd
 import pickle
