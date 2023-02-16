@@ -22,7 +22,7 @@ def is_time(other) -> bool:
 class QueryFeature(BaseModel):
     """Query feature to use in a query from the workbench."""
 
-    feature_name: str
+    name: str
 
     dtype: str | None
 
@@ -30,7 +30,7 @@ class QueryFeature(BaseModel):
         return QueryFilter(
             feature=self,
             operation=operation.name,
-            parameter=f"{value}",
+            value=f"{value}",
         )
 
     def _dtype_numeric(self) -> bool:
@@ -73,7 +73,7 @@ class QueryFeature(BaseModel):
 
     def __eq__(self, other) -> bool | QueryFilter:
         if isinstance(other, QueryFeature):
-            return self.feature_name == other.feature_name
+            return self.name == other.name
 
         if self._dtype_numeric():
             if is_numeric(other):
@@ -101,10 +101,10 @@ class QueryFeature(BaseModel):
         raise ValueError('operator not equals "!=" can be used only for int, float, str, or time values')
 
     def __hash__(self) -> int:
-        return hash((self.feature_name, self.dtype))
+        return hash((self.name, self.dtype))
 
     def __str__(self) -> str:
-        return f"{self.feature_name}"
+        return f"{self.name}"
 
 
 class QueryFilter(BaseModel):
@@ -112,12 +112,12 @@ class QueryFilter(BaseModel):
 
     feature: QueryFeature
     operation: str
-    parameter: str
+    value: str
 
     def __call__(self, df: DataFrame) -> DataFrame:
-        feature: str = self.feature.feature_name
+        feature: str = self.feature.name
         op: Operations = Operations[self.operation]
-        parameter: str = self.parameter
+        parameter: str = self.value
 
         if op == Operations.NUM_LESS_THAN:
             return df[df[feature] < float(parameter)]
@@ -152,10 +152,10 @@ class QueryFilter(BaseModel):
         if not isinstance(other, QueryFilter):
             return False
 
-        return self.feature == other.feature and self.operation == other.operation and self.parameter == other.parameter
+        return self.feature == other.feature and self.operation == other.operation and self.value == other.value
 
     def __hash__(self) -> int:
-        return hash((self.feature, self.operation, self.parameter))
+        return hash((self.feature, self.operation, self.value))
 
     def __str__(self) -> str:
-        return f"Filter({self.feature} {self.operation} {self.parameter})"
+        return f"Filter({self.feature} {self.operation} {self.value})"

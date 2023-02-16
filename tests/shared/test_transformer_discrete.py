@@ -4,7 +4,7 @@ from ferdelance.schemas.transformers import (
     FederatedLabelBinarizer,
     FederatedOneHotEncoder,
 )
-from ferdelance.schemas.artifacts import QueryTransformer
+from ferdelance.schemas.queries import QueryTransformer
 
 import pandas as pd
 import os

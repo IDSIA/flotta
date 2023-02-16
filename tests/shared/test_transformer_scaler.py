@@ -4,7 +4,7 @@ from ferdelance.schemas.transformers import (
     save,
     load,
 )
-from ferdelance.schemas.artifacts import QueryTransformer
+from ferdelance.schemas.queries import QueryTransformer
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 

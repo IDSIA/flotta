@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from ferdelance.schemas.queries.features import QueryFeature, QueryFilter
+from ferdelance.schemas.queries.features import QueryFeature, QueryFilter, Operations
 from ferdelance.schemas.queries.stages import QueryStage, QueryTransformer
-from ferdelance.schemas.transformers import Transformer
+from ferdelance.schemas.transformers import Transformer, FederatedFilter
 
 from datetime import datetime
 from pydantic import BaseModel
@@ -29,14 +29,18 @@ class Query(BaseModel):
         # this is a shallow copy!
         return Query(stages=self.stages.copy())
 
+    def current(self) -> QueryStage:
+        return self.stages[-1]
+
     def features(self) -> list[QueryFeature]:
-        return self.stages[-1].features
+        s: QueryStage = self.current()
+        return s.features
 
     def feature(self, key: str | QueryFeature) -> QueryFeature:
         if isinstance(key, QueryFeature):
-            key = key.feature_name
+            key = key.name
 
-        return self.stages[-1][key]
+        return self.current()[key]
 
     def add_transformer(self, transformer: QueryTransformer) -> None:
         fs = [f for f in self.features() if f not in transformer.features_in]
@@ -53,7 +57,11 @@ class Query(BaseModel):
         self.stages.append(
             QueryStage(
                 features=self.features(),
-                transformer=filter,
+                transformer=FederatedFilter(
+                    feature=filter.feature,
+                    op=Operations[filter.operation],
+                    value=filter.value,
+                ).build(),
             )
         )
 
@@ -84,7 +92,7 @@ class Query(BaseModel):
     def __getitem__(self, key: str | QueryFeature) -> QueryFeature:
 
         if isinstance(key, QueryFeature):
-            key = key.feature_name
+            key = key.name
 
         return self.stages[-1][key]
 

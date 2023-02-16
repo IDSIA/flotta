@@ -35,7 +35,7 @@ class Feature(BaseFeature):
 
     def qf(self) -> QueryFeature:
         return QueryFeature(
-            feature_name=self.name,
+            name=self.name,
             dtype=self.dtype,
         )
 
@@ -157,7 +157,7 @@ class DataSource(BaseDataSource):
                 return f
 
         if isinstance(key, QueryFeature):
-            f = self._features_by_name.get(key.feature_name, None)
+            f = self._features_by_name.get(key.name, None)
             if f:
                 return f
 
@@ -266,7 +266,7 @@ class AggregatedDataSource(BaseDataSource):
 
     def __getitem__(self, key: str | QueryFeature) -> AggregatedFeature:
         if isinstance(key, QueryFeature):
-            key = key.feature_name
+            key = key.name
 
         if key not in self._features_by_name:
             raise ValueError(f"feature {key} is not part of the Data Source")

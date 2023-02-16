@@ -6,11 +6,15 @@ from ferdelance.database.tables import (
     Component,
     Model as ModelDB,
 )
+from ferdelance.database.services import DataSourceService
 from ferdelance.server.api import api
 from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
+)
+from ferdelance.schemas.queries import (
     Query,
+    QueryStage,
     QueryFeature,
 )
 from ferdelance.schemas.models import Model
@@ -76,30 +80,29 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 404
 
         # prepare new artifact
-        res = await session.scalars(select(DataSource).limit(1).options(selectinload(DataSource.features)))
-
+        res = await session.scalars(select(DataSource).limit(1))
         ds: DataSource = res.one()
+
+        dss = DataSourceService(session)
+        ds_data = await dss.load(ds.datasource_id)
 
         artifact = Artifact(
             artifact_id=None,
-            dataset=Dataset(
-                queries=[
-                    Query(
-                        datasource_id=ds.datasource_id,
-                        datasource_name=ds.name,
+            transform=Query(
+                stages=[
+                    QueryStage(
                         features=[
                             QueryFeature(
-                                datasource_id=ds.datasource_id,
-                                datasource_name=ds.name,
-                                feature_id=f.feature_id,
-                                feature_name=f.name,
+                                name=f.name,
+                                dtype=f.dtype,
                             )
-                            for f in ds.features
-                        ],
+                            for f in ds_data.features
+                        ]
                     )
                 ]
             ),
             model=Model(name="model", strategy=""),
+            load=None,
         )
 
         # test artifact submit
@@ -135,14 +138,8 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert artifact.artifact_id == get_art.artifact_id
 
-        assert len(artifact.dataset.queries) == len(get_art.dataset.queries)
+        assert len(artifact.transform.stages) == len(get_art.transform.stages)
         assert len(artifact.model.name) == len(get_art.model.name)
-
-        post_q = artifact.dataset.queries[0]
-        get_q = get_art.dataset.queries[0]
-
-        assert post_q.datasource_id == get_q.datasource_id
-        assert len(post_q.features) == len(get_q.features)
 
         post_d = artifact.dict()
         get_d = get_art.dict()

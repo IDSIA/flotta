@@ -1,5 +1,5 @@
 from ferdelance.schemas.transformers import Transformer
-from ferdelance.schemas.artifacts import QueryTransformer, QueryFeature
+from ferdelance.schemas.queries import QueryTransformer, QueryFeature
 
 
 def test_ft_build():
@@ -25,8 +25,8 @@ def test_ft_inputs():
     except ValueError:
         assert False
 
-    qf1 = QueryFeature(feature_id="1", datasource_id="1", feature_name="feature_1", datasource_name="ds1", dtype="int")
-    qf2 = QueryFeature(feature_id="2", datasource_id="2", feature_name="feature_2", datasource_name="ds2", dtype="int")
+    qf1 = QueryFeature(name="feature_1", dtype="int")
+    qf2 = QueryFeature(name="feature_2", dtype="int")
 
     try:
         Transformer("example2", qf1, ["wrong1", "wrong2"])
@@ -40,8 +40,8 @@ def test_ft_inputs():
         assert True
         assert len(t.features_in) == 2
         assert len(t.features_out) == 2
-        assert qf1.feature_name in t.features_in
-        assert qf2.feature_name in t.features_in
+        assert qf1.name in t.features_in
+        assert qf2.name in t.features_in
         assert "wrong1" in t.features_out
         assert "wrong2" in t.features_out
     except ValueError:

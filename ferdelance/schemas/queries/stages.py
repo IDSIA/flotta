@@ -17,11 +17,12 @@ class QueryStage(BaseModel):
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
 
-        self._features = {f.feature_name: f for f in self.features}
+        for f in self.features:
+            self._features[f.name] = f
 
     def __getitem__(self, key: str | QueryFeature) -> QueryFeature:
         if isinstance(key, QueryFeature):
-            key = key.feature_name
+            key = key.name
 
         if key not in self._features:
             raise ValueError(f"feature {key} not found")

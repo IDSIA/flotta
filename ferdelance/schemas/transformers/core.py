@@ -17,17 +17,44 @@ class Transformer:
     def __init__(
         self,
         name: str,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+        features_in: QueryFeature | list[QueryFeature] | None = None,
         features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
         check_for_len: bool = True,
     ) -> None:
+        """Creates a transformer and assigns the input features so that they are coherent with the framework.
+
+        Args:
+            name (str):
+                Name of the transformer (usually, class.__name__ is enough).
+            features_in (QueryFeature | list[QueryFeature] | None, optional):
+                List of features used as input. If the transformer does not have input values, set to None.
+                If a single value is passed, it will be converted to a list of one single element.
+                Defaults to None.
+            features_out (QueryFeature | list[QueryFeature] | str | list[str] | None, optional):
+                List of features used as output. If None is passed, then the output features will be a copy of
+                the features_in parameter. If a string or a list of string is passed, then a new list of outputs
+                will be generated with the given name(s) and the same dtype as features_in (where possible).
+                Defaults to None.
+            check_for_len (bool, optional):
+                If set to True, an exception is raised when the length of the features_in and features_out is
+                not the same.
+                Defaults to True.
+
+        Raises:
+            ValueError:
+                raise if the check_for_len parameter is set to True and the feature_in and features_out parameters
+                does not have the same length.
+        """
         self.name: str = name
-        self.features_in: list[str] = convert_features_to_list(features_in)
-        self.features_out: list[str] = convert_features_to_list(features_out)
+        self.features_in: list[QueryFeature] = convert_features_in_to_list(features_in)
+        self.features_out: list[QueryFeature] = convert_features_out_to_list(self.features_in, features_out)
 
         self.transformer: Any = None
 
         self.fitted: bool = False
+
+        self._columns_in: list[str] = [f.name for f in self.features_in]
+        self._columns_out: list[str] = [f.name for f in self.features_out]
 
         if check_for_len and len(self.features_in) != len(self.features_out):
             raise ValueError("Input and output features are not of the same length")
@@ -39,16 +66,18 @@ class Transformer:
         All classes that extend the Transformer class need to implement this method by
         including the parameters required to build the transformer.
 
-        :return:
-            A dictionary with all the input parameters for creating a transformer.
+        Returns:
+            dict[str, Any]:
+                A dictionary with all the input parameters for creating a transformer.
         """
         return dict()
 
     def dict(self) -> dict[str, Any]:
         """Converts the transformer in a dictionary of its input parameters.
 
-        :return:
-            A dictionary with the description of all internal data of a transformer.
+        Returns:
+            dict[str, Any]:
+                A dictionary with the description of all internal data of a transformer.
         """
         return {
             "name": self.name,
@@ -58,7 +87,12 @@ class Transformer:
         }
 
     def aggregate(self) -> None:
-        """Method used to aggregate multiple transformers trained on different clients."""
+        """Method used to aggregate multiple transformers trained on different clients.
+
+        Raises:
+            NotImplementedError:
+                This method need to be implemented (also as empty) by all transformers.
+        """
         raise NotImplementedError()
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -73,25 +107,29 @@ class Transformer:
         the `self.fitted` field to distingue between the first call to this method and
         other future calls.
 
-        :param df:
-            Input data to be transformed.
-        :return:
-            The transformed data. The transformation is inplace: in the input `df` param
-            and the returned object are are the same.
+        Args:
+            df (pd.DataFrame):
+                Input data to be transformed.
+
+        Returns:
+            pd.DataFrame:
+                The transformed data. The transformation is inplace: in the input `df` param
+                and the returned object are are the same.
         """
         if not self.fitted:
-            self.transformer.fit(df[self.features_in])
+            self.transformer.fit(df[self._columns_in])
             self.fitted = True
 
-        df[self.features_out] = self.transformer.transform(df[self.features_in])
+        df[self._columns_out] = self.transformer.transform(df[self._columns_in])
         return df
 
     def build(self) -> QueryTransformer:
         """Convert a Transformer in a QueryTransformer representation that can be sent
         to an aggregation server from a Workbench.
 
-        :return:
-            The QueryTransformer representation associated with this transformer.
+        Returns:
+            QueryTransformer:
+                The QueryTransformer representation associated with this transformer.
         """
         return QueryTransformer(**self.dict())
 
@@ -99,27 +137,77 @@ class Transformer:
         return self.transform(df)
 
 
-def convert_features_to_list(features: QueryFeature | list[QueryFeature] | str | list[str] | None = None) -> list[str]:
-    """Sanitize the input list of features in a list of string.
+def convert_features_in_to_list(features_in: QueryFeature | list[QueryFeature] | None = None) -> list[QueryFeature]:
+    """Sanitize the input list of features in a list of QueryFeature.
 
-    :param features:
-        List of features. These can be a QueryFeature, a list of QueryFeature, a string, ora a list of string.
+    Args:
+        features_in (QueryFeature | list[QueryFeature] | None, optional):
+            List of features. These can be a QueryFeature, a list of QueryFeature, or None.
+            Defaults to None.
 
-    :return:
-        The input converted in a list of string.
+    Returns:
+        list[QueryFeature]:
+            The input converted in a list of QueryFeatures.
     """
-    if features is None:
+    if features_in is None:
         return list()
-    if isinstance(features, str):
-        features = [features]
-    elif isinstance(features, QueryFeature):
-        features = [features.feature_name]
-    elif isinstance(features, list):
-        f_list: list[str] = []
-        for f in features:
-            f_list.append(f.feature_name if isinstance(f, QueryFeature) else f)
-        features = f_list
-    return features
+
+    if isinstance(features_in, QueryFeature):
+        features_in = [features_in]
+
+    return features_in
+
+
+def convert_features_out_to_list(
+    features_in: list[QueryFeature],
+    features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+) -> list[QueryFeature]:
+    """Sanitize the output list of features in a list of QueryFeature.
+
+    Args:
+        features_in (list[QueryFeature]): _description_
+        features_out (QueryFeature | list[QueryFeature] | str | list[str] | None, optional):
+            List of features used as output. If None is passed, then the output features will be a copy of
+            the features_in parameter. If a string or a list of string is passed, then a new list of outputs
+            will be generated with the given name(s) and the same dtype as features_in (where possible). If
+            an empty list is passed, it will be returned another empty list.
+            Defaults to None.
+
+    Returns:
+        list[QueryFeature]:
+            The outputs converted in a list of QueryFeatures.
+
+    Raises:
+        ValueError:
+    """
+
+    if features_out is None:
+        return features_in.copy()
+
+    if isinstance(features_out, str):
+        if len(features_in) != 1:
+            raise ValueError("Multiple input features but only one feature as output.")
+        return [QueryFeature(name=features_out, dtype=features_in[0].name)]
+
+    if isinstance(features_out, QueryFeature):
+        return [features_out]
+
+    if isinstance(features_out, list):
+        if len(features_out) == 0:
+            return list()
+
+        if len(features_in) != len(features_out):
+            raise ValueError("Different number of input features and output features.")
+
+        ret: list[QueryFeature] = list()
+
+        for f_in, f_out in zip(features_in, features_out):
+            if isinstance(f_out, QueryFeature):
+                ret.append(f_out)
+            else:
+                ret.append(QueryFeature(name=f_out, dtype=f_in.dtype))
+
+    raise ValueError("Unsupported features_output parameter type.")
 
 
 def save(obj: Transformer, path: str) -> None:

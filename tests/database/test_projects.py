@@ -1,3 +1,5 @@
+from ferdelance.database.services import ProjectService
+
 from tests.utils import create_project
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,9 +12,9 @@ import json
 async def test_load_project(session: AsyncSession):
 
     p_token: str = "123456789"
-    ds_hash: str = "abcdefghijklmnopqrstuvwxyz"
+    ps: ProjectService = ProjectService(session)
 
-    ps, _ = await create_project(session, p_token, ds_hash)
+    await create_project(session, p_token)
 
     list_project = await ps.get_project_list()
 

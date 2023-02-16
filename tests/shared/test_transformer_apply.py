@@ -7,7 +7,7 @@ from ferdelance.schemas.transformers import (
     FederatedLabelBinarizer,
     FederatedRename,
 )
-from ferdelance.schemas.artifacts import QueryTransformer
+from ferdelance.schemas.queries import QueryTransformer
 
 import pandas as pd
 import os

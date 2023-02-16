@@ -11,7 +11,7 @@ import numpy as np
 class FederatedSimpleImputer(Transformer):
     def __init__(
         self,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str],
+        features_in: QueryFeature | list[QueryFeature],
         features_out: QueryFeature | list[QueryFeature] | str | list[str],
         missing_values: float = np.nan,
         strategy: str = "mean",

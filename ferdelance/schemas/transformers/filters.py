@@ -22,12 +22,12 @@ class FederatedFilter(Transformer):
         super().__init__(FederatedFilter.__name__)
 
         if isinstance(feature, QueryFeature):
-            self.feature: str = feature.feature_name
+            self.feature: str = feature.name
         else:
             self.feature: str = feature
 
         self.operation: str = op.name
-        self.parameter: str = f'"{value}'
+        self.parameter: str = f"{value}"
 
     def params(self) -> dict[str, Any]:
         return super().params() | {

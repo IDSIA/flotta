@@ -7,7 +7,7 @@ import pandas as pd
 class FederatedDrop(Transformer):
     """Drop a features by deleting the column(s) in the input data."""
 
-    def __init__(self, features_in: QueryFeature | list[QueryFeature] | str | list[str]) -> None:
+    def __init__(self, features_in: QueryFeature | list[QueryFeature]) -> None:
         """
         :param features_in:
             List of feature to be dropped by this transformer. Only a feature that exists
@@ -21,7 +21,7 @@ class FederatedDrop(Transformer):
         return df
 
     def aggregate(self) -> None:
-        # TODO
+        # TODO: do we need this?
         return super().aggregate()
 
 
@@ -30,8 +30,8 @@ class FederatedRename(Transformer):
 
     def __init__(
         self,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
-        features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+        features_in: QueryFeature | list[QueryFeature],
+        features_out: QueryFeature | list[QueryFeature] | str | list[str],
     ) -> None:
         """
         :param features_in:
@@ -44,9 +44,9 @@ class FederatedRename(Transformer):
         super().__init__(FederatedRename.__name__, features_in, features_out)
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        df.rename({f_in: f_out for f_in, f_out in zip(self.features_in, self.features_out)}, axis=1, inplace=True)
+        df.rename({f_in: f_out for f_in, f_out in zip(self._columns_in, self._columns_out)}, axis=1, inplace=True)
         return df
 
     def aggregate(self) -> None:
-        # TODO
+        # TODO: do we need this?
         return super().aggregate()

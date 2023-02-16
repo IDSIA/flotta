@@ -24,7 +24,7 @@ class FederatedKBinsDiscretizer(Transformer):
 
     def __init__(
         self,
-        features_in: QueryFeature | str,
+        features_in: QueryFeature,
         features_out: QueryFeature | str,
         n_bins: int = 5,
         strategy="uniform",
@@ -59,7 +59,7 @@ class FederatedBinarizer(Transformer):
 
     Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.Binarizer.html#sklearn.preprocessing.Binarizer"""
 
-    def __init__(self, features_in: QueryFeature | str, features_out: QueryFeature | str, threshold: float = 0) -> None:
+    def __init__(self, features_in: QueryFeature, features_out: QueryFeature | str, threshold: float = 0) -> None:
         """
         :param threshold:
             If the threshold is zero, the mean value will be used.
@@ -78,13 +78,13 @@ class FederatedBinarizer(Transformer):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if not self.fitted:
             if self.threshold == 0:
-                self.threshold = df[self.features_in].mean()[0]
+                self.threshold = df[self._columns_in].mean()[0]
                 self.transformer: Binarizer = Binarizer(threshold=self.threshold)
 
-            self.transformer.fit(df[self.features_in])
+            self.transformer.fit(df[self._columns_in])
             self.fitted = True
 
-        df[self.features_out] = self.transformer.transform(df[self.features_in])
+        df[self.features_out] = self.transformer.transform(df[self._columns_in])
         return df
 
     def aggregate(self) -> None:
@@ -97,7 +97,7 @@ class FederatedLabelBinarizer(Transformer):
 
     def __init__(
         self,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str],
+        features_in: QueryFeature | list[QueryFeature],
         features_out: QueryFeature | list[QueryFeature] | str | list[str],
         neg_label: int = 0,
         pos_label: int = 1,
@@ -125,7 +125,7 @@ class FederatedOneHotEncoder(Transformer):
 
     def __init__(
         self,
-        features_in: QueryFeature | str,
+        features_in: QueryFeature,
         features_out: QueryFeature | list[QueryFeature] | str | list[str] = [],
         categories: str | list = "auto",
         drop=None,
@@ -161,20 +161,20 @@ class FederatedOneHotEncoder(Transformer):
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if not self.fitted:
-            self.transformer.fit(df[self.features_in])
+            self.transformer.fit(df[self._columns_in])
 
             cats_found = self.transformer.categories_[0]
 
             if self.categories == "auto":
-                self.features_out = [f"{self.features_in[0]}_{c}" for c in range(len(cats_found))]
+                self._columns_out = [f"{self.features_in[0]}_{c}" for c in range(len(cats_found))]
             elif len(self.categories) < len(cats_found):
-                self.features_out += [
+                self._columns_out += [
                     f"{self.features_in[0]}_{c}" for c in range(len(self.categories), len(cats_found))
                 ]
 
             self.fitted = True
 
-        df[self.features_out] = self.transformer.transform(df[self.features_in])
+        df[self.features_out] = self.transformer.transform(df[self._columns_in])
         return df
 
     def aggregate(self) -> None:

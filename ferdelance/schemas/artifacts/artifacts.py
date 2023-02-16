@@ -20,4 +20,4 @@ class Artifact(BaseModel):
     model: Model
     # extract ?
     transform: Query
-    load: ExecutionPlan
+    load: ExecutionPlan | None

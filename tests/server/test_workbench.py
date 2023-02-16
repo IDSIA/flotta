@@ -1,9 +1,10 @@
 from ferdelance.config import conf
 from ferdelance.database.services import ComponentService
 from ferdelance.server.api import api
-from ferdelance.schemas.artifacts import (
+from ferdelance.schemas.queries import (
     Query,
     QueryFeature,
+    QueryStage,
 )
 from ferdelance.workbench.interface import (
     DataSource,
@@ -222,22 +223,21 @@ async def test_workflow_submit(session: AsyncSession):
 
         artifact = Artifact(
             artifact_id=None,
-            data=[
-                Query(
-                    datasource_id=datasource.datasource_id,
-                    datasource_name=datasource.name,
-                    features=[
-                        QueryFeature(
-                            datasource_id=f.datasource_id,
-                            datasource_name=f.datasource_name,
-                            feature_id=f.feature_id,
-                            feature_name=f.name,
-                        )
-                        for f in datasource.features
-                    ],
-                )
-            ],
+            transform=Query(
+                stages=[
+                    QueryStage(
+                        features=[
+                            QueryFeature(
+                                name=f.name,
+                                dtype=f.dtype,
+                            )
+                            for f in datasource.features
+                        ]
+                    )
+                ],
+            ),
             model=Model(name="model", strategy=""),
+            load=None,
         )
 
         res = server.post(
@@ -277,9 +277,8 @@ async def test_workflow_submit(session: AsyncSession):
         downloaded_artifact = Artifact(**wb_exc.get_payload(res.content))
 
         assert downloaded_artifact.artifact_id is not None
-        assert len(downloaded_artifact.data) == 1
-        assert downloaded_artifact.data[0].datasource_id == datasource_id
-        assert len(downloaded_artifact.data[0].features) == 2
+        assert len(downloaded_artifact.transform.stages) == 1
+        assert len(downloaded_artifact.transform.stages[0].features) == 2
 
         shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
 

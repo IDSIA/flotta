@@ -1,27 +1,31 @@
 from typing import Any
 
 from ferdelance.config import conf
-from ferdelance.database.services.component import ComponentService
+from ferdelance.database.services import ComponentService, DataSourceService
 from ferdelance.database.tables import (
     Application,
-    DataSource,
+    DataSource as DataSourceDB,
     Job,
     Token as TokenDB,
 )
 from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
+)
+from ferdelance.schemas.queries import (
     Query,
+    QueryStage,
     QueryFeature,
     QueryFilter,
 )
-from ferdelance.schemas.artifacts.operations import Operations
+from ferdelance.schemas.queries.operations import Operations
 from ferdelance.schemas.components import (
     Component,
     Client,
     Event,
     Token,
 )
+from ferdelance.schemas.datasources import Feature
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.client import ClientUpdate, ClientJoinRequest
@@ -373,22 +377,15 @@ async def test_update_metadata(session: AsyncSession, exchange: Exchange):
 
         assert upload_response.status_code == 200
 
-        res = await session.execute(select(DataSource).where(DataSource.component_id == client_id))
-        ds_db: DataSource = res.scalar_one()
+        res = await session.execute(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
+        ds_db: DataSourceDB = res.scalar_one()
 
         assert ds_db.name == metadata.datasources[0].name
         assert ds_db.removed == metadata.datasources[0].removed
         assert ds_db.n_records == metadata.datasources[0].n_records
         assert ds_db.n_features == metadata.datasources[0].n_features
 
-        ds_features = metadata.datasources[0].features
-
-        res = await session.scalars(select(Feature).where(Feature.datasource_id == ds_db.datasource_id))
-        ds_fs: list[Feature] = list(res.all())
-
-        assert len(ds_fs) == 2
-        assert ds_fs[0].name == ds_features[0].name
-        assert ds_fs[1].name == ds_features[1].name
+        assert os.path.exists(ds_db.path)
 
 
 @pytest.mark.asyncio
@@ -405,10 +402,12 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("setup artifact")
 
-        res = await session.scalars(
-            select(DataSource).where(DataSource.component_id == client_id).options(selectinload(DataSource.features))
-        )
-        ds_db: DataSource = res.one()
+        dss = DataSourceService(session)
+        ds = await dss.get_datasources_by_client_id(client_id)
+
+        assert len(ds) == 1
+
+        ds_db = await dss.load(ds[0].datasource_id)
 
         assert len(ds_db.features) == 2
 
@@ -416,34 +415,25 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
         f2: Feature = ds_db.features[1]
 
         qf1 = QueryFeature(
-            feature_id=f1.feature_id,
-            feature_name=f1.name,
-            datasource_id=ds_db.datasource_id,
-            datasource_name=ds_db.name,
+            name=f1.name,
             dtype=f1.dtype,
         )
         qf2 = QueryFeature(
-            feature_id=f2.feature_id,
-            feature_name=f2.name,
-            datasource_id=ds_db.datasource_id,
-            datasource_name=ds_db.name,
+            name=f2.name,
             dtype=f2.dtype,
         )
 
         artifact = Artifact(
             artifact_id=None,
-            dataset=Dataset(
-                queries=[
-                    Query(
-                        datasource_id=ds_db.datasource_id,
-                        datasource_name=ds_db.name,
+            transform=Query(
+                stages=[
+                    QueryStage(
                         features=[qf1, qf2],
-                        filters=[QueryFilter(feature=qf1, operation=Operations.NUM_LESS_THAN.name, parameter="1.0")],
-                        transformers=[],
-                    )
+                    ),
                 ],
             ),
             model=Model(name=""),
+            load=None,
         )
 
         LOGGER.info("submit artifact")
@@ -513,8 +503,8 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
             assert task.artifact_id == job.artifact_id
             assert artifact_status.artifact_id is not None
             assert task.artifact_id == artifact_status.artifact_id
-            assert len(task.data) == 1
-            assert len(task.data[0].features) == 2
+            assert len(task.transform.stages) == 1
+            assert len(task.transform.stages[0].features) == 2
 
         # cleanup
         LOGGER.info("cleaning up")
