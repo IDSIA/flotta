@@ -32,13 +32,31 @@ async def populate_test_db(session: AsyncSession):
     )
 
     ds1: DataSource = DataSource(
-        datasource_id="DS1", name="DS1", n_records=420, n_features=420, component_id=c1.component_id
+        datasource_id="DS1",
+        name="DS1",
+        datasource_hash="DS1",
+        n_records=420,
+        n_features=420,
+        component_id=c1.component_id,
+        path="",
     )
     ds2: DataSource = DataSource(
-        datasource_id="DS2", name="DS2", n_records=420, n_features=420, component_id=c1.component_id
+        datasource_id="DS2",
+        name="DS2",
+        datasource_hash="DS2",
+        n_records=420,
+        n_features=420,
+        component_id=c1.component_id,
+        path="",
     )
     ds3: DataSource = DataSource(
-        datasource_id="DS3", name="DS3", n_records=69, n_features=69, component_id=c2.component_id
+        datasource_id="DS3",
+        name="DS3",
+        datasource_hash="DS3",
+        n_records=69,
+        n_features=69,
+        component_id=c2.component_id,
+        path="",
     )
 
     session.add(c1)

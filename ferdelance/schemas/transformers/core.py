@@ -47,7 +47,9 @@ class Transformer:
         """
         self.name: str = name
         self.features_in: list[QueryFeature] = convert_features_in_to_list(features_in)
-        self.features_out: list[QueryFeature] = convert_features_out_to_list(self.features_in, features_out)
+        self.features_out: list[QueryFeature] = convert_features_out_to_list(
+            self.features_in, features_out, check_for_len
+        )
 
         self.transformer: Any = None
 
@@ -161,6 +163,7 @@ def convert_features_in_to_list(features_in: QueryFeature | list[QueryFeature] |
 def convert_features_out_to_list(
     features_in: list[QueryFeature],
     features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+    check_len: bool = True,
 ) -> list[QueryFeature]:
     """Sanitize the output list of features in a list of QueryFeature.
 
@@ -196,7 +199,7 @@ def convert_features_out_to_list(
         if len(features_out) == 0:
             return list()
 
-        if len(features_in) != len(features_out):
+        if check_len and len(features_in) != len(features_out):
             raise ValueError("Different number of input features and output features.")
 
         ret: list[QueryFeature] = list()
@@ -206,6 +209,8 @@ def convert_features_out_to_list(
                 ret.append(f_out)
             else:
                 ret.append(QueryFeature(name=f_out, dtype=f_in.dtype))
+
+        return ret
 
     raise ValueError("Unsupported features_output parameter type.")
 

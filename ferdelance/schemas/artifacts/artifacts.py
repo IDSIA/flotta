@@ -16,6 +16,7 @@ class Artifact(BaseModel):
     """Artifact created in the workbench."""
 
     artifact_id: str | None = None
+    project_id: str
     label: str | None = None
     model: Model
     # extract ?

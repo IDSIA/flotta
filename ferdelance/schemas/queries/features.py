@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 from ferdelance.schemas.queries.operations import Operations
 
@@ -24,7 +25,10 @@ class QueryFeature(BaseModel):
 
     name: str
 
-    dtype: str | None
+    dtype: str | None = None
+
+    def __init__(self, name: str, dtype: str | None = None, **data: Any) -> None:
+        super().__init__(name=name, dtype=dtype, **data)
 
     def _filter(self, operation: Operations, value) -> QueryFilter:
         return QueryFilter(

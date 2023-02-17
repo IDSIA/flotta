@@ -11,8 +11,6 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
     DataSource,
-    AggregatedDataSource,
-    AggregatedFeature,
     ExecutionPlan,
 )
 
@@ -81,48 +79,24 @@ for feature in ds.features:
 
 # %% develop a filter query
 
-from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
-
+# prepare transformation query with all features
 q = ds.extract()
 
+# inspect a feature data type
 feature = q["variety"]
-filter = q["variety"] < 2
-transformer = FederatedKBinsDiscretizer(q["variety"], "variety_discr")
+
+print(feature.dtype)
+
+# add filter
 
 q.add(q["variety"] < 2)
+
+# add transformer
+from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
+
+transformer = FederatedKBinsDiscretizer(q["variety"], "variety_discr")
+
 q.add(transformer)
-
-# add filters
-
-# datasource (ds) is composed by a series of stages
-# each stage keep track of the current available features
-# a stage is updated each time a new operation is added on the features
-#
-# stage 0:  f1  f2  f3  f4
-#  ---> drop f1
-# stage 1:      f2  f3  f4
-#  ---> discretize f5 in 2 bins
-# stage 2:      f2  f3  f41  f42
-#  ---> filter f2 > x
-# stage 3:      f2x f3x f41x f42x
-#
-#  -> keep track of available features and dtypes at current stage
-#
-# this will create a single pipelines of opearations:
-#
-#  [
-#        select(f1, f2, f3, f4),
-#        drop(f1),
-#        discretize(f4, 2),
-#        filter(f2 > x),
-#  ]
-#
-# each client will receive the whole pipeline adapted for its features
-#  -> check that some operations (such as filter) need to have the feature available on all clients
-#  -> add the number of clients that have have the feature to all AggregatedFeature
-#  -> raise error workbench-side with certain operations
-
-# other implementations of filters, transformers, ...
 
 # %% statistics
 """
@@ -142,6 +116,7 @@ m = FederatedRandomForestClassifier(
 
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
+    project_id=project.project_id,
     label="variety",
     model=m.build(),
     transform=q,

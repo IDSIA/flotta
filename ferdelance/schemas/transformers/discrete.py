@@ -84,7 +84,7 @@ class FederatedBinarizer(Transformer):
             self.transformer.fit(df[self._columns_in])
             self.fitted = True
 
-        df[self.features_out] = self.transformer.transform(df[self._columns_in])
+        df[self._columns_out] = self.transformer.transform(df[self._columns_in])
         return df
 
     def aggregate(self) -> None:
@@ -166,15 +166,15 @@ class FederatedOneHotEncoder(Transformer):
             cats_found = self.transformer.categories_[0]
 
             if self.categories == "auto":
-                self._columns_out = [f"{self.features_in[0]}_{c}" for c in range(len(cats_found))]
+                self._columns_out = [f"{self._columns_in[0]}_{c}" for c in range(len(cats_found))]
             elif len(self.categories) < len(cats_found):
                 self._columns_out += [
-                    f"{self.features_in[0]}_{c}" for c in range(len(self.categories), len(cats_found))
+                    f"{self._columns_in[0]}_{c}" for c in range(len(self.categories), len(cats_found))
                 ]
 
             self.fitted = True
 
-        df[self.features_out] = self.transformer.transform(df[self._columns_in])
+        df[self._columns_out] = self.transformer.transform(df[self._columns_in])
         return df
 
     def aggregate(self) -> None:

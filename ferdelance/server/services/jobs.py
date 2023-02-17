@@ -6,6 +6,7 @@ from ferdelance.database.services import (
     JobService,
     ModelService,
     ComponentService,
+    ProjectService,
 )
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.database import ServerArtifact, ServerModel
@@ -35,22 +36,19 @@ class JobManagementService(DBSessionService):
         self.dss: DataSourceService = DataSourceService(session)
         self.js: JobService = JobService(session)
         self.ms: ModelService = ModelService(session)
+        self.ps: ProjectService = ProjectService(session)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         try:
             artifact_db: ServerArtifact = await self.ars.create_artifact(artifact)
 
-            client_ids = set()
+            project = await self.ps.get_by_id(artifact.project_id)
+            datasources_ids = await self.ps.datasources_ids(project.token)
 
-            for query in artifact.data:
-                client: Client = await self.dss.get_client_by_datasource_id(query.datasource_id)
-
-                if client.client_id in client_ids:
-                    continue
+            for datasource_id in datasources_ids:
+                client: Client = await self.dss.get_client_by_datasource_id(datasource_id)
 
                 await self.js.schedule_job(artifact_db.artifact_id, client.client_id)
-
-                client_ids.add(client.client_id)
 
             return artifact_db.get_status()
         except ValueError as e:
@@ -80,6 +78,7 @@ class JobManagementService(DBSessionService):
             artifact = Artifact(**json.loads(data))
 
         client_datasource_ids = await self.dss.get_datasource_ids_by_client_id(client_id)
+
         # TODO: filter "how" based on given plan
 
         artifact.data = [q for q in artifact.data if q.datasource_id in client_datasource_ids]
@@ -155,5 +154,6 @@ class JobManagementService(DBSessionService):
 
         path = os.path.join(out_dir, f"{artifact.artifact_id}_metrics_{metrics.source}.json")
 
-        with open(path, "w") as f:
-            json.dump(metrics.dict(), f)
+        async with aiofiles.open(path, "w") as f:
+            content = json.dumps(metrics.dict())
+            await f.write(content)

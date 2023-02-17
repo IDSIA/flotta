@@ -1,3 +1,4 @@
+from ferdelance import __version__
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.schemas.database import ServerModel
@@ -62,6 +63,7 @@ async def manager_upload_client(file: UploadFile, session: AsyncSession = Depend
         app_id=app_id,
         path=path,
         name=filename,
+        version=__version__,
         checksum=checksum.hexdigest(),
     )
 

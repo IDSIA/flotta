@@ -60,13 +60,14 @@ class ArtifactService(DBSessionService):
     async def storage_location(self, artifact_id) -> str:
         path = conf.storage_dir_artifact(artifact_id)
         await aos.makedirs(path, exist_ok=True)
-        return os.path.join(path, "descriptor.json")
+        return os.path.join(path, "artifact.json")
 
     async def store(self, artifact: Artifact) -> str:
         path = await self.storage_location(artifact.artifact_id)
 
         async with aiofiles.open(path, "w") as f:
-            json.dump(artifact.dict(), f)
+            content = json.dumps(artifact.dict())
+            await f.write(content)
 
         return path
 

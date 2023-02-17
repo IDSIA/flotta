@@ -1,3 +1,4 @@
+from ferdelance.schemas.queries import QueryTransformer, QueryFeature
 from ferdelance.schemas.transformers import (
     apply_transformer,
     FederatedPipeline,
@@ -7,7 +8,6 @@ from ferdelance.schemas.transformers import (
     FederatedLabelBinarizer,
     FederatedRename,
 )
-from ferdelance.schemas.queries import QueryTransformer
 
 import pandas as pd
 import os
@@ -17,7 +17,8 @@ PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
 
 
 def test_apply_transformer():
-    tr = FederatedKBinsDiscretizer("HouseAge", "HouseAgeBin", 10, random_state=42)
+    f = QueryFeature(name="HouseAge", dtype="float")
+    tr = FederatedKBinsDiscretizer(f, "HouseAgeBin", 10, random_state=42)
     qt: QueryTransformer = tr.build()
 
     df = pd.read_csv(PATH_CALIFORNIA)
@@ -31,6 +32,10 @@ def test_apply_transformer():
 
 
 def test_apply_pipeline():
+
+    med_inc = QueryFeature(name="MedInc", dtype="float")
+    med_inc_th = QueryFeature(name="MedIncThresholded", dtype="float")
+
     pipe = FederatedPipeline(
         [
             # remove unused features
@@ -38,9 +43,9 @@ def test_apply_pipeline():
             # prepare label feature
             FederatedPipeline(
                 [
-                    FederatedBinarizer("MedInc", "MedIncThresholded"),
-                    FederatedLabelBinarizer("MedIncThresholded", "Label", pos_label=1, neg_label=-1),
-                    FederatedDrop(["MedInc", "MedIncThresholded"]),
+                    FederatedBinarizer(med_inc, med_inc_th),
+                    FederatedLabelBinarizer(med_inc_th, "Label", pos_label=1, neg_label=-1),
+                    FederatedDrop([med_inc, med_inc_th]),
                     FederatedRename("Label", "MedIncLabel"),
                 ]
             ),

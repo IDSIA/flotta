@@ -1,9 +1,14 @@
+from typing import Any
+
 from ferdelance.database.services import ProjectService
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
-from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
+from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientUpdate
+from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
+from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange
 
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 from requests import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +18,12 @@ import random
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def setup_exchange() -> Exchange:
+    exc = Exchange()
+    exc.generate_key()
+    return exc
 
 
 def create_client(client: TestClient, exc: Exchange) -> str:
@@ -118,3 +129,64 @@ async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKE
     await ps.create("example", p_token)
 
     return p_token
+
+
+class ConnectionArguments(BaseModel):
+    client_id: str
+    workbench_id: str
+    cl_exc: Exchange
+    wb_exc: Exchange
+    project_token: str
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+async def connect(server: TestClient, session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> ConnectionArguments:
+    await create_project(session, p_token)
+
+    cl_exc = setup_exchange()
+    wb_exc = setup_exchange()
+
+    # this is to have a client
+    client_id = create_client(server, cl_exc)
+
+    metadata: Metadata = get_metadata()
+    upload_response: Response = send_metadata(server, cl_exc, metadata)
+
+    assert upload_response.status_code == 200
+
+    # this is for connect a new workbench
+    wjr = WorkbenchJoinRequest(public_key=wb_exc.transfer_public_key())
+
+    res = server.post("/workbench/connect", data=json.dumps(wjr.dict()))
+
+    res.raise_for_status()
+
+    wjd = WorkbenchJoinData(**wb_exc.get_payload(res.content))
+
+    wb_exc.set_remote_key(wjd.public_key)
+    wb_exc.set_token(wjd.token)
+
+    return ConnectionArguments(
+        client_id=client_id,
+        workbench_id=wjd.id,
+        cl_exc=cl_exc,
+        wb_exc=wb_exc,
+        project_token=p_token,
+    )
+
+
+def client_update(client: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
+    payload = ClientUpdate(action=Action.DO_NOTHING.name)
+
+    response = client.get("/client/update", data=exchange.create_payload(payload.dict()), headers=exchange.headers())
+
+    if response.status_code != 200:
+        return response.status_code, "", None
+
+    response_payload = exchange.get_payload(response.content)
+
+    assert "action" in response_payload
+
+    return response.status_code, response_payload["action"], response_payload

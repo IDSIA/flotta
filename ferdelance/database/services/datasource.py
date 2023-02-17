@@ -1,6 +1,6 @@
 from ferdelance.database.tables import DataSource as DataSourceDB
-from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.schemas.metadata import Metadata, MetaDataSource
 from ferdelance.schemas.datasources import DataSource, Feature
 from ferdelance.config import conf
@@ -124,8 +124,9 @@ class DataSourceService(DBSessionService):
 
         path = await self.storage_location(datasource.datasource_id)
 
-        with open(path, "w") as f:
-            json.dump(datasource.dict(), f)
+        async with aiofiles.open(path, "w") as f:
+            content = json.dumps(datasource.dict())
+            await f.write(content)
 
         return path
 

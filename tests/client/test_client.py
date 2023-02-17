@@ -1,5 +1,3 @@
-from typing import Any
-
 from ferdelance.config import conf
 from ferdelance.database.services import ComponentService, DataSourceService
 from ferdelance.database.tables import (
@@ -16,9 +14,7 @@ from ferdelance.schemas.queries import (
     Query,
     QueryStage,
     QueryFeature,
-    QueryFilter,
 )
-from ferdelance.schemas.queries.operations import Operations
 from ferdelance.schemas.components import (
     Component,
     Client,
@@ -28,7 +24,7 @@ from ferdelance.schemas.components import (
 from ferdelance.schemas.datasources import Feature
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.client import ClientUpdate, ClientJoinRequest
+from ferdelance.schemas.client import ClientJoinRequest
 from ferdelance.schemas.updates import (
     DownloadApp,
     UpdateClientApp,
@@ -44,13 +40,14 @@ from tests.utils import (
     create_client,
     get_metadata,
     send_metadata,
+    client_update,
+    TEST_PROJECT_TOKEN,
 )
 
 from fastapi.testclient import TestClient
 
 from requests import Response
 from sqlalchemy import select, update, func
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import json
@@ -60,21 +57,6 @@ import pytest
 import shutil
 
 LOGGER = logging.getLogger(__name__)
-
-
-def get_client_update(client: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
-    payload = ClientUpdate(action=Action.DO_NOTHING.name)
-
-    response = client.get("/client/update", data=exchange.create_payload(payload.dict()), headers=exchange.headers())
-
-    if response.status_code != 200:
-        return response.status_code, "", None
-
-    response_payload = exchange.get_payload(response.content)
-
-    assert "action" in response_payload
-
-    return response.status_code, response_payload["action"], response_payload
 
 
 @pytest.mark.asyncio
@@ -168,7 +150,7 @@ async def test_client_update(session: AsyncSession, exchange: Exchange):
 
         cs: ComponentService = ComponentService(session)
 
-        status_code, action, _ = get_client_update(client, exchange)
+        status_code, action, _ = client_update(client, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.DO_NOTHING
@@ -197,7 +179,7 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        status_code, _, _ = get_client_update(client, exchange)
+        status_code, _, _ = client_update(client, exchange)
 
         assert status_code == 403
 
@@ -229,7 +211,7 @@ async def test_client_update_token(session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("expiration_time for token set to 0")
 
-        status_code, action, data = get_client_update(client, exchange)
+        status_code, action, data = client_update(client, exchange)
 
         assert "action" in data
         assert Action[action] == Action.UPDATE_TOKEN
@@ -247,12 +229,12 @@ async def test_client_update_token(session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("expiration_time for token set to 24h")
 
-        status_code, _, _ = get_client_update(client, exchange)
+        status_code, _, _ = client_update(client, exchange)
 
         assert status_code == 403
 
         exchange.set_token(new_token)
-        status_code, action, data = get_client_update(client, exchange)
+        status_code, action, data = client_update(client, exchange)
 
         assert status_code == 200
         assert "action" in data
@@ -328,7 +310,7 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         assert newest_version.version == version_app
 
         # update request
-        status_code, action, data = get_client_update(client, exchange)
+        status_code, action, data = client_update(client, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.UPDATE_CLIENT
@@ -424,6 +406,7 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
         )
 
         artifact = Artifact(
+            project_id=TEST_PROJECT_TOKEN,
             artifact_id=None,
             transform=Query(
                 stages=[
@@ -473,7 +456,7 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("update client")
 
-        status_code, action, data = get_client_update(server, exchange)
+        status_code, action, data = client_update(server, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.EXECUTE
@@ -485,7 +468,7 @@ async def test_client_task_get(session: AsyncSession, exchange: Exchange):
         LOGGER.info("get task for client")
 
         with server.get(
-            "/client/task/",
+            "/client/task",
             data=exchange.create_payload(update_execute.dict()),
             headers=exchange.headers(),
             stream=True,

@@ -29,9 +29,11 @@ ds2: DataSource = data_sources[1]
 # %% develop a filter query
 q: Query = ds1.extract()
 
-f1, f2, f3, f4, f5, f6, f7, f8, f9 = q.features()
+all_features = q.features()
 
-mms = FederatedMinMaxScaler(q.features(), q.features())
+f1, f2, f3, f4, f5, f6, f7, f8, f9 = all_features
+
+mms = FederatedMinMaxScaler(all_features, all_features)
 im = FederatedSimpleImputer([f1, f2], [f1, f2])
 cl = FederatedClamp(f1, f1)
 bi = FederatedBinarizer(f2, f2)
@@ -58,10 +60,3 @@ pipe = FederatedPipeline(
 )
 
 q.add(pipe)
-
-# %% create dataset
-d = Dataset(
-    test_percentage=0.2,
-    val_percentage=0.1,
-    label="variety",
-)
