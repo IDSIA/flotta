@@ -1,19 +1,9 @@
 from ferdelance.config import conf
-from ferdelance.database.services import ComponentService, DataSourceService
+from ferdelance.database.services import ComponentService
 from ferdelance.database.tables import (
     Application,
     DataSource as DataSourceDB,
-    Job,
     Token as TokenDB,
-)
-from ferdelance.schemas.artifacts import (
-    Artifact,
-    ArtifactStatus,
-)
-from ferdelance.schemas.queries import (
-    Query,
-    QueryStage,
-    QueryFeature,
 )
 from ferdelance.schemas.components import (
     Component,
@@ -21,17 +11,13 @@ from ferdelance.schemas.components import (
     Event,
     Token,
 )
-from ferdelance.schemas.datasources import Feature
-from ferdelance.schemas.models import Model
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.client import ClientJoinRequest
 from ferdelance.schemas.updates import (
     DownloadApp,
     UpdateClientApp,
-    UpdateExecute,
     UpdateToken,
 )
-from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
 from ferdelance.server.api import api
 from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange
@@ -41,7 +27,6 @@ from tests.utils import (
     get_metadata,
     send_metadata,
     client_update,
-    TEST_PROJECT_TOKEN,
 )
 
 from fastapi.testclient import TestClient
@@ -54,7 +39,6 @@ import json
 import logging
 import os
 import pytest
-import shutil
 
 LOGGER = logging.getLogger(__name__)
 

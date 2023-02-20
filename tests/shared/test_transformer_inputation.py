@@ -1,7 +1,5 @@
 from ferdelance.schemas.queries import QueryTransformer, QueryFeature
-from ferdelance.schemas.transformers import (
-    FederatedSimpleImputer,
-)
+from ferdelance.schemas.transformers import FederatedSimpleImputer
 
 from sklearn.impute import SimpleImputer
 
