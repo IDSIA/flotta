@@ -1,37 +1,23 @@
-from typing import Any
-
 from ferdelance.config import conf
-from ferdelance.database.services.component import ComponentService
+from ferdelance.database.services import ComponentService
 from ferdelance.database.tables import (
     Application,
-    DataSource,
-    Job,
+    DataSource as DataSourceDB,
     Token as TokenDB,
 )
-from ferdelance.schemas.artifacts import (
-    Artifact,
-    ArtifactStatus,
-    Query,
-    QueryFeature,
-    QueryFilter,
-)
-from ferdelance.schemas.artifacts.operations import Operations
 from ferdelance.schemas.components import (
     Component,
     Client,
     Event,
     Token,
 )
-from ferdelance.schemas.models import Model
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.client import ClientUpdate, ClientJoinRequest
+from ferdelance.schemas.client import ClientJoinRequest
 from ferdelance.schemas.updates import (
     DownloadApp,
     UpdateClientApp,
-    UpdateExecute,
     UpdateToken,
 )
-from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
 from ferdelance.server.api import api
 from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange
@@ -40,37 +26,21 @@ from tests.utils import (
     create_client,
     get_metadata,
     send_metadata,
+    client_update,
 )
 
 from fastapi.testclient import TestClient
 
 from requests import Response
 from sqlalchemy import select, update, func
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import json
 import logging
 import os
 import pytest
-import shutil
 
 LOGGER = logging.getLogger(__name__)
-
-
-def get_client_update(client: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
-    payload = ClientUpdate(action=Action.DO_NOTHING.name)
-
-    response = client.get("/client/update", data=exchange.create_payload(payload.dict()), headers=exchange.headers())
-
-    if response.status_code != 200:
-        return response.status_code, "", None
-
-    response_payload = exchange.get_payload(response.content)
-
-    assert "action" in response_payload
-
-    return response.status_code, response_payload["action"], response_payload
 
 
 @pytest.mark.asyncio
@@ -164,7 +134,7 @@ async def test_client_update(session: AsyncSession, exchange: Exchange):
 
         cs: ComponentService = ComponentService(session)
 
-        status_code, action, _ = get_client_update(client, exchange)
+        status_code, action, _ = client_update(client, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.DO_NOTHING
@@ -193,7 +163,7 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        status_code, _, _ = get_client_update(client, exchange)
+        status_code, _, _ = client_update(client, exchange)
 
         assert status_code == 403
 
@@ -225,7 +195,7 @@ async def test_client_update_token(session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("expiration_time for token set to 0")
 
-        status_code, action, data = get_client_update(client, exchange)
+        status_code, action, data = client_update(client, exchange)
 
         assert "action" in data
         assert Action[action] == Action.UPDATE_TOKEN
@@ -243,12 +213,12 @@ async def test_client_update_token(session: AsyncSession, exchange: Exchange):
 
         LOGGER.info("expiration_time for token set to 24h")
 
-        status_code, _, _ = get_client_update(client, exchange)
+        status_code, _, _ = client_update(client, exchange)
 
         assert status_code == 403
 
         exchange.set_token(new_token)
-        status_code, action, data = get_client_update(client, exchange)
+        status_code, action, data = client_update(client, exchange)
 
         assert status_code == 200
         assert "action" in data
@@ -324,7 +294,7 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         assert newest_version.version == version_app
 
         # update request
-        status_code, action, data = get_client_update(client, exchange)
+        status_code, action, data = client_update(client, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.UPDATE_CLIENT
@@ -373,152 +343,15 @@ async def test_update_metadata(session: AsyncSession, exchange: Exchange):
 
         assert upload_response.status_code == 200
 
-        res = await session.execute(select(DataSource).where(DataSource.component_id == client_id))
-        ds_db: DataSource = res.scalar_one()
+        res = await session.execute(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
+        ds_db: DataSourceDB = res.scalar_one()
 
         assert ds_db.name == metadata.datasources[0].name
         assert ds_db.removed == metadata.datasources[0].removed
         assert ds_db.n_records == metadata.datasources[0].n_records
         assert ds_db.n_features == metadata.datasources[0].n_features
 
-        ds_features = metadata.datasources[0].features
-
-        res = await session.scalars(select(Feature).where(Feature.datasource_id == ds_db.datasource_id))
-        ds_fs: list[Feature] = list(res.all())
-
-        assert len(ds_fs) == 2
-        assert ds_fs[0].name == ds_features[0].name
-        assert ds_fs[1].name == ds_features[1].name
-
-
-@pytest.mark.asyncio
-async def test_client_task_get(session: AsyncSession, exchange: Exchange):
-    with TestClient(api) as server:
-        client_id = create_client(server, exchange)
-
-        LOGGER.info("setup metadata for client")
-
-        metadata: Metadata = get_metadata()
-        upload_response: Response = send_metadata(server, exchange, metadata)
-
-        assert upload_response.status_code == 200
-
-        LOGGER.info("setup artifact")
-
-        res = await session.scalars(
-            select(DataSource).where(DataSource.component_id == client_id).options(selectinload(DataSource.features))
-        )
-        ds_db: DataSource = res.one()
-
-        assert len(ds_db.features) == 2
-
-        f1: Feature = ds_db.features[0]
-        f2: Feature = ds_db.features[1]
-
-        qf1 = QueryFeature(
-            feature_id=f1.feature_id,
-            feature_name=f1.name,
-            datasource_id=ds_db.datasource_id,
-            datasource_name=ds_db.name,
-            dtype=f1.dtype,
-        )
-        qf2 = QueryFeature(
-            feature_id=f2.feature_id,
-            feature_name=f2.name,
-            datasource_id=ds_db.datasource_id,
-            datasource_name=ds_db.name,
-            dtype=f2.dtype,
-        )
-
-        artifact = Artifact(
-            artifact_id=None,
-            dataset=Dataset(
-                queries=[
-                    Query(
-                        datasource_id=ds_db.datasource_id,
-                        datasource_name=ds_db.name,
-                        features=[qf1, qf2],
-                        filters=[QueryFilter(feature=qf1, operation=Operations.NUM_LESS_THAN.name, parameter="1.0")],
-                        transformers=[],
-                    )
-                ],
-            ),
-            model=Model(name=""),
-        )
-
-        LOGGER.info("submit artifact")
-
-        wb_exc = Exchange()
-        wb_exc.generate_key()
-
-        wjr = WorkbenchJoinRequest(public_key=wb_exc.transfer_public_key())
-
-        res = server.post("/workbench/connect", data=json.dumps(wjr.dict()))
-
-        res.raise_for_status()
-
-        wjd = WorkbenchJoinData(**wb_exc.get_payload(res.content))
-
-        wb_exc.set_remote_key(wjd.public_key)
-        wb_exc.set_token(wjd.token)
-
-        submit_response = server.post(
-            "/workbench/artifact/submit",
-            data=wb_exc.create_payload(artifact.dict()),
-            headers=wb_exc.headers(),
-        )
-
-        assert submit_response.status_code == 200
-
-        artifact_status = ArtifactStatus(**wb_exc.get_payload(submit_response.content))
-
-        n = await session.scalar(select(func.count()).select_from(Job))
-        assert n == 1
-
-        n = await session.scalar(select(func.count()).select_from(Job).where(Job.component_id == client_id))
-        assert n == 1
-
-        res = await session.scalars(select(Job).limit(1))
-        job: Job = res.one()
-
-        LOGGER.info("update client")
-
-        status_code, action, data = get_client_update(server, exchange)
-
-        assert status_code == 200
-        assert Action[action] == Action.EXECUTE
-
-        update_execute = UpdateExecute(**data)
-
-        assert update_execute.artifact_id == job.artifact_id
-
-        LOGGER.info("get task for client")
-
-        with server.get(
-            "/client/task/",
-            data=exchange.create_payload(update_execute.dict()),
-            headers=exchange.headers(),
-            stream=True,
-        ) as task_response:
-            assert task_response.status_code == 200
-
-            content = exchange.get_payload(task_response.content)
-
-            assert "artifact_id" in content
-            assert "model" in content
-            assert "dataset" in content
-
-            task = Artifact(**content)
-
-            assert task.artifact_id == job.artifact_id
-            assert artifact_status.artifact_id is not None
-            assert task.artifact_id == artifact_status.artifact_id
-            assert len(task.data) == 1
-            assert len(task.data[0].features) == 2
-
-        # cleanup
-        LOGGER.info("cleaning up")
-        shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_status.artifact_id))
+        assert os.path.exists(ds_db.path)
 
 
 @pytest.mark.asyncio

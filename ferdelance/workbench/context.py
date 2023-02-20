@@ -6,12 +6,13 @@ from ferdelance.workbench.interface import (
     ArtifactStatus,
 )
 from ferdelance.schemas.workbench import (
+    WorkbenchArtifact,
+    WorkbenchClientList,
+    WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
     WorkbenchProject,
     WorkbenchProjectDescription,
-    WorkbenchDataSourceIdList,
-    WorkbenchClientList,
     WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
@@ -152,52 +153,6 @@ class Context:
 
         return data.datasources
 
-    # OLD METHODS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-
-    # TODO: remove
-    def get_datasource_by_id(self, datasource_id: str) -> DataSource:
-        """Returns the detail, like metadata, of the given datasource.
-
-        :param datasource_id:
-            This is one of the ids returned with the `list_datasources()` method.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        :returns:
-            The details for the given datasource, with also features.
-        """
-        res = requests.get(
-            f"{self.server}/workbench/datasource/{datasource_id}",
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        return DataSource(**self.exc.get_payload(res.content))
-
-    # TODO: remove
-    def get_datasource_by_name(self, datasource_name: str) -> list[DataSource]:
-        """Returns the detail, like metadata, of the datasources associated with the
-        given name.
-
-        :param datasource_name:
-            This is the name of one or more data sources.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        :returns:
-            A list with all the details of the datasources with the given name,
-            with also the features.
-        """
-        res = requests.get(
-            f"{self.server}/workbench/datasource/name/{datasource_name}",
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        data = WorkbenchDataSourceList(**self.exc.get_payload(res.content))
-
-        return [DataSource(**data.__dict__) for data in data.datasources]
-
     def submit(self, artifact: Artifact) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
 
@@ -236,9 +191,12 @@ class Context:
         if artifact.artifact_id is None:
             raise ValueError("submit first the artifact to the server")
 
+        wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
+
         res = requests.get(
-            f"{self.server}/workbench/artifact/status/{artifact.artifact_id}",
+            f"{self.server}/workbench/artifact/status",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wba.dict()),
         )
 
         res.raise_for_status()
@@ -255,9 +213,13 @@ class Context:
         :returns:
             The artifact saved on the server and associated with the given artifact_id.
         """
+
+        wba = WorkbenchArtifact(artifact_id=artifact_id)
+
         res = requests.get(
-            f"{self.server}/workbench/artifact/{artifact_id}",
+            f"{self.server}/workbench/artifact",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wba.dict()),
         )
 
         res.raise_for_status()
@@ -280,9 +242,12 @@ class Context:
         if not path:
             path = f"{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model"
 
+        wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
+
         with requests.get(
-            f"{self.server}/workbench/model/{artifact.artifact_id}",
+            f"{self.server}/workbench/model",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wba.dict()),
             stream=True,
         ) as res:
 
@@ -291,6 +256,8 @@ class Context:
             self.exc.stream_response_to_file(res, path)
 
         return path
+
+    # OLD METHODS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
     def get_partial_model(self, artifact: Artifact, client_id: str, path: str = "") -> str:
         """Get the trained partial model from the artifact and save it to disk.

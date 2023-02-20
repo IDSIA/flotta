@@ -1,3 +1,5 @@
+from typing import Any
+
 from ferdelance.database.services import (
     DBSessionService,
     AsyncSession,
@@ -15,7 +17,7 @@ from ferdelance.schemas.updates import (
     UpdateToken,
 )
 
-from typing import Any
+from sqlalchemy.exc import NoResultFound
 
 import logging
 
@@ -55,14 +57,15 @@ class ActionService(DBSessionService):
         :return:
             True if there is a new version and this version is different from the current client version.
         """
-        app: Application = await self.cs.get_newest_app()
+        try:
+            app: Application = await self.cs.get_newest_app()
 
-        if app is None:
+            LOGGER.debug(f"client_id={client.client_id}: version={client.version} newest_version={app.version}")
+
+            return client.version != app.version
+
+        except NoResultFound:
             return False
-
-        LOGGER.debug(f"client_id={client.client_id}: version={client.version} newest_version={app.version}")
-
-        return client.version != app.version
 
     async def _action_update_client_app(self) -> UpdateClientApp:
         """Update and restart the client with the new version.

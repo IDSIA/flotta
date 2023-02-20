@@ -15,7 +15,7 @@ class MetaFeature(BaseFeature):
 class MetaDataSource(BaseDataSource):
     """Information on data sources stored in the client."""
 
-    datasource_id: str | None
+    datasource_id: str | None = None
     datasource_hash: str
 
     tokens: list[str]

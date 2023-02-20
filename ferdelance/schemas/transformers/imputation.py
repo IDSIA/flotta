@@ -1,7 +1,7 @@
 from typing import Any
 
-from .core import Transformer
-from ferdelance.schemas.artifacts import QueryFeature
+from ferdelance.schemas.transformers.core import Transformer
+from ferdelance.schemas.queries import QueryFeature
 
 from sklearn.impute import SimpleImputer
 
@@ -11,7 +11,7 @@ import numpy as np
 class FederatedSimpleImputer(Transformer):
     def __init__(
         self,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str],
+        features_in: QueryFeature | list[QueryFeature],
         features_out: QueryFeature | list[QueryFeature] | str | list[str],
         missing_values: float = np.nan,
         strategy: str = "mean",

@@ -35,6 +35,7 @@ class Config:
         self.client_token: str | None = None
         self.server_public_key: str | None = None
 
+        """Hash -> DataSource"""
         self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
 
         for ds in args.datasources:

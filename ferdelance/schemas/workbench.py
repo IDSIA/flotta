@@ -30,11 +30,11 @@ class WorkbenchDataSourceIdList(BaseModel):
     datasources: list[DataSource]
 
 
+class WorkbenchArtifact(BaseModel):
+    artifact_id: str
+
+
 # OLD SCHEMAS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-
-
-class WorkbenchFeature(BaseModel):
-    pass
 
 
 class WorkbenchDataSource(BaseModel):
@@ -74,9 +74,3 @@ class WorkbenchProjectDescription(BaseModel):
 
     n_datasources: int
     avg_n_features: float
-
-
-class AggregatedDataSource(BaseModel):
-    """Acts like a single datasource, describes features with distributions instead of punctual values."""
-
-    datasources: list[DataSource]

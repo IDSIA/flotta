@@ -1,10 +1,9 @@
 from ferdelance.client.config import Config
 from ferdelance.client.exceptions import ErrorClient
 from ferdelance.shared.actions import Action
-from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
+from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientTask
 from ferdelance.schemas.updates import DownloadApp, UpdateClientApp, UpdateExecute
 
 from requests import Session, get, post
@@ -98,7 +97,7 @@ class RouteService:
 
         return Action[data["action"]], data
 
-    def get_task(self, task: UpdateExecute) -> Artifact:
+    def get_task(self, task: UpdateExecute) -> ClientTask:
         LOGGER.info("requesting new client task")
 
         res = get(
@@ -109,7 +108,7 @@ class RouteService:
 
         res.raise_for_status()
 
-        return Artifact(**self.config.exc.get_payload(res.content))
+        return ClientTask(**self.config.exc.get_payload(res.content))
 
     def get_new_client(self, data: UpdateClientApp):
         expected_checksum = data.checksum

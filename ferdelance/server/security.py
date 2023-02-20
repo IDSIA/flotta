@@ -1,16 +1,19 @@
-import logging
-from datetime import datetime, timedelta
-
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBasicCredentials, HTTPBearer
-from sqlalchemy.exc import NoResultFound
-
 from ferdelance.config import conf
 from ferdelance.database import AsyncSession, get_session
 from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
 from ferdelance.database.services import ComponentService, KeyValueStore
 from ferdelance.schemas.components import Client, Component, Token
 from ferdelance.shared.exchange import Exchange
+
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBasicCredentials, HTTPBearer
+
+from sqlalchemy.exc import NoResultFound
+
+from datetime import datetime, timedelta
+
+
+import logging
 
 LOGGER = logging.getLogger(__name__)
 

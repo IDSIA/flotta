@@ -1,6 +1,7 @@
-from ferdelance.schemas.artifacts import Query, QueryFilter
+from ferdelance.schemas.queries import Query, QueryFilter, Operations, QueryFeature
 from ferdelance.schemas.datasources import Feature, DataSource
-from ferdelance.schemas.artifacts.operations import Operations
+from ferdelance.schemas.queries.operations import Operations
+from ferdelance.schemas.transformers import FederatedBinarizer
 
 DS1_NAME, DS1_ID = "data_source_1", "ds1"
 DS2_NAME, DS2_ID = "data_source_2", "ds2"
@@ -9,7 +10,7 @@ DS2_NAME, DS2_ID = "data_source_2", "ds2"
 def feature1() -> Feature:
     return Feature(
         name="feature1",
-        dtype="str",
+        dtype="float",
         v_mean=None,
         v_std=None,
         v_min=None,
@@ -24,7 +25,7 @@ def feature1() -> Feature:
 def feature2() -> Feature:
     return Feature(
         name="feature2",
-        dtype="str",
+        dtype="int",
         v_mean=None,
         v_std=None,
         v_min=None,
@@ -39,7 +40,7 @@ def feature2() -> Feature:
 def feature3() -> Feature:
     return Feature(
         name="feature3",
-        dtype="str",
+        dtype="int",
         v_mean=None,
         v_std=None,
         v_min=None,
@@ -90,7 +91,6 @@ def test_features():
 
     fq1 = f1.qf()
 
-    assert fq1 == f1
     assert fq1 == f1.qf()
     assert fq1 is not f1
     assert fq1 is not f1.qf()
@@ -112,44 +112,73 @@ def test_features():
 
 def test_query_composition():
 
-    ds = datasource1()
+    ds: DataSource = datasource1()
 
-    f1 = ds.features[0]
-    f2 = ds.features[1]
-    f3 = feature3()
+    f1: QueryFeature = ds.features[0].qf()
+    f2: QueryFeature = ds.features[1].qf()
 
-    q1 = ds.all_features()
+    # initial query
+    q: Query = ds.extract()
 
-    assert len(q1.features) == 2
-    assert f1 in q1.features
-    assert f2 in q1.features
-    assert q1.datasource_id == ds.datasource_id
+    assert len(q.stages) == 1
 
-    q2 = q1 - f1
+    s = q.current()
 
-    assert isinstance(q2, Query)
-    assert q2 is not q1
-    assert f1 not in q2.features
-    assert f2 in q2.features
-    assert len(q2.features) == 1
+    assert s.transformer is None
+    assert len(s.features) == 2
+    assert f1 in s.features
+    assert f2 in s.features
 
-    try:
-        _ = q1 - f3
-        assert False
-    except ValueError as _:
-        assert True
-    except Exception as _:
-        assert False
+    # adding a filter
 
-    q2 += f1
+    f: QueryFilter = q[f1] > 3
 
-    assert f1 in q2.features
-    assert f2 in q2.features
-    assert len(q2.features) == 2
+    assert isinstance(f, QueryFilter)
 
-    qf = f1 == "string"
+    q.add(f)
 
-    assert qf.feature == f1
-    assert qf.feature != f2
-    assert Operations[qf.operation] == Operations.OBJ_LIKE
-    assert isinstance(qf, QueryFilter)
+    assert len(q.stages) == 2
+
+    s = q.current()
+
+    assert f1 in s.features
+    assert f2 in s.features
+
+    assert s.transformer is not None
+
+    params = s.transformer.params()
+
+    assert "feature" in params
+    assert params["feature"] == f1.name
+    assert "operation" in params
+    assert params["operation"] == Operations.NUM_GREATER_THAN.name
+    assert "parameter" in params
+    assert params["parameter"] == "3"
+
+    # adding a transformer
+
+    b = FederatedBinarizer(f1, "binary", 0.5)
+
+    q.add(b)
+
+    assert len(q.stages) == 3
+
+    s = q.current()
+
+    assert f1 not in s.features
+    assert f2 in s.features
+    assert "binary" in s.features
+
+    assert s.transformer is not None
+
+    params = s.transformer.params()
+
+    assert "features_in" in params
+    assert len(params["features_in"]) == 1
+    assert params["features_in"][0] == f1.name
+
+    assert "features_out" in params
+    assert len(params["features_out"]) == 1
+    assert params["features_out"][0] == "binary"
+
+    assert params["threshold"] == 0.5

@@ -1,3 +1,4 @@
+from ferdelance.schemas.queries import QueryFeature
 from ferdelance.schemas.transformers import (
     FederatedDrop,
     FederatedRename,
@@ -18,29 +19,44 @@ PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
 def test_pipeline():
     df = pd.read_csv(PATH_CALIFORNIA)
 
+    latitude = QueryFeature(name="Latitude")
+    longitude = QueryFeature(name="Longitude")
+
+    med_inc = QueryFeature(name="MedInc")
+    med_inc_th = QueryFeature(name="MedIncThresholded")
+
+    label = QueryFeature(name="Label")
+    med_inc_label = QueryFeature(name="MedIncLabel")
+    house_age = QueryFeature(name="HouseAge")
+    ave_rooms = QueryFeature(name="AveRooms")
+    ave_beds = QueryFeature(name="AveBedrms")
+    pop = QueryFeature(name="Population")
+    ave_occ = QueryFeature(name="AveOccup")
+    ave_occ_bins = QueryFeature(name="AveOccupBins")
+
     pipe = FederatedPipeline(
         [
             # remove unused features
-            FederatedDrop(["Latitude", "Longitude"]),
+            FederatedDrop([latitude, longitude]),
             # prepare label feature
             FederatedPipeline(
                 [
-                    FederatedBinarizer("MedInc", "MedIncThresholded"),
-                    FederatedLabelBinarizer("MedIncThresholded", "Label", pos_label=1, neg_label=-1),
-                    FederatedDrop(["MedInc", "MedIncThresholded"]),
-                    FederatedRename("Label", "MedIncLabel"),
+                    FederatedBinarizer(med_inc, med_inc_th),
+                    FederatedLabelBinarizer(med_inc_th, label, pos_label=1, neg_label=-1),
+                    FederatedDrop([med_inc, med_inc_th]),
+                    FederatedRename(label, med_inc_label),
                 ]
             ),
             # prepare data features
             FederatedPipeline(
                 [
-                    FederatedKBinsDiscretizer("HouseAge", "HouseAgeBins", 4, "uniform", random_state=42),
-                    FederatedKBinsDiscretizer("AveRooms", "AveRoomsBins", 10, "quantile", random_state=42),
-                    FederatedKBinsDiscretizer("AveBedrms", "AveBedrmsBins", 10, "quantile", random_state=42),
-                    FederatedKBinsDiscretizer("Population", "PopulationBins", 4, "kmeans", random_state=42),
-                    FederatedKBinsDiscretizer("AveOccup", "AveOccupBins", 3, "uniform", random_state=42),
-                    FederatedOneHotEncoder("AveOccupBins", ["OC1", "OC2", "OC3"]),
-                    FederatedDrop(["HouseAge", "AveRooms", "AveBedrms", "Population", "AveOccup", "AveOccupBins"]),
+                    FederatedKBinsDiscretizer(house_age, "HouseAgeBins", 4, "uniform", random_state=42),
+                    FederatedKBinsDiscretizer(ave_rooms, "AveRoomsBins", 10, "quantile", random_state=42),
+                    FederatedKBinsDiscretizer(ave_beds, "AveBedrmsBins", 10, "quantile", random_state=42),
+                    FederatedKBinsDiscretizer(pop, "PopulationBins", 4, "kmeans", random_state=42),
+                    FederatedKBinsDiscretizer(ave_occ, "AveOccupBins", 3, "uniform", random_state=42),
+                    FederatedOneHotEncoder(ave_occ_bins, ["OC1", "OC2", "OC3"]),
+                    FederatedDrop([house_age, ave_rooms, ave_beds, pop, ave_occ, ave_occ_bins]),
                 ]
             ),
         ]

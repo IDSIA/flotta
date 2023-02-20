@@ -19,12 +19,12 @@ from ferdelance.schemas.artifacts import (
     ArtifactStatus,
     Artifact,
 )
-from ferdelance.schemas.components import Component, Client, Token
+from ferdelance.schemas.components import Component, Token
 from ferdelance.schemas.database import ServerModel
 from ferdelance.schemas.project import Project
-from ferdelance.schemas.datasources import DataSource, Feature
 from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
+    WorkbenchArtifact,
 )
 from ferdelance.server.security import check_token
 from ferdelance.server.services import (
@@ -172,87 +172,13 @@ async def wb_get_datasource_list(
     return ss.create_response(wdsl.dict())
 
 
-# TODO: to remove
-@workbench_router.get("/workbench/datasource/{ds_id}", response_class=Response)
-async def wb_get_client_datasource(
-    ds_id: str,
-    session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_token),
-):
-    LOGGER.info(f"user_id={user.component_id}: requested details on datasource_id={ds_id}")
-
-    dss: DataSourceService = DataSourceService(session)
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(user.public_key)
-    try:
-        ds_session: DataSourceView = await dss.get_datasource_by_id(ds_id)
-
-        f_session = await dss.get_features_by_datasource(ds_session)
-        tokens = await dss.get_tokens_by_datasource(ds_session)
-
-        fs = [Feature(**f.__dict__) for f in f_session if not f.removed]
-
-        ds = DataSource(
-            **ds_session.__dict__,
-            features=fs,
-            tokens=tokens,
-        )
-
-        return ss.create_response(ds.dict())
-
-    except NoResultFound:
-        LOGGER.warning(f"datasource_id={ds_id} not found in database or has been removed")
-        raise HTTPException(404)
-
-
-# TODO: to remove
-@workbench_router.get("/workbench/datasource/name/{ds_name}", response_class=Response)
-async def wb_get_client_datasource_by_name(
-    ds_name: str,
-    session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_access),
-):
-    LOGGER.info(f"user_id={user.component_id}: requested details on datasource_name={ds_name}")
-
-    dss: DataSourceService = DataSourceService(session)
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(user.public_key)
-
-    ds_dbs: list[DataSourceView] = await dss.get_datasource_by_name(ds_name)
-
-    if not ds_dbs:
-        LOGGER.warning(f"datasource_id={ds_name} not found in database or has been removed")
-        raise HTTPException(404)
-
-    ret_ds: list[DataSource] = []
-
-    for ds_db in ds_dbs:
-
-        f_db = await dss.get_features_by_datasource(ds_db)
-
-        fs = [Feature(**f.__dict__) for f in f_db if not f.removed]
-
-        ret_ds.append(
-            DataSource(
-                **ds_db.__dict__,
-                features=fs,
-            )
-        )
-
-    wdsl = WorkbenchDataSourceList(datasources=ret_ds)
-
-    return ss.create_response(wdsl.dict())
-
-
 @workbench_router.post("/workbench/artifact/submit", response_class=Response)
 async def wb_post_artifact_submit(
     request: Request,
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={user.component_id}:  submitted a new artifact")
+    LOGGER.info(f"user_id={user.component_id}: submitted a new artifact")
 
     try:
         jms: JobManagementService = job_manager(session)
@@ -275,45 +201,51 @@ async def wb_post_artifact_submit(
         raise HTTPException(403)
 
 
-@workbench_router.get("/workbench/artifact/status/{artifact_id}", response_class=Response)
+@workbench_router.get("/workbench/artifact/status", response_class=Response)
 async def wb_get_artifact_status(
-    artifact_id: str,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={user.component_id}:  requested status of artifact_id={artifact_id}")
+    LOGGER.info(f"user_id={user.component_id}: requested status of an artifact")
 
     ars: ArtifactService = ArtifactService(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(user.public_key)
 
+    data = await ss.read_request(request)
+    artifact = WorkbenchArtifact(**data)
+
     try:
-        status: ArtifactStatus = await ars.get_status(artifact_id)
+        status: ArtifactStatus = await ars.get_status(artifact.artifact_id)
 
         # TODO: get status from celery
 
         return ss.create_response(status.dict())
     except NoResultFound as _:
-        LOGGER.warning(f"artifact_id={artifact_id} not found in database")
+        LOGGER.warning(f"artifact_id={artifact.artifact_id} not found in database")
         raise HTTPException(404)
 
 
-@workbench_router.get("/workbench/artifact/{artifact_id}", response_class=Response)
+@workbench_router.get("/workbench/artifact", response_class=Response)
 async def wb_get_artifact(
-    artifact_id: str,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={user.component_id}: requested details on artifact_id={artifact_id}")
+    LOGGER.info(f"user_id={user.component_id}: requested details on artifact")
+
+    jms: JobManagementService = job_manager(session)
+    ss: SecurityService = SecurityService(session)
+
+    await ss.setup(user.public_key)
+
+    data = await ss.read_request(request)
+    artifact = WorkbenchArtifact(**data)
 
     try:
-        jms: JobManagementService = job_manager(session)
-        ss: SecurityService = SecurityService(session)
-
-        await ss.setup(user.public_key)
-
-        artifact = await jms.get_artifact(artifact_id)
+        artifact = await jms.get_artifact(artifact.artifact_id)
 
         return ss.create_response(artifact.dict())
 
@@ -322,20 +254,22 @@ async def wb_get_artifact(
         raise HTTPException(404)
 
 
-@workbench_router.get("/workbench/model/{artifact_id}", response_class=FileResponse)
+@workbench_router.get("/workbench/model", response_class=FileResponse)
 async def wb_get_model(
-    artifact_id: str,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={user.component_id}: requested aggregate model for artifact_id={artifact_id}")
+    LOGGER.info(f"user_id={user.component_id}: requested aggregate model for an artifact")
+    ms: ModelService = ModelService(session)
+    ss: SecurityService = SecurityService(session)
+    await ss.setup(user.public_key)
+
+    data = await ss.read_request(request)
+    artifact = WorkbenchArtifact(**data)
+    artifact_id = artifact.artifact_id
 
     try:
-        ms: ModelService = ModelService(session)
-        ss: SecurityService = SecurityService(session)
-
-        await ss.setup(user.public_key)
-
         model_db: ServerModel = await ms.get_aggregated_model(artifact_id)
 
         model_path = model_db.path
@@ -431,28 +365,4 @@ async def wb_get_project(
 
     except NoResultFound as _:
         LOGGER.warning(f"user_id={user.component_id}: request project with invalid token={wpt.token}")
-        raise HTTPException(404)
-
-
-# TODO: to remove
-@workbench_router.get("/workbench/projects/descr", response_class=Response)
-async def wb_get_project_descr(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    user: Component = Depends(check_access),
-):
-    LOGGER.info(f"user_id={user.component_id}: requested a list of available projects given its tokens")
-
-    pss: ProjectService = ProjectService(session)
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(user.public_key)
-
-    data = await ss.read_request(request)
-    project_token: str = data["project_token"]
-
-    try:
-        raise NotImplementedError()
-    except NoResultFound as _:
-        LOGGER.warning(f"invalid name + token combination for project name {project_name} and token {project_token}")
         raise HTTPException(404)

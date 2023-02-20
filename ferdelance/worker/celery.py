@@ -21,6 +21,8 @@ worker.conf.update(
     result_expires=3600,
 )
 
+# TODO: add security to workers?
+
 
 @after_setup_logger.connect
 def setup_loggers(logger, *args, **kwargs):

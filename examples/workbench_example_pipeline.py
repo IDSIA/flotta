@@ -1,11 +1,9 @@
 # %%
 from ferdelance.workbench.context import Context
-from ferdelance.schemas.artifacts import (
-    Dataset,
-    Query,
-    DataSource,
-)
-from ferdelance.shared.transformers import (
+from ferdelance.schemas.queries import Query
+from ferdelance.schemas.datasources import DataSource
+from ferdelance.schemas.project import Project
+from ferdelance.schemas.transformers import (
     FederatedPipeline,
     FederatedMinMaxScaler,
     FederatedSimpleImputer,
@@ -20,30 +18,34 @@ from ferdelance.shared.transformers import (
 # %% create the context
 ctx = Context("http://ferdelance.artemis.idsia.ch")
 
-# %% ask the context for available metadata
-data_sources_id: list[str] = ctx.list_datasources()
+p: Project = ctx.load("")
 
-ds1: DataSource = ctx.get_datasource_by_id(data_sources_id[0])
-ds2: DataSource = ctx.get_datasource_by_id(data_sources_id[1])
+# %% ask the context for available metadata
+data_sources: list[DataSource] = ctx.datasources(p)
+
+ds1: DataSource = data_sources[0]
+ds2: DataSource = data_sources[1]
 
 # %% develop a filter query
-q: Query = ds1.all_features()
+q: Query = ds1.extract()
 
-f1, f2, f3, f4, f5, f6, f7, f8, f9 = q.features
+all_features = q.features()
 
-mms = FederatedMinMaxScaler(q.features, q.features)
+f1, f2, f3, f4, f5, f6, f7, f8, f9 = all_features
+
+mms = FederatedMinMaxScaler(all_features, all_features)
 im = FederatedSimpleImputer([f1, f2], [f1, f2])
 cl = FederatedClamp(f1, f1)
 bi = FederatedBinarizer(f2, f2)
 
-ohe1 = FederatedOneHotEncoder([f3])
-ohe2 = FederatedOneHotEncoder([f4])
-rm = FederatedDrop(ohe.out[2])
+ohe1 = FederatedOneHotEncoder(f3)
+ohe2 = FederatedOneHotEncoder(f4)
+rm = FederatedDrop(ohe1.features_out[2])
 
 dsc = FederatedKBinsDiscretizer(f5, f5)
 le = FederatedLabelBinarizer(f9, f9)
 
-p = FederatedPipeline(
+pipe = FederatedPipeline(
     [
         mms,
         im,
@@ -57,10 +59,4 @@ p = FederatedPipeline(
     ]
 )
 
-# %% create dataset
-d = Dataset(
-    test_percentage=0.2,
-    val_percentage=0.1,
-    label="variety",
-)
-d.add_query(q)
+q.add(pipe)

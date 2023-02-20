@@ -1,10 +1,13 @@
 from ferdelance.cli.fdl_suites.datasources.functions import describe_datasource, list_datasources
 from ferdelance.database.data import TYPE_CLIENT
+from ferdelance.database.services import DataSourceService, ProjectService
+from ferdelance.database.tables import Component
 from ferdelance.schemas.datasources import DataSource as DataSourceView
-from ferdelance.database.tables import Component, DataSource
+from ferdelance.schemas.metadata import MetaDataSource
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import pytest
 import pytest
 
 
@@ -19,7 +22,6 @@ async def populate_test_db(session: AsyncSession):
         ip_address="1",
         type_name=TYPE_CLIENT,
     )
-
     c2: Component = Component(
         component_id="C2",
         version="test",
@@ -31,23 +33,51 @@ async def populate_test_db(session: AsyncSession):
         type_name=TYPE_CLIENT,
     )
 
-    ds1: DataSource = DataSource(
-        datasource_id="DS1", name="DS1", n_records=420, n_features=420, component_id=c1.component_id
-    )
-    ds2: DataSource = DataSource(
-        datasource_id="DS2", name="DS2", n_records=420, n_features=420, component_id=c1.component_id
-    )
-    ds3: DataSource = DataSource(
-        datasource_id="DS3", name="DS3", n_records=69, n_features=69, component_id=c2.component_id
-    )
-
     session.add(c1)
     session.add(c2)
-    session.add(ds1)
-    session.add(ds2)
-    session.add(ds3)
 
     await session.commit()
+
+    dss = DataSourceService(session)
+    ps = ProjectService(session)
+
+    await ps.create("test")
+
+    ds1 = await dss.create_or_update_datasource(
+        c1.component_id,
+        MetaDataSource(
+            name="DS1",
+            datasource_hash="DS1",
+            n_records=420,
+            n_features=420,
+            tokens=[""],
+            features=[],
+        ),
+    )
+    ds2 = await dss.create_or_update_datasource(
+        c1.component_id,
+        MetaDataSource(
+            name="DS2",
+            datasource_hash="DS2",
+            n_records=420,
+            n_features=420,
+            tokens=[""],
+            features=[],
+        ),
+    )
+    ds3 = await dss.create_or_update_datasource(
+        c2.component_id,
+        MetaDataSource(
+            name="DS3",
+            datasource_hash="DS3",
+            n_records=69,
+            n_features=69,
+            tokens=[""],
+            features=[],
+        ),
+    )
+
+    return ds1.datasource_id, ds2.datasource_id, ds3.datasource_id
 
 
 @pytest.mark.asyncio
@@ -71,9 +101,9 @@ async def test_datasources_ls(session: AsyncSession):
 @pytest.mark.asyncio
 async def test_artifacts_description(session: AsyncSession):
 
-    await populate_test_db(session)
+    ds1, _, _ = await populate_test_db(session)
 
-    res: DataSourceView | None = await describe_datasource(datasource_id="DS1")
+    res: DataSourceView | None = await describe_datasource(datasource_id=ds1)
 
     assert res is not None
     assert res.name == "DS1"

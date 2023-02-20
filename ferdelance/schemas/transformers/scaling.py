@@ -1,7 +1,7 @@
 from typing import Any
 
-from .core import Transformer
-from ferdelance.schemas.artifacts import QueryFeature
+from ferdelance.schemas.transformers.core import Transformer
+from ferdelance.schemas.queries import QueryFeature
 
 from sklearn.preprocessing import (
     MinMaxScaler,
@@ -19,8 +19,8 @@ class FederatedMinMaxScaler(Transformer):
 
     def __init__(
         self,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str],
-        features_out: QueryFeature | list[QueryFeature] | str | list[str],
+        features_in: QueryFeature | list[QueryFeature],
+        features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
         feature_range: tuple = (0, 1),
     ) -> None:
         """
@@ -59,8 +59,8 @@ class FederatedStandardScaler(Transformer):
 
     def __init__(
         self,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str],
-        features_out: QueryFeature | list[QueryFeature] | str | list[str],
+        features_in: QueryFeature | list[QueryFeature],
+        features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
         with_mean: bool = True,
         with_std: bool = True,
     ) -> None:
@@ -107,8 +107,8 @@ class FederatedClamp(Transformer):
 
     def __init__(
         self,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str],
-        features_out: QueryFeature | list[QueryFeature] | str | list[str],
+        features_in: QueryFeature | list[QueryFeature],
+        features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
         min_value: float | None = None,
         max_value: float | None = None,
     ) -> None:
@@ -128,10 +128,10 @@ class FederatedClamp(Transformer):
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.min_value is not None:
-            df[self.features_out] = df[self.features_in].where(df[self.features_in] < self.min_value, self.min_value)
+            df[self.features_out] = df[self._columns_in].where(df[self._columns_in] < self.min_value, self.min_value)
 
         if self.max_value is not None:
-            df[self.features_out] = df[self.features_in].where(df[self.features_in] > self.max_value, self.max_value)
+            df[self.features_out] = df[self._columns_in].where(df[self._columns_in] > self.max_value, self.max_value)
 
         return df
 

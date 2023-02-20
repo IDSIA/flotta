@@ -6,8 +6,10 @@ from ferdelance.database.services import (
     JobService,
     ModelService,
     ComponentService,
+    ProjectService,
 )
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
+from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.database import ServerArtifact, ServerModel
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.jobs import Job
@@ -35,22 +37,21 @@ class JobManagementService(DBSessionService):
         self.dss: DataSourceService = DataSourceService(session)
         self.js: JobService = JobService(session)
         self.ms: ModelService = ModelService(session)
+        self.ps: ProjectService = ProjectService(session)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         try:
+            # TODO: maybe split artifact for each client on submit?
+
             artifact_db: ServerArtifact = await self.ars.create_artifact(artifact)
 
-            client_ids = set()
+            project = await self.ps.get_by_id(artifact.project_id)
+            datasources_ids = await self.ps.datasources_ids(project.token)
 
-            for query in artifact.data:
-                client: Client = await self.dss.get_client_by_datasource_id(query.datasource_id)
-
-                if client.client_id in client_ids:
-                    continue
+            for datasource_id in datasources_ids:
+                client: Client = await self.dss.get_client_by_datasource_id(datasource_id)
 
                 await self.js.schedule_job(artifact_db.artifact_id, client.client_id)
-
-                client_ids.add(client.client_id)
 
             return artifact_db.get_status()
         except ValueError as e:
@@ -59,37 +60,38 @@ class JobManagementService(DBSessionService):
     async def get_artifact(self, artifact_id: str) -> Artifact:
         return await self.ars.load(artifact_id)
 
-    async def client_local_model_start(self, artifact_id: str, client_id: str) -> Artifact:
-        artifact_db: ServerArtifact = await self.ars.get_artifact(artifact_id)
-
-        if artifact_db is None:
-            LOGGER.warning(f"client_id={client_id}: artifact_id={artifact_id} does not exists")
-            raise ArtifactDoesNotExists()
-
-        if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
-            await self.ars.update_status(artifact_id, ArtifactJobStatus.TRAINING)
-
-        artifact_path = artifact_db.path
-
-        if not os.path.exists(artifact_path):
-            LOGGER.warning(f"client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}")
-            raise ArtifactDoesNotExists()
-
-        async with aiofiles.open(artifact_path, "r") as f:
-            data = await f.read()
-            artifact = Artifact(**json.loads(data))
-
-        client_datasource_ids = await self.dss.get_datasource_ids_by_client_id(client_id)
-        # TODO: filter "how" based on given plan
-
-        artifact.data = [q for q in artifact.data if q.datasource_id in client_datasource_ids]
-
+    async def client_local_model_start(self, artifact_id: str, client_id: str) -> ClientTask:
         try:
+            artifact_db: ServerArtifact = await self.ars.get_artifact(artifact_id)
+
+            if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
+                await self.ars.update_status(artifact_id, ArtifactJobStatus.TRAINING)
+
+            artifact_path = artifact_db.path
+
+            if not os.path.exists(artifact_path):
+                LOGGER.warning(
+                    f"client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}"
+                )
+                raise ArtifactDoesNotExists()
+
+            async with aiofiles.open(artifact_path, "r") as f:
+                data = await f.read()
+                artifact = Artifact(**json.loads(data))
+
+            hashes = await self.dss.get_hash_by_client_and_project(client_id, artifact.project_id)
+
+            if len(hashes) == 0:
+                LOGGER.warning(f"client_id={client_id}: task has no datasources with artifact_id={artifact_id}")
+                raise TaskDoesNotExists()
+
+            # TODO: for complex training, filter based on artifact.load field
+
             job: Job = await self.js.next_job_for_client(client_id)
 
             job: Job = await self.js.start_execution(job)
 
-            return artifact
+            return ClientTask(artifact=artifact, datasource_hashes=hashes)
 
         except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task does not exists with artifact_id={artifact_id}")
@@ -155,5 +157,6 @@ class JobManagementService(DBSessionService):
 
         path = os.path.join(out_dir, f"{artifact.artifact_id}_metrics_{metrics.source}.json")
 
-        with open(path, "w") as f:
-            json.dump(metrics.dict(), f)
+        async with aiofiles.open(path, "w") as f:
+            content = json.dumps(metrics.dict())
+            await f.write(content)

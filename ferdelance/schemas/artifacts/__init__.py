@@ -1,18 +1,10 @@
 __all__ = [
     "Artifact",
     "ArtifactStatus",
-    "QueryFeature",
-    "QueryFilter",
-    "QueryTransformer",
-    "Query",
+    "DataType",
 ]
 
-from .queries import (
-    QueryFeature,
-    QueryFilter,
-    QueryTransformer,
-    Query,
-)
+from .dtypes import DataType
 from .artifacts import (
     Artifact,
     ArtifactStatus,
