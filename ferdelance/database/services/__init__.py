@@ -9,6 +9,7 @@ __all__ = [
     "ProjectService",
     "setup_settings",
     "KeyValueStore",
+    "WorkerService",
 ]
 
 from .core import AsyncSession, DBSessionService
@@ -20,3 +21,4 @@ from .jobs import JobService
 from .model import ModelService
 from .projects import ProjectService
 from .settings import KeyValueStore, setup_settings
+from .workers import WorkerService

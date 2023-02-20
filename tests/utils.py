@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.database.services import ProjectService
+from ferdelance.database.services import ProjectService, WorkerService
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientUpdate
 from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
@@ -58,6 +58,17 @@ def create_client(client: TestClient, exc: Exchange) -> str:
     assert exc.remote_key is not None
 
     return cjd.id
+
+
+async def setup_worker(session: AsyncSession, exchange: Exchange):
+    try:
+        ws: WorkerService = WorkerService(session)
+        worker_token = await ws.get_worker_token()
+
+        exchange.set_token(worker_token)
+
+    except Exception:
+        assert False
 
 
 TEST_PROJECT_TOKEN: str = "a02a9e2ad5901e39bf53388d19e4be46d3ac7efd1366a961cf54c4a4eeb7faa0"

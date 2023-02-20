@@ -1,37 +1,18 @@
-from ferdelance.database.data import TYPE_WORKER
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
-    DataSource,
-    Token,
-    Component,
     Model as ModelDB,
 )
-from ferdelance.database.services import DataSourceService
+from ferdelance.database.services import ProjectService
 from ferdelance.server.api import api
-from ferdelance.schemas.artifacts import (
-    Artifact,
-    ArtifactStatus,
-)
-from ferdelance.schemas.queries import (
-    Query,
-    QueryStage,
-    QueryFeature,
-)
+from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.models import Model
-from ferdelance.schemas.metadata import Metadata
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus
 
-from tests.utils import (
-    create_client,
-    get_metadata,
-    send_metadata,
-)
+from tests.utils import setup_worker, connect, TEST_PROJECT_TOKEN
 
 from fastapi.testclient import TestClient
-from requests import Response
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
@@ -43,35 +24,11 @@ import uuid
 LOGGER = logging.getLogger(__name__)
 
 
-async def setup_worker(session: AsyncSession, exchange: Exchange):
-    res = await session.execute(
-        select(Token.token)
-        .select_from(Token)
-        .join(Component, Component.component_id == Token.component_id)
-        .where(Component.type_name == TYPE_WORKER)
-        .limit(1)
-    )
-    worker_token: str | None = res.scalar_one_or_none()
-
-    assert worker_token is not None
-    assert isinstance(worker_token, str)
-
-    exchange.set_token(worker_token)
-
-
 @pytest.mark.asyncio
-async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
+async def test_worker_artifact_not_found(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
-        create_client(server, exchange)
-
-        metadata: Metadata = get_metadata()
-        upload_response: Response = send_metadata(server, exchange, metadata)
-
-        assert upload_response.status_code == 200
-
         await setup_worker(session, exchange)
 
-        # test artifact not found
         res = server.get(
             f"/worker/artifact/{uuid.uuid4()}",
             headers=exchange.headers(),
@@ -79,28 +36,21 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert res.status_code == 404
 
-        # prepare new artifact
-        res = await session.scalars(select(DataSource).limit(1))
-        ds: DataSource = res.one()
 
-        dss = DataSourceService(session)
-        ds_data = await dss.load(ds.datasource_id)
+@pytest.mark.asyncio
+async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
+    with TestClient(api) as server:
+        await connect(server, session)
+        await setup_worker(session, exchange)
+
+        # prepare new artifact
+        ps = ProjectService(session)
+        project = await ps.get_by_token(TEST_PROJECT_TOKEN)
 
         artifact = Artifact(
             artifact_id=None,
-            transform=Query(
-                stages=[
-                    QueryStage(
-                        features=[
-                            QueryFeature(
-                                name=f.name,
-                                dtype=f.dtype,
-                            )
-                            for f in ds_data.features
-                        ]
-                    )
-                ]
-            ),
+            project_id=project.project_id,
+            transform=project.data.extract(),
             model=Model(name="model", strategy=""),
             load=None,
         )
@@ -210,7 +160,7 @@ async def test_worker_access(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 404  # there is no artifact, and 404 is correct
 
         res = server.get(
-            "/workbench/client/list",
+            "/workbench/clients",
             headers=exchange.headers(),
         )
 

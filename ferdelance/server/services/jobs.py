@@ -40,6 +40,8 @@ class JobManagementService(DBSessionService):
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         try:
+            # TODO: maybe split artifact for each client on submit?
+
             artifact_db: ServerArtifact = await self.ars.create_artifact(artifact)
 
             project = await self.ps.get_by_id(artifact.project_id)
@@ -58,32 +60,26 @@ class JobManagementService(DBSessionService):
         return await self.ars.load(artifact_id)
 
     async def client_local_model_start(self, artifact_id: str, client_id: str) -> Artifact:
-        artifact_db: ServerArtifact = await self.ars.get_artifact(artifact_id)
-
-        if artifact_db is None:
-            LOGGER.warning(f"client_id={client_id}: artifact_id={artifact_id} does not exists")
-            raise ArtifactDoesNotExists()
-
-        if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
-            await self.ars.update_status(artifact_id, ArtifactJobStatus.TRAINING)
-
-        artifact_path = artifact_db.path
-
-        if not os.path.exists(artifact_path):
-            LOGGER.warning(f"client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}")
-            raise ArtifactDoesNotExists()
-
-        async with aiofiles.open(artifact_path, "r") as f:
-            data = await f.read()
-            artifact = Artifact(**json.loads(data))
-
-        client_datasource_ids = await self.dss.get_datasource_ids_by_client_id(client_id)
-
-        # TODO: filter "how" based on given plan
-
-        artifact.data = [q for q in artifact.data if q.datasource_id in client_datasource_ids]
-
         try:
+            artifact_db: ServerArtifact = await self.ars.get_artifact(artifact_id)
+
+            if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
+                await self.ars.update_status(artifact_id, ArtifactJobStatus.TRAINING)
+
+            artifact_path = artifact_db.path
+
+            if not os.path.exists(artifact_path):
+                LOGGER.warning(
+                    f"client_id={client_id}: artifact_id={artifact_id} does not exist with path={artifact_path}"
+                )
+                raise ArtifactDoesNotExists()
+
+            async with aiofiles.open(artifact_path, "r") as f:
+                data = await f.read()
+                artifact = Artifact(**json.loads(data))
+
+            # TODO: for complex training, filter based on artifact.load field
+
             job: Job = await self.js.next_job_for_client(client_id)
 
             job: Job = await self.js.start_execution(job)

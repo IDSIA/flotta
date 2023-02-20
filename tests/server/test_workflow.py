@@ -36,7 +36,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_workflow(session: AsyncSession):
+async def test_workflow_wb_submit_client_get(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
         client_id = args.client_id
@@ -107,6 +107,8 @@ async def test_workflow(session: AsyncSession):
         status = ArtifactStatus(**wb_exc.get_payload(res.content))
 
         assert status.status is not None
+        assert status.artifact_id is not None
+
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
         res = server.get(
@@ -159,15 +161,18 @@ async def test_workflow(session: AsyncSession):
 
             assert "artifact_id" in content
             assert "model" in content
-            assert "dataset" in content
+            assert "project_id" in content
+            assert "transform" in content
+            assert "load" in content
 
             task = Artifact(**content)
 
             assert task.artifact_id == job.artifact_id
-            assert status.artifact_id is not None
             assert task.artifact_id == status.artifact_id
+            assert task.project_id == project.project_id
             assert len(task.transform.stages) == 1
             assert len(task.transform.stages[0].features) == 2
+            assert task.load is None
 
         # cleanup
 

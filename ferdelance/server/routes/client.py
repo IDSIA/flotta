@@ -264,13 +264,13 @@ async def client_get_task(
     try:
         content = await jm.client_local_model_start(artifact_id, client.client_id)
 
+        return ss.create_response(content.dict())
+
     except ArtifactDoesNotExists as _:
         raise HTTPException(404, "Artifact does not exists")
 
     except TaskDoesNotExists as _:
         raise HTTPException(404, "Task does not exists")
-
-    return ss.create_response(content.dict())
 
 
 # TODO: add endpoint for failed job executions
