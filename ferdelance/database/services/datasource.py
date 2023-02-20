@@ -166,9 +166,12 @@ class DataSourceService(DBSessionService):
         res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
         return [view(d, list()) for d in res.all()]
 
-    async def get_datasource_ids_by_client_id(self, client_id: str) -> list[str]:
+    async def get_hash_by_client_and_project(self, client_id: str, project_id) -> list[str]:
         res = await self.session.scalars(
-            select(DataSourceDB.datasource_id).where(DataSourceDB.component_id == client_id)
+            select(DataSourceDB.datasource_hash).where(
+                DataSourceDB.component_id == client_id,
+                DataSourceDB.projects.contains(project_id),
+            )
         )
 
         return list(res.all())

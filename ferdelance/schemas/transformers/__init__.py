@@ -1,5 +1,6 @@
 __all__ = [
     "apply_transformer",
+    "apply_query",
     "save",
     "load",
     "Transformer",
@@ -17,7 +18,7 @@ __all__ = [
     "FederatedRename",
 ]
 
-from ferdelance.schemas.queries import QueryTransformer
+from ferdelance.schemas.queries import QueryTransformer, Query
 
 from .core import (
     Transformer,
@@ -94,3 +95,14 @@ def apply_transformer(query_transformer: QueryTransformer, df: pd.DataFrame) -> 
         transformer = rebuild_transformer(query_transformer)
 
     return transformer.transform(df)
+
+
+def apply_query(query: Query, df: pd.DataFrame) -> pd.DataFrame:
+
+    for stage in query.stages:
+        if stage.transformer is None:
+            continue
+
+        df = apply_transformer(stage.transformer, df)
+
+    return df

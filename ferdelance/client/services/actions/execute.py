@@ -2,9 +2,10 @@ from ferdelance.client.config import Config
 from ferdelance.client.services.actions.action import Action
 from ferdelance.client.services.routes import RouteService
 from ferdelance.schemas.artifacts import Artifact
+from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.models import model_creator
 from ferdelance.schemas.updates import UpdateExecute
-from ferdelance.schemas.transformers import apply_transformer
+from ferdelance.schemas.transformers import apply_query
 
 from sklearn.model_selection import train_test_split
 
@@ -24,11 +25,12 @@ class ExecuteAction(Action):
         self.update_execute = update_execute
 
     def validate_input(self) -> None:
-        ...
+        pass
 
     def execute(self) -> None:
 
-        artifact: Artifact = self.routes_service.get_task(self.update_execute)
+        task: ClientTask = self.routes_service.get_task(self.update_execute)
+        artifact: Artifact = task.artifact
         artifact_id = artifact.artifact_id
 
         if artifact_id is None:
@@ -49,51 +51,23 @@ class ExecuteAction(Action):
 
         dfs: list[pd.DataFrame] = []
 
-        LOGGER.info(f"number of selection query: {len(artifact.dataset.queries)}")
+        LOGGER.info(f"number of selection query: {len(task.datasource_hashes)}")
 
-        for query in artifact.dataset.queries:
-            # LOAD
-            LOGGER.info(f"EXECUTE -  LOAD {query.datasource_name}")
+        for ds_hash in task.datasource_hashes:
+            # EXTRACT data from datasource
+            LOGGER.info(f"EXECUTE Extract from datasource_has={ds_hash}")
 
-            ds = self.config.datasources.get(query.datasource_name)
+            ds = self.config.datasources.get(ds_hash, None)
             if not ds:
                 raise ValueError()
 
-            datasource: pd.DataFrame = ds.get()  # not yet implemented, but should return a pd df
+            datasource: pd.DataFrame = ds.get()  # TODO: implemented only for files
 
-            # SELECT
-            LOGGER.info(f"datasource_id={query.datasource_name}: selecting")
-
-            selected_features: list[str] = []
-            for sf in query.features:
-                name = sf.feature_name
-                if name not in datasource.columns:
-                    LOGGER.warn(f"feature_name={name} not found in data source")
-                else:
-                    selected_features.append(name)
-
-            datasource = datasource[selected_features]
-
-            LOGGER.info(f"selected data shape: {datasource.shape}")
-
-            # FILTER
-            LOGGER.info(f"datasource_id={query.datasource_name}: filtering")
+            # TRANSFORM using query
+            LOGGER.info(f"EXECUTE Transform datasource_hash={ds_hash}")
 
             df = datasource.copy()
-
-            for query_filter in query.filters:
-                df = query_filter(df)
-
-            LOGGER.info(f"filtered data shape: {df.shape}")
-
-            # TRANSFORM
-            LOGGER.info(f"datasource_id={query.datasource_name}: transforming")
-
-            for query_transform in query.transformers:
-                df = apply_transformer(query_transform, df)
-
-            # TERMINATE
-            LOGGER.info(f"datasource_id={query.datasource_name}: terminated")
+            df = apply_query(artifact.transform, df)
 
             dfs.append(df)
 
@@ -107,8 +81,8 @@ class ExecuteAction(Action):
 
         LOGGER.info(f"saved artifact_id={artifact_id} data to {path_datasource}")
 
-        # dataset preparation
-        label = artifact.dataset.label
+        # LOAD execution plan
+        label = artifact.label
         val_p = artifact.dataset.val_percentage
         test_p = artifact.dataset.test_percentage
 

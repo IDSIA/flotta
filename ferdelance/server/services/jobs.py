@@ -9,6 +9,7 @@ from ferdelance.database.services import (
     ProjectService,
 )
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
+from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.database import ServerArtifact, ServerModel
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.jobs import Job
@@ -59,7 +60,7 @@ class JobManagementService(DBSessionService):
     async def get_artifact(self, artifact_id: str) -> Artifact:
         return await self.ars.load(artifact_id)
 
-    async def client_local_model_start(self, artifact_id: str, client_id: str) -> Artifact:
+    async def client_local_model_start(self, artifact_id: str, client_id: str) -> ClientTask:
         try:
             artifact_db: ServerArtifact = await self.ars.get_artifact(artifact_id)
 
@@ -78,13 +79,19 @@ class JobManagementService(DBSessionService):
                 data = await f.read()
                 artifact = Artifact(**json.loads(data))
 
+            hashes = await self.dss.get_hash_by_client_and_project(client_id, artifact.project_id)
+
+            if len(hashes) == 0:
+                LOGGER.warning(f"client_id={client_id}: task has no datasources with artifact_id={artifact_id}")
+                raise TaskDoesNotExists()
+
             # TODO: for complex training, filter based on artifact.load field
 
             job: Job = await self.js.next_job_for_client(client_id)
 
             job: Job = await self.js.start_execution(job)
 
-            return artifact
+            return ClientTask(artifact=artifact, datasource_hashes=hashes)
 
         except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task does not exists with artifact_id={artifact_id}")
