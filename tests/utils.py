@@ -85,7 +85,7 @@ def get_metadata(
         datasources=[
             MetaDataSource(
                 datasource_id=datasource_id,
-                datasource_hash="",
+                datasource_hash=ds_hash,
                 tokens=[project_token],
                 n_records=1000,
                 n_features=2,

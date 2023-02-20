@@ -7,6 +7,7 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
+from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.updates import UpdateExecute
 from ferdelance.schemas.workbench import (
@@ -20,6 +21,7 @@ from tests.utils import (
     connect,
     client_update,
     TEST_PROJECT_TOKEN,
+    TEST_DATASOURCE_HASH,
 )
 
 from fastapi.testclient import TestClient
@@ -159,20 +161,18 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
             content = cl_exc.get_payload(task_response.content)
 
-            assert "artifact_id" in content
-            assert "model" in content
-            assert "project_id" in content
-            assert "transform" in content
-            assert "load" in content
+            task = ClientTask(**content)
 
-            task = Artifact(**content)
+            assert TEST_DATASOURCE_HASH in task.datasource_hashes
 
-            assert task.artifact_id == job.artifact_id
-            assert task.artifact_id == status.artifact_id
-            assert task.project_id == project.project_id
-            assert len(task.transform.stages) == 1
-            assert len(task.transform.stages[0].features) == 2
-            assert task.load is None
+            art = task.artifact
+
+            assert art.artifact_id == job.artifact_id
+            assert art.artifact_id == status.artifact_id
+            assert art.project_id == project.project_id
+            assert len(art.transform.stages) == 1
+            assert len(art.transform.stages[0].features) == 2
+            assert art.load is None
 
         # cleanup
 

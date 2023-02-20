@@ -1,4 +1,4 @@
-from ferdelance.database.tables import DataSource as DataSourceDB
+from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
 from ferdelance.database.services.core import AsyncSession, DBSessionService
 from ferdelance.database.services.component import viewClient, ComponentDB, Client
 from ferdelance.schemas.metadata import Metadata, MetaDataSource
@@ -166,12 +166,12 @@ class DataSourceService(DBSessionService):
         res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
         return [view(d, list()) for d in res.all()]
 
-    async def get_hash_by_client_and_project(self, client_id: str, project_id) -> list[str]:
+    async def get_hash_by_client_and_project(self, client_id: str, project_id: str) -> list[str]:
         res = await self.session.scalars(
-            select(DataSourceDB.datasource_hash).where(
-                DataSourceDB.component_id == client_id,
-                DataSourceDB.projects.contains(project_id),
-            )
+            select(DataSourceDB.datasource_hash)
+            .join(project_datasource)
+            .join(ProjectDB)
+            .where(DataSourceDB.component_id == client_id, ProjectDB.project_id == project_id)
         )
 
         return list(res.all())

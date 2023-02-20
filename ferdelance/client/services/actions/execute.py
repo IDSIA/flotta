@@ -5,7 +5,8 @@ from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.models import model_creator
 from ferdelance.schemas.updates import UpdateExecute
-from ferdelance.schemas.transformers import apply_query
+from ferdelance.schemas.queries import Query
+from ferdelance.schemas.transformers import apply_transformer
 
 from sklearn.model_selection import train_test_split
 
@@ -67,7 +68,12 @@ class ExecuteAction(Action):
             LOGGER.info(f"EXECUTE Transform datasource_hash={ds_hash}")
 
             df = datasource.copy()
-            df = apply_query(artifact.transform, df)
+
+            for stage in artifact.transform.stages:
+                if stage.transformer is None:
+                    continue
+
+                df = apply_transformer(stage.transformer, df)
 
             dfs.append(df)
 
