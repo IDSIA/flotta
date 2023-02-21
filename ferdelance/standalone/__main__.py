@@ -6,6 +6,8 @@ from multiprocessing import Queue
 from multiprocessing.managers import BaseManager
 
 import logging
+import signal
+import sys
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,13 +37,21 @@ if __name__ == "__main__":
     worker_process = LocalWorker()
     client_process = LocalClient(client_conf)
 
+    def signal_handler(signum, frame):
+        LOGGER.info("stopping main")
+        client_process.client.stop_loop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     server_process.start()
     worker_process.start()
     client_process.start()
 
-    server_process.join()
-    worker_process.join()
     client_process.join()
+    worker_process.join()
+    server_process.join()
 
     manager.shutdown()
 

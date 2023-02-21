@@ -57,10 +57,12 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def rebuild_transformer(query_transformer: QueryTransformer) -> Transformer:
-    c = globals()[query_transformer.name]
+def rebuild_transformer(transformer: QueryTransformer) -> Transformer:
 
-    p = query_transformer.params()
+    LOGGER.info(f"apply transformer {transformer.name}")
+    c = globals()[transformer.name]
+
+    p = transformer.params()
     params = {v: p[v] for v in signature(c).parameters}
 
     return c(**params)

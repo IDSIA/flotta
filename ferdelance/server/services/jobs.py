@@ -153,9 +153,7 @@ class JobManagementService(DBSessionService):
         if artifact is None:
             raise ValueError(f"artifact_id={metrics.artifact_id} assigned to metrics not found")
 
-        out_dir = await self.ars.get_artifact_path(artifact.artifact_id)
-
-        path = os.path.join(out_dir, f"{artifact.artifact_id}_metrics_{metrics.source}.json")
+        path = await self.ars.storage_location(artifact.artifact_id, f"metrics_{metrics.source}.json")
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(metrics.dict())

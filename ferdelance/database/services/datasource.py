@@ -68,7 +68,6 @@ class DataSourceService(DBSessionService):
             meta_ds.datasource_id = str(uuid4())
 
             ds = DataSource(**meta_ds.dict(), client_id=client_id)
-
             path = await self.store(ds)
 
             ds_db = DataSourceDB(
@@ -85,7 +84,7 @@ class DataSourceService(DBSessionService):
 
         else:
             if meta_ds.removed:
-                # remove data source and info
+                # remove data source info and from disk, keep placeholder
                 LOGGER.info(f"client_id={client_id}: removing data source={ds_db.name}")
 
                 ds_db.removed = True
@@ -99,11 +98,12 @@ class DataSourceService(DBSessionService):
                 # update data source info
                 LOGGER.info(f"client_id={client_id}: updating data source={ds_db.name}")
 
+                meta_ds.datasource_id = ds_db.datasource_id
                 ds_db.n_records = meta_ds.n_records
                 ds_db.n_features = meta_ds.n_features
                 ds_db.update_time = dt_now
 
-                ds = DataSource(**meta_ds.dict())
+                ds = DataSource(**meta_ds.dict(), client_id=client_id)
                 path = await self.store(ds)
 
         if commit:

@@ -57,12 +57,14 @@ class ArtifactService(DBSessionService):
 
         return view(db_artifact)
 
-    async def storage_location(self, artifact_id) -> str:
+    async def storage_location(self, artifact_id: str, filename: str = "artifact.json") -> str:
         path = conf.storage_dir_artifact(artifact_id)
         await aos.makedirs(path, exist_ok=True)
-        return os.path.join(path, "artifact.json")
+        return os.path.join(path, filename)
 
     async def store(self, artifact: Artifact) -> str:
+        if artifact.artifact_id is None:
+            raise ValueError("Artifact not initialized")
         path = await self.storage_location(artifact.artifact_id)
 
         async with aiofiles.open(path, "w") as f:

@@ -10,6 +10,7 @@ from ferdelance.workbench.interface import (
 from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.schemas.plans import TrainTestSplit
 from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
@@ -77,7 +78,10 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
             project_id=project.project_id,
             transform=datasource.extract(),
             model=Model(name="model", strategy=""),
-            load=None,
+            load=TrainTestSplit(
+                label=datasource.features[0].name,
+                test_percentage=0.5,
+            ),
         )
 
         res = server.post(
@@ -172,7 +176,8 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
             assert art.project_id == project.project_id
             assert len(art.transform.stages) == 1
             assert len(art.transform.stages[0].features) == 2
-            assert art.load is None
+            assert art.load is not None
+            assert art.load.label == datasource.features[0].name
 
         # cleanup
 

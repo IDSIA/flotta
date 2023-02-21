@@ -110,7 +110,7 @@ conf: Configuration = Configuration()
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": True,
-    "formatters": {"standard": {"format": "%(asctime)s %(levelname)8s %(name)32s:%(lineno)-3s %(message)s"}},
+    "formatters": {"standard": {"format": "%(asctime)s %(levelname)8s %(name)48.48s:%(lineno)-3s %(message)s"}},
     "handlers": {
         "console": {
             "level": "INFO",
@@ -132,17 +132,32 @@ LOGGING_CONFIG = {
             "maxBytes": 100000,
             "backupCount": 5,
         },
+        "file_uvicorn_access": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "standard",
+            "filename": "ferdelance_access.log",
+            "maxBytes": 100000,
+            "backupCount": 5,
+        },
     },
     "loggers": {
         "": {
-            "handlers": ["console"],
+            "handlers": ["console", "file"],
             "level": "INFO",
             "propagate": False,
         },
         "uvicorn": {
-            "handlers": ["console_critical", "file"],
+            "handlers": ["file_uvicorn_access"],
+            "level": "ERROR",
+        },
+        "uvicorn.access": {
+            "handlers": ["file_uvicorn_access"],
             "level": "INFO",
-            "propagate": False,
+        },
+        "uvicorn.error": {
+            "handlers": ["file"],
+            "level": "ERROR",
         },
         "aiosqlite": {
             "handlers": ["console"],
