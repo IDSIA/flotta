@@ -4,6 +4,7 @@ from ferdelance.schemas.models import (
     ParametersRandomForestClassifier,
     StrategyRandomForestClassifier,
 )
+from ferdelance.schemas.plans import TrainTestSplit
 from ferdelance.workbench.context import Context
 from ferdelance.workbench.interface import (
     Project,
@@ -11,7 +12,7 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
     DataSource,
-    ExecutionPlan,
+    LoadingPlan,
 )
 
 import numpy as np
@@ -117,19 +118,11 @@ m = FederatedRandomForestClassifier(
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
     project_id=project.project_id,
-    label="variety",
     model=m.build(),
     transform=q,
-    load=ExecutionPlan(
-        test_percentage=0.2,
-        val_percentage=0.1,
-        # metrics to track...
-        # TrainingStrategy + EvalStrategy:
-        #    - cross-validation (fold, fold-size, ...)
-        #    - train-test
-        #    - train-test-val
-        #    - leave-one-out
-        #    - iterative training
+    load=TrainTestSplit(
+        label="variety",
+        test_percentage=0.5,
     ),
 )
 
