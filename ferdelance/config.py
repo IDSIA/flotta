@@ -110,7 +110,7 @@ conf: Configuration = Configuration()
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": True,
-    "formatters": {"standard": {"format": "%(asctime)s %(levelname)8s %(name)32s:%(lineno)-3s %(message)s"}},
+    "formatters": {"standard": {"format": "%(asctime)s %(levelname)8s %(name)48.48s:%(lineno)-3s %(message)s"}},
     "handlers": {
         "console": {
             "level": "INFO",
