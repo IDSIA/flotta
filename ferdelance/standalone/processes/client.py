@@ -18,6 +18,7 @@ class LocalClient(Process):
     def __init__(self, conf: Config) -> None:
         super().__init__()
         self.client_conf = conf
+        self.client = FerdelanceClient(self.client_conf)
 
     def run(self):
         time.sleep(3)  # this will give the server time to start
@@ -33,17 +34,8 @@ class LocalClient(Process):
 
         self.client_conf.server = conf.server_url()
 
-        client = FerdelanceClient(self.client_conf)
-
-        def main_signal_handler(signum, frame):
-            """This handler is used to gracefully stop when ctrl-c is hit in the terminal."""
-            client.stop_loop()
-
-        signal.signal(signal.SIGINT, main_signal_handler)
-        signal.signal(signal.SIGTERM, main_signal_handler)
-
         try:
-            exit_code = client.run()
+            exit_code = self.client.run()
         except ClientExitStatus as e:
             exit_code = e.exit_code
 
@@ -51,5 +43,5 @@ class LocalClient(Process):
 
         if conf.DB_MEMORY:
             # remove workdir since after shutdown the database content will be lost
-            shutil.rmtree(client.config.workdir)
-            LOGGER.info(f"client workdir={client.config.workdir} removed")
+            shutil.rmtree(self.client.config.workdir)
+            LOGGER.info(f"client workdir={self.client.config.workdir} removed")

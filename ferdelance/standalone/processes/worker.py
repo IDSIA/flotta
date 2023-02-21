@@ -22,16 +22,17 @@ class LocalWorker(Process):
         # TODO: connect/join/register on server
 
     def run(self) -> None:
-        def main_signal_handler(signum, frame):
+        def signal_handler(signum, frame):
             """This handler is used to gracefully stop when ctrl-c is hit in the terminal."""
+            LOGGER.info("stopping worker")
             try:
                 self.stop = True
                 self.task_queue.put(None)
             except Exception:
                 pass
 
-        signal.signal(signal.SIGINT, main_signal_handler)
-        signal.signal(signal.SIGTERM, main_signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
 
         while not self.stop:
             try:
