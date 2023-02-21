@@ -59,7 +59,7 @@ class Query(BaseModel):
                 features=self.features(),
                 transformer=FederatedFilter(
                     feature=filter.feature,
-                    op=Operations[filter.operation],
+                    operation=Operations[filter.operation],
                     value=filter.value,
                 ).build(),
             )

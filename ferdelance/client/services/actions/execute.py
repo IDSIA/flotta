@@ -5,6 +5,7 @@ from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.models import model_creator
 from ferdelance.schemas.transformers import apply_transformer
+from ferdelance.schemas.plans import rebuild_plan
 from ferdelance.schemas.updates import UpdateExecute
 
 import pandas as pd
@@ -53,7 +54,7 @@ class ExecuteAction(Action):
 
         for ds_hash in task.datasource_hashes:
             # EXTRACT data from datasource
-            LOGGER.info(f"EXECUTE Extract from datasource_has={ds_hash}")
+            LOGGER.info(f"EXECUTE Extract from datasource_hash={ds_hash}")
 
             ds = self.config.datasources.get(ds_hash, None)
             if not ds:
@@ -88,13 +89,14 @@ class ExecuteAction(Action):
         local_model = model_creator(artifact.model)
 
         # LOAD execution plan
-        plan = artifact.load
 
-        if plan is not None:
+        if artifact.load is not None:
+            plan = rebuild_plan(artifact.load)
+
             plan.load(df_dataset, local_model, working_folder, artifact_id)
 
-            for m in plan._metrics:
+            for m in plan.metrics:
                 self.routes_service.post_metrics(m)
 
-            if plan._path_model is not None:
-                self.routes_service.post_model(artifact_id, plan._path_model)
+            if plan.path_model is not None:
+                self.routes_service.post_model(artifact_id, plan.path_model)

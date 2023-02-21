@@ -1,19 +1,18 @@
 # %%
+from ferdelance.workbench import (
+    Context,
+    Project,
+    Client,
+    Artifact,
+    ArtifactStatus,
+    DataSource,
+)
 from ferdelance.schemas.models import (
     FederatedRandomForestClassifier,
     ParametersRandomForestClassifier,
     StrategyRandomForestClassifier,
 )
 from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.workbench.context import Context
-from ferdelance.workbench.interface import (
-    Project,
-    Client,
-    Artifact,
-    ArtifactStatus,
-    DataSource,
-    LoadingPlan,
-)
 
 import numpy as np
 
@@ -123,7 +122,7 @@ a: Artifact = Artifact(
     load=TrainTestSplit(
         label="variety",
         test_percentage=0.5,
-    ),
+    ).build(),
 )
 
 print(json.dumps(a.dict(), indent=True))  # view execution plan

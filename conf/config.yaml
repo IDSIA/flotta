@@ -4,18 +4,18 @@ workdir: ./workdir
 private_key_location: ./private_key.pem
 
 datasources:
-  - name: source1
-    type: csv
-    path: data/file1.csv
-    kind: file
-    token: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
+  # - name: source1
+  #   type: csv
+  #   path: data/file1.csv
+  #   kind: file
+  #   token: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 
-  - name: source2
-    type: tsv
-    path: data/file2.tsv
-    kind: file
-    token: 
-    - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
+  # - name: source2
+  #   type: tsv
+  #   path: data/file2.tsv
+  #   kind: file
+  #   token: 
+  #   - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 
   - name: iris
     type: csv

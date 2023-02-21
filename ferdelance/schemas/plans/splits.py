@@ -1,4 +1,6 @@
-from ferdelance.schemas.plans.loading import LoadingPlan, GenericModel
+from typing import Any
+
+from ferdelance.schemas.plans.loading import BasePlan, LoadingPlan, GenericModel
 
 from sklearn.model_selection import train_test_split
 
@@ -10,9 +12,15 @@ import os
 LOGGER = logging.getLogger(__name__)
 
 
-class TrainTestSplit(LoadingPlan):
+class TrainTestSplit(BasePlan):
+    def __init__(self, label: str, test_percentage: float = 0.0, random_seed: float | None = None) -> None:
+        super().__init__(TrainTestSplit.__name__, label, random_seed)
+        self.test_percentage: float = test_percentage
 
-    test_percentage: float = 0.0
+    def params(self) -> dict[str, Any]:
+        return super().params() | {
+            "test_percentage": self.test_percentage,
+        }
 
     def load(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> None:
         label = self.label
@@ -42,10 +50,22 @@ class TrainTestSplit(LoadingPlan):
             metrics.source = "test"
             metrics.artifact_id = artifact_id
 
-            self._metrics.append(metrics)
+            self.metrics.append(metrics)
 
 
-class TrainTestValSplit(LoadingPlan):
+class TrainTestValSplit(BasePlan):
+    def __init__(
+        self, label: str, test_percentage: float = 0.0, val_percentage: float = 0.0, random_seed: float | None = None
+    ) -> None:
+        super().__init__(TrainTestValSplit.__name__, label, random_seed)
+        self.test_percentage: float = test_percentage
+        self.val_percentage: float = val_percentage
+
+    def params(self) -> dict[str, Any]:
+        return super().params() | {
+            "test_percentage": self.test_percentage,
+            "val_percentage": self.val_percentage,
+        }
 
     test_percentage: float = 0.0
     val_percentage: float = 0.0
@@ -72,10 +92,10 @@ class TrainTestValSplit(LoadingPlan):
         # model training
         local_model.train(X_tr, Y_tr)
 
-        self._path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
-        local_model.save(self._path_model)
+        self.path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
+        local_model.save(self.path_model)
 
-        LOGGER.info(f"saved artifact_id={artifact_id} model to {self._path_model}")
+        LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
 
         # model testing
         if X_ts is not None and Y_ts is not None:
@@ -83,7 +103,7 @@ class TrainTestValSplit(LoadingPlan):
             metrics.source = "test"
             metrics.artifact_id = artifact_id
 
-            self._metrics.append(metrics)
+            self.metrics.append(metrics)
 
         # model validation
         if X_val is not None and Y_val is not None:
@@ -91,4 +111,4 @@ class TrainTestValSplit(LoadingPlan):
             metrics.source = "val"
             metrics.artifact_id = artifact_id
 
-            self._metrics.append(metrics)
+            self.metrics.append(metrics)

@@ -7,7 +7,7 @@ import pandas as pd
 
 
 class FederatedFilter(Transformer):
-    def __init__(self, feature: QueryFeature | str, op: Operations, value) -> None:
+    def __init__(self, feature: QueryFeature | str, operation: Operations | str, value) -> None:
         """This is a special case of transformer where a set of feature will not
         be changed but it will be used to reduce the amount of data by the
         application of a filter.
@@ -26,14 +26,18 @@ class FederatedFilter(Transformer):
         else:
             self.feature: str = feature
 
-        self.operation: str = op.name
-        self.parameter: str = f"{value}"
+        if isinstance(operation, Operations):
+            self.operation: str = operation.name
+        else:
+            self.operation = operation
+
+        self.value: str = f"{value}"
 
     def params(self) -> dict[str, Any]:
         return super().params() | {
             "feature": self.feature,
             "operation": self.operation,
-            "parameter": self.parameter,
+            "value": self.value,
         }
 
     def aggregate(self) -> None:
@@ -43,7 +47,7 @@ class FederatedFilter(Transformer):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         feature: str = self.feature
         op: Operations = Operations[self.operation]
-        parameter: str = self.parameter
+        parameter: str = self.value
 
         if feature not in df.columns:
             # no change applied
