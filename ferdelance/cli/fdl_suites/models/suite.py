@@ -1,5 +1,4 @@
-"""Models CLI suite
-"""
+"""Models CLI suite"""
 
 from ferdelance.cli.base import CLICommand, CLICommandSuite
 from ferdelance.cli.fdl_suites.args import FDLCLIArgs

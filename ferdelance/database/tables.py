@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, String, DateTime, Integer, Float
+from __future__ import annotations
+
+from sqlalchemy import ForeignKey, String, DateTime, Integer, Float, Table, Column
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
@@ -89,7 +91,7 @@ class Application(Base):
 
     app_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    version: Mapped[str | None] = mapped_column(String)  # TODO: this should not be none!
+    version: Mapped[str] = mapped_column(String)
     active: Mapped[bool] = mapped_column(default=False)
     path: Mapped[str] = mapped_column(String)
     name: Mapped[str] = mapped_column(String)
@@ -155,55 +157,12 @@ class Model(Base):
     component = relationship("Component")
 
 
-class DataSource(Base):
-    """Table that collects the data source available on each client."""
-
-    __tablename__ = "datasources"
-
-    datasource_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
-
-    name: Mapped[str] = mapped_column(String)
-
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    removed: Mapped[bool] = mapped_column(default=False)
-
-    n_records: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    n_features: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
-    component = relationship("Component")
-
-
-class Feature(Base):
-    """Table that collects all metadata sent by the client."""
-
-    __tablename__ = "features"
-
-    feature_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
-
-    name: Mapped[str] = mapped_column(String)
-    dtype: Mapped[str | None] = mapped_column(String, nullable=True)
-
-    v_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_std: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_min: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_p25: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_p50: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_p75: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_max: Mapped[float | None] = mapped_column(Float, nullable=True)
-    v_miss: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-    n_cats: Mapped[int | None]  # number of categorical values
-
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    removed: Mapped[bool] = mapped_column(default=False)
-
-    datasource_name: Mapped[str] = mapped_column(String)
-
-    datasource_id: Mapped[str] = mapped_column(String(36), ForeignKey("datasources.datasource_id"))
-    datasource = relationship("DataSource")
+project_datasource = Table(
+    "project_datasource",
+    Base.metadata,
+    Column("project_id", ForeignKey("projects.project_id")),
+    Column("datasource_id", ForeignKey("datasources.datasource_id")),
+)
 
 
 class Project(Base):
@@ -221,14 +180,28 @@ class Project(Base):
     valid: Mapped[bool] = mapped_column(default=True)
     active: Mapped[bool] = mapped_column(default=True)
 
+    datasources: Mapped[list["DataSource"]] = relationship(secondary=project_datasource, back_populates="projects")
 
-class ProjectDataSource(Base):
-    """Connection table between projects and datasource."""
 
-    __tablename__ = "project_datasources"
+class DataSource(Base):
+    """Table that collects the data source available on each client."""
 
-    project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.project_id"), primary_key=True)
-    project = relationship("Project")
+    __tablename__ = "datasources"
 
-    datasource_id: Mapped[str] = mapped_column(String(36), ForeignKey("datasources.datasource_id"), primary_key=True)
-    datasource = relationship("DataSource")
+    datasource_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    datasource_hash: Mapped[str] = mapped_column(String(64))
+
+    name: Mapped[str] = mapped_column(String)
+    path: Mapped[str] = mapped_column(String)
+
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    removed: Mapped[bool] = mapped_column(default=False)
+
+    n_records: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    n_features: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
+    component = relationship("Component")
+
+    projects: Mapped[list[Project]] = relationship(secondary=project_datasource, back_populates="datasources")

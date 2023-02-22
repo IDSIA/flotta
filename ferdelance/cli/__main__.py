@@ -37,7 +37,7 @@ async def main() -> None:
 
     parser.parse_args()
 
-    await parser.selected_command.function(**parser.args)
+    await parser.selected_command.function(**parser.args)  # type: ignore
 
 
 if __name__ == "__main__":

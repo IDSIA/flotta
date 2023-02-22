@@ -1,5 +1,5 @@
 from ferdelance.client.datasources.datasource import DataSource
-from ferdelance.shared.artifacts import MetaDataSource, MetaFeature
+from ferdelance.schemas.metadata import MetaDataSource, MetaFeature
 
 from pathlib import Path
 
@@ -7,8 +7,9 @@ import pandas as pd
 
 
 class DataSourceFile(DataSource):
-    def __init__(self, datasource_id: str, name: str, type: str, path: str, tokens: list[str] = list()) -> None:
-        super().__init__(datasource_id, name, type, tokens)
+    def __init__(self, name: str, type: str, path: str, tokens: list[str] = list()) -> None:
+        super().__init__(name, type, path, tokens)
+
         self.path: Path = Path(path)
 
     def get(self) -> pd.DataFrame:
@@ -40,7 +41,7 @@ class DataSourceFile(DataSource):
 
             if feature in df_desc:
                 f = MetaFeature(
-                    datasource_id=self.datasource_id,
+                    datasource_hash=self.datasource_hash,
                     name=str(feature),
                     dtype=dtype,
                     v_mean=df_desc[feature]["mean"],
@@ -51,10 +52,11 @@ class DataSourceFile(DataSource):
                     v_p75=df_desc[feature]["75%"],
                     v_max=df_desc[feature]["max"],
                     v_miss=df[feature].isna().sum(),
+                    n_cats=0,  # TODO
                 )
             else:
                 f = MetaFeature(
-                    datasource_id=self.datasource_id,
+                    datasource_hash=self.datasource_hash,
                     name=str(feature),
                     dtype=dtype,
                     v_mean=None,
@@ -65,11 +67,13 @@ class DataSourceFile(DataSource):
                     v_p75=None,
                     v_max=None,
                     v_miss=None,
+                    n_cats=0,  # TODO
                 )
             features.append(f)
 
         return MetaDataSource(
-            datasource_id=self.datasource_id,
+            datasource_id=None,
+            datasource_hash=self.datasource_hash,
             name=self.name,
             removed=False,
             n_records=n_records,

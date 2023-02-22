@@ -30,6 +30,7 @@ os.environ["PATH_PRIVATE_KEY"] = os.environ.get("PATH_PRIVATE_KEY", str(os.path.
 
 
 def create_dirs() -> None:
+    os.makedirs(conf.STORAGE_DATASOURCES, exist_ok=True)
     os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
     os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
     os.makedirs(conf.STORAGE_MODELS, exist_ok=True)
@@ -39,6 +40,7 @@ def create_dirs() -> None:
 
 
 def delete_dirs() -> None:
+    shutil.rmtree(conf.STORAGE_DATASOURCES)
     shutil.rmtree(conf.STORAGE_ARTIFACTS)
     shutil.rmtree(conf.STORAGE_CLIENTS)
     shutil.rmtree(conf.STORAGE_MODELS)

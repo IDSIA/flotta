@@ -1,14 +1,12 @@
-from typing import List
-
 from ferdelance.cli.visualization import show_many, show_one
 from ferdelance.database import DataBase
-from ferdelance.database.schemas import DataSource
-from ferdelance.database.services import DataSourceService
+from ferdelance.schemas.datasources import DataSource
+from ferdelance.database.repositories import DataSourceRepository
 
 from sqlalchemy.exc import NoResultFound
 
 
-async def list_datasources(client_id: str | None = None) -> List[DataSource]:
+async def list_datasources(client_id: str | None = None) -> list[DataSource]:
     """Print and Return DataSource objects list
 
     Args:
@@ -19,11 +17,13 @@ async def list_datasources(client_id: str | None = None) -> List[DataSource]:
     """
     db = DataBase()
     async with db.async_session() as session:
-        datasource_service: DataSourceService = DataSourceService(session)
+        datasource_repository: DataSourceRepository = DataSourceRepository(session)
         if client_id is None:
-            datasources: List[DataSource] = await datasource_service.get_datasource_list()
+            datasources: list[DataSource] = await datasource_repository.get_datasource_list()
         else:
-            datasources: List[DataSource] = await datasource_service.get_datasource_by_client_id(client_id=client_id)
+            datasources: list[DataSource] = await datasource_repository.get_datasources_by_client_id(
+                client_id=client_id
+            )
 
         show_many(datasources)
         return datasources
@@ -46,9 +46,9 @@ async def describe_datasource(datasource_id: str | None) -> DataSource | None:
 
     db = DataBase()
     async with db.async_session() as session:
-        datasource_service: DataSourceService = DataSourceService(session)
+        datasource_repository: DataSourceRepository = DataSourceRepository(session)
         try:
-            datasource: DataSource = await datasource_service.get_datasource_by_id(ds_id=datasource_id)
+            datasource: DataSource = await datasource_repository.get_datasource_by_id(datasource_id=datasource_id)
             show_one(datasource)
             return datasource
         except NoResultFound as e:

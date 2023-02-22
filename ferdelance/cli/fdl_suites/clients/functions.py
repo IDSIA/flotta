@@ -1,16 +1,12 @@
-from typing import List
-
-import pandas as pd
-
 from ferdelance.database import DataBase
-from ferdelance.database.schemas import Client
-from ferdelance.database.services import ComponentService
+from ferdelance.schemas.components import Client
+from ferdelance.database.repositories import ComponentRepository
 from ferdelance.cli.visualization import show_many, show_one
 
 from sqlalchemy.exc import NoResultFound
 
 
-async def list_clients() -> List[Client]:
+async def list_clients() -> list[Client]:
     """Print and return Component objects list
 
     Returns:
@@ -18,9 +14,9 @@ async def list_clients() -> List[Client]:
     """
     db = DataBase()
     async with db.async_session() as session:
-        component_service = ComponentService(session)
-        clients: List[Client] = await component_service.list_clients()
-        show_many(result=clients)
+        component_repository = ComponentRepository(session)
+        clients: list[Client] = await component_repository.list_clients()
+        show_many(clients)
         return clients
 
 
@@ -43,10 +39,10 @@ async def describe_client(client_id: str) -> Client | None:
     db = DataBase()
     async with db.async_session() as session:
 
-        component_service = ComponentService(session)
+        component_repository = ComponentRepository(session)
 
         try:
-            client: Client = await component_service.get_client_by_id(client_id)
+            client: Client = await component_repository.get_client_by_id(client_id)
             show_one(client)
             return client
         except NoResultFound as e:

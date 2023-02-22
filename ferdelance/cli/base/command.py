@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, List
+from typing import Callable
 
 from ferdelance.cli.base import CLIArgument
 
@@ -13,5 +13,5 @@ class CLICommand:
     """Allow CLI submodules to determine which commands go with which arguments"""
 
     command: str
-    arguments: List[CLIArgument]
+    arguments: list[CLIArgument]
     function: Callable = function_not_implemented

@@ -1,20 +1,23 @@
-from ferdelance.shared.artifacts import (
+from ferdelance.workbench.interface import (
+    Project,
+    Client,
     DataSource,
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.shared.schemas import (
-    ClientDetails,
+from ferdelance.schemas.workbench import (
+    WorkbenchArtifact,
+    WorkbenchClientList,
+    WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
-    WorkbenchDataSourceList,
-    WorkbenchProjectList,
-    WorkbenchDataSourceIdList,
-    WorkbenchClientList,
+    WorkbenchProject,
+    WorkbenchProjectDescription,
+    WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
 
-from typing import Protocol
+import pandas as pd
 
 import json
 import logging
@@ -29,13 +32,9 @@ CONFIG_DIR = os.environ.get("CONFIG_HOME", os.path.join(HOME, ".config", "ferdel
 CACHE_DIR = os.environ.get("CACHE_HOME", os.path.join(HOME, ".cache", "ferdelance"))
 
 
-class ProjectView(Protocol):
-    project_id: str
-    project_token: str
-    project_name: str
-
-
 class Context:
+    """Main point of contact between the workbench and the server."""
+
     def __init__(self, server: str, ssh_key_path: str | None = None, generate_keys: bool = True) -> None:
         """Connect to the given server, and establish all the requirements for a secure interaction.
 
@@ -95,7 +94,22 @@ class Context:
         self.exc.set_token(data.token)
         self.exc.set_remote_key(data.public_key)
 
-    def list_clients(self) -> list[str]:
+    def load(self, token: str) -> Project:
+        wpt = WorkbenchProjectToken(token=token)
+
+        res = requests.get(
+            f"{self.server}/workbench/project",
+            headers=self.exc.headers(),
+            data=self.exc.create_payload(wpt.dict()),
+        )
+
+        res.raise_for_status()
+
+        data = Project(**self.exc.get_payload(res.content))
+
+        return data
+
+    def clients(self, project: Project) -> list[Client]:
         """List all clients available on the server.
 
         :raises HTTPError:
@@ -103,37 +117,21 @@ class Context:
         :returns:
             A list of client ids.
         """
+        wpt = WorkbenchProjectToken(token=project.token)
+
         res = requests.get(
-            f"{self.server}/workbench/client/list",
+            f"{self.server}/workbench/clients",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wpt.dict()),
         )
 
         res.raise_for_status()
 
         data = WorkbenchClientList(**self.exc.get_payload(res.content))
 
-        return data.client_ids
+        return data.clients
 
-    def describe_client(self, client_id: str) -> ClientDetails:
-        """List the details of a client.
-
-        :param client_id:
-            This is one of the ids returned with the `list_clients()` method.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        :returns:
-            The details for the given client.
-        """
-        res = requests.get(
-            f"{self.server}/workbench/client/{client_id}",
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        return ClientDetails(**self.exc.get_payload(res.content))
-
-    def list_datasources(self) -> list[str]:
+    def datasources(self, project: Project) -> list[DataSource]:
         """List all data sources available.
 
         :raises HTTPError:
@@ -141,58 +139,19 @@ class Context:
         :returns:
             A list of all datasources available.
         """
+        wpt = WorkbenchProjectToken(token=project.token)
+
         res = requests.get(
-            f"{self.server}/workbench/datasource/list/",
+            f"{self.server}/workbench/datasources",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wpt.dict()),
         )
 
         res.raise_for_status()
 
         data = WorkbenchDataSourceIdList(**self.exc.get_payload(res.content))
 
-        return data.datasource_ids
-
-    def get_datasource_by_id(self, datasource_id: str) -> DataSource:
-        """Returns the detail, like metadata, of the given datasource.
-
-        :param datasource_id:
-            This is one of the ids returned with the `list_datasources()` method.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        :returns:
-            The details for the given datasource, with also features.
-        """
-        res = requests.get(
-            f"{self.server}/workbench/datasource/{datasource_id}",
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        return DataSource(**self.exc.get_payload(res.content))
-
-    def get_datasource_by_name(self, datasource_name: str) -> list[DataSource]:
-        """Returns the detail, like metadata, of the datasources associated with the
-        given name.
-
-        :param datasource_name:
-            This is the name of one or more data sources.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        :returns:
-            A list with all the details of the datasources with the given name,
-            with also the features.
-        """
-        res = requests.get(
-            f"{self.server}/workbench/datasource/name/{datasource_name}",
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        data = WorkbenchDataSourceList(**self.exc.get_payload(res.content))
-
-        return [DataSource(**data.__dict__) for data in data.datasources]
+        return data.datasources
 
     def submit(self, artifact: Artifact) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
@@ -232,9 +191,12 @@ class Context:
         if artifact.artifact_id is None:
             raise ValueError("submit first the artifact to the server")
 
+        wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
+
         res = requests.get(
-            f"{self.server}/workbench/artifact/status/{artifact.artifact_id}",
+            f"{self.server}/workbench/artifact/status",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wba.dict()),
         )
 
         res.raise_for_status()
@@ -251,9 +213,13 @@ class Context:
         :returns:
             The artifact saved on the server and associated with the given artifact_id.
         """
+
+        wba = WorkbenchArtifact(artifact_id=artifact_id)
+
         res = requests.get(
-            f"{self.server}/workbench/artifact/{artifact_id}",
+            f"{self.server}/workbench/artifact",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wba.dict()),
         )
 
         res.raise_for_status()
@@ -276,9 +242,12 @@ class Context:
         if not path:
             path = f"{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model"
 
+        wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
+
         with requests.get(
-            f"{self.server}/workbench/model/{artifact.artifact_id}",
+            f"{self.server}/workbench/model",
             headers=self.exc.headers(),
+            data=self.exc.create_payload(wba.dict()),
             stream=True,
         ) as res:
 
@@ -287,6 +256,8 @@ class Context:
             self.exc.stream_response_to_file(res, path)
 
         return path
+
+    # OLD METHODS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
     def get_partial_model(self, artifact: Artifact, client_id: str, path: str = "") -> str:
         """Get the trained partial model from the artifact and save it to disk.
@@ -315,15 +286,17 @@ class Context:
             self.exc.stream_response_to_file(res, path)
         return path
 
-    def list_projects(self, tokens: list[str] = []) -> WorkbenchProjectList:
+    def describe_project(self, project: WorkbenchProject) -> pd.DataFrame | pd.Series:
         res = requests.get(
-            f"{self.server}/workbench/projects/list/",
+            f"{self.server}/workbench/projects/descr",
             headers=self.exc.headers(),
-            data=self.exc.create_payload({"project_tokens": tokens}),
+            data=self.exc.create_payload({"project_token": project.token}),
         )
 
         res.raise_for_status()
 
-        data = WorkbenchProjectList(**self.exc.get_payload(res.content))
+        data = WorkbenchProjectDescription(**self.exc.get_payload(res.content))
+
+        print(pd.Series(data))
 
         return data

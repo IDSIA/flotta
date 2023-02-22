@@ -1,7 +1,5 @@
-from ferdelance.shared.transformers import (
-    FederatedSimpleImputer,
-)
-from ferdelance.shared.artifacts import QueryTransformer
+from ferdelance.schemas.queries import QueryTransformer, QueryFeature
+from ferdelance.schemas.transformers import FederatedSimpleImputer
 
 from sklearn.impute import SimpleImputer
 
@@ -14,7 +12,8 @@ PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
 
 
 def test_imp_build():
-    fsi = FederatedSimpleImputer("Latitude", "Latitude2", missing_values=7, fill_value=42)
+    f = QueryFeature(name="Latitude")
+    fsi = FederatedSimpleImputer(f, "Latitude2", missing_values=7, fill_value=42)
     qt: QueryTransformer = fsi.build()
 
     assert len(qt.parameters) == 3
@@ -42,7 +41,8 @@ def test_imp_one_feature():
     si = SimpleImputer()
     df_a["HouseAgeImputed"] = si.fit_transform(df_a[["HouseAge"]])
 
-    fsi = FederatedSimpleImputer("HouseAge", "HouseAgeImputed")
+    f = QueryFeature(name="HouseAge")
+    fsi = FederatedSimpleImputer(f, "HouseAgeImputed")
     df_b = fsi.transform(df_b)
 
     assert df_a["HouseAgeImputed"].mean() == df_b["HouseAgeImputed"].mean()

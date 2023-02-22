@@ -1,11 +1,10 @@
-from ferdelance.shared.transformers import (
+from ferdelance.schemas.queries import QueryFeature, QueryTransformer
+from ferdelance.schemas.transformers import (
     FederatedMinMaxScaler,
     FederatedStandardScaler,
     save,
     load,
 )
-from ferdelance.shared.artifacts import QueryTransformer
-
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 import pandas as pd
@@ -16,7 +15,9 @@ PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
 
 
 def test_mms_build():
-    fmms = FederatedMinMaxScaler("Latitude", "Latitude2", (0.5, 2.0))
+    f = QueryFeature(name="Latitude", dtype="float")
+
+    fmms = FederatedMinMaxScaler(f, "Latitude2", (0.5, 2.0))
     qt: QueryTransformer = fmms.build()
 
     assert len(qt.parameters) == 1
@@ -25,7 +26,9 @@ def test_mms_build():
 
 
 def test_ssc_build():
-    fssc = FederatedStandardScaler("Latitude", "Latitude2", with_mean=False, with_std=False)
+    f = QueryFeature(name="Latitude", dtype="float")
+
+    fssc = FederatedStandardScaler(f, "Latitude2", with_mean=False, with_std=False)
     qt = fssc.build()
 
     assert qt.name == FederatedStandardScaler.__name__
@@ -44,7 +47,9 @@ def test_mms_scaling_one_feature():
     mms.fit(df_a[["Latitude"]])
     df_a[["Latitude_scaled"]] = mms.transform(df_a[["Latitude"]])
 
-    fmms = FederatedMinMaxScaler("Latitude", "Latitude_scaled")
+    f = QueryFeature(name="Latitude", dtype="float")
+
+    fmms = FederatedMinMaxScaler(f, "Latitude_scaled")
     df_b = fmms.transform(df_b)
 
     assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
@@ -59,7 +64,9 @@ def test_ssc_scaling_one_feature():
     ssc.fit(df_a[["Latitude"]])
     df_a[["Latitude_scaled"]] = ssc.transform(df_a[["Latitude"]])
 
-    fssc = FederatedStandardScaler("Latitude", "Latitude_scaled")
+    f = QueryFeature(name="Latitude", dtype="float")
+
+    fssc = FederatedStandardScaler(f, "Latitude_scaled")
     df_b = fssc.transform(df_b)
 
     assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
@@ -74,7 +81,10 @@ def test_mms_scaling_multiple_features():
     mms.fit(df_a[["Latitude", "Longitude"]])
     df_a[["Latitude_scaled", "Longitude_scaled"]] = mms.transform(df_a[["Latitude", "Longitude"]])
 
-    fmms = FederatedMinMaxScaler(["Latitude", "Longitude"], ["Latitude_scaled", "Longitude_scaled"])
+    f1 = QueryFeature(name="Latitude", dtype="float")
+    f2 = QueryFeature(name="Longitude", dtype="float")
+
+    fmms = FederatedMinMaxScaler([f1, f2], ["Latitude_scaled", "Longitude_scaled"])
     df_b = fmms.transform(df_b)
 
     assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
@@ -91,7 +101,10 @@ def test_sc_scaling_multiple_features():
     ssc.fit(df_a[["Latitude", "Longitude"]])
     df_a[["Latitude_scaled", "Longitude_scaled"]] = ssc.transform(df_a[["Latitude", "Longitude"]])
 
-    fssc = FederatedStandardScaler(["Latitude", "Longitude"], ["Latitude_scaled", "Longitude_scaled"])
+    f1 = QueryFeature(name="Latitude", dtype="float")
+    f2 = QueryFeature(name="Longitude", dtype="float")
+
+    fssc = FederatedStandardScaler([f1, f2], ["Latitude_scaled", "Longitude_scaled"])
     df_b = fssc.transform(df_b)
 
     assert df_a["Latitude_scaled"].sum() == df_b["Latitude_scaled"].sum()
@@ -105,7 +118,9 @@ def test_mms_save_and_reload():
     df_a = df.copy()
     df_b = df.copy()
 
-    fmms = FederatedMinMaxScaler("Latitude", "Latitude_scaled")
+    f = QueryFeature(name="Latitude", dtype="float")
+
+    fmms = FederatedMinMaxScaler(f, "Latitude_scaled")
 
     TF_PATH = os.path.join(".", "mms.transformer")
 
@@ -133,7 +148,9 @@ def test_ssc_save_and_reload():
     df_a = df.copy()
     df_b = df.copy()
 
-    fssc = FederatedStandardScaler("Latitude", "Latitude_scaled")
+    f = QueryFeature(name="Latitude", dtype="float")
+
+    fssc = FederatedStandardScaler(f, "Latitude_scaled")
 
     TF_PATH = os.path.join(".", "mms.transformer")
 

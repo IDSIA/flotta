@@ -1,17 +1,12 @@
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.services import (
+from ferdelance.database.repositories import (
     AsyncSession,
-    ApplicationService,
-    ComponentService,
-    DataSourceService,
-    ModelService,
-    ProjectService,
+    ComponentRepository,
+    DataSourceRepository,
+    ModelRepository,
+    ProjectRepository,
 )
-from ferdelance.database.tables import (
-    Application,
-)
-from ferdelance.database.schemas import Client, Model, DataSource
 from ferdelance.server.services import (
     ActionService,
     SecurityService,
@@ -20,18 +15,14 @@ from ferdelance.server.services import (
 from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
-from ferdelance.shared.artifacts import (
-    MetaFeature,
-    Metadata,
-    MetaDataSource,
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.schemas.client import ClientJoinRequest, ClientJoinData
+from ferdelance.schemas.updates import DownloadApp, UpdateExecute
+from ferdelance.schemas.components import (
+    Client,
+    Application,
 )
-from ferdelance.shared.schemas import (
-    ClientJoinRequest,
-    ClientJoinData,
-    DownloadApp,
-    UpdateExecute,
-)
-from ferdelance.shared.models import Metrics
+from ferdelance.schemas.models import Metrics
 from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import (
@@ -79,7 +70,7 @@ async def client_join(
     """API for new client joining."""
     LOGGER.info("new client join request")
 
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
 
     if request.client is None:
@@ -92,14 +83,14 @@ async def client_join(
         client_public_key = decode_from_transfer(data.public_key)
 
         try:
-            await cs.get_by_key(client_public_key)
+            await cr.get_by_key(client_public_key)
 
             raise HTTPException(403, "Invalid client data")
 
         except NoResultFound as e:
             LOGGER.info("joining new client")
             # create new client
-            client, token = await cs.create_client(
+            client, token = await cr.create_client(
                 version=data.version,
                 public_key=client_public_key,
                 machine_system=data.system,
@@ -110,7 +101,7 @@ async def client_join(
 
             LOGGER.info(f"client_id={client.client_id}: created new client")
 
-            await cs.create_event(client.client_id, "creation")
+            await cr.create_event(client.client_id, "creation")
 
         LOGGER.info(f"client_id={client.client_id}: created new client")
 
@@ -140,12 +131,12 @@ async def client_leave(
     client: Client = Depends(check_access),
 ):
     """API for existing client to be removed"""
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
 
     LOGGER.info(f"client_id={client.client_id}: request to leave")
 
-    await cs.client_leave(client.client_id)
-    await cs.create_event(client.client_id, "left")
+    await cr.client_leave(client.client_id)
+    await cr.create_event(client.client_id, "left")
 
     return {}
 
@@ -163,12 +154,12 @@ async def client_update(
     - nothing (keep alive)
     """
 
+    cr: ComponentRepository = ComponentRepository(session)
     acs: ActionService = ActionService(session)
-    cs: ComponentService = ComponentService(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
-    await cs.create_event(client.client_id, "update")
+    await cr.create_event(client.client_id, "update")
 
     # consume current results (if present) and compute next action
     payload: dict[str, Any] = await ss.read_request(request)
@@ -177,7 +168,7 @@ async def client_update(
 
     LOGGER.debug(f"client_id={client.client_id}: update action={next_action.action}")
 
-    await cs.create_event(client.client_id, f"action:{next_action.action}")
+    await cr.create_event(client.client_id, f"action:{next_action.action}")
 
     return ss.create_response(next_action.dict())
 
@@ -195,32 +186,31 @@ async def client_update_files(
     """
     LOGGER.info(f"client_id={client.client_id}: update files request")
 
-    cas: ApplicationService = ApplicationService(session)
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
-    await cs.create_event(client.client_id, "update files")
+    await cr.create_event(client.client_id, "update files")
 
     data = await ss.read_request(request)
     payload = DownloadApp(**data)
 
-    new_app: Application | None = await cas.get_newest_app()
+    try:
+        new_app: Application = await cr.get_newest_app()
 
-    if new_app is None:
-        raise HTTPException(400, "no newest version found")
+        if new_app.version != payload.version:
+            LOGGER.warning(
+                f"client_id={client.client_id} requested app version={payload.version} while latest version={new_app.version}"
+            )
+            raise HTTPException(400, "Old versions are not permitted")
 
-    if new_app.version != payload.version:
-        LOGGER.warning(
-            f"client_id={client.client_id} requested app version={payload.version} while latest version={new_app.version}"
-        )
-        raise HTTPException(400, "Old versions are not permitted")
+        await cr.update_client(client.client_id, version=payload.version)
 
-    await cs.update_client(client.client_id, version=payload.version)
+        LOGGER.info(f"client_id={client.client_id}: requested new client version={payload.version}")
 
-    LOGGER.info(f"client_id={client.client_id}: requested new client version={payload.version}")
-
-    return ss.encrypt_file(new_app.path)
+        return ss.encrypt_file(new_app.path)
+    except NoResultFound as _:
+        raise HTTPException(404, "no newest version found")
 
 
 @client_router.post("/client/update/metadata")
@@ -235,38 +225,21 @@ async def client_update_metadata(
     """
     LOGGER.info(f"client_id={client.client_id}: update metadata request")
 
-    cs: ComponentService = ComponentService(session)
-    dss: DataSourceService = DataSourceService(session)
-    ps: ProjectService = ProjectService(session)
+    cr: ComponentRepository = ComponentRepository(session)
+    dsr: DataSourceRepository = DataSourceRepository(session)
+    pr: ProjectRepository = ProjectRepository(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
-    await cs.create_event(client.client_id, "update metadata")
+    await cr.create_event(client.client_id, "update metadata")
 
     data = await ss.read_request(request)
     metadata = Metadata(**data)
 
-    await dss.create_or_update_metadata(client.client_id, metadata)
-    await ps.add_datasources_from_metadata(metadata)
+    await dsr.create_or_update_metadata(client.client_id, metadata)  # this will also update metadata
+    await pr.add_datasources_from_metadata(metadata)
 
-    client_data_source_list: list[DataSource] = await dss.get_datasource_by_client_id(client.client_id)
-
-    ds_list: list[MetaDataSource] = list()
-
-    for cds in client_data_source_list:
-        features = await dss.get_features_by_datasource(cds)
-        tokens = await dss.get_tokens_by_datasource(cds)
-        ds_list.append(
-            MetaDataSource(
-                **cds.__dict__,
-                features=[MetaFeature(**f.__dict__) for f in features],
-                tokens=tokens,
-            )
-        )
-
-    m = Metadata(datasources=ds_list)
-
-    return ss.create_response(m.dict())
+    return ss.create_response(metadata.dict())
 
 
 @client_router.get("/client/task", response_class=Response)
@@ -277,12 +250,12 @@ async def client_get_task(
 ):
     LOGGER.info(f"client_id={client.client_id}: new task request")
 
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
     jm: JobManagementService = JobManagementService(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
-    await cs.create_event(client.client_id, "schedule task")
+    await cr.create_event(client.client_id, "schedule task")
 
     data = await ss.read_request(request)
     payload = UpdateExecute(**data)
@@ -291,13 +264,13 @@ async def client_get_task(
     try:
         content = await jm.client_local_model_start(artifact_id, client.client_id)
 
+        return ss.create_response(content.dict())
+
     except ArtifactDoesNotExists as _:
         raise HTTPException(404, "Artifact does not exists")
 
     except TaskDoesNotExists as _:
         raise HTTPException(404, "Task does not exists")
-
-    return ss.create_response(content.dict())
 
 
 # TODO: add endpoint for failed job executions
@@ -314,12 +287,12 @@ async def client_post_task(
 
     ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
-    ms: ModelService = ModelService(session)
+    mr: ModelRepository = ModelRepository(session)
 
-    model_session: Model = await ms.create_local_model(artifact_id, client.client_id)
+    model_db = await mr.create_local_model(artifact_id, client.client_id)
 
     await ss.setup(client.public_key)
-    await ss.stream_decrypt_file(request, model_session.path)
+    await ss.stream_decrypt_file(request, model_db.path)
 
     await jm.client_local_model_completed(artifact_id, client.client_id)
 

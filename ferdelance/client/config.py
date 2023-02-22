@@ -1,7 +1,7 @@
 from ferdelance import __version__
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
 from ferdelance.client.exceptions import ConfigError
-from ferdelance.client.schemas import ArgumentsConfig
+from ferdelance.schemas.client import ArgumentsConfig
 from ferdelance.shared.exchange import Exchange
 
 from getmac import get_mac_address
@@ -35,12 +35,10 @@ class Config:
         self.client_token: str | None = None
         self.server_public_key: str | None = None
 
+        """Hash -> DataSource"""
         self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
 
         for ds in args.datasources:
-            # TODO: this is something that should come from the server, send the number of ds and the server will answer
-            datasource_id = str(uuid.uuid4())
-
             if ds.token is None:
                 tokens = list()
             elif isinstance(ds.token, str):
@@ -52,13 +50,15 @@ class Config:
                 if ds.conn is None:
                     LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
                     continue
-                self.datasources[datasource_id] = DataSourceDB(datasource_id, ds.name, ds.type, ds.conn, tokens)
+                datasource = DataSourceDB(ds.name, ds.type, ds.conn, tokens)
+                self.datasources[datasource.datasource_hash] = datasource
 
             if ds.kind == "file":
                 if ds.path is None:
                     LOGGER.error(f"Missing path for datasource with name={ds.conn}")
                     continue
-                self.datasources[datasource_id] = DataSourceFile(datasource_id, ds.name, ds.type, ds.path, tokens)
+                datasource = DataSourceFile(ds.name, ds.type, ds.path, tokens)
+                self.datasources[datasource.datasource_hash] = datasource
 
         if not self.datasources:
             LOGGER.error("No valid datasource available!")

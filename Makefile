@@ -6,7 +6,7 @@ standalone:
 	python -m ferdelance.standalone -c conf/config.yaml
 
 clean:
-	rm -rf workdir/ storage/ sqlite.db tests/test_sqlite.db
+	rm -rf workdir/ storage/ sqlite.db tests/test_sqlite.db ferdelance*.log*
 
 # docker build 
 build-client:

@@ -1,58 +1,111 @@
 # %%
-import json
-
-import numpy as np
-
-from ferdelance.shared.artifacts import Artifact, ArtifactStatus, Dataset, DataSource, Query
-from ferdelance.shared.models import (
+from ferdelance.workbench import (
+    Context,
+    Project,
+    Client,
+    Artifact,
+    ArtifactStatus,
+    DataSource,
+)
+from ferdelance.schemas.models import (
     FederatedRandomForestClassifier,
     ParametersRandomForestClassifier,
     StrategyRandomForestClassifier,
 )
-from ferdelance.workbench.context import Context
+from ferdelance.schemas.plans import TrainTestSplit
+
+import numpy as np
+
+import json
+
 
 # %% create the context
 ctx = Context("http://localhost:1456")
 
-# %% ask the context for available client
-for c in ctx.list_clients():
-    dc = ctx.describe_client(c)
-    print(dc.client_id)
-    print("- client version:", dc.version)
+# nice to have:
+# with Context(...) as ctx:
+#     ...
 
-# %% ask the context for available metadata
-data_sources_id: list[str] = ctx.list_datasources()
+# %% load a project given a token
+project_token = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
 
-ds: DataSource | None = None
+project: Project = ctx.load(project_token)  # if None check for environment variable
 
-for ds_id in data_sources_id:
-    ds = ctx.datasource_by_id(ds_id)
-    print(ds.info())
-    if ds.name == "iris":
-        break
+# %% What is this project?
 
-assert ds is not None
+project.describe()
 
-print(ds.info())
+# class Project:
+#    data: AggregatedDataSource
+#    project_id: str
+#    name: str
+#    descr: str
+#    n_datasources: int
+#    n_clients: int
+
+
+# %% (for DEBUG) ask the context for clients of a project
+clients: list[Client] = ctx.clients(project)
+
+for c in clients:
+    print(c)
+
+# class Client:
+#   client_id: str
+#   version: str
+#   name: str # <--- TODO: to implement in client
+
+# %% (for DEBUG) ask the context for data source of a project
+datasources: list[DataSource] = ctx.datasources(project)
+
+for datasource in datasources:
+    print(datasource)  # <--- non aggregated
+
+# %% working with data
+
+ds = project.data  # <--- AggregatedDataSource
+
+print(ds.describe())
+
+# list of AggregatedFeature:
+# distributions, not discrete values
+# min, max, std, mean, %missing
+# total amount of records
+# in tabular (dataframe) format
+
+# this is like a describe, but per single feature
+for feature in ds.features:
+    print(feature)
 
 # %% develop a filter query
-q: Query = ds.all_features()
 
-for feature in q.features:
-    print(ds[feature].info())
-    print()
+# prepare transformation query with all features
+q = ds.extract()
 
+# inspect a feature data type
+feature = q["variety"]
 
-# # add filters
-q = q[ds["variety"] < 2]
+print(feature.dtype)
 
-# %% create dataset
-d = Dataset(
-    test_percentage=0.2,
-    val_percentage=0.1,
-    label="variety",
+# add filter
+
+q.add(q["variety"] < 2)
+
+# add transformer
+from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
+
+transformer = FederatedKBinsDiscretizer(q["variety"], "variety_discr")
+
+q.add(transformer)
+
+# %% statistics
+"""
+TODO: these statistics requires a new scheduler and a cache system on the client
+stats = Statistics(
+    data=ds,
 )
-d.add_query(q)
+ret = ctx.statistics(stats)  # partial submit
+"""
 
 # %% develop a model
 
@@ -63,14 +116,19 @@ m = FederatedRandomForestClassifier(
 
 # %% create an artifact and deploy query, model, and strategy
 a: Artifact = Artifact(
-    dataset=d,
+    project_id=project.project_id,
     model=m.build(),
+    transform=q,
+    load=TrainTestSplit(
+        label="variety",
+        test_percentage=0.5,
+    ).build(),
 )
 
-print(json.dumps(a.dict(), indent=True))
+print(json.dumps(a.dict(), indent=True))  # view execution plan
 
 # %% submit artifact to the server
-a = ctx.submit(a)
+a = ctx.submit(a)  # or execute
 
 assert a.artifact_id is not None
 
@@ -79,10 +137,8 @@ status: ArtifactStatus = ctx.status(a)
 
 print(status)
 
-# %% download submitted artifact
-art = ctx.get_artifact(a.artifact_id)
+# %% evaluation
 
-print(art)
 
 # %% download trained model:
 m.load(ctx.get_model(a))

@@ -1,11 +1,12 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.database.services import ModelService
-from ferdelance.database.schemas import Component, Model
+from ferdelance.database.repositories import ModelRepository
+from ferdelance.schemas.database import ServerModel
+from ferdelance.schemas.components import Component
 from ferdelance.server.services import JobManagementService
 from ferdelance.server.security import check_token
-from ferdelance.shared.artifacts import Artifact, ArtifactStatus
+from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -74,12 +75,12 @@ async def post_model(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: send model for artifact_id={artifact_id}")
     try:
-        ms: ModelService = ModelService(session)
+        mr: ModelRepository = ModelRepository(session)
         js: JobManagementService = JobManagementService(session)
 
-        model_session = await ms.create_model_aggregated(artifact_id, worker.component_id)
+        model_db: ServerModel = await mr.create_model_aggregated(artifact_id, worker.component_id)
 
-        async with aiofiles.open(model_session.path, "wb") as out_file:
+        async with aiofiles.open(model_db.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
@@ -96,14 +97,14 @@ async def get_model(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: request model_id={model_id}")
     try:
-        ms: ModelService = ModelService(session)
+        mr: ModelRepository = ModelRepository(session)
 
-        model_session: Model = await ms.get_model_by_id(model_id)
+        model_db: ServerModel = await mr.get_model_by_id(model_id)
 
-        if not os.path.exists(model_session.path):
+        if not os.path.exists(model_db.path):
             raise NoResultFound()
 
-        return FileResponse(model_session.path)
+        return FileResponse(model_db.path)
 
     except NoResultFound:
         raise HTTPException(404)
