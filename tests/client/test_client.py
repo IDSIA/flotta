@@ -35,10 +35,12 @@ from requests import Response
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import hashlib
 import json
 import logging
 import os
 import pytest
+import uuid
 
 LOGGER = logging.getLogger(__name__)
 
@@ -241,38 +243,35 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         assert client_version == "test"
 
         # create fake app (it's just a file)
+        os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
+
         version_app = "test_1.0"
-        filename_app = "fake_client_app.json"
-        path_fake_app = os.path.join(".", filename_app)
+        filename = "fake_client_app.json"
+        path = os.path.join(conf.STORAGE_CLIENTS, filename)
 
-        with open(path_fake_app, "w") as f:
-            json.dump({"version": version_app}, f)
+        checksum = hashlib.sha256()
 
-        LOGGER.info(f"created file={path_fake_app}")
+        with open(path, "w") as f:
+            content = json.dumps({"version": version_app})
+            checksum.update(content.encode("utf8"))
+            f.write(content)
 
-        # upload fake client app
-        upload_response = client.post(
-            "/manager/upload/client", files={"file": (filename_app, open(path_fake_app, "rb"))}
+        LOGGER.info(f"created file={path}")
+
+        # add fake client app
+        app_id = str(uuid.uuid4())
+        client_app = Application(
+            app_id=app_id,
+            path=path,
+            name=filename,
+            version=version_app,
+            checksum=checksum.hexdigest(),
+            active=True,
         )
+        session.add(client_app)
+        await session.commit()
 
-        assert upload_response.status_code == 200
-
-        upload_id = upload_response.json()["upload_id"]
-
-        # update metadata
-        metadata_response = client.post(
-            "/manager/upload/client/metadata",
-            json={
-                "upload_id": upload_id,
-                "version": version_app,
-                "name": "Testing_app",
-                "active": True,
-            },
-        )
-
-        assert metadata_response.status_code == 200
-
-        res = await session.execute(select(Application).where(Application.app_id == upload_id))
+        res = await session.execute(select(Application).where(Application.app_id == app_id))
         client_app: Application | None = res.scalar_one_or_none()
 
         assert client_app is not None
@@ -325,8 +324,8 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         assert client_db.version == version_app
 
         # delete local fake client app
-        if os.path.exists(path_fake_app):
-            os.remove(path_fake_app)
+        if os.path.exists(path):
+            os.remove(path)
 
 
 @pytest.mark.asyncio

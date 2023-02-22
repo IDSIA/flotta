@@ -1,6 +1,5 @@
 from ferdelance.database import DataBase, Base
 from ferdelance.server.routes.client import client_router
-from ferdelance.server.routes.manager import manager_router
 from ferdelance.server.routes.workbench import workbench_router
 from ferdelance.server.routes.worker import worker_router
 from ferdelance.server.startup import ServerStartup
@@ -18,7 +17,6 @@ def init_api() -> FastAPI:
     api = FastAPI()
 
     api.include_router(client_router)
-    api.include_router(manager_router)
     api.include_router(workbench_router)
     api.include_router(worker_router)
 
