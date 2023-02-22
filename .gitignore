@@ -26,6 +26,7 @@ __pycache__
 storage/
 logs/
 *.log
+*.log.*
 *workdir
 *.model
 data/
