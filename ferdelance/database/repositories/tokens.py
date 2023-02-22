@@ -1,6 +1,10 @@
 from ferdelance.database.tables import Token
-from ferdelance.database.services import DBSessionService, AsyncSession
-from ferdelance.database.services.settings import KeyValueStore, KEY_CLIENT_TOKEN_EXPIRATION, KEY_USER_TOKEN_EXPIRATION
+from ferdelance.database.repositories import DBSessionService, AsyncSession
+from ferdelance.database.repositories.settings import (
+    KeyValueStore,
+    KEY_CLIENT_TOKEN_EXPIRATION,
+    KEY_USER_TOKEN_EXPIRATION,
+)
 
 from sqlalchemy import select, func
 

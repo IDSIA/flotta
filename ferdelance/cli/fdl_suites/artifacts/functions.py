@@ -2,7 +2,7 @@
 
 from ferdelance.database import DataBase
 from ferdelance.schemas.database import ServerArtifact
-from ferdelance.database.services import ArtifactService
+from ferdelance.database.repositories import ArtifactService
 from ferdelance.cli.visualization import show_many, show_one
 
 from sqlalchemy.exc import NoResultFound

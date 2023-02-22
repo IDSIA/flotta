@@ -1,7 +1,7 @@
 from ferdelance.cli.visualization import show_many, show_one, show_string
 from ferdelance.database import DataBase
 from ferdelance.schemas.project import BaseProject as ProjectView
-from ferdelance.database.services import ProjectService
+from ferdelance.database.repositories import ProjectService
 
 from sqlalchemy.exc import NoResultFound
 

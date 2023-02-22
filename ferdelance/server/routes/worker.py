@@ -1,7 +1,7 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.database.services import ModelService
+from ferdelance.database.repositories import ModelService
 from ferdelance.schemas.database import ServerModel
 from ferdelance.schemas.components import Component
 from ferdelance.server.services import JobManagementService

@@ -1,6 +1,6 @@
 from ferdelance.database import DataBase
 from ferdelance.schemas.jobs import Job
-from ferdelance.database.services import JobService
+from ferdelance.database.repositories import JobService
 from ferdelance.cli.visualization import show_many
 
 

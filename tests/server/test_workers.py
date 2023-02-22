@@ -2,7 +2,7 @@ from ferdelance.database.tables import (
     Artifact as ArtifactDB,
     Model as ModelDB,
 )
-from ferdelance.database.services import ProjectService
+from ferdelance.database.repositories import ProjectService
 from ferdelance.server.api import api
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.models import Model

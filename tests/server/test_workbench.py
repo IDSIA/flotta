@@ -1,5 +1,5 @@
 from ferdelance.config import conf
-from ferdelance.database.services import ComponentService
+from ferdelance.database.repositories import ComponentService
 from ferdelance.server.api import api
 from ferdelance.workbench.interface import (
     AggregatedDataSource,

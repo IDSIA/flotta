@@ -3,7 +3,7 @@ from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.schemas.database import ServerModel
 from ferdelance.schemas.components import Client
-from ferdelance.database.services import (
+from ferdelance.database.repositories import (
     ModelService,
     ComponentService,
     JobService,

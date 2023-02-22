@@ -1,5 +1,5 @@
 from ferdelance.database.tables import Job as JobDB
-from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.database.repositories.core import AsyncSession, DBSessionService
 from ferdelance.schemas.jobs import Job
 from ferdelance.shared.status import JobStatus
 

@@ -1,6 +1,6 @@
 from ferdelance.database import DataBase
 from ferdelance.schemas.components import Client
-from ferdelance.database.services import ComponentService
+from ferdelance.database.repositories import ComponentService
 from ferdelance.cli.visualization import show_many, show_one
 
 from sqlalchemy.exc import NoResultFound

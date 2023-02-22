@@ -1,5 +1,5 @@
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.database.services import DBSessionService, AsyncSession
+from ferdelance.database.repositories import DBSessionService, AsyncSession
 from ferdelance.database.tables import Token, Component
 
 from sqlalchemy import select

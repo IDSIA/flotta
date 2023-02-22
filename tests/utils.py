@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.database.services import ProjectService, WorkerService
+from ferdelance.database.repositories import ProjectService, WorkerService
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientUpdate
 from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest

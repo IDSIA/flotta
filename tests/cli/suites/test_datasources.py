@@ -1,6 +1,6 @@
 from ferdelance.cli.fdl_suites.datasources.functions import describe_datasource, list_datasources
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.services import DataSourceService, ProjectService
+from ferdelance.database.repositories import DataSourceService, ProjectService
 from ferdelance.database.tables import Component
 from ferdelance.schemas.datasources import DataSource as DataSourceView
 from ferdelance.schemas.metadata import MetaDataSource

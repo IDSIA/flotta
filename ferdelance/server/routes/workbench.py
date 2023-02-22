@@ -1,7 +1,7 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_USER
-from ferdelance.database.services import (
+from ferdelance.database.repositories import (
     ArtifactService,
     ComponentService,
     DataSourceService,

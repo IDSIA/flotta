@@ -4,7 +4,7 @@ from sqlalchemy.exc import NoResultFound
 
 from ferdelance.database import DataBase
 from ferdelance.schemas.database import ServerModel
-from ferdelance.database.services import ModelService
+from ferdelance.database.repositories import ModelService
 from ferdelance.cli.visualization import show_many, show_one
 
 

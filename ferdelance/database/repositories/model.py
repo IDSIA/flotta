@@ -1,7 +1,7 @@
 from ferdelance.config import conf
 from ferdelance.schemas.database import ServerModel
 from ferdelance.database.tables import Model as ModelDB
-from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.database.repositories.core import AsyncSession, DBSessionService
 
 from sqlalchemy import select
 from uuid import uuid4

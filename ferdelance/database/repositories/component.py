@@ -5,8 +5,8 @@ from ferdelance.database.tables import (
     Event as EventDB,
     Token as TokenDB,
 )
-from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.services.tokens import TokenService
+from ferdelance.database.repositories.core import AsyncSession, DBSessionService
+from ferdelance.database.repositories.tokens import TokenService
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.schemas.components import (
     Component,

@@ -1,5 +1,5 @@
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.services import JobService
+from ferdelance.database.repositories import JobService
 from ferdelance.database.tables import Artifact, Component
 from ferdelance.shared.status import JobStatus
 

@@ -1,5 +1,5 @@
-from ferdelance.database.services import DBSessionService, AsyncSession
-from ferdelance.database.services.settings import KeyValueStore
+from ferdelance.database.repositories import DBSessionService, AsyncSession
+from ferdelance.database.repositories.settings import KeyValueStore
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.decode import HybridDecrypter
 

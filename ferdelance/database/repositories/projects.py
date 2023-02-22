@@ -1,6 +1,6 @@
-from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.services.tokens import TokenService
-from ferdelance.database.services.datasource import DataSourceService
+from ferdelance.database.repositories.core import AsyncSession, DBSessionService
+from ferdelance.database.repositories.tokens import TokenService
+from ferdelance.database.repositories.datasource import DataSourceService
 from ferdelance.database.tables import (
     DataSource as DataSourceDB,
     Project as ProjectDB,

@@ -1,12 +1,12 @@
 from typing import Any
 
-from ferdelance.database.services import (
+from ferdelance.database.repositories import (
     DBSessionService,
     AsyncSession,
     ComponentService,
     JobService,
 )
-from ferdelance.database.services import ComponentService
+from ferdelance.database.repositories import ComponentService
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.components import Client, Token, Application
 from ferdelance.schemas.jobs import Job

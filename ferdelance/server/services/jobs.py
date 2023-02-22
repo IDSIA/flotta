@@ -1,4 +1,4 @@
-from ferdelance.database.services import (
+from ferdelance.database.repositories import (
     DBSessionService,
     AsyncSession,
     ArtifactService,

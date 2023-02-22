@@ -1,5 +1,5 @@
 from ferdelance.database.tables import Artifact as ArtifactDB
-from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.database.repositories.core import AsyncSession, DBSessionService
 from ferdelance.schemas.database import ServerArtifact
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.shared.status import ArtifactJobStatus

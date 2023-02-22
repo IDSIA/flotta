@@ -1,5 +1,5 @@
 from ferdelance.config import conf
-from ferdelance.database.services import ComponentService
+from ferdelance.database.repositories import ComponentService
 from ferdelance.database.tables import (
     Application,
     DataSource as DataSourceDB,

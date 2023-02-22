@@ -1,6 +1,6 @@
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.services import (
+from ferdelance.database.repositories import (
     AsyncSession,
     ComponentService,
     DataSourceService,

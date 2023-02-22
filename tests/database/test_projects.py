@@ -1,4 +1,4 @@
-from ferdelance.database.services import ProjectService
+from ferdelance.database.repositories import ProjectService
 from ferdelance.server.api import api
 from ferdelance.shared.exchange import Exchange
 

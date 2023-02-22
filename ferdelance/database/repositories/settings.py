@@ -1,4 +1,4 @@
-from ferdelance.database.services.core import DBSessionService, AsyncSession
+from ferdelance.database.repositories.core import DBSessionService, AsyncSession
 from ferdelance.database.tables import Setting
 from ferdelance.config import conf
 
