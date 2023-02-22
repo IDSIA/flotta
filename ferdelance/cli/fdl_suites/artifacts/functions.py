@@ -2,7 +2,7 @@
 
 from ferdelance.database import DataBase
 from ferdelance.schemas.database import ServerArtifact
-from ferdelance.database.services import ArtifactService
+from ferdelance.database.repositories import ArtifactRepository
 from ferdelance.cli.visualization import show_many, show_one
 
 from sqlalchemy.exc import NoResultFound
@@ -16,8 +16,8 @@ async def list_artifacts() -> list[ServerArtifact]:
     """
     db = DataBase()
     async with db.async_session() as session:
-        artifact_service: ArtifactService = ArtifactService(session)
-        artifacts: list[ServerArtifact] = await artifact_service.list()
+        artifact_repository: ArtifactRepository = ArtifactRepository(session)
+        artifacts: list[ServerArtifact] = await artifact_repository.list()
         show_many(artifacts)
         return artifacts
 
@@ -39,10 +39,10 @@ async def describe_artifact(artifact_id: str | None) -> ServerArtifact | None:
 
     db = DataBase()
     async with db.async_session() as session:
-        artifact_service: ArtifactService = ArtifactService(session)
+        artifact_repository: ArtifactRepository = ArtifactRepository(session)
 
         try:
-            artifact: ServerArtifact = await artifact_service.get_artifact(artifact_id=artifact_id)
+            artifact: ServerArtifact = await artifact_repository.get_artifact(artifact_id=artifact_id)
             show_one(artifact)
             return artifact
 

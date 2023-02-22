@@ -1,6 +1,6 @@
-from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.services.tokens import TokenService
-from ferdelance.database.services.datasource import DataSourceService
+from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.database.repositories.tokens import TokenRepository
+from ferdelance.database.repositories.datasource import DataSourceRepository
 from ferdelance.database.tables import (
     DataSource as DataSourceDB,
     Project as ProjectDB,
@@ -45,17 +45,17 @@ def view(project: ProjectDB, data: AggregatedDataSource) -> Project:
     )
 
 
-class ProjectService(DBSessionService):
+class ProjectRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-        self.ts: TokenService = TokenService(session)
-        self.dss: DataSourceService = DataSourceService(session)
+        self.tr: TokenRepository = TokenRepository(session)
+        self.dsr: DataSourceRepository = DataSourceRepository(session)
 
     async def create(self, name: str = "", token: str | None = None) -> str:
 
         if token is None:
-            token = await self.ts.project_token(name)
+            token = await self.tr.project_token(name)
 
         res = await self.session.scalars(select(ProjectDB).where(ProjectDB.token == token))
         p = res.one_or_none()
@@ -135,7 +135,7 @@ class ProjectService(DBSessionService):
         )
         p = res.one()
 
-        dss: list[DataSource] = [await self.dss.load(ds.datasource_id) for ds in p.datasources]
+        dss: list[DataSource] = [await self.dsr.load(ds.datasource_id) for ds in p.datasources]
 
         data = AggregatedDataSource.aggregate(dss)
 
@@ -148,7 +148,7 @@ class ProjectService(DBSessionService):
         )
         p = res.one()
 
-        dss: list[DataSource] = [await self.dss.load(ds.datasource_id) for ds in p.datasources]
+        dss: list[DataSource] = [await self.dsr.load(ds.datasource_id) for ds in p.datasources]
 
         data = AggregatedDataSource.aggregate(dss)
 

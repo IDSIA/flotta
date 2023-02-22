@@ -1,5 +1,5 @@
 from ferdelance.config import conf
-from ferdelance.database.services import ComponentService
+from ferdelance.database.repositories import ComponentRepository
 from ferdelance.server.api import api
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
@@ -39,13 +39,13 @@ async def test_workbench_connect(session: AsyncSession):
         client_id = args.client_id
         wb_id = args.workbench_id
 
-        cs: ComponentService = ComponentService(session)
+        cr: ComponentRepository = ComponentRepository(session)
 
         assert client_id is not None
         assert wb_id is not None
 
-        uid = await cs.get_by_id(wb_id)
-        cid = await cs.get_by_id(client_id)
+        uid = await cr.get_by_id(wb_id)
+        cid = await cr.get_by_id(client_id)
 
         assert uid is not None
         assert cid is not None

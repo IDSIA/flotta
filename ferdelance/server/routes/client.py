@@ -1,11 +1,11 @@
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.services import (
+from ferdelance.database.repositories import (
     AsyncSession,
-    ComponentService,
-    DataSourceService,
-    ModelService,
-    ProjectService,
+    ComponentRepository,
+    DataSourceRepository,
+    ModelRepository,
+    ProjectRepository,
 )
 from ferdelance.server.services import (
     ActionService,
@@ -70,7 +70,7 @@ async def client_join(
     """API for new client joining."""
     LOGGER.info("new client join request")
 
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
 
     if request.client is None:
@@ -83,14 +83,14 @@ async def client_join(
         client_public_key = decode_from_transfer(data.public_key)
 
         try:
-            await cs.get_by_key(client_public_key)
+            await cr.get_by_key(client_public_key)
 
             raise HTTPException(403, "Invalid client data")
 
         except NoResultFound as e:
             LOGGER.info("joining new client")
             # create new client
-            client, token = await cs.create_client(
+            client, token = await cr.create_client(
                 version=data.version,
                 public_key=client_public_key,
                 machine_system=data.system,
@@ -101,7 +101,7 @@ async def client_join(
 
             LOGGER.info(f"client_id={client.client_id}: created new client")
 
-            await cs.create_event(client.client_id, "creation")
+            await cr.create_event(client.client_id, "creation")
 
         LOGGER.info(f"client_id={client.client_id}: created new client")
 
@@ -131,12 +131,12 @@ async def client_leave(
     client: Client = Depends(check_access),
 ):
     """API for existing client to be removed"""
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
 
     LOGGER.info(f"client_id={client.client_id}: request to leave")
 
-    await cs.client_leave(client.client_id)
-    await cs.create_event(client.client_id, "left")
+    await cr.client_leave(client.client_id)
+    await cr.create_event(client.client_id, "left")
 
     return {}
 
@@ -154,12 +154,12 @@ async def client_update(
     - nothing (keep alive)
     """
 
+    cr: ComponentRepository = ComponentRepository(session)
     acs: ActionService = ActionService(session)
-    cs: ComponentService = ComponentService(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
-    await cs.create_event(client.client_id, "update")
+    await cr.create_event(client.client_id, "update")
 
     # consume current results (if present) and compute next action
     payload: dict[str, Any] = await ss.read_request(request)
@@ -168,7 +168,7 @@ async def client_update(
 
     LOGGER.debug(f"client_id={client.client_id}: update action={next_action.action}")
 
-    await cs.create_event(client.client_id, f"action:{next_action.action}")
+    await cr.create_event(client.client_id, f"action:{next_action.action}")
 
     return ss.create_response(next_action.dict())
 
@@ -186,17 +186,17 @@ async def client_update_files(
     """
     LOGGER.info(f"client_id={client.client_id}: update files request")
 
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
-    await cs.create_event(client.client_id, "update files")
+    await cr.create_event(client.client_id, "update files")
 
     data = await ss.read_request(request)
     payload = DownloadApp(**data)
 
     try:
-        new_app: Application = await cs.get_newest_app()
+        new_app: Application = await cr.get_newest_app()
 
         if new_app.version != payload.version:
             LOGGER.warning(
@@ -204,7 +204,7 @@ async def client_update_files(
             )
             raise HTTPException(400, "Old versions are not permitted")
 
-        await cs.update_client(client.client_id, version=payload.version)
+        await cr.update_client(client.client_id, version=payload.version)
 
         LOGGER.info(f"client_id={client.client_id}: requested new client version={payload.version}")
 
@@ -225,19 +225,19 @@ async def client_update_metadata(
     """
     LOGGER.info(f"client_id={client.client_id}: update metadata request")
 
-    cs: ComponentService = ComponentService(session)
-    dss: DataSourceService = DataSourceService(session)
-    ps: ProjectService = ProjectService(session)
+    cr: ComponentRepository = ComponentRepository(session)
+    dsr: DataSourceRepository = DataSourceRepository(session)
+    pr: ProjectRepository = ProjectRepository(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
-    await cs.create_event(client.client_id, "update metadata")
+    await cr.create_event(client.client_id, "update metadata")
 
     data = await ss.read_request(request)
     metadata = Metadata(**data)
 
-    await dss.create_or_update_metadata(client.client_id, metadata)  # this will also update metadata
-    await ps.add_datasources_from_metadata(metadata)
+    await dsr.create_or_update_metadata(client.client_id, metadata)  # this will also update metadata
+    await pr.add_datasources_from_metadata(metadata)
 
     return ss.create_response(metadata.dict())
 
@@ -250,12 +250,12 @@ async def client_get_task(
 ):
     LOGGER.info(f"client_id={client.client_id}: new task request")
 
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
     jm: JobManagementService = JobManagementService(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(client.public_key)
-    await cs.create_event(client.client_id, "schedule task")
+    await cr.create_event(client.client_id, "schedule task")
 
     data = await ss.read_request(request)
     payload = UpdateExecute(**data)
@@ -287,9 +287,9 @@ async def client_post_task(
 
     ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
-    ms: ModelService = ModelService(session)
+    mr: ModelRepository = ModelRepository(session)
 
-    model_db = await ms.create_local_model(artifact_id, client.client_id)
+    model_db = await mr.create_local_model(artifact_id, client.client_id)
 
     await ss.setup(client.public_key)
     await ss.stream_decrypt_file(request, model_db.path)

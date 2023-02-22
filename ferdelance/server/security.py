@@ -1,7 +1,7 @@
 from ferdelance.config import conf
 from ferdelance.database import AsyncSession, get_session
 from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
-from ferdelance.database.services import ComponentService, KeyValueStore
+from ferdelance.database.repositories import ComponentRepository, KeyValueStore
 from ferdelance.schemas.components import Client, Component, Token
 from ferdelance.shared.exchange import Exchange
 
@@ -84,10 +84,10 @@ async def check_token(
     """
     given_token: str = credentials.credentials  # type: ignore
 
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
 
     try:
-        token: Token = await cs.get_token_by_token(given_token)
+        token: Token = await cr.get_token_by_token(given_token)
 
     except NoResultFound:
         LOGGER.warning("received token does not exist in database")
@@ -103,13 +103,13 @@ async def check_token(
 
     if token.creation_time + timedelta(seconds=token.expiration_time) < datetime.now(token.creation_time.tzinfo):
         LOGGER.warning(f"component_id={component_id}: received expired token: invalidating")
-        await cs.invalidate_tokens(component_id)
+        await cr.invalidate_tokens(component_id)
         # allow access only for a single time, since the token update has priority
 
     LOGGER.debug(f"component_id={component_id}: received valid token")
 
     try:
-        component: Component | Client = await cs.get_by_id(component_id)
+        component: Component | Client = await cr.get_by_id(component_id)
 
         if component.left or not component.active:
             LOGGER.warning("Component that left or has been deactivated tried to connect!")

@@ -1,11 +1,11 @@
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.database.services import DBSessionService, AsyncSession
+from ferdelance.database.repositories import Repository, AsyncSession
 from ferdelance.database.tables import Token, Component
 
 from sqlalchemy import select
 
 
-class WorkerService(DBSessionService):
+class WorkerRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 

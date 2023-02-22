@@ -1,4 +1,4 @@
-from ferdelance.database.services.core import DBSessionService, AsyncSession
+from ferdelance.database.repositories.core import Repository, AsyncSession
 from ferdelance.database.tables import Setting
 from ferdelance.config import conf
 
@@ -36,7 +36,7 @@ def build_settings_cipher() -> Fernet:
     return Fernet(smp2)
 
 
-class KeyValueStore(DBSessionService):
+class KeyValueStore(Repository):
     def __init__(self, session: AsyncSession, encode: str = "utf8") -> None:
         super().__init__(session)
         self.cipher = build_settings_cipher()

@@ -1,6 +1,6 @@
 from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
-from ferdelance.database.services.core import AsyncSession, DBSessionService
-from ferdelance.database.services.component import viewClient, ComponentDB, Client
+from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.database.repositories.component import viewClient, ComponentDB, Client
 from ferdelance.schemas.metadata import Metadata, MetaDataSource
 from ferdelance.schemas.datasources import DataSource, Feature
 from ferdelance.config import conf
@@ -35,7 +35,7 @@ def view(datasource: DataSourceDB, features: list[Feature]) -> DataSource:
     )
 
 
-class DataSourceService(DBSessionService):
+class DataSourceRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 

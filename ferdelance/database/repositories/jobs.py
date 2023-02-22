@@ -1,5 +1,5 @@
 from ferdelance.database.tables import Job as JobDB
-from ferdelance.database.services.core import AsyncSession, DBSessionService
+from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.jobs import Job
 from ferdelance.shared.status import JobStatus
 
@@ -25,7 +25,7 @@ def view(job: JobDB) -> Job:
     )
 
 
-class JobService(DBSessionService):
+class JobRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 

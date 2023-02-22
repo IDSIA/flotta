@@ -1,5 +1,5 @@
 from ferdelance.config import conf
-from ferdelance.database.services import ComponentService
+from ferdelance.database.repositories import ComponentRepository
 from ferdelance.database.tables import (
     Application,
     DataSource as DataSourceDB,
@@ -73,20 +73,20 @@ async def test_client_connect_successful(session: AsyncSession, exchange: Exchan
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(session)
+        cr: ComponentRepository = ComponentRepository(session)
 
-        db_client: Component | Client = await cs.get_by_id(client_id)
+        db_client: Component | Client = await cr.get_by_id(client_id)
 
         assert isinstance(db_client, Client)
         assert db_client.active
 
-        db_token: Token = await cs.get_token_by_component_id(client_id)
+        db_token: Token = await cr.get_token_by_component_id(client_id)
 
         assert db_token is not None
         assert db_token.token == exchange.token
         assert db_token.valid
 
-        db_events: list[Event] = await cs.get_events(client_id)
+        db_events: list[Event] = await cr.get_events(client_id)
 
         assert len(db_events) == 1
         assert db_events[0].event == "creation"
@@ -99,9 +99,9 @@ async def test_client_already_exists(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(session)
+        cr: ComponentRepository = ComponentRepository(session)
 
-        client_db: Client = await cs.get_client_by_id(client_id)
+        client_db: Client = await cr.get_client_by_id(client_id)
 
         assert client_db is not None
         assert client_db.machine_system is not None
@@ -132,14 +132,14 @@ async def test_client_update(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(session)
+        cr: ComponentRepository = ComponentRepository(session)
 
         status_code, action, _ = client_update(client, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.DO_NOTHING
 
-        db_events: list[Event] = await cs.get_events(client_id)
+        db_events: list[Event] = await cr.get_events(client_id)
         events: list[str] = [e.event for e in db_events]
 
         assert len(events) == 3
@@ -154,7 +154,7 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(session)
+        cr: ComponentRepository = ComponentRepository(session)
 
         response_leave = client.post("/client/leave", headers=exchange.headers())
 
@@ -167,13 +167,13 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
 
         assert status_code == 403
 
-        db_client: Client = await cs.get_client_by_id(client_id)
+        db_client: Client = await cr.get_client_by_id(client_id)
 
         assert db_client is not None
         assert db_client.active is False
         assert db_client.left
 
-        db_events: list[Event] = await cs.get_events(client_id)
+        db_events: list[Event] = await cr.get_events(client_id)
         events: list[str] = [e.event for e in db_events]
 
         assert "creation" in events
@@ -186,8 +186,6 @@ async def test_client_update_token(session: AsyncSession, exchange: Exchange):
     """This will test the failure and update of a token."""
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
-
-        cs: ComponentService = ComponentService(session)
 
         # expire token
         await session.execute(update(TokenDB).where(TokenDB.component_id == client_id).values(expiration_time=0))
@@ -232,9 +230,9 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
         client_id = create_client(client, exchange)
 
-        cs: ComponentService = ComponentService(session)
+        cr: ComponentRepository = ComponentRepository(session)
 
-        client_db: Client = await cs.get_client_by_id(client_id)
+        client_db: Client = await cr.get_client_by_id(client_id)
 
         assert client_db is not None
 
@@ -321,7 +319,7 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
             assert update_client_app.checksum == checksum
             assert json.loads(content) == {"version": version_app}
 
-        client_db: Client = await cs.get_client_by_id(client_id)
+        client_db: Client = await cr.get_client_by_id(client_id)
 
         assert client_db is not None
         assert client_db.version == version_app
