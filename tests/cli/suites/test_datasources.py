@@ -1,6 +1,6 @@
 from ferdelance.cli.fdl_suites.datasources.functions import describe_datasource, list_datasources
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.repositories import DataSourceService, ProjectService
+from ferdelance.database.repositories import DataSourceRepository, ProjectRepository
 from ferdelance.database.tables import Component
 from ferdelance.schemas.datasources import DataSource as DataSourceView
 from ferdelance.schemas.metadata import MetaDataSource
@@ -38,12 +38,12 @@ async def populate_test_db(session: AsyncSession):
 
     await session.commit()
 
-    dss = DataSourceService(session)
-    ps = ProjectService(session)
+    dsr: DataSourceRepository = DataSourceRepository(session)
+    pr: ProjectRepository = ProjectRepository(session)
 
-    await ps.create("test")
+    await pr.create("test")
 
-    ds1 = await dss.create_or_update_datasource(
+    ds1 = await dsr.create_or_update_datasource(
         c1.component_id,
         MetaDataSource(
             name="DS1",
@@ -54,7 +54,7 @@ async def populate_test_db(session: AsyncSession):
             features=[],
         ),
     )
-    ds2 = await dss.create_or_update_datasource(
+    ds2 = await dsr.create_or_update_datasource(
         c1.component_id,
         MetaDataSource(
             name="DS2",
@@ -65,7 +65,7 @@ async def populate_test_db(session: AsyncSession):
             features=[],
         ),
     )
-    ds3 = await dss.create_or_update_datasource(
+    ds3 = await dsr.create_or_update_datasource(
         c2.component_id,
         MetaDataSource(
             name="DS3",

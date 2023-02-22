@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.database.repositories import ProjectService, WorkerService
+from ferdelance.database.repositories import ProjectRepository, WorkerRepository
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientUpdate
 from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
@@ -62,8 +62,8 @@ def create_client(client: TestClient, exc: Exchange) -> str:
 
 async def setup_worker(session: AsyncSession, exchange: Exchange):
     try:
-        ws: WorkerService = WorkerService(session)
-        worker_token = await ws.get_worker_token()
+        wr: WorkerRepository = WorkerRepository(session)
+        worker_token = await wr.get_worker_token()
 
         exchange.set_token(worker_token)
 
@@ -135,7 +135,7 @@ def send_metadata(client: TestClient, exc: Exchange, metadata: Metadata) -> Resp
 
 
 async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> str:
-    ps = ProjectService(session)
+    ps = ProjectRepository(session)
 
     await ps.create("example", p_token)
 

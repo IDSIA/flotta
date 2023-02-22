@@ -1,4 +1,4 @@
-from ferdelance.database.repositories import ProjectService
+from ferdelance.database.repositories import ProjectRepository
 from ferdelance.server.api import api
 from ferdelance.shared.exchange import Exchange
 
@@ -21,13 +21,13 @@ async def test_load_project(session: AsyncSession, exchange: Exchange):
         create_client(client, exchange)
         send_metadata(client, exchange, metadata)
 
-        ps: ProjectService = ProjectService(session)
+        pr: ProjectRepository = ProjectRepository(session)
 
-        list_project = await ps.get_project_list()
+        list_project = await pr.get_project_list()
 
         assert len(list_project) == 2
 
-        p = await ps.get_by_token(p_token)
+        p = await pr.get_by_token(p_token)
 
         assert p.n_datasources == 1
         assert p.data.n_features == 2

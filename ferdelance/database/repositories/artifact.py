@@ -1,5 +1,5 @@
 from ferdelance.database.tables import Artifact as ArtifactDB
-from ferdelance.database.repositories.core import AsyncSession, DBSessionService
+from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.database import ServerArtifact
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.shared.status import ArtifactJobStatus
@@ -24,7 +24,7 @@ def view(artifact: ArtifactDB) -> ServerArtifact:
     )
 
 
-class ArtifactService(DBSessionService):
+class ArtifactRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 

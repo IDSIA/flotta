@@ -1,5 +1,5 @@
 from ferdelance.database.tables import Token
-from ferdelance.database.repositories import DBSessionService, AsyncSession
+from ferdelance.database.repositories import Repository, AsyncSession
 from ferdelance.database.repositories.settings import (
     KeyValueStore,
     KEY_CLIENT_TOKEN_EXPIRATION,
@@ -17,7 +17,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class TokenService(DBSessionService):
+class TokenRepository(Repository):
     """This is an internal service used by ComponentService."""
 
     def __init__(self, session: AsyncSession, encoding: str = "utf8") -> None:

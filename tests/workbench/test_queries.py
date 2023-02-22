@@ -152,8 +152,8 @@ def test_query_composition():
     assert params["feature"] == f1.name
     assert "operation" in params
     assert params["operation"] == Operations.NUM_GREATER_THAN.name
-    assert "parameter" in params
-    assert params["parameter"] == "3"
+    assert "value" in params
+    assert params["value"] == "3"
 
     # adding a transformer
 

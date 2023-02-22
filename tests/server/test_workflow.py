@@ -81,7 +81,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
             load=TrainTestSplit(
                 label=datasource.features[0].name,
                 test_percentage=0.5,
-            ),
+            ).build(),
         )
 
         res = server.post(
@@ -177,7 +177,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
             assert len(art.transform.stages) == 1
             assert len(art.transform.stages[0].features) == 2
             assert art.load is not None
-            assert art.load.label == datasource.features[0].name
+            assert art.load.params["label"] == datasource.features[0].name
 
         # cleanup
 

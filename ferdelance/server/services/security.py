@@ -1,4 +1,4 @@
-from ferdelance.database.repositories import DBSessionService, AsyncSession
+from ferdelance.database.repositories import Repository, AsyncSession
 from ferdelance.database.repositories.settings import KeyValueStore
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.decode import HybridDecrypter
@@ -19,7 +19,7 @@ PUBLIC_KEY = "SERVER_KEY_PUBLIC"
 PRIVATE_KEY = "SERVER_KEY_PRIVATE"
 
 
-class SecurityService(DBSessionService):
+class SecurityService(Repository):
     def __init__(self, db: AsyncSession) -> None:
         super().__init__(db)
 

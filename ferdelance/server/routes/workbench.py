@@ -2,11 +2,11 @@ from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_USER
 from ferdelance.database.repositories import (
-    ArtifactService,
-    ComponentService,
-    DataSourceService,
-    ModelService,
-    ProjectService,
+    ArtifactRepository,
+    ComponentRepository,
+    DataSourceRepository,
+    ModelRepository,
+    ProjectRepository,
 )
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.workbench import (
@@ -75,24 +75,24 @@ async def wb_home():
 async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends(get_session)):
     LOGGER.info("new workbench connected")
 
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
 
     try:
         user_public_key = decode_from_transfer(data.public_key)
 
         try:
-            user = await cs.get_by_key(user_public_key)
+            user = await cr.get_by_key(user_public_key)
 
             try:
-                token: Token = await cs.get_token_by_component_id(user.component_id)
+                token: Token = await cr.get_token_by_component_id(user.component_id)
 
             except NoResultFound:
                 raise HTTPException(403, "Invalid user access")
 
         except NoResultFound:
             # creating new user
-            user, token = await cs.create(TYPE_USER, public_key=user_public_key)
+            user, token = await cr.create(TYPE_USER, public_key=user_public_key)
 
             LOGGER.info(f"user_id={user.component_id}: created new user")
 
@@ -124,18 +124,18 @@ async def wb_get_client_list(
 ):
     LOGGER.info(f"user_id={user.component_id}: requested a list of clients")
 
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
-    ps: ProjectService = ProjectService(session)
+    pr: ProjectRepository = ProjectRepository(session)
 
     await ss.setup(user.public_key)
 
     data = await ss.read_request(request)
     wpt = WorkbenchProjectToken(**data)
 
-    client_ids = await ps.client_ids(wpt.token)
+    client_ids = await pr.client_ids(wpt.token)
 
-    clients = await cs.list_clients_by_ids(client_ids)
+    clients = await cr.list_clients_by_ids(client_ids)
 
     client_details = [ClientDetails(**c.dict()) for c in clients]
 
@@ -152,18 +152,18 @@ async def wb_get_datasource_list(
 ):
     LOGGER.info(f"user_id={user.component_id}: requested a list of available data source")
 
-    dss: DataSourceService = DataSourceService(session)
+    dsr: DataSourceRepository = DataSourceRepository(session)
     ss: SecurityService = SecurityService(session)
-    ps: ProjectService = ProjectService(session)
+    pr: ProjectRepository = ProjectRepository(session)
 
     await ss.setup(user.public_key)
 
     data = await ss.read_request(request)
     wpt = WorkbenchProjectToken(**data)
 
-    datasource_ids = await ps.datasources_ids(wpt.token)
+    datasource_ids = await pr.datasources_ids(wpt.token)
 
-    datasources = [await dss.load(ds_id) for ds_id in datasource_ids]
+    datasources = [await dsr.load(ds_id) for ds_id in datasource_ids]
 
     wdsl = WorkbenchDataSourceIdList(datasources=datasources)
 
@@ -209,7 +209,7 @@ async def wb_get_artifact_status(
 ):
     LOGGER.info(f"user_id={user.component_id}: requested status of an artifact")
 
-    ars: ArtifactService = ArtifactService(session)
+    ar: ArtifactRepository = ArtifactRepository(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(user.public_key)
@@ -218,7 +218,7 @@ async def wb_get_artifact_status(
     artifact = WorkbenchArtifact(**data)
 
     try:
-        status: ArtifactStatus = await ars.get_status(artifact.artifact_id)
+        status: ArtifactStatus = await ar.get_status(artifact.artifact_id)
 
         # TODO: get status from celery
 
@@ -261,7 +261,7 @@ async def wb_get_model(
     user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}: requested aggregate model for an artifact")
-    ms: ModelService = ModelService(session)
+    mr: ModelRepository = ModelRepository(session)
     ss: SecurityService = SecurityService(session)
     await ss.setup(user.public_key)
 
@@ -270,7 +270,7 @@ async def wb_get_model(
     artifact_id = artifact.artifact_id
 
     try:
-        model_db: ServerModel = await ms.get_aggregated_model(artifact_id)
+        model_db: ServerModel = await mr.get_aggregated_model(artifact_id)
 
         model_path = model_db.path
 
@@ -309,12 +309,12 @@ async def wb_get_partial_model(
     )
 
     try:
-        ms: ModelService = ModelService(session)
+        mr: ModelRepository = ModelRepository(session)
         ss: SecurityService = SecurityService(session)
 
         await ss.setup(user.public_key)
 
-        model_db: ServerModel = await ms.get_partial_model(artifact_id, builder_user_id)
+        model_db: ServerModel = await mr.get_partial_model(artifact_id, builder_user_id)
 
         model_path = model_db.path
 
@@ -346,7 +346,7 @@ async def wb_get_project(
 ):
     LOGGER.info(f"user_id={user.component_id}: requested a project given its token")
 
-    pss: ProjectService = ProjectService(session)
+    pr: ProjectRepository = ProjectRepository(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(user.public_key)
@@ -357,7 +357,7 @@ async def wb_get_project(
     try:
         LOGGER.info(f"user_id={user.component_id}: requested a project given its token")
 
-        project: Project = await pss.get_by_token(token=wpt.token)
+        project: Project = await pr.get_by_token(token=wpt.token)
 
         LOGGER.info(f"Loaded project with project_id={project.project_id}")
 

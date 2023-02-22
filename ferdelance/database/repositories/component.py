@@ -5,8 +5,8 @@ from ferdelance.database.tables import (
     Event as EventDB,
     Token as TokenDB,
 )
-from ferdelance.database.repositories.core import AsyncSession, DBSessionService
-from ferdelance.database.repositories.tokens import TokenService
+from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.database.repositories.tokens import TokenRepository
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.schemas.components import (
     Component,
@@ -80,13 +80,13 @@ def viewApplication(app: ApplicationDB) -> Application:
     return Application(**app.__dict__)
 
 
-class ComponentService(DBSessionService):
+class ComponentRepository(Repository):
     """Service used to manage components."""
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-        self.ts: TokenService = TokenService(session)
+        self.tr: TokenRepository = TokenRepository(session)
 
     async def create_types(self, type_names: list[str]):
         dirty: bool = False
@@ -130,7 +130,7 @@ class ComponentService(DBSessionService):
             LOGGER.warning(f"A {TYPE_CLIENT} already exists with component_id={existing_id}")
             raise ValueError("Client already exists")
 
-        token: TokenDB = await self.ts.generate_client_token(
+        token: TokenDB = await self.tr.generate_client_token(
             system=machine_system,
             mac_address=machine_mac_address,
             node=machine_node,
@@ -149,7 +149,7 @@ class ComponentService(DBSessionService):
 
         self.session.add(component)
 
-        await self.ts.create_token(token)
+        await self.tr.create_token(token)
         await self.session.commit()
         await self.session.refresh(component)
         await self.session.refresh(token)
@@ -168,7 +168,7 @@ class ComponentService(DBSessionService):
             LOGGER.warning(f"user_id={existing_user_id}: user already exists")
             raise ValueError("User already exists")
 
-        token: TokenDB = await self.ts.generate_token()
+        token: TokenDB = await self.tr.generate_token()
 
         component = ComponentDB(
             component_id=token.component_id,
@@ -178,7 +178,7 @@ class ComponentService(DBSessionService):
 
         self.session.add(component)
 
-        await self.ts.create_token(token)
+        await self.tr.create_token(token)
         await self.session.commit()
         await self.session.refresh(component)
         await self.session.refresh(token)
@@ -186,7 +186,7 @@ class ComponentService(DBSessionService):
         return viewComponent(component), viewToken(token)
 
     async def has_valid_token(self, client_id: str) -> bool:
-        n_tokens: int = await self.ts.count_valid_tokens(client_id)
+        n_tokens: int = await self.tr.count_valid_tokens(client_id)
 
         LOGGER.debug(f"client_id={client_id}: found {n_tokens} valid token(s)")
 
@@ -265,10 +265,10 @@ class ComponentService(DBSessionService):
         return [viewClient(c) for c in res.all()]
 
     async def invalidate_tokens(self, component_id: str) -> None:
-        await self.ts.invalidate_tokens(component_id)
+        await self.tr.invalidate_tokens(component_id)
 
     async def update_client_token(self, client: Client) -> Token:
-        token = await self.ts.update_client_token(
+        token = await self.tr.update_client_token(
             client.machine_system,
             client.machine_mac_address,
             client.machine_node,

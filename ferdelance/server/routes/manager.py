@@ -4,9 +4,9 @@ from ferdelance.database import get_session, AsyncSession
 from ferdelance.schemas.database import ServerModel
 from ferdelance.schemas.components import Client
 from ferdelance.database.repositories import (
-    ModelService,
-    ComponentService,
-    JobService,
+    ModelRepository,
+    ComponentRepository,
+    JobRepository,
 )
 from ferdelance.database.tables import (
     Application,
@@ -130,9 +130,9 @@ async def manager_upload_artifact(file: UploadFile, session: AsyncSession = Depe
 
 @manager_router.get("/manager/client/list")
 async def manager_client_list(session: AsyncSession = Depends(get_session)):
-    cs: ComponentService = ComponentService(session)
+    mr: ComponentRepository = ComponentRepository(session)
 
-    clients: list[Client] = await cs.list_clients()
+    clients: list[Client] = await mr.list_clients()
 
     return [
         {
@@ -147,24 +147,24 @@ async def manager_client_list(session: AsyncSession = Depends(get_session)):
 @manager_router.get("/manager/client/remove/{client_id}")
 async def manager_remove_client(client_id: str, session: AsyncSession = Depends(get_session)):
     # TODO: this endpoint need to be made secure!
-    cs: ComponentService = ComponentService(session)
+    cr: ComponentRepository = ComponentRepository(session)
 
     LOGGER.info(f"client_id={client_id}: MANAGER request to leave")
 
-    client: Client | None = await cs.get_client_by_id(client_id)
+    client: Client | None = await cr.get_client_by_id(client_id)
 
     if client is None:
         raise HTTPException(404)
 
-    await cs.client_leave(client_id)
-    await cs.create_event(client_id, "left")
+    await cr.client_leave(client_id)
+    await cr.create_event(client_id, "left")
 
 
 @manager_router.get("/manager/jobs/status")
 async def manager_jobs_status(session: AsyncSession = Depends(get_session)):
-    js: JobService = JobService(session)
+    jr: JobRepository = JobRepository(session)
 
-    jobs = await js.get_jobs_all()
+    jobs = await jr.get_jobs_all()
 
     return [
         {
@@ -178,9 +178,9 @@ async def manager_jobs_status(session: AsyncSession = Depends(get_session)):
 
 @manager_router.get("/manager/jobs/status/{client_id}")
 async def manager_client_job_status(client_id: str, session: AsyncSession = Depends(get_session)):
-    js: JobService = JobService(session)
+    jr: JobRepository = JobRepository(session)
 
-    jobs = await js.get_jobs_for_client(client_id)
+    jobs = await jr.get_jobs_for_client(client_id)
 
     return [
         {
@@ -194,9 +194,9 @@ async def manager_client_job_status(client_id: str, session: AsyncSession = Depe
 
 @manager_router.get("/manager/models")
 async def manager_models_list(session: AsyncSession = Depends(get_session)):
-    ms = ModelService(session)
+    mr: ModelRepository = ModelRepository(session)
 
-    model_sessions: list[ServerModel] = await ms.get_model_list()
+    model_sessions: list[ServerModel] = await mr.get_model_list()
 
     return [
         {

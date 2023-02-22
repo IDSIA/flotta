@@ -1,12 +1,12 @@
 from typing import Any
 
 from ferdelance.database.repositories import (
-    DBSessionService,
+    Repository,
     AsyncSession,
-    ComponentService,
-    JobService,
+    ComponentRepository,
+    JobRepository,
 )
-from ferdelance.database.repositories import ComponentService
+from ferdelance.database.repositories import ComponentRepository
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.components import Client, Token, Application
 from ferdelance.schemas.jobs import Job
@@ -24,12 +24,12 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class ActionService(DBSessionService):
+class ActionService(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-        self.js: JobService = JobService(session)
-        self.cs: ComponentService = ComponentService(session)
+        self.jr: JobRepository = JobRepository(session)
+        self.cr: ComponentRepository = ComponentRepository(session)
 
     async def _check_client_token(self, client: Client) -> bool:
         """Checks if the token is still valid or if there is a new version.
@@ -37,7 +37,7 @@ class ActionService(DBSessionService):
         :return:
             True if no valid token is found, otherwise False.
         """
-        return await self.cs.has_valid_token(client.client_id)
+        return await self.cr.has_valid_token(client.client_id)
 
     async def _action_update_token(self, client: Client) -> UpdateToken:
         """Generates a new valid token.
@@ -45,9 +45,9 @@ class ActionService(DBSessionService):
         :return:
             The 'update_token' action and a string with the new token.
         """
-        cs: ComponentService = ComponentService(self.session)
+        cr: ComponentRepository = ComponentRepository(self.session)
 
-        token: Token = await cs.update_client_token(client)
+        token: Token = await cr.update_client_token(client)
 
         return UpdateToken(action=Action.UPDATE_TOKEN.name, token=token.token)
 
@@ -58,7 +58,7 @@ class ActionService(DBSessionService):
             True if there is a new version and this version is different from the current client version.
         """
         try:
-            app: Application = await self.cs.get_newest_app()
+            app: Application = await self.cr.get_newest_app()
 
             LOGGER.debug(f"client_id={client.client_id}: version={client.version} newest_version={app.version}")
 
@@ -74,7 +74,7 @@ class ActionService(DBSessionService):
             Fetch and return the version to download.
         """
 
-        new_client: Application = await self.cs.get_newest_app()
+        new_client: Application = await self.cr.get_newest_app()
 
         return UpdateClientApp(
             action=Action.UPDATE_CLIENT.name,
@@ -84,7 +84,7 @@ class ActionService(DBSessionService):
         )
 
     async def _check_scheduled_job(self, client: Client) -> Job:
-        return await self.js.next_job_for_client(client.client_id)
+        return await self.jr.next_job_for_client(client.client_id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateExecute:
         return UpdateExecute(action=Action.EXECUTE.name, artifact_id=job.artifact_id)

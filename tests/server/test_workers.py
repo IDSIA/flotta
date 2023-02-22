@@ -2,7 +2,7 @@ from ferdelance.database.tables import (
     Artifact as ArtifactDB,
     Model as ModelDB,
 )
-from ferdelance.database.repositories import ProjectService
+from ferdelance.database.repositories import ProjectRepository
 from ferdelance.server.api import api
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.models import Model
@@ -44,8 +44,8 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         await setup_worker(session, exchange)
 
         # prepare new artifact
-        ps = ProjectService(session)
-        project = await ps.get_by_token(TEST_PROJECT_TOKEN)
+        pr: ProjectRepository = ProjectRepository(session)
+        project = await pr.get_by_token(TEST_PROJECT_TOKEN)
 
         artifact = Artifact(
             artifact_id=None,
