@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import Any
 
+from abc import ABCMeta, abstractmethod
+
 from .metrics import Metrics
 
-from datetime import datetime
 from pydantic import BaseModel
 
 import numpy as np
@@ -28,7 +29,7 @@ class Model(BaseModel):
     parameters: dict[str, Any] = dict()
 
 
-class GenericModel:
+class GenericModel(metaclass=ABCMeta):
     """This is the class that can manipulate real models."""
 
     def load(self, path: str) -> None:
@@ -51,6 +52,7 @@ class GenericModel:
         with open(path, "wb") as f:
             pickle.dump(self.model, f)
 
+    @abstractmethod
     def train(self, x, y) -> None:
         """Perform a training using local data produced with a Query, a Pipeline, or a Dataset.
         This method is used by the clients to train the partial models.
@@ -62,6 +64,7 @@ class GenericModel:
         """
         raise NotImplementedError()
 
+    @abstractmethod
     def aggregate(self, strategy: str, model_a, model_b):
         """Aggregates two models and produces a new one, following the given strategy. This aggregation
         function is called from the workers on the server that perform aggregations.
@@ -80,6 +83,7 @@ class GenericModel:
         """
         raise NotImplementedError()
 
+    @abstractmethod
     def predict(self, x) -> np.ndarray:
         """Predict the probabilities for the given instances of features.
 
@@ -112,6 +116,7 @@ class GenericModel:
             confusion_matrix_TN=cf[1, 1],
         )
 
+    @abstractmethod
     def build(self) -> Model:
         """Convert this GenericModel to a Model that can be sent to the aggregation server
         for the federate learning training procedure.

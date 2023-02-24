@@ -32,6 +32,8 @@ class Component(Base):
     component_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
 
+    name: Mapped[str] = mapped_column(nullable=True)
+
     type_name: Mapped[str] = mapped_column(ForeignKey("component_types.type"))
     type = relationship("ComponentType")
 

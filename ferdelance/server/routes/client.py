@@ -91,6 +91,7 @@ async def client_join(
             LOGGER.info("joining new client")
             # create new client
             client, token = await cr.create_client(
+                name=data.name,
                 version=data.version,
                 public_key=client_public_key,
                 machine_system=data.system,

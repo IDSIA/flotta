@@ -1,4 +1,5 @@
 from typing import Any
+from abc import ABCMeta, abstractmethod
 
 from ferdelance.schemas.models import GenericModel, Metrics
 
@@ -18,7 +19,7 @@ class LoadingPlan(BaseModel):
     params: dict[str, Any]
 
 
-class BasePlan:
+class BasePlan(metaclass=ABCMeta):
     """Describe how to train and evaluate a model based on the input data source."""
 
     def __init__(self, name: str, label: str, random_seed: float | None = None) -> None:
@@ -42,11 +43,11 @@ class BasePlan:
             params=self.params(),
         )
 
+    @abstractmethod
     def load(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> None:
         raise NotImplementedError()
 
     def validate_input(self, df: pd.DataFrame) -> None:
-
         if self.label is None:
             msg = "label is not defined!"
             LOGGER.error(msg)

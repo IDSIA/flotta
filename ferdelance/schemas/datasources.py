@@ -243,10 +243,6 @@ class AggregatedDataSource(BaseDataSource):
 
         return f"\n".join(lines)
 
-    def describe(self) -> str:
-        # TODO
-        raise NotImplementedError()
-
     def extract(self) -> Query:
         """Proceeds on extracting all the features and creating a transformation
         query from this data source.

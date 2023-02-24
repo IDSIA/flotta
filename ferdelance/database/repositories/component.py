@@ -31,6 +31,7 @@ def viewComponent(component: ComponentDB) -> Component:
         active=component.active,
         left=component.left,
         type_name=component.type_name,
+        name=component.name,
     )
 
 
@@ -105,6 +106,7 @@ class ComponentRepository(Repository):
 
     async def create_client(
         self,
+        name: str,
         version: str,
         public_key: str,
         machine_system: str,
@@ -113,7 +115,7 @@ class ComponentRepository(Repository):
         ip_address: str,
     ) -> tuple[Client, Token]:
         LOGGER.info(
-            f"creating new type={TYPE_CLIENT} version={version} mac_address={machine_mac_address} node={machine_node}"
+            f"creating new type={TYPE_CLIENT} version={version} mac_address={machine_mac_address} node={machine_node} name={name}"
         )
 
         res = await self.session.scalars(
@@ -145,6 +147,7 @@ class ComponentRepository(Repository):
             machine_node=machine_node,
             ip_address=ip_address,
             type_name=TYPE_CLIENT,
+            name=name,
         )
 
         self.session.add(component)
@@ -174,6 +177,7 @@ class ComponentRepository(Repository):
             component_id=token.component_id,
             public_key=public_key,
             type_name=type_name,
+            name="",
         )
 
         self.session.add(component)

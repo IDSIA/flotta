@@ -18,6 +18,7 @@ LOGGER = logging.getLogger(__name__)
 
 class Config:
     def __init__(self, args: ArgumentsConfig) -> None:
+        self.name: str = args.name
         self.server: str = args.server.rstrip("/")
         self.heartbeat: float = args.heartbeat
         self.workdir: str = args.workdir

@@ -65,7 +65,7 @@ class Query(BaseModel):
             )
         )
 
-    def add(self, op: QueryFilter | QueryTransformer | Transformer) -> None:
+    def append(self, op: QueryFilter | QueryTransformer | Transformer) -> None:
         if isinstance(op, Transformer):
             op = op.build()
 
@@ -76,6 +76,20 @@ class Query(BaseModel):
         if isinstance(op, QueryFilter):
             self.add_filter(op)
             return
+
+        raise ValueError(f"Unsupported type for query with input op={op}")
+
+    def add(self, op: QueryFilter | QueryTransformer | Transformer) -> Query:
+        if isinstance(op, Transformer):
+            op = op.build()
+
+        if isinstance(op, QueryTransformer):
+            self.add_transformer(op)
+            return self.copy()
+
+        if isinstance(op, QueryFilter):
+            self.add_filter(op)
+            return self.copy()
 
         raise ValueError(f"Unsupported type for query with input op={op}")
 

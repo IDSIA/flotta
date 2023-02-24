@@ -5,6 +5,9 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
+from ferdelance.schemas.queries import Query
+from ferdelance.schemas.models import GenericModel
+from ferdelance.schemas.plans import BasePlan
 from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
     WorkbenchClientList,
@@ -153,7 +156,11 @@ class Context:
 
         return data.datasources
 
-    def submit(self, artifact: Artifact) -> Artifact:
+    def execute(self, project: Project, query: Query) -> None:
+        """Execute a statistical query."""
+        raise NotImplementedError()
+
+    def submit(self, project: Project, model: GenericModel, transform: Query, plan: BasePlan) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
 
         :param artifact:
@@ -165,6 +172,13 @@ class Context:
             The same input artifact with an assigned artifact_id.
             If the `ret_status` flag is true, the status of the artifact is also returned.
         """
+        artifact: Artifact = Artifact(
+            project_id=project.project_id,
+            model=model.build(),
+            transform=transform,
+            load=plan.build(),
+        )
+
         res = requests.post(
             f"{self.server}/workbench/artifact/submit",
             headers=self.exc.headers(),
