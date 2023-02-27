@@ -88,14 +88,16 @@ s1 = q.groupby(q["variety"])
 s1 = s1.count()
 
 # TODO: these statistics requires a new scheduler and a cache system on the client
-ret = ctx.execute(project, s1)  # TODO: submit with polling?
+
+# this is a special kind of submit where the request hangs until the results is available
+ret = ctx.execute(project, s1)
 
 # output is something like:
 # submit: .........done!
 
 # %% statistics 2
 
-s2 = q.mean()
+s2 = q.mean(q["variety"])
 
 ret = ctx.execute(project, s1)
 
