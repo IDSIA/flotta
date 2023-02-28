@@ -13,6 +13,7 @@ from ferdelance.schemas.models import (
     StrategyRandomForestClassifier,
 )
 from ferdelance.schemas.plans import TrainTestSplit
+from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
 
 import numpy as np
 
@@ -34,7 +35,6 @@ project: Project = ctx.load(project_token)  # if None check for environment vari
 # %% What is this project?
 
 print(project)
-
 
 # %% (for DEBUG) ask the context for clients of a project
 clients: list[Client] = ctx.clients(project)
@@ -72,15 +72,19 @@ q = ds.extract()
 # inspect a feature data type
 feature = q["variety"]
 
+print(feature)
+
 # add filter
 q = q.add(q["variety"] < 2)
 
-# add transformer
-from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
+# %% add transformer
 
-transformer = FederatedKBinsDiscretizer(q["variety"], "variety_discr")
-
-q = q.add(transformer)
+q = q.add(
+    FederatedKBinsDiscretizer(
+        q["variety"],
+        "variety_discr",
+    )
+)
 
 # %% statistics 1
 
@@ -101,24 +105,27 @@ s2 = q.mean(q["variety"])
 
 ret = ctx.execute(project, s1)
 
+# %% create an execution plan
+
+q = q.add_plan(
+    TrainTestSplit(
+        label="variety",
+        test_percentage=0.5,
+    )
+)
 
 # %% develop a model
 
-m = FederatedRandomForestClassifier(
-    strategy=StrategyRandomForestClassifier.MERGE,
-    parameters=ParametersRandomForestClassifier(n_estimators=10),
-)
-
-# %% create an execution plan
-
-p = TrainTestSplit(
-    label="variety",
-    test_percentage=0.5,
+q = q.add_model(
+    FederatedRandomForestClassifier(
+        strategy=StrategyRandomForestClassifier.MERGE,
+        parameters=ParametersRandomForestClassifier(n_estimators=10),
+    )
 )
 
 # %% submit the task to the server, it will be converted to an Artifact
 
-a: Artifact = ctx.submit(project, m, q, p)
+a: Artifact = ctx.submit(project, q)
 
 print(json.dumps(a.dict(), indent=True))  # view execution plan
 
@@ -127,17 +134,15 @@ status: ArtifactStatus = ctx.status(a)
 
 print(status)
 
-# %% evaluation
-
-
 # %% download trained model:
+m = q.model
+
 m.load(ctx.get_model(a))
 
 # %%
 
 print(m.predict(np.array([[0, 0, 0, 0]])))
 print(m.predict(np.array([[1, 1, 1, 1]])))
-
 
 # %%
 

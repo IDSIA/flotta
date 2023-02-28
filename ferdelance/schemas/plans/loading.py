@@ -19,7 +19,7 @@ class LoadingPlan(BaseModel):
     params: dict[str, Any]
 
 
-class BasePlan(metaclass=ABCMeta):
+class GenericPlan(metaclass=ABCMeta):
     """Describe how to train and evaluate a model based on the input data source."""
 
     def __init__(self, name: str, label: str, random_seed: float | None = None) -> None:

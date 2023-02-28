@@ -10,6 +10,7 @@ class ArtifactStatus(BaseModel):
 
     artifact_id: str | None
     status: str | None
+    results: str | None = None
 
 
 class Artifact(BaseModel):
@@ -20,4 +21,4 @@ class Artifact(BaseModel):
     model: Model
     # extract ?
     transform: Query
-    load: LoadingPlan | None
+    load: LoadingPlan | None = None

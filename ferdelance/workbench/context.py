@@ -5,9 +5,7 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.queries import Query
-from ferdelance.schemas.models import GenericModel
-from ferdelance.schemas.plans import BasePlan
+from ferdelance.schemas.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
     WorkbenchClientList,
@@ -156,11 +154,26 @@ class Context:
 
         return data.datasources
 
-    def execute(self, project: Project, query: Query) -> None:
+    def execute(self, project: Project, estimate: QueryEstimate) -> None:
         """Execute a statistical query."""
+
+        artifact = Artifact(
+            project_id=project.project_id,
+            transform=estimate.transform,
+            model=estimate.estimator.build(),
+        )
+
+        res = requests.post(
+            f"{self.server}/workbench/artifact/submit",
+            headers=self.exc.headers(),
+            data=self.exc.create_payload(artifact.dict()),
+        )
+
+        res.raise_for_status()
+
         raise NotImplementedError()
 
-    def submit(self, project: Project, model: GenericModel, transform: Query, plan: BasePlan) -> Artifact:
+    def submit(self, project: Project, query: QueryModel) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
 
         :param artifact:
@@ -174,9 +187,9 @@ class Context:
         """
         artifact: Artifact = Artifact(
             project_id=project.project_id,
-            model=model.build(),
-            transform=transform,
-            load=plan.build(),
+            transform=query.transform,
+            load=query.plan.build(),
+            model=query.model.build(),
         )
 
         res = requests.post(

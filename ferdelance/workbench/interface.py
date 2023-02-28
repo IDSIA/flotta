@@ -8,11 +8,13 @@ __all__ = [
     "LoadingPlan",
     "Feature",
     "Project",
+    "Statistics",
 ]
 
 from ferdelance.schemas.artifacts import (
     Artifact,
     ArtifactStatus,
+    Statistics,
 )
 from ferdelance.schemas.datasources import (
     DataSource,

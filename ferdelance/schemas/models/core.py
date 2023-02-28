@@ -20,8 +20,10 @@ from sklearn.metrics import (
 
 
 class Model(BaseModel):
-    """Exchange model description defined in the workbench, trained in
-    the clients, and aggregated in the server.
+    """Exchange model description defined in the workbench, trained in the
+    clients, and aggregated in the server. This class contains all the data
+    required to rebuild the real model that can execute code (in brief, an
+    extension of GenericModel).
     """
 
     name: str
@@ -30,7 +32,11 @@ class Model(BaseModel):
 
 
 class GenericModel(metaclass=ABCMeta):
-    """This is the class that can manipulate real models."""
+    """This is the class that can manipulate real models. The client and the
+    server will run the code implemented by classes that extends this one."""
+
+    def __init__(self) -> None:
+        self.model: Any = None
 
     def load(self, path: str) -> None:
         """Load a trained model from a path on the local disk to the internal
@@ -65,7 +71,7 @@ class GenericModel(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def aggregate(self, strategy: str, model_a, model_b):
+    def aggregate(self, strategy: str, model_a: GenericModel, model_b: GenericModel):
         """Aggregates two models and produces a new one, following the given strategy. This aggregation
         function is called from the workers on the server that perform aggregations.
         Aggregations are done between two partial models, producing a new aggregated model. This

@@ -4,6 +4,8 @@ from ferdelance.schemas.queries.features import QueryFeature, QueryFilter, Opera
 from ferdelance.schemas.queries.stages import QueryStage, QueryEstimator, QueryTransformer
 from ferdelance.schemas.estimators import CountEstimator, MeanEstimator, GroupingQuery
 from ferdelance.schemas.transformers import Transformer, FederatedFilter
+from ferdelance.schemas.models import GenericModel
+from ferdelance.schemas.plans import GenericPlan
 
 from datetime import datetime
 from pydantic import BaseModel
@@ -28,6 +30,8 @@ class Query(BaseModel):
     """
 
     stages: list[QueryStage] = list()
+    plan: GenericPlan
+    model: GenericModel
 
     def current(self) -> QueryStage:
         """Returns the most recent stage of the query.
@@ -48,29 +52,25 @@ class Query(BaseModel):
 
         return self.current()[key]
 
-    def groupby(self, feature: QueryFeature | str) -> GroupingQuery:
+    def groupby(self, feature: str | QueryFeature) -> GroupingQuery:
         if isinstance(feature, str):
             feature = self[feature]
 
         return GroupingQuery(feature, self)
 
-    def count(self) -> Query:
-        self.add_estimator(CountEstimator().build())
-        return self
+    def count(self) -> QueryEstimate:
+        return self.add_estimator(CountEstimator().build())
 
-    def mean(self, feature: QueryFeature | str) -> Query:
+    def mean(self, feature: str | QueryFeature) -> QueryEstimate:
         if isinstance(feature, str):
             feature = self[feature]
 
-        self.add_estimator(MeanEstimator().build())
-        return self
+        return self.add_estimator(MeanEstimator().build())
 
-    def add_estimator(self, estimator: QueryEstimator) -> None:
-        self.stages.append(
-            QueryStage(
-                features=self.features(),
-                transformer=estimator,
-            )
+    def add_estimator(self, estimator: QueryEstimator) -> QueryEstimate:
+        return QueryEstimate(
+            transform=self,
+            estimator=estimator,
         )
 
     def add_transformer(self, transformer: QueryTransformer) -> None:
@@ -84,6 +84,9 @@ class Query(BaseModel):
             )
         )
 
+    def add_plan(self, plan: GenericPlan) -> QueryPlan:
+        return QueryPlan(transform=self, plan=plan)
+
     def add_filter(self, filter: QueryFilter) -> None:
         self.stages.append(
             QueryStage(
@@ -96,62 +99,62 @@ class Query(BaseModel):
             )
         )
 
-    def append(self, op: QueryFilter | QueryTransformer | Transformer) -> None:
+    def append(self, arg: QueryFilter | QueryTransformer | Transformer) -> None:
         """Add a new operation creating a new stage. This method append the new
         stage to the list of stage of the current object, without creating a new
         one.
 
         Args:
-            op (QueryFilter | QueryTransformer | Transformer):
+            arg (QueryFilter | QueryTransformer | Transformer):
                 Content of the new stage to append.
 
         Raises:
             ValueError:
-                If the argument op is not an instance of the supported class.
+                If the argument arg is not an instance of the supported class.
         """
-        if isinstance(op, Transformer):
-            op = op.build()
+        if isinstance(arg, Transformer):
+            arg = arg.build()
 
-        if isinstance(op, QueryTransformer):
-            self.add_transformer(op)
+        if isinstance(arg, QueryTransformer):
+            self.add_transformer(arg)
             return
 
-        if isinstance(op, QueryFilter):
-            self.add_filter(op)
+        if isinstance(arg, QueryFilter):
+            self.add_filter(arg)
             return
 
-        raise ValueError(f"Unsupported type for query with input op={op}")
+        raise ValueError(f"Unsupported type for query with input arg={arg}")
 
-    def add(self, op: QueryFilter | QueryTransformer | Transformer) -> Query:
+    def add(self, arg: QueryFilter | QueryTransformer | Transformer) -> Query:
         """Add a new operation creating a new stages. The return is a _new_ Query
         object with the new stage.
 
         Args:
-            op (QueryFilter | QueryTransformer | Transformer):
+            arg (QueryFilter | QueryTransformer | Transformer):
                 Content of the new stage to add.
 
         Raises:
             ValueError:
-                If the argument op is not an instance of the supported class.
+                If the argument arg is not an instance of the supported class.
 
         Returns:
             Query:
                 A copy of the original Query object with the new state.
         """
-        if isinstance(op, Transformer):
-            op = op.build()
+        if isinstance(arg, Transformer):
+            arg = arg.build()
 
         q = self.copy(deep=True)
 
-        if isinstance(op, QueryTransformer):
-            q.add_transformer(op)
+        if isinstance(arg, QueryTransformer):
+            q.add_transformer(arg)
             return q
 
-        if isinstance(op, QueryFilter):
-            q.add_filter(op)
+        if isinstance(arg, QueryFilter):
+            q.add_filter(arg)
             return q
 
-        raise ValueError(f"Unsupported type for query with input op={op}")
+        raise ValueError(f"Unsupported type for query with input arg={arg}")
 
     def __add__(self, other: QueryFilter | QueryTransformer | Transformer) -> Query:
         """Returns a copy of the query!"""
@@ -176,3 +179,38 @@ class Query(BaseModel):
 
     def __hash__(self) -> int:
         return hash(self.stages)
+
+
+class QueryPlan(BaseModel):
+    """A query with an attached plan."""
+
+    transform: Query
+    plan: GenericPlan
+
+    def add_model(self, model: GenericModel) -> QueryModel:
+        return QueryModel(
+            transform=self.transform,
+            plan=self.plan,
+            model=model,
+        )
+
+    def add(self, arg: GenericModel) -> QueryModel:
+        if isinstance(arg, GenericModel):
+            return self.add_model(arg)
+
+        raise ValueError(f"Unsupported type for query with input arg={arg}")
+
+
+class QueryModel(BaseModel):
+    """A query with an attached plan and model."""
+
+    transform: Query
+    plan: GenericPlan
+    model: GenericModel
+
+
+class QueryEstimate(BaseModel):
+    """A query with an attached estimator."""
+
+    transform: Query
+    estimator: QueryEstimator

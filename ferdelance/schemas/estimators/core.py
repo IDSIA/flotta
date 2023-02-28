@@ -1,4 +1,6 @@
+from __future__ import annotations
 from typing import Any
+from abc import ABCMeta, abstractclassmethod
 
 from ferdelance.schemas.queries import QueryFeature, QueryEstimator
 from ferdelance.schemas.utils import convert_features_in_to_list
@@ -7,7 +9,7 @@ import pandas as pd
 import pickle
 
 
-class Estimator:
+class Estimator(metaclass=ABCMeta):
     def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | None = None) -> None:
         self.name: str = name
         self.features_in: list[QueryFeature] = convert_features_in_to_list(features_in)
@@ -28,7 +30,12 @@ class Estimator:
             "parameters": self.params(),
         }
 
+    @abstractclassmethod
     def estimate(self, df: pd.DataFrame) -> float:
+        raise NotImplementedError()
+
+    @abstractclassmethod
+    def aggregate(self, estimator_a: Estimator, estimator_b: Estimator) -> Estimator:
         raise NotImplementedError()
 
     def build(self) -> QueryEstimator:

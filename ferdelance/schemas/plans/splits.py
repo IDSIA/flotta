@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.plans.loading import BasePlan, LoadingPlan, GenericModel
+from ferdelance.schemas.plans.loading import GenericPlan, LoadingPlan, GenericModel
 
 from sklearn.model_selection import train_test_split
 
@@ -12,7 +12,7 @@ import os
 LOGGER = logging.getLogger(__name__)
 
 
-class TrainTestSplit(BasePlan):
+class TrainTestSplit(GenericPlan):
     def __init__(self, label: str, test_percentage: float = 0.0, random_seed: float | None = None) -> None:
         super().__init__(TrainTestSplit.__name__, label, random_seed)
         self.test_percentage: float = test_percentage
@@ -53,7 +53,7 @@ class TrainTestSplit(BasePlan):
             self.metrics.append(metrics)
 
 
-class TrainTestValSplit(BasePlan):
+class TrainTestValSplit(GenericPlan):
     def __init__(
         self, label: str, test_percentage: float = 0.0, val_percentage: float = 0.0, random_seed: float | None = None
     ) -> None:

@@ -1,6 +1,7 @@
 __all__ = [
     "Estimator",
     "CountEstimator",
+    "GroupEstimator",
     "GroupingQuery",
     "MeanEstimator",
 ]
@@ -8,4 +9,4 @@ __all__ = [
 from .core import Estimator
 from .counters import CountEstimator
 from .means import MeanEstimator
-from .groups import GroupingQuery
+from .groups import GroupingQuery, GroupEstimator

@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.queries import QueryFeature, Query
+from ferdelance.schemas.queries import QueryFeature, Query, QueryEstimate
 from ferdelance.schemas.estimators.core import Estimator
 
 import pandas as pd
@@ -25,20 +25,18 @@ class GroupingQuery:
         self.q = q
         self.feature = feature
 
-    def count(self) -> Query:
-        self.q.add_estimator(
+    def count(self) -> QueryEstimate:
+        return self.q.add_estimator(
             GroupEstimator(
                 feature_in=self.feature,
                 agg="count",
             ).build()
         )
-        return self.q
 
-    def mean(self) -> Query:
-        self.q.add_estimator(
+    def mean(self) -> QueryEstimate:
+        return self.q.add_estimator(
             GroupEstimator(
                 feature_in=self.feature,
                 agg="mean",
             ).build()
         )
-        return self.q
