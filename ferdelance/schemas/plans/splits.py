@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.plans.loading import GenericPlan, LoadingPlan, GenericModel
+from ferdelance.schemas.plans.loading import GenericPlan, Plan, GenericModel
 
 from sklearn.model_selection import train_test_split
 

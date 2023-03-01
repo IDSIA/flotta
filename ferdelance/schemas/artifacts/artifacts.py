@@ -1,6 +1,7 @@
 from ferdelance.schemas.queries.queries import Query
 from ferdelance.schemas.models import Model
-from ferdelance.schemas.plans import LoadingPlan
+from ferdelance.schemas.plans import Plan
+from ferdelance.schemas.estimators import Estimator
 
 from pydantic import BaseModel
 
@@ -18,7 +19,7 @@ class Artifact(BaseModel):
 
     artifact_id: str | None = None
     project_id: str
-    model: Model
-    # extract ?
     transform: Query
-    load: LoadingPlan | None = None
+    load: Plan | None = None
+    model: Model | None = None
+    estimate: Estimator | None = None

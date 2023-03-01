@@ -116,12 +116,12 @@ q = q.add_plan(
 
 # %% develop a model
 
-q = q.add_model(
-    FederatedRandomForestClassifier(
-        strategy=StrategyRandomForestClassifier.MERGE,
-        parameters=ParametersRandomForestClassifier(n_estimators=10),
-    )
+m = FederatedRandomForestClassifier(
+    strategy=StrategyRandomForestClassifier.MERGE,
+    parameters=ParametersRandomForestClassifier(n_estimators=10),
 )
+
+q = q.add_model(m)
 
 # %% submit the task to the server, it will be converted to an Artifact
 
@@ -135,8 +135,6 @@ status: ArtifactStatus = ctx.status(a)
 print(status)
 
 # %% download trained model:
-m = q.model
-
 m.load(ctx.get_model(a))
 
 # %%

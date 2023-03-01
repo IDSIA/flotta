@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from ferdelance.schemas.queries.features import QueryFeature, QueryFilter, Operations
-from ferdelance.schemas.queries.stages import QueryStage, QueryEstimator, QueryTransformer
-from ferdelance.schemas.estimators import CountEstimator, MeanEstimator, GroupingQuery
+from ferdelance.schemas.queries.stages import QueryStage, QueryTransformer
+from ferdelance.schemas.estimators import (
+    Estimator,
+    CountEstimator,
+    MeanEstimator,
+    GroupCountEstimator,
+    GroupMeanEstimator,
+)
 from ferdelance.schemas.transformers import Transformer, FederatedFilter
-from ferdelance.schemas.models import GenericModel
-from ferdelance.schemas.plans import GenericPlan
+from ferdelance.schemas.models import Model, GenericModel
+from ferdelance.schemas.plans import Plan, GenericPlan
 
 from datetime import datetime
 from pydantic import BaseModel
@@ -30,8 +36,6 @@ class Query(BaseModel):
     """
 
     stages: list[QueryStage] = list()
-    plan: GenericPlan
-    model: GenericModel
 
     def current(self) -> QueryStage:
         """Returns the most recent stage of the query.
@@ -67,7 +71,7 @@ class Query(BaseModel):
 
         return self.add_estimator(MeanEstimator().build())
 
-    def add_estimator(self, estimator: QueryEstimator) -> QueryEstimate:
+    def add_estimator(self, estimator: Estimator) -> QueryEstimate:
         return QueryEstimate(
             transform=self,
             estimator=estimator,
@@ -85,7 +89,10 @@ class Query(BaseModel):
         )
 
     def add_plan(self, plan: GenericPlan) -> QueryPlan:
-        return QueryPlan(transform=self, plan=plan)
+        return QueryPlan(
+            transform=self,
+            plan=plan.build(),
+        )
 
     def add_filter(self, filter: QueryFilter) -> None:
         self.stages.append(
@@ -181,17 +188,37 @@ class Query(BaseModel):
         return hash(self.stages)
 
 
+class GroupingQuery:
+    def __init__(self, feature: QueryFeature, q: Query) -> None:
+        self.q = q
+        self.feature = feature
+
+    def count(self) -> QueryEstimate:
+        return self.q.add_estimator(
+            GroupCountEstimator(
+                feature_in=self.feature,
+            ).build()
+        )
+
+    def mean(self) -> QueryEstimate:
+        return self.q.add_estimator(
+            GroupMeanEstimator(
+                feature_in=self.feature,
+            ).build()
+        )
+
+
 class QueryPlan(BaseModel):
     """A query with an attached plan."""
 
     transform: Query
-    plan: GenericPlan
+    plan: Plan
 
     def add_model(self, model: GenericModel) -> QueryModel:
         return QueryModel(
             transform=self.transform,
             plan=self.plan,
-            model=model,
+            model=model.build(),
         )
 
     def add(self, arg: GenericModel) -> QueryModel:
@@ -205,12 +232,12 @@ class QueryModel(BaseModel):
     """A query with an attached plan and model."""
 
     transform: Query
-    plan: GenericPlan
-    model: GenericModel
+    plan: Plan
+    model: Model
 
 
 class QueryEstimate(BaseModel):
     """A query with an attached estimator."""
 
     transform: Query
-    estimator: QueryEstimator
+    estimator: Estimator

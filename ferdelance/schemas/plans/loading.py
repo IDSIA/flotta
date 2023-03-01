@@ -13,7 +13,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class LoadingPlan(BaseModel):
+class Plan(BaseModel):
 
     name: str
     params: dict[str, Any]
@@ -37,8 +37,8 @@ class GenericPlan(metaclass=ABCMeta):
             "random_seed": self.random_seed,
         }
 
-    def build(self) -> LoadingPlan:
-        return LoadingPlan(
+    def build(self) -> Plan:
+        return Plan(
             name=self.name,
             params=self.params(),
         )

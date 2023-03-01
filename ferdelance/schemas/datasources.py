@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.schemas.queries.queries import (
+from ferdelance.schemas.queries import (
     Query,
     QueryFeature,
     QueryStage,

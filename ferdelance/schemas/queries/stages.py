@@ -1,7 +1,6 @@
 from typing import Any
 
 from ferdelance.schemas.queries.transformers import QueryTransformer
-from ferdelance.schemas.queries.estimators import QueryEstimator
 from ferdelance.schemas.queries.features import QueryFeature
 
 from pydantic import BaseModel
@@ -11,14 +10,14 @@ class QueryStage(BaseModel):
     """A stage is a single transformation applied to a list of features."""
 
     features: list[QueryFeature]  # list of available features (after the transformation below)
-    transformer: QueryTransformer | QueryEstimator | None = None  # transformation to apply
+    transformer: QueryTransformer | None = None  # transformation to apply
 
     _features: dict[str, QueryFeature] = dict()
 
     def __init__(
         self,
         features: list[QueryFeature],
-        transformer: QueryTransformer | QueryEstimator | None = None,
+        transformer: QueryTransformer | None = None,
         **data: Any,
     ) -> None:
         super().__init__(features=features, transformer=transformer, **data)

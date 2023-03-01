@@ -160,7 +160,7 @@ class Context:
         artifact = Artifact(
             project_id=project.project_id,
             transform=estimate.transform,
-            model=estimate.estimator.build(),
+            estimate=estimate.estimator,
         )
 
         res = requests.post(
@@ -188,8 +188,8 @@ class Context:
         artifact: Artifact = Artifact(
             project_id=project.project_id,
             transform=query.transform,
-            load=query.plan.build(),
-            model=query.model.build(),
+            load=query.plan,
+            model=query.model,
         )
 
         res = requests.post(
@@ -266,6 +266,9 @@ class Context:
         if artifact.artifact_id is None:
             raise ValueError("submit first the artifact to the server")
 
+        if artifact.model is None:
+            raise ValueError("no model attached to this artifact")
+
         if not path:
             path = f"{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model"
 
@@ -300,6 +303,9 @@ class Context:
         """
         if artifact.artifact_id is None:
             raise ValueError("submit first the artifact to the server")
+
+        if artifact.model is None:
+            raise ValueError("no model associated with this artifact")
 
         if not path:
             path = f"{artifact.artifact_id}.{artifact.model.name}.{client_id}.PARTIAL.model"

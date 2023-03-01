@@ -1,11 +1,11 @@
 __all__ = [
     "rebuild_plan",
-    "LoadingPlan",
+    "Plan",
     "TrainTestSplit",
     "TrainTestValSplit",
 ]
 
-from .loading import LoadingPlan, GenericPlan
+from .loading import Plan, GenericPlan
 from .splits import (
     TrainTestSplit,
     TrainTestValSplit,
@@ -14,7 +14,7 @@ from .splits import (
 from inspect import signature
 
 
-def rebuild_plan(plan: LoadingPlan) -> GenericPlan:
+def rebuild_plan(plan: Plan) -> GenericPlan:
     c = globals()[plan.name]
 
     p = plan.params

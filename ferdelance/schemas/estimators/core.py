@@ -2,14 +2,23 @@ from __future__ import annotations
 from typing import Any
 from abc import ABCMeta, abstractclassmethod
 
-from ferdelance.schemas.queries import QueryFeature, QueryEstimator
+from ferdelance.schemas.queries.features import QueryFeature
 from ferdelance.schemas.utils import convert_features_in_to_list
+
+from pydantic import BaseModel
 
 import pandas as pd
 import pickle
 
 
-class Estimator(metaclass=ABCMeta):
+class Estimator(BaseModel):
+
+    name: str
+    features_in: list[QueryFeature]
+    params: dict[str, Any]
+
+
+class GenericEstimator(metaclass=ABCMeta):
     def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | None = None) -> None:
         self.name: str = name
         self.features_in: list[QueryFeature] = convert_features_in_to_list(features_in)
@@ -30,26 +39,53 @@ class Estimator(metaclass=ABCMeta):
             "parameters": self.params(),
         }
 
+    def build(self) -> Estimator:
+        return Estimator(
+            name=self.name,
+            features_in=self.features_in,
+            params=self.params(),
+        )
+
     @abstractclassmethod
-    def estimate(self, df: pd.DataFrame) -> float:
+    def fit(self, df: pd.DataFrame) -> None:
+        raise NotImplementedError()
+
+    @abstractclassmethod
+    def estimate(self) -> Any:
         raise NotImplementedError()
 
     @abstractclassmethod
     def aggregate(self, estimator_a: Estimator, estimator_b: Estimator) -> Estimator:
-        raise NotImplementedError()
+        """Merge two estimators together. A new estimator need to be created.
+        If an issue occurs, raise ValueError exception.
 
-    def build(self) -> QueryEstimator:
-        return QueryEstimator(**self.dict())
+        Args:
+            estimator_a (Estimator):
+                The estimator on the left.
+            estimator_b (Estimator):
+                The estimator on the right.
+
+        Raises:
+            NotImplementedError:
+                Raised if this method is not implemented.
+            ValueError:
+                Raised when an error occurs during the aggregation.
+
+        Returns:
+            Estimator:
+                A new estimator, aggregation of the two inputs.
+        """
+        raise NotImplementedError()
 
     def __call__(self, df: pd.DataFrame) -> Any:
         return self.estimate(df)
 
 
-def save(obj: Estimator, path: str) -> None:
+def save(obj: GenericEstimator, path: str) -> None:
     with open(path, "wb") as f:
         pickle.dump(obj, f)
 
 
-def load(path: str) -> Estimator:
+def load(path: str) -> GenericEstimator:
     with open(path, "rb") as f:
         return pickle.load(f)
