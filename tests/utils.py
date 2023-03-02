@@ -35,6 +35,7 @@ def create_client(client: TestClient, exc: Exchange) -> str:
     node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
 
     cjr = ClientJoinRequest(
+        name="testing_client",
         system="Linux",
         mac_address=mac_address,
         node=str(node),

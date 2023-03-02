@@ -103,27 +103,32 @@ class JobManagementService(Repository):
         aggregation.delay(token, artifact_id, result_ids)
 
     async def client_result_create(self, artifact_id: str, client_id: str) -> Result:
+        LOGGER.info(f"client_id={client_id}: creating results")
+
+        await self.jr.mark_completed(artifact_id, client_id)
+
+        # simple check
+        await self.ar.get_artifact(artifact_id)
+
+        artifact: Artifact = await self.ar.load(artifact_id)
+
+        if artifact.is_estimator():
+            # result is an estimator
+            result = await self.rr.create_result_estimator(artifact_id, client_id)
+
+        elif artifact.is_model():
+            # result is a partial model
+            result = await self.rr.create_result_model(artifact_id, client_id)
+
+        else:
+            raise ValueError("Unsupported artifact")
+
+        return result
+
+    async def check_for_aggregation(self, result: Result) -> Result:
+        artifact_id = result.artifact_id
+
         try:
-            LOGGER.info(f"client_id={client_id}: creating results")
-
-            await self.jr.mark_completed(artifact_id, client_id)
-
-            # simple check
-            await self.ar.get_artifact(artifact_id)
-
-            artifact: Artifact = await self.ar.load(artifact_id)
-
-            if artifact.is_estimator() is not None:
-                # result is an estimator
-                result = await self.rr.create_result_estimator(artifact_id, client_id)
-
-            elif artifact.is_model() is not None:
-                # result is a partial model
-                result = await self.rr.create_result_model(artifact_id, client_id)
-
-            else:
-                raise ValueError("Unsupported artifact")
-
             total = await self.jr.count_jobs_for_artifact(artifact_id)
             completed = await self.jr.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
             error = await self.jr.count_jobs_by_status(artifact_id, JobStatus.ERROR)

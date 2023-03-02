@@ -40,9 +40,12 @@ async def post_artifact(
     artifact: Artifact, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
     LOGGER.info(f"worker_id={worker.component_id}: sent new artifact")
+
     try:
         jms: JobManagementService = JobManagementService(session)
+
         status = await jms.submit_artifact(artifact)
+
         return status
 
     except ValueError as e:
@@ -56,10 +59,11 @@ async def get_artifact(
     artifact_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
     LOGGER.info(f"worker_id={worker.component_id}: requested artifact_id={artifact_id}")
+
     try:
         jms: JobManagementService = JobManagementService(session)
-        artifact = jms.get_artifact(artifact_id)
-        return await artifact
+        artifact = await jms.get_artifact(artifact_id)
+        return artifact
 
     except ValueError as e:
         LOGGER.error(f"{e}")

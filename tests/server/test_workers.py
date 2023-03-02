@@ -4,10 +4,11 @@ from ferdelance.database.tables import (
 )
 from ferdelance.database.repositories import ProjectRepository
 from ferdelance.server.api import api
+from ferdelance.server.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.models import Model
 from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.status import JobStatus
+from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
 from tests.utils import setup_worker, connect, TEST_PROJECT_TOKEN
 
@@ -40,7 +41,7 @@ async def test_worker_artifact_not_found(session: AsyncSession, exchange: Exchan
 @pytest.mark.asyncio
 async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
-        await connect(server, session)
+        args = await connect(server, session)
         await setup_worker(session, exchange)
 
         # prepare new artifact
@@ -75,6 +76,13 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert art_db is not None
         assert os.path.exists(art_db.path)
+
+        # simulate client work
+        jm: JobManagementService = JobManagementService(session)
+
+        await jm.client_task_start(artifact.artifact_id, args.client_id)
+        await jm.client_result_create(artifact.artifact_id, args.client_id)
+        await jm.ar.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
 
         # test artifact get
         res = server.get(
