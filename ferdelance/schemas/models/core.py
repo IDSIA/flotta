@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any
 
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 
 from .metrics import Metrics
 
@@ -31,7 +31,7 @@ class Model(BaseModel):
     parameters: dict[str, Any] = dict()
 
 
-class GenericModel(metaclass=ABCMeta):
+class GenericModel(ABC):
     """This is the class that can manipulate real models. The client and the
     server will run the code implemented by classes that extends this one."""
 

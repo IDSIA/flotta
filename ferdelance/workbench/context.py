@@ -17,6 +17,9 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
+from ferdelance.shared.status import ArtifactJobStatus
+
+from time import sleep
 
 import pandas as pd
 
@@ -170,6 +173,34 @@ class Context:
         )
 
         res.raise_for_status()
+
+        art_status = ArtifactStatus(**self.exc.get_payload(res.content))
+
+        while art_status.status not in (ArtifactJobStatus.ERROR, ArtifactJobStatus.COMPLETED):
+            # TODO: add wait time
+            print(".")
+            sleep(1)
+
+            art_status = self.status(art_status)
+
+        if art_status.artifact_id is None:
+            raise ValueError("Invalid artifact status")
+
+        if art_status.status == ArtifactJobStatus.COMPLETED:
+
+            wba = WorkbenchArtifact(artifact_id=art_status.artifact_id)
+
+            res = requests.get(
+                f"{self.server}/workbench/artifact/result",
+                headers=self.exc.headers(),
+                data=self.exc.create_payload(wba.dict()),
+            )
+
+            res.raise_for_status()
+
+            # TODO: return of results
+
+        # TODO: error reporting
 
         raise NotImplementedError()
 

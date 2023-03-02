@@ -6,6 +6,7 @@ from ferdelance.database.repositories import (
     DataSourceRepository,
     ResultRepository,
     ProjectRepository,
+    ArtifactRepository,
 )
 from ferdelance.server.services import (
     ActionService,
@@ -263,7 +264,7 @@ async def client_get_task(
     artifact_id = payload.artifact_id
 
     try:
-        content = await jm.client_local_model_start(artifact_id, client.client_id)
+        content = await jm.client_task_start(artifact_id, client.client_id)
 
         return ss.create_response(content.dict())
 
@@ -277,8 +278,8 @@ async def client_get_task(
 # TODO: add endpoint for failed job executions
 
 
-@client_router.post("/client/task/{artifact_id}")
-async def client_post_task(
+@client_router.post("/client/result/{artifact_id}")
+async def client_post_result(
     request: Request,
     artifact_id: str,
     session: AsyncSession = Depends(get_session),
@@ -288,14 +289,11 @@ async def client_post_task(
 
     ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
-    rr: ResultRepository = ResultRepository(session)
 
-    model_db = await rr.create_local_model(artifact_id, client.client_id)
+    result_db = await jm.client_result_create(artifact_id, client.client_id)
 
     await ss.setup(client.public_key)
-    await ss.stream_decrypt_file(request, model_db.path)
-
-    await jm.client_local_model_completed(artifact_id, client.client_id)
+    await ss.stream_decrypt_file(request, result_db.path)
 
     return {}
 

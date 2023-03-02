@@ -106,7 +106,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
             pickle.dump(model, f)
 
         res = server.post(
-            f"/worker/model/{artifact.artifact_id}",
+            f"/worker/result/{artifact.artifact_id}",
             headers=exchange.headers(),
             files={"file": open(model_path, "rb")},
         )
@@ -114,15 +114,15 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 200
 
         res = await session.scalars(select(ResultDB))
-        models: list[ResultDB] = list(res.all())
+        results: list[ResultDB] = list(res.all())
 
-        assert len(models) == 1
+        assert len(results) == 1
 
-        model_id = models[0].model_id
+        result_id = results[0].result_id
 
         # test model get
         res = server.get(
-            f"/worker/model/{model_id}",
+            f"/worker/result/{result_id}",
             headers=exchange.headers(),
         )
 
@@ -134,11 +134,11 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         assert "model" in model_get
         assert model == model_get
 
-        assert os.path.exists(models[0].path)
+        assert os.path.exists(results[0].path)
 
         # cleanup
         os.remove(art_db.path)
-        os.remove(models[0].path)
+        os.remove(results[0].path)
         os.remove(model_path)
 
 

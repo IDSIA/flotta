@@ -1,4 +1,4 @@
-from ferdelance.worker.tasks.aggregation import aggregate
+from ferdelance.worker.tasks.aggregation import Aggregator
 
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
@@ -41,9 +41,10 @@ class LocalWorker(Process):
                     self.task_queue.task_done()
                     break
 
-                token, artifact_id, model_ids = next_job
+                token, artifact_id, results_ids = next_job
 
-                aggregate(token, artifact_id, model_ids)
+                a = Aggregator(artifact_id, token)
+                a.aggregate(results_ids)
 
                 self.task_queue.task_done()
             except Exception as e:

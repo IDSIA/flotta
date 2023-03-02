@@ -1,13 +1,13 @@
 from typing import Any
+from abc import ABC
 
 from ferdelance.schemas.queries import QueryTransformer, QueryFeature
 from ferdelance.schemas.utils import convert_features_in_to_list, convert_features_out_to_list
 
 import pandas as pd
-import pickle
 
 
-class Transformer:
+class Transformer(ABC):
     """Basic class that defines a transformer. A transformer is an object that can transform
     input data. This transformation is used as a pre-processing that need to be applied
     before the input data can be used by a FederatedModel.
@@ -138,13 +138,3 @@ class Transformer:
 
     def __call__(self, df: pd.DataFrame) -> Any:
         return self.transform(df)
-
-
-def save(obj: Transformer, path: str) -> None:
-    with open(path, "wb") as f:
-        pickle.dump(obj, f)
-
-
-def load(path: str) -> Transformer:
-    with open(path, "rb") as f:
-        return pickle.load(f)

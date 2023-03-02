@@ -32,7 +32,7 @@ class ServerStartup(Repository):
 
         await aiofiles.os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
         await aiofiles.os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
-        await aiofiles.os.makedirs(conf.STORAGE_MODELS, exist_ok=True)
+        await aiofiles.os.makedirs(conf.STORAGE_RESULTS, exist_ok=True)
 
         LOGGER.info("directory initialization completed")
 

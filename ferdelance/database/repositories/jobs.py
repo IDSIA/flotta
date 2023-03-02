@@ -65,15 +65,15 @@ class JobRepository(Repository):
 
         return view(job_db)
 
-    async def stop_execution(self, artifact_id: str, client_id: str) -> Job:
+    async def mark_completed(self, artifact_id: str, client_id: str) -> Job:
         try:
-            stmt = select(JobDB).where(
-                JobDB.artifact_id == artifact_id,
-                JobDB.component_id == client_id,
-                JobDB.status == JobStatus.RUNNING.name,
+            res = await self.session.execute(
+                select(JobDB).where(
+                    JobDB.artifact_id == artifact_id,
+                    JobDB.component_id == client_id,
+                    JobDB.status == JobStatus.RUNNING.name,
+                )
             )
-
-            res = await self.session.execute(stmt)
             job: JobDB = res.scalar_one()
 
             job.status = JobStatus.COMPLETED.name

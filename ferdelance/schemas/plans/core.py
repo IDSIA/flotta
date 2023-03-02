@@ -1,5 +1,5 @@
 from typing import Any
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 
 from ferdelance.schemas.models import GenericModel, Metrics
 
@@ -19,7 +19,7 @@ class Plan(BaseModel):
     params: dict[str, Any]
 
 
-class GenericPlan(metaclass=ABCMeta):
+class GenericPlan(ABC):
     """Describe how to train and evaluate a model based on the input data source."""
 
     def __init__(self, name: str, label: str, random_seed: float | None = None) -> None:

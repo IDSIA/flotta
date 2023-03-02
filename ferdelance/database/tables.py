@@ -146,7 +146,7 @@ class Result(Base):
 
     __tablename__ = "results"
 
-    model_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    result_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     path: Mapped[str] = mapped_column(String)
 

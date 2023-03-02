@@ -23,3 +23,9 @@ class Artifact(BaseModel):
     load: Plan | None = None
     model: Model | None = None
     estimate: Estimator | None = None
+
+    def is_estimator(self):
+        return self.estimate is not None
+
+    def is_model(self):
+        return self.model is not None

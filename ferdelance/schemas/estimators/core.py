@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any
-from abc import ABCMeta, abstractclassmethod
+from abc import ABC, abstractclassmethod
 
 from ferdelance.schemas.queries.features import QueryFeature
 from ferdelance.schemas.utils import convert_features_in_to_list
@@ -8,7 +8,6 @@ from ferdelance.schemas.utils import convert_features_in_to_list
 from pydantic import BaseModel
 
 import pandas as pd
-import pickle
 
 
 class Estimator(BaseModel):
@@ -18,14 +17,12 @@ class Estimator(BaseModel):
     params: dict[str, Any]
 
 
-class GenericEstimator(metaclass=ABCMeta):
+class GenericEstimator(ABC):
     def __init__(self, name: str, features_in: QueryFeature | list[QueryFeature] | None = None) -> None:
         self.name: str = name
         self.features_in: list[QueryFeature] = convert_features_in_to_list(features_in)
 
         self.estimator: Any = None
-
-        self.fitted: bool = False
 
         self._columns_in: list[str] = [f.name for f in self.features_in]
 
@@ -79,13 +76,3 @@ class GenericEstimator(metaclass=ABCMeta):
 
     def __call__(self, df: pd.DataFrame) -> Any:
         return self.estimate(df)
-
-
-def save(obj: GenericEstimator, path: str) -> None:
-    with open(path, "wb") as f:
-        pickle.dump(obj, f)
-
-
-def load(path: str) -> GenericEstimator:
-    with open(path, "rb") as f:
-        return pickle.load(f)

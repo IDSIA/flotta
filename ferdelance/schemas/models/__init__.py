@@ -1,13 +1,11 @@
 __all__ = [
-    'Model',
-    'GenericModel',
-    'Metrics',
-
-    'FederatedRandomForestClassifier',
-    'StrategyRandomForestClassifier',
-    'ParametersRandomForestClassifier',
-
-    'model_creator',
+    "Model",
+    "GenericModel",
+    "Metrics",
+    "FederatedRandomForestClassifier",
+    "StrategyRandomForestClassifier",
+    "ParametersRandomForestClassifier",
+    "rebuild_model",
 ]
 
 from .core import (
@@ -22,11 +20,11 @@ from .federated_random_forest_classifier import (
 )
 
 
-def model_creator(model: Model) -> GenericModel:
+def rebuild_model(model: Model) -> GenericModel:
     if model.name == FederatedRandomForestClassifier.__name__:
         return FederatedRandomForestClassifier(
             strategy=StrategyRandomForestClassifier[model.strategy],
             parameters=ParametersRandomForestClassifier(**model.parameters),
         )
 
-    raise ValueError(f'model={model.name} is not supported')
+    raise ValueError(f"model={model.name} is not supported")

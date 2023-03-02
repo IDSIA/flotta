@@ -5,7 +5,7 @@ __all__ = [
     "TrainTestValSplit",
 ]
 
-from .loading import Plan, GenericPlan
+from .core import Plan, GenericPlan
 from .splits import (
     TrainTestSplit,
     TrainTestValSplit,

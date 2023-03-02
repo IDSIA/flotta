@@ -10,7 +10,7 @@ from ferdelance.database.repositories import (
 )
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.client import ClientTask
-from ferdelance.schemas.database import ServerArtifact, ServerTask
+from ferdelance.schemas.database import ServerArtifact, Result
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
@@ -62,7 +62,7 @@ class JobManagementService(Repository):
     async def get_artifact(self, artifact_id: str) -> Artifact:
         return await self.ar.load(artifact_id)
 
-    async def client_local_model_start(self, artifact_id: str, client_id: str) -> ClientTask:
+    async def client_task_start(self, artifact_id: str, client_id: str) -> ClientTask:
         try:
             artifact_db: ServerArtifact = await self.ar.get_artifact(artifact_id)
 
@@ -91,7 +91,7 @@ class JobManagementService(Repository):
 
             job: Job = await self.jr.next_job_for_client(client_id)
 
-            job: Job = await self.jr.start_execution(job)
+            await self.jr.start_execution(job)
 
             return ClientTask(artifact=artifact, datasource_hashes=hashes)
 
@@ -99,47 +99,90 @@ class JobManagementService(Repository):
             LOGGER.warning(f"client_id={client_id}: task does not exists with artifact_id={artifact_id}")
             raise TaskDoesNotExists()
 
-    def _start_aggregation(self, token: str, artifact_id: str, model_ids: list[str]) -> None:
-        aggregation.delay(token, artifact_id, model_ids)
+    def _start_aggregation(self, token: str, artifact_id: str, result_ids: list[str]) -> None:
+        aggregation.delay(token, artifact_id, result_ids)
 
-    async def client_local_model_completed(self, artifact_id: str, client_id: str) -> None:
-        LOGGER.info(f"client_id={client_id}: started aggregation request")
+    async def client_result_create(self, artifact_id: str, client_id: str) -> Result:
+        try:
+            LOGGER.info(f"client_id={client_id}: creating results")
 
-        await self.jr.stop_execution(artifact_id, client_id)
+            await self.jr.mark_completed(artifact_id, client_id)
 
-        artifact: ServerArtifact = await self.ar.get_artifact(artifact_id)
+            # simple check
+            await self.ar.get_artifact(artifact_id)
 
-        if artifact is None:
-            LOGGER.error(f"Cannot aggregate: artifact_id={artifact_id} not found")
-            return
+            artifact: Artifact = await self.ar.load(artifact_id)
 
-        total = await self.jr.count_jobs_for_artifact(artifact_id)
-        completed = await self.jr.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
-        error = await self.jr.count_jobs_by_status(artifact_id, JobStatus.ERROR)
+            if artifact.is_estimator() is not None:
+                # result is an estimator
+                result = await self.rr.create_result_estimator(artifact_id, client_id)
 
-        if completed < total:
-            LOGGER.info(f"Cannot aggregate: {completed} / {total} completed job(s)")
-            return
+            elif artifact.is_model() is not None:
+                # result is a partial model
+                result = await self.rr.create_result_model(artifact_id, client_id)
 
-        if error > 0:
-            LOGGER.error(f"Cannot aggregate: {error} jobs have error")
-            return
+            else:
+                raise ValueError("Unsupported artifact")
 
-        LOGGER.info(f"All {total} job(s) completed, starting aggregation")
+            total = await self.jr.count_jobs_for_artifact(artifact_id)
+            completed = await self.jr.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
+            error = await self.jr.count_jobs_by_status(artifact_id, JobStatus.ERROR)
 
-        token = await self.cr.get_token_by_client_type("WORKER")
+            if completed < total:
+                LOGGER.info(f"Cannot aggregate: {completed} / {total} completed job(s)")
+                return result
 
-        if token is None:
-            LOGGER.error("Cannot aggregate: no worker available")
-            return
+            if error > 0:
+                LOGGER.error(f"Cannot aggregate: {error} jobs have error")
+                return result
 
-        models: list[ServerTask] = await self.rr.get_models_by_artifact_id(artifact_id)
+            LOGGER.info(f"All {total} job(s) completed, starting aggregation")
 
-        model_ids: list[str] = [m.model_id for m in models]
+            token = await self.cr.get_token_by_client_type("WORKER")
 
-        await self.ar.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
+            if token is None:
+                LOGGER.error("Cannot aggregate: no worker available")
+                return result
 
-        self._start_aggregation(token, artifact_id, model_ids)
+            results: list[Result] = await self.rr.get_models_by_artifact_id(artifact_id)
+
+            results_id: list[str] = [m.result_id for m in results]
+
+            await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
+
+            self._start_aggregation(token, artifact_id, results_id)
+
+            return result
+
+        except NoResultFound:
+            raise ValueError(f"artifact_id={artifact_id} not found")
+
+    async def worker_create_result(self, artifact_id: str, worker_id: str) -> Result:
+        try:
+            LOGGER.info(f"worker_id={worker_id}: creating results")
+
+            await self.jr.mark_completed(artifact_id, worker_id)
+
+            # simple check
+            await self.ar.get_artifact(artifact_id)
+
+            artifact: Artifact = await self.ar.load(artifact_id)
+
+            if artifact.is_estimator() is not None:
+                # result is an estimator
+                result = await self.rr.create_result_estimator_aggregated(artifact_id, worker_id)
+
+            elif artifact.is_model() is not None:
+                # result is a partial model
+                result = await self.rr.create_result_model_aggregated(artifact_id, worker_id)
+
+            else:
+                raise ValueError("Unsupported artifact")
+
+            return result
+
+        except NoResultFound:
+            raise ValueError(f"artifact_id={artifact_id} not found")
 
     async def aggregation_completed(self, artifact_id: str) -> None:
         LOGGER.info(f"aggregation completed for artifact_id={artifact_id}")

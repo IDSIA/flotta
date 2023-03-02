@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.plans.loading import GenericPlan, Plan, GenericModel
+from ferdelance.schemas.plans.core import GenericPlan, Plan, GenericModel
 
 from sklearn.model_selection import train_test_split
 
@@ -39,10 +39,10 @@ class TrainTestSplit(GenericPlan):
         # model training
         local_model.train(X_tr, Y_tr)
 
-        self._path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
-        local_model.save(self._path_model)
+        self.path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
+        local_model.save(self.path_model)
 
-        LOGGER.info(f"saved artifact_id={artifact_id} model to {self._path_model}")
+        LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
 
         # model testing
         if X_ts is not None and Y_ts is not None:

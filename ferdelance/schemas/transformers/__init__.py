@@ -21,8 +21,6 @@ from ferdelance.schemas.queries import QueryTransformer
 
 from .core import (
     Transformer,
-    save,
-    load,
 )
 from .filters import (
     FederatedFilter,
@@ -51,10 +49,22 @@ from .utils import (
 
 from inspect import signature
 
+import os
+import pickle
 import pandas as pd
 import logging
 
 LOGGER = logging.getLogger(__name__)
+
+
+def save(obj: Transformer, path: str) -> None:
+    with open(path, "wb") as f:
+        pickle.dump(obj, f)
+
+
+def load(path: str) -> Transformer:
+    with open(path, "rb") as f:
+        return pickle.load(f)
 
 
 def rebuild_transformer(transformer: QueryTransformer) -> Transformer:
@@ -87,12 +97,18 @@ def rebuild_pipeline(query_transformer: QueryTransformer) -> FederatedPipeline:
     return FederatedPipeline(stages)
 
 
-def apply_transformer(query_transformer: QueryTransformer, df: pd.DataFrame) -> pd.DataFrame:
+def apply_transformer(
+    query_transformer: QueryTransformer, df: pd.DataFrame, working_folder: str, artifact_id: str, i: int
+) -> pd.DataFrame:
 
     if query_transformer.name == "FederatedPipeline":
         transformer = rebuild_pipeline(query_transformer)
 
     else:
         transformer = rebuild_transformer(query_transformer)
+
+    path_transformer = os.path.join(working_folder, f"{artifact_id}_{i:04}_Transformer_{transformer.name}.pkl")
+
+    save(transformer, path_transformer)
 
     return transformer.transform(df)
