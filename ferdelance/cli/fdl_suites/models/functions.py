@@ -4,7 +4,7 @@ from sqlalchemy.exc import NoResultFound
 
 from ferdelance.database import DataBase
 from ferdelance.schemas.database import ServerTask
-from ferdelance.database.repositories import TaskRepository
+from ferdelance.database.repositories import ResultRepository
 from ferdelance.cli.visualization import show_many, show_one
 
 
@@ -15,12 +15,12 @@ async def list_models(artifact_id: str | None = None) -> list[ServerTask]:
     db = DataBase()
     async with db.async_session() as session:
 
-        task_repository = TaskRepository(session)
+        result_repository = ResultRepository(session)
 
         if artifact_id is not None:
-            models: list[ServerTask] = await task_repository.get_models_by_artifact_id(artifact_id)
+            models: list[ServerTask] = await result_repository.get_models_by_artifact_id(artifact_id)
         else:
-            models: list[ServerTask] = await task_repository.get_model_list()
+            models: list[ServerTask] = await result_repository.get_model_list()
 
         show_many(models)
 
@@ -46,7 +46,7 @@ async def describe_model(task_id: str | None = None) -> ServerTask | None:
     db = DataBase()
     async with db.async_session() as session:
 
-        task_repository = TaskRepository(session)
+        task_repository = ResultRepository(session)
 
         try:
             model: ServerTask = await task_repository.get_model_by_id(task_id)
