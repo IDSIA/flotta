@@ -1,6 +1,6 @@
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
-    Model as ModelDB,
+    Result as ResultDB,
 )
 from ferdelance.database.repositories import ProjectRepository
 from ferdelance.server.api import api
@@ -88,6 +88,8 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert artifact.artifact_id == get_art.artifact_id
 
+        assert artifact.model is not None
+        assert get_art.model is not None
         assert len(artifact.transform.stages) == len(get_art.transform.stages)
         assert len(artifact.model.name) == len(get_art.model.name)
 
@@ -111,8 +113,8 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert res.status_code == 200
 
-        res = await session.scalars(select(ModelDB))
-        models: list[ModelDB] = list(res.all())
+        res = await session.scalars(select(ResultDB))
+        models: list[ResultDB] = list(res.all())
 
         assert len(models) == 1
 

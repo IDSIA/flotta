@@ -3,31 +3,31 @@
 from sqlalchemy.exc import NoResultFound
 
 from ferdelance.database import DataBase
-from ferdelance.schemas.database import ServerModel
-from ferdelance.database.repositories import ModelRepository
+from ferdelance.schemas.database import ServerTask
+from ferdelance.database.repositories import TaskRepository
 from ferdelance.cli.visualization import show_many, show_one
 
 
-async def list_models(artifact_id: str | None = None) -> list[ServerModel]:
+async def list_models(artifact_id: str | None = None) -> list[ServerTask]:
     """Print model list, with or without filters on ARTIFACT_ID, MODEL_ID"""
     # TODO depending on 1:1, 1:n relations with artifacts arguments change or disappear
 
     db = DataBase()
     async with db.async_session() as session:
 
-        model_repository = ModelRepository(session)
+        task_repository = TaskRepository(session)
 
         if artifact_id is not None:
-            models: list[ServerModel] = await model_repository.get_models_by_artifact_id(artifact_id)
+            models: list[ServerTask] = await task_repository.get_models_by_artifact_id(artifact_id)
         else:
-            models: list[ServerModel] = await model_repository.get_model_list()
+            models: list[ServerTask] = await task_repository.get_model_list()
 
         show_many(models)
 
         return models
 
 
-async def describe_model(model_id: str | None = None) -> ServerModel | None:
+async def describe_model(task_id: str | None = None) -> ServerTask | None:
     """Describe single model by printing its db record.
 
     Args:
@@ -37,22 +37,22 @@ async def describe_model(model_id: str | None = None) -> ServerModel | None:
         ValueError: if no model id is provided
 
     Returns:
-        Model: the Model object
+        ServerTask: the Task object produced by a client
     """
 
-    if model_id is None:
-        raise ValueError("Provide a Model ID")
+    if task_id is None:
+        raise ValueError("Provide a Task ID")
 
     db = DataBase()
     async with db.async_session() as session:
 
-        model_repository = ModelRepository(session)
+        task_repository = TaskRepository(session)
 
         try:
-            model: ServerModel = await model_repository.get_model_by_id(model_id)
+            model: ServerTask = await task_repository.get_model_by_id(task_id)
             show_one(model)
 
             return model
 
         except NoResultFound as e:
-            print(f"No model found with id {model_id}")
+            print(f"No model found with id {task_id}")

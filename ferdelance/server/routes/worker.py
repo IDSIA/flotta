@@ -1,8 +1,8 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.database.repositories import ModelRepository
-from ferdelance.schemas.database import ServerModel
+from ferdelance.database.repositories import ResultRepository
+from ferdelance.schemas.database import ServerTask
 from ferdelance.schemas.components import Component
 from ferdelance.server.services import JobManagementService
 from ferdelance.server.security import check_token
@@ -75,10 +75,10 @@ async def post_model(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: send model for artifact_id={artifact_id}")
     try:
-        mr: ModelRepository = ModelRepository(session)
+        rr: ResultRepository = ResultRepository(session)
         js: JobManagementService = JobManagementService(session)
 
-        model_db: ServerModel = await mr.create_model_aggregated(artifact_id, worker.component_id)
+        model_db: ServerTask = await rr.create_model_aggregated(artifact_id, worker.component_id)
 
         async with aiofiles.open(model_db.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
@@ -97,9 +97,9 @@ async def get_model(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: request model_id={model_id}")
     try:
-        mr: ModelRepository = ModelRepository(session)
+        rr: ResultRepository = ResultRepository(session)
 
-        model_db: ServerModel = await mr.get_model_by_id(model_id)
+        model_db: ServerTask = await rr.get_model_by_id(model_id)
 
         if not os.path.exists(model_db.path):
             raise NoResultFound()

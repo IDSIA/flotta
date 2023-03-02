@@ -19,7 +19,7 @@ class ServerArtifact(BaseModel):
         )
 
 
-class ServerModel(BaseModel):
+class ServerTask(BaseModel):
     """Model data stored in the database."""
 
     model_id: str
@@ -28,3 +28,5 @@ class ServerModel(BaseModel):
     aggregated: bool = False
     artifact_id: str
     client_id: str
+    is_model: bool = False
+    is_estimator: bool = False

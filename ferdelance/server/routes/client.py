@@ -4,7 +4,7 @@ from ferdelance.database.repositories import (
     AsyncSession,
     ComponentRepository,
     DataSourceRepository,
-    ModelRepository,
+    ResultRepository,
     ProjectRepository,
 )
 from ferdelance.server.services import (
@@ -288,9 +288,9 @@ async def client_post_task(
 
     ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
-    mr: ModelRepository = ModelRepository(session)
+    rr: ResultRepository = ResultRepository(session)
 
-    model_db = await mr.create_local_model(artifact_id, client.client_id)
+    model_db = await rr.create_local_model(artifact_id, client.client_id)
 
     await ss.setup(client.public_key)
     await ss.stream_decrypt_file(request, model_db.path)

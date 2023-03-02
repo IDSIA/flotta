@@ -5,7 +5,7 @@ from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
     DataSourceRepository,
-    ModelRepository,
+    ResultRepository,
     ProjectRepository,
 )
 from ferdelance.schemas.client import ClientDetails
@@ -20,7 +20,7 @@ from ferdelance.schemas.artifacts import (
     Artifact,
 )
 from ferdelance.schemas.components import Component, Token
-from ferdelance.schemas.database import ServerModel
+from ferdelance.schemas.database import ServerTask
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
@@ -261,7 +261,7 @@ async def wb_get_model(
     user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}: requested aggregate model for an artifact")
-    mr: ModelRepository = ModelRepository(session)
+    rr: ResultRepository = ResultRepository(session)
     ss: SecurityService = SecurityService(session)
     await ss.setup(user.public_key)
 
@@ -270,7 +270,7 @@ async def wb_get_model(
     artifact_id = artifact.artifact_id
 
     try:
-        model_db: ServerModel = await mr.get_aggregated_model(artifact_id)
+        model_db: ServerTask = await rr.get_aggregated_model(artifact_id)
 
         model_path = model_db.path
 
@@ -309,12 +309,12 @@ async def wb_get_partial_model(
     )
 
     try:
-        mr: ModelRepository = ModelRepository(session)
+        rr: ResultRepository = ResultRepository(session)
         ss: SecurityService = SecurityService(session)
 
         await ss.setup(user.public_key)
 
-        model_db: ServerModel = await mr.get_partial_model(artifact_id, builder_user_id)
+        model_db: ServerTask = await rr.get_partial_model(artifact_id, builder_user_id)
 
         model_path = model_db.path
 

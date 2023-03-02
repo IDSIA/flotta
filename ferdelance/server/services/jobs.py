@@ -4,13 +4,13 @@ from ferdelance.database.repositories import (
     ArtifactRepository,
     DataSourceRepository,
     JobRepository,
-    ModelRepository,
+    ResultRepository,
     ComponentRepository,
     ProjectRepository,
 )
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.client import ClientTask
-from ferdelance.schemas.database import ServerArtifact, ServerModel
+from ferdelance.schemas.database import ServerArtifact, ServerTask
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
@@ -36,12 +36,14 @@ class JobManagementService(Repository):
         self.ar: ArtifactRepository = ArtifactRepository(session)
         self.dsr: DataSourceRepository = DataSourceRepository(session)
         self.jr: JobRepository = JobRepository(session)
-        self.mr: ModelRepository = ModelRepository(session)
+        self.rr: ResultRepository = ResultRepository(session)
         self.pr: ProjectRepository = ProjectRepository(session)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         try:
             # TODO: maybe split artifact for each client on submit?
+
+            # TODO: manage for estimates
 
             artifact_db: ServerArtifact = await self.ar.create_artifact(artifact)
 
@@ -131,7 +133,7 @@ class JobManagementService(Repository):
             LOGGER.error("Cannot aggregate: no worker available")
             return
 
-        models: list[ServerModel] = await self.mr.get_models_by_artifact_id(artifact_id)
+        models: list[ServerTask] = await self.rr.get_models_by_artifact_id(artifact_id)
 
         model_ids: list[str] = [m.model_id for m in models]
 
@@ -142,10 +144,6 @@ class JobManagementService(Repository):
     async def aggregation_completed(self, artifact_id: str) -> None:
         LOGGER.info(f"aggregation completed for artifact_id={artifact_id}")
         await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED)
-
-    def evaluate(self, artifact: Artifact) -> ArtifactStatus:
-        # TODO
-        raise NotImplementedError()
 
     async def save_metrics(self, metrics: Metrics):
         artifact = await self.ar.get_artifact(metrics.artifact_id)
