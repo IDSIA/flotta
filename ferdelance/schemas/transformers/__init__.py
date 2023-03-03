@@ -98,7 +98,11 @@ def rebuild_pipeline(query_transformer: QueryTransformer) -> FederatedPipeline:
 
 
 def apply_transformer(
-    query_transformer: QueryTransformer, df: pd.DataFrame, working_folder: str, artifact_id: str, i: int
+    query_transformer: QueryTransformer,
+    df: pd.DataFrame,
+    working_folder: str | None = None,
+    artifact_id: str | None = None,
+    i: int | None = None,
 ) -> pd.DataFrame:
 
     if query_transformer.name == "FederatedPipeline":
@@ -107,8 +111,9 @@ def apply_transformer(
     else:
         transformer = rebuild_transformer(query_transformer)
 
-    path_transformer = os.path.join(working_folder, f"{artifact_id}_{i:04}_Transformer_{transformer.name}.pkl")
+    if working_folder is not None and artifact_id is not None and i is not None:
+        path_transformer = os.path.join(working_folder, f"{artifact_id}_{i:04}_Transformer_{transformer.name}.pkl")
 
-    save(transformer, path_transformer)
+        save(transformer, path_transformer)
 
     return transformer.transform(df)
