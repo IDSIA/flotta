@@ -5,6 +5,7 @@ from ferdelance.schemas.models import (
     ParametersRandomForestClassifier,
 )
 from ferdelance.workbench.context import Context
+from ferdelance.schemas.plans import TrainTestSplit
 
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 
@@ -31,34 +32,28 @@ def evaluate(model: FederatedRandomForestClassifier, x, y):
     print(cm)
 
 
+# required docker version running
 if __name__ == "__main__":
 
     ctx = Context(f'http://ferdelance.{os.environ.get("DOMAIN")}')
 
-    ds_california_1 = ctx.get_datasource_by_name("california1")[0]
-    ds_california_2 = ctx.get_datasource_by_name("california2")[0]
+    project = ctx.load("58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94")
 
-    q1 = ds_california_1.all_features()
-    q2 = ds_california_2.all_features()
+    clients = ctx.clients(project)
 
-    d = Dataset(
-        test_percentage=0.2,
-        val_percentage=0.0,
-        label="MedHouseValDiscrete",
-    )
-    d.add_query(q1)
-    d.add_query(q2)
+    client_id_1, client_id_2 = [c.client_id for c in clients]
 
-    m = FederatedRandomForestClassifier(
-        strategy=StrategyRandomForestClassifier.MERGE, parameters=ParametersRandomForestClassifier(n_estimators=10)
+    q = project.extract()
+
+    q = q.add_plan(TrainTestSplit("MedHouseValDiscrete", 0.2))
+
+    q = q.add_model(
+        FederatedRandomForestClassifier(
+            strategy=StrategyRandomForestClassifier.MERGE, parameters=ParametersRandomForestClassifier(n_estimators=10)
+        )
     )
 
-    a: Artifact = Artifact(
-        dataset=d,
-        model=m.build(),
-    )
-
-    a = ctx.submit(a)
+    a: Artifact = ctx.submit(project, q)
 
     print("Artifact id:", a.artifact_id)
 
@@ -76,11 +71,11 @@ if __name__ == "__main__":
 
     print("model saved to:          ", aggregated_model_path)
 
-    partial_model_path_1 = ctx.get_partial_model(a, ds_california_1.client_id)
+    partial_model_path_1 = ctx.get_partial_model(a, client_id_1)
 
     print("partial model 1 saved to:", partial_model_path_1)
 
-    partial_model_path_2 = ctx.get_partial_model(a, ds_california_2.client_id)
+    partial_model_path_2 = ctx.get_partial_model(a, client_id_2)
 
     print("partial model 2 saved to:", partial_model_path_2)
 

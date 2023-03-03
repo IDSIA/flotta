@@ -1,7 +1,7 @@
 from ferdelance.cli.fdl_suites.models.functions import describe_model, list_models
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.schemas.database import ServerModel
-from ferdelance.database.tables import Artifact, Component, Model
+from ferdelance.schemas.database import Result
+from ferdelance.database.tables import Artifact, Component, Result as ResultDB
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,15 +32,23 @@ async def test_models_list(session: AsyncSession):
         )
     )
 
-    session.add(Model(model_id="mid1", path=".", artifact_id="aid1", component_id="cid1"))
+    session.add(
+        ResultDB(
+            result_id="mid1",
+            path=".",
+            artifact_id="aid1",
+            component_id="cid1",
+            is_model=True,
+        )
+    )
 
-    res: list[ServerModel] = await list_models()
+    res: list[Result] = await list_models()
 
     assert len(res) == 0
 
     await session.commit()
 
-    res: list[ServerModel] = await list_models()
+    res: list[Result] = await list_models()
 
     assert len(res) == 1
 
@@ -69,16 +77,24 @@ async def test_describe_client(session: AsyncSession):
     )
 
     session.add(
-        Model(model_id="mid1", path=".", artifact_id="aid1", component_id="cid1", aggregated=True, creation_time=None)
+        ResultDB(
+            result_id="mid1",
+            path=".",
+            artifact_id="aid1",
+            component_id="cid1",
+            is_model=True,
+            is_aggregated=True,
+            creation_time=None,
+        )
     )
 
     await session.commit()
 
-    res: ServerModel | None = await describe_model(model_id="mid1")
+    res: Result | None = await describe_model(task_id="mid1")
 
     assert res is not None
-    assert res.model_id == "mid1"
+    assert res.result_id == "mid1"
     assert res.path == "."
 
-    res = await describe_model(model_id="do not exist")
+    res = await describe_model(task_id="do not exist")
     assert res is None

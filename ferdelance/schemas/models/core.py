@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import Any
 
+from abc import ABC, abstractmethod
+
 from .metrics import Metrics
 
-from datetime import datetime
 from pydantic import BaseModel
 
 import numpy as np
@@ -19,8 +20,10 @@ from sklearn.metrics import (
 
 
 class Model(BaseModel):
-    """Exchange model description defined in the workbench, trained in
-    the clients, and aggregated in the server.
+    """Exchange model description defined in the workbench, trained in the
+    clients, and aggregated in the server. This class contains all the data
+    required to rebuild the real model that can execute code (in brief, an
+    extension of GenericModel).
     """
 
     name: str
@@ -28,8 +31,12 @@ class Model(BaseModel):
     parameters: dict[str, Any] = dict()
 
 
-class GenericModel:
-    """This is the class that can manipulate real models."""
+class GenericModel(ABC):
+    """This is the class that can manipulate real models. The client and the
+    server will run the code implemented by classes that extends this one."""
+
+    def __init__(self) -> None:
+        self.model: Any = None
 
     def load(self, path: str) -> None:
         """Load a trained model from a path on the local disk to the internal
@@ -51,6 +58,7 @@ class GenericModel:
         with open(path, "wb") as f:
             pickle.dump(self.model, f)
 
+    @abstractmethod
     def train(self, x, y) -> None:
         """Perform a training using local data produced with a Query, a Pipeline, or a Dataset.
         This method is used by the clients to train the partial models.
@@ -62,7 +70,8 @@ class GenericModel:
         """
         raise NotImplementedError()
 
-    def aggregate(self, strategy: str, model_a, model_b):
+    @abstractmethod
+    def aggregate(self, strategy: str, model_a: GenericModel, model_b: GenericModel):
         """Aggregates two models and produces a new one, following the given strategy. This aggregation
         function is called from the workers on the server that perform aggregations.
         Aggregations are done between two partial models, producing a new aggregated model. This
@@ -80,6 +89,7 @@ class GenericModel:
         """
         raise NotImplementedError()
 
+    @abstractmethod
     def predict(self, x) -> np.ndarray:
         """Predict the probabilities for the given instances of features.
 
@@ -112,6 +122,7 @@ class GenericModel:
             confusion_matrix_TN=cf[1, 1],
         )
 
+    @abstractmethod
     def build(self) -> Model:
         """Convert this GenericModel to a Model that can be sent to the aggregation server
         for the federate learning training procedure.

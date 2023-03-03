@@ -19,12 +19,14 @@ class ServerArtifact(BaseModel):
         )
 
 
-class ServerModel(BaseModel):
+class Result(BaseModel):
     """Model data stored in the database."""
 
-    model_id: str
-    creation_time: datetime | None
-    path: str
-    aggregated: bool = False
+    result_id: str
     artifact_id: str
     client_id: str
+    creation_time: datetime | None
+    path: str
+    is_model: bool = False
+    is_estimator: bool = False
+    is_aggregated: bool = False

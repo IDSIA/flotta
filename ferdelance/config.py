@@ -39,7 +39,7 @@ class Configuration(BaseModel):
     STORAGE_DATASOURCES: str = str(os.path.join(STORAGE_BASE_DIR, "datasources"))
     STORAGE_ARTIFACTS: str = str(os.path.join(STORAGE_BASE_DIR, "artifacts"))
     STORAGE_CLIENTS: str = str(os.path.join(STORAGE_BASE_DIR, "clients"))
-    STORAGE_MODELS: str = str(os.path.join(STORAGE_BASE_DIR, "models"))
+    STORAGE_RESULTS: str = str(os.path.join(STORAGE_BASE_DIR, "results"))
 
     FILE_CHUNK_SIZE: int = int(os.environ.get("FILE_CHUNK_SIZE", 4096))
 
@@ -57,8 +57,8 @@ class Configuration(BaseModel):
     def storage_dir_clients(self, client_id: str) -> str:
         return os.path.join(conf.STORAGE_CLIENTS, client_id)
 
-    def storage_dir_models(self, model_id: str) -> str:
-        return os.path.join(conf.STORAGE_MODELS, model_id)
+    def storage_dir_results(self, result_id: str) -> str:
+        return os.path.join(conf.STORAGE_RESULTS, result_id)
 
     def server_url(self) -> str:
         return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
@@ -110,7 +110,12 @@ conf: Configuration = Configuration()
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": True,
-    "formatters": {"standard": {"format": "%(asctime)s %(levelname)8s %(name)48.48s:%(lineno)-3s %(message)s"}},
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(levelname)8s %(name)48.48s:%(lineno)-3s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
     "handlers": {
         "console": {
             "level": "INFO",

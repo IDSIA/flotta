@@ -8,13 +8,11 @@ from ferdelance.shared.exchange import Exchange
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
 import os
 import pytest
 import pytest_asyncio
 import shutil
 
-LOGGER = logging.getLogger(__name__)
 
 db_file = "./tests/test_sqlite.db"
 db_path = os.path.join("./", db_file)
@@ -33,7 +31,7 @@ def create_dirs() -> None:
     os.makedirs(conf.STORAGE_DATASOURCES, exist_ok=True)
     os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
     os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
-    os.makedirs(conf.STORAGE_MODELS, exist_ok=True)
+    os.makedirs(conf.STORAGE_RESULTS, exist_ok=True)
 
     if os.path.exists(db_path):
         os.remove(db_path)
@@ -43,7 +41,7 @@ def delete_dirs() -> None:
     shutil.rmtree(conf.STORAGE_DATASOURCES)
     shutil.rmtree(conf.STORAGE_ARTIFACTS)
     shutil.rmtree(conf.STORAGE_CLIENTS)
-    shutil.rmtree(conf.STORAGE_MODELS)
+    shutil.rmtree(conf.STORAGE_RESULTS)
 
     os.remove(db_path)
 

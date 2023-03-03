@@ -12,6 +12,8 @@ from ferdelance.database.repositories import (
 from ferdelance.database.repositories.settings import setup_settings
 from ferdelance.server import security
 
+from sqlalchemy.exc import NoResultFound
+
 import aiofiles.os
 import logging
 
@@ -30,7 +32,7 @@ class ServerStartup(Repository):
 
         await aiofiles.os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
         await aiofiles.os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
-        await aiofiles.os.makedirs(conf.STORAGE_MODELS, exist_ok=True)
+        await aiofiles.os.makedirs(conf.STORAGE_RESULTS, exist_ok=True)
 
         LOGGER.info("directory initialization completed")
 

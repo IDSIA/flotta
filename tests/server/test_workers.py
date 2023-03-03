@@ -1,13 +1,15 @@
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
-    Model as ModelDB,
+    Job as JobDB,
+    Result as ResultDB,
 )
-from ferdelance.database.repositories import ProjectRepository
+from ferdelance.database.repositories import ProjectRepository, JobRepository
 from ferdelance.server.api import api
+from ferdelance.server.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.models import Model
 from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.status import JobStatus
+from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
 from tests.utils import setup_worker, connect, TEST_PROJECT_TOKEN
 
@@ -40,8 +42,8 @@ async def test_worker_artifact_not_found(session: AsyncSession, exchange: Exchan
 @pytest.mark.asyncio
 async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
-        await connect(server, session)
-        await setup_worker(session, exchange)
+        args = await connect(server, session)
+        worker_id = await setup_worker(session, exchange)
 
         # prepare new artifact
         pr: ProjectRepository = ProjectRepository(session)
@@ -56,7 +58,11 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         )
 
         # test artifact submit
-        res = server.post("/worker/artifact", headers=exchange.headers(), json=artifact.dict())
+        res = server.post(
+            "/worker/artifact",
+            headers=exchange.headers(),
+            json=artifact.dict(),
+        )
 
         assert res.status_code == 200
 
@@ -71,10 +77,45 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         assert JobStatus[status.status] == JobStatus.SCHEDULED
 
         res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).limit(1))
-        art_db: ArtifactDB | None = res.one()
+        art_db: ArtifactDB = res.one()
 
         assert art_db is not None
         assert os.path.exists(art_db.path)
+
+        res = await session.scalars(
+            select(JobDB).where(
+                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.component_id == args.client_id,
+            )
+        )
+        job: JobDB = res.one()
+
+        assert JobStatus[job.status] == JobStatus.SCHEDULED
+
+        # simulate client work
+        jm: JobManagementService = JobManagementService(session)
+        jr: JobRepository = JobRepository(session)
+
+        await jm.client_task_start(artifact.artifact_id, args.client_id)
+        await jm.client_result_create(artifact.artifact_id, args.client_id)
+        await jr.schedule_job(artifact.artifact_id, worker_id)
+
+        await jm.ar.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
+
+        res = await session.scalars(
+            select(JobDB).where(
+                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.component_id == args.client_id,
+            )
+        )
+        job: JobDB = res.one()
+
+        assert JobStatus[job.status] == JobStatus.COMPLETED
+
+        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id))
+        art_db = res.one()
+
+        assert ArtifactJobStatus[art_db.status] == ArtifactJobStatus.AGGREGATING
 
         # test artifact get
         res = server.get(
@@ -88,6 +129,8 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert artifact.artifact_id == get_art.artifact_id
 
+        assert artifact.model is not None
+        assert get_art.model is not None
         assert len(artifact.transform.stages) == len(get_art.transform.stages)
         assert len(artifact.model.name) == len(get_art.model.name)
 
@@ -104,23 +147,23 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
             pickle.dump(model, f)
 
         res = server.post(
-            f"/worker/model/{artifact.artifact_id}",
+            f"/worker/result/{artifact.artifact_id}",
             headers=exchange.headers(),
             files={"file": open(model_path, "rb")},
         )
 
         assert res.status_code == 200
 
-        res = await session.scalars(select(ModelDB))
-        models: list[ModelDB] = list(res.all())
+        res = await session.scalars(select(ResultDB).where(ResultDB.component_id == worker_id))
+        results: list[ResultDB] = list(res.all())
 
-        assert len(models) == 1
+        assert len(results) == 1
 
-        model_id = models[0].model_id
+        result_id = results[0].result_id
 
         # test model get
         res = server.get(
-            f"/worker/model/{model_id}",
+            f"/worker/result/{result_id}",
             headers=exchange.headers(),
         )
 
@@ -132,11 +175,11 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         assert "model" in model_get
         assert model == model_get
 
-        assert os.path.exists(models[0].path)
+        assert os.path.exists(results[0].path)
 
         # cleanup
         os.remove(art_db.path)
-        os.remove(models[0].path)
+        os.remove(results[0].path)
         os.remove(model_path)
 
 

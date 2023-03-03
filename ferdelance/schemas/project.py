@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.schemas.datasources import AggregatedDataSource
+from ferdelance.schemas.datasources import AggregatedDataSource, Query
 
 from pydantic import BaseModel
 from datetime import datetime
@@ -27,6 +27,15 @@ class Project(BaseProject):
 
     data: AggregatedDataSource
 
-    def describe(self) -> str:
-        # TODO
-        raise NotImplementedError()
+    def extract(self) -> Query:
+        return self.data.extract()
+
+    def __str__(self) -> str:
+        return f"""Project:         {self.project_id}
+  Name:          {self.name}
+  Token:         {self.token}
+  Created:       {self.creation_time}
+  # clients:     {self.n_clients}
+  # datasources: {self.n_datasources}
+  # features:    {len(self.data.features)}
+"""

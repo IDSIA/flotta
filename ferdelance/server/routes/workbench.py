@@ -5,7 +5,7 @@ from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
     DataSourceRepository,
-    ModelRepository,
+    ResultRepository,
     ProjectRepository,
 )
 from ferdelance.schemas.client import ClientDetails
@@ -20,7 +20,7 @@ from ferdelance.schemas.artifacts import (
     Artifact,
 )
 from ferdelance.schemas.components import Component, Token
-from ferdelance.schemas.database import ServerModel
+from ferdelance.schemas.database import Result
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
@@ -261,7 +261,7 @@ async def wb_get_model(
     user: Component = Depends(check_access),
 ):
     LOGGER.info(f"user_id={user.component_id}: requested aggregate model for an artifact")
-    mr: ModelRepository = ModelRepository(session)
+    rr: ResultRepository = ResultRepository(session)
     ss: SecurityService = SecurityService(session)
     await ss.setup(user.public_key)
 
@@ -270,14 +270,14 @@ async def wb_get_model(
     artifact_id = artifact.artifact_id
 
     try:
-        model_db: ServerModel = await mr.get_aggregated_model(artifact_id)
+        result_db: Result = await rr.get_aggregated_model(artifact_id)
 
-        model_path = model_db.path
+        result_path = result_db.path
 
-        if not os.path.exists(model_path):
-            raise ValueError(f"model_id={model_db.model_id} not found at path={model_path}")
+        if not os.path.exists(result_path):
+            raise ValueError(f"result_id={result_db.result_id} not found at path={result_path}")
 
-        return ss.encrypt_file(model_path)
+        return ss.encrypt_file(result_path)
 
     except ValueError as e:
         LOGGER.warning(str(e))
@@ -309,19 +309,19 @@ async def wb_get_partial_model(
     )
 
     try:
-        mr: ModelRepository = ModelRepository(session)
+        rr: ResultRepository = ResultRepository(session)
         ss: SecurityService = SecurityService(session)
 
         await ss.setup(user.public_key)
 
-        model_db: ServerModel = await mr.get_partial_model(artifact_id, builder_user_id)
+        result_db: Result = await rr.get_partial_model(artifact_id, builder_user_id)
 
-        model_path = model_db.path
+        result_path = result_db.path
 
-        if not os.path.exists(model_path):
-            raise ValueError(f"partial model_id={model_db.model_id} not found at path={model_path}")
+        if not os.path.exists(result_path):
+            raise ValueError(f"partial result_id={result_db.result_id} not found at path={result_path}")
 
-        return ss.encrypt_file(model_path)
+        return ss.encrypt_file(result_path)
 
     except ValueError as e:
         LOGGER.warning(str(e))

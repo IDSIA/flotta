@@ -32,6 +32,8 @@ class Component(Base):
     component_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
 
+    name: Mapped[str] = mapped_column(nullable=True)
+
     type_name: Mapped[str] = mapped_column(ForeignKey("component_types.type"))
     type = relationship("ComponentType")
 
@@ -139,15 +141,20 @@ class Job(Base):
     termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class Model(Base):
-    """Table that keep track of all the model created and stored on the server."""
+class Result(Base):
+    """Table that keep track of all the task produced and stored on the server."""
 
-    __tablename__ = "models"
+    __tablename__ = "results"
 
-    model_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    result_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     path: Mapped[str] = mapped_column(String)
-    aggregated: Mapped[bool] = mapped_column(default=False)
+
+    is_aggregated: Mapped[bool] = mapped_column(default=False)
+
+    # TODO: if both is no, then it is a plain result?
+    is_model: Mapped[bool] = mapped_column(default=False)
+    is_estimator: Mapped[bool] = mapped_column(default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))

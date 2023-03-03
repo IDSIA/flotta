@@ -135,7 +135,7 @@ def test_query_composition():
 
     assert isinstance(f, QueryFilter)
 
-    q.add(f)
+    q = q.add(f)
 
     assert len(q.stages) == 2
 
@@ -159,7 +159,7 @@ def test_query_composition():
 
     b = FederatedBinarizer(f1, "binary", 0.5)
 
-    q.add(b)
+    q = q.add(b)
 
     assert len(q.stages) == 3
 

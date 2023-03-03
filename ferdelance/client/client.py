@@ -67,6 +67,7 @@ class FerdelanceClient:
             LOGGER.info("collecting system info")
 
             join_data = ClientJoinRequest(
+                name=self.config.name,
                 system=self.config.machine_system,
                 mac_address=self.config.machine_mac_address,
                 node=self.config.machine_node,

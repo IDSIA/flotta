@@ -111,6 +111,7 @@ async def test_client_already_exists(session: AsyncSession, exchange: Exchange):
         assert client_db.machine_node is not None
 
         data = ClientJoinRequest(
+            name="testing_client",
             system=client_db.machine_system,
             mac_address=client_db.machine_mac_address,
             node=client_db.machine_node,

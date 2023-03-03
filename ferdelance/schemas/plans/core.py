@@ -1,4 +1,5 @@
 from typing import Any
+from abc import ABC, abstractmethod
 
 from ferdelance.schemas.models import GenericModel, Metrics
 
@@ -12,13 +13,13 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class LoadingPlan(BaseModel):
+class Plan(BaseModel):
 
     name: str
     params: dict[str, Any]
 
 
-class BasePlan:
+class GenericPlan(ABC):
     """Describe how to train and evaluate a model based on the input data source."""
 
     def __init__(self, name: str, label: str, random_seed: float | None = None) -> None:
@@ -36,17 +37,17 @@ class BasePlan:
             "random_seed": self.random_seed,
         }
 
-    def build(self) -> LoadingPlan:
-        return LoadingPlan(
+    def build(self) -> Plan:
+        return Plan(
             name=self.name,
             params=self.params(),
         )
 
+    @abstractmethod
     def load(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> None:
         raise NotImplementedError()
 
     def validate_input(self, df: pd.DataFrame) -> None:
-
         if self.label is None:
             msg = "label is not defined!"
             LOGGER.error(msg)

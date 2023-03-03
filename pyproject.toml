@@ -3,7 +3,7 @@ minversion = "7.0"
 addopts = "-ra -q -s -v"
 log_cli = true
 log_cli_level = "DEBUG"
-log_cli_format = "%(asctime)-23s %(levelname)8s %(filename)24s:%(lineno)-3s %(message)s "
+log_cli_format = "%(asctime)s %(levelname)8s %(name)48.48s:%(lineno)-3s %(message)s"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 testpaths = [
     "tests",

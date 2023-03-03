@@ -85,7 +85,7 @@ async def test_jobs_next(session: AsyncSession):
     assert sc_2.execution_time is None
     assert sc_3.execution_time is None
 
-    await jr.stop_execution(job1.artifact_id, job1.client_id)
+    await jr.mark_completed(job1.artifact_id, job1.client_id)
 
     sc_1 = await jr.get(sc_1)
     sc_2 = await jr.get(sc_2)

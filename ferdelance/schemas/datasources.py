@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.schemas.queries.queries import (
+from ferdelance.schemas.queries import (
     Query,
     QueryFeature,
     QueryStage,
@@ -242,10 +242,6 @@ class AggregatedDataSource(BaseDataSource):
             lines.append(f"- {df.dtype:8} {df.name:32} {mean:.2}")
 
         return f"\n".join(lines)
-
-    def describe(self) -> str:
-        # TODO
-        raise NotImplementedError()
 
     def extract(self) -> Query:
         """Proceeds on extracting all the features and creating a transformation

@@ -1,8 +1,8 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.database.repositories import ModelRepository
-from ferdelance.schemas.database import ServerModel
+from ferdelance.database.repositories import ResultRepository
+from ferdelance.schemas.database import Result
 from ferdelance.schemas.components import Component
 from ferdelance.server.services import JobManagementService
 from ferdelance.server.security import check_token
@@ -40,9 +40,12 @@ async def post_artifact(
     artifact: Artifact, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
     LOGGER.info(f"worker_id={worker.component_id}: sent new artifact")
+
     try:
         jms: JobManagementService = JobManagementService(session)
+
         status = await jms.submit_artifact(artifact)
+
         return status
 
     except ValueError as e:
@@ -56,17 +59,21 @@ async def get_artifact(
     artifact_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
     LOGGER.info(f"worker_id={worker.component_id}: requested artifact_id={artifact_id}")
+
     try:
         jms: JobManagementService = JobManagementService(session)
-        artifact = jms.get_artifact(artifact_id)
-        return await artifact
+        artifact = await jms.get_artifact(artifact_id)
+
+        await jms.worker_task_start(artifact_id, worker.component_id)
+
+        return artifact
 
     except ValueError as e:
         LOGGER.error(f"{e}")
         raise HTTPException(404)
 
 
-@worker_router.post("/worker/model/{artifact_id}")
+@worker_router.post("/worker/result/{artifact_id}")
 async def post_model(
     file: UploadFile,
     artifact_id: str,
@@ -75,12 +82,11 @@ async def post_model(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: send model for artifact_id={artifact_id}")
     try:
-        mr: ModelRepository = ModelRepository(session)
         js: JobManagementService = JobManagementService(session)
 
-        model_db: ServerModel = await mr.create_model_aggregated(artifact_id, worker.component_id)
+        result_db: Result = await js.worker_create_result(artifact_id, worker.component_id)
 
-        async with aiofiles.open(model_db.path, "wb") as out_file:
+        async with aiofiles.open(result_db.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
@@ -91,20 +97,20 @@ async def post_model(
         raise HTTPException(500)
 
 
-@worker_router.get("/worker/model/{model_id}", response_class=FileResponse)
-async def get_model(
-    model_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
+@worker_router.get("/worker/result/{result_id}", response_class=FileResponse)
+async def get_result(
+    result_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
-    LOGGER.info(f"worker_id={worker.component_id}: request model_id={model_id}")
+    LOGGER.info(f"worker_id={worker.component_id}: request result_id={result_id}")
     try:
-        mr: ModelRepository = ModelRepository(session)
+        rr: ResultRepository = ResultRepository(session)
 
-        model_db: ServerModel = await mr.get_model_by_id(model_id)
+        result_db: Result = await rr.get_by_id(result_id)
 
-        if not os.path.exists(model_db.path):
+        if not os.path.exists(result_db.path):
             raise NoResultFound()
 
-        return FileResponse(model_db.path)
+        return FileResponse(result_db.path)
 
     except NoResultFound:
         raise HTTPException(404)

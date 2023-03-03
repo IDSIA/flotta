@@ -3,7 +3,8 @@ from ferdelance.client.services.actions.action import Action
 from ferdelance.client.services.routes import RouteService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.client import ClientTask
-from ferdelance.schemas.models import model_creator
+from ferdelance.schemas.estimators import apply_estimator
+from ferdelance.schemas.models import rebuild_model
 from ferdelance.schemas.transformers import apply_transformer
 from ferdelance.schemas.plans import rebuild_plan
 from ferdelance.schemas.updates import UpdateExecute
@@ -35,7 +36,7 @@ class ExecuteAction(Action):
         if artifact_id is None:
             raise ValueError("Invalid Artifact")
 
-        LOGGER.info(f"received artifact_id={artifact.artifact_id}")
+        LOGGER.info(f"artifact_id={artifact.artifact_id}: received new artifact")
 
         working_folder = os.path.join(self.config.path_artifact_folder(), f"{artifact_id}")
 
@@ -46,15 +47,15 @@ class ExecuteAction(Action):
         with open(path_artifact, "w") as f:
             json.dump(artifact.dict(), f)
 
-        LOGGER.info(f"saved artifact_id={artifact_id} to {path_artifact}")
+        LOGGER.info(f"artifact_id={artifact_id}: saved to {path_artifact}")
 
         dfs: list[pd.DataFrame] = []
 
-        LOGGER.info(f"number of selection query: {len(task.datasource_hashes)}")
+        LOGGER.debug(f"artifact_id={artifact_id}: number of transformation queries={len(task.datasource_hashes)}")
 
         for ds_hash in task.datasource_hashes:
             # EXTRACT data from datasource
-            LOGGER.info(f"EXECUTE Extract from datasource_hash={ds_hash}")
+            LOGGER.info(f"artifact_id={artifact_id}: execute extraction from datasource_hash={ds_hash}")
 
             ds = self.config.datasources.get(ds_hash, None)
             if not ds:
@@ -63,34 +64,43 @@ class ExecuteAction(Action):
             datasource: pd.DataFrame = ds.get()  # TODO: implemented only for files
 
             # TRANSFORM using query
-            LOGGER.info(f"EXECUTE Transform datasource_hash={ds_hash}")
+            LOGGER.info(f"artifact_id={artifact_id}: execute transformation on datasource_hash={ds_hash}")
 
             df = datasource.copy()
 
-            for stage in artifact.transform.stages:
+            for i, stage in enumerate(artifact.transform.stages):
                 if stage.transformer is None:
                     continue
 
-                df = apply_transformer(stage.transformer, df)
+                df = apply_transformer(stage.transformer, df, working_folder, artifact_id, i)
 
             dfs.append(df)
 
         df_dataset = pd.concat(dfs)
 
-        LOGGER.info(f"dataset shape: {df_dataset.shape}")
+        LOGGER.info(f"artifact_id={artifact_id}:dataset shape: {df_dataset.shape}")
 
         path_datasource = os.path.join(working_folder, f"dataset.csv.gz")
 
         df_dataset.to_csv(path_datasource, compression="gzip")
 
-        LOGGER.info(f"saved artifact_id={artifact_id} data to {path_datasource}")
+        LOGGER.info(f"artifact_id={artifact_id}: saved data to {path_datasource}")
 
-        # model preparation
-        local_model = model_creator(artifact.model)
+        # do we have an estimator?
+        if artifact.estimate is not None:
+            LOGGER.info(f"artifact_id={artifact_id}: executing estimation")
 
-        # LOAD execution plan
+            path_estimator = apply_estimator(artifact.estimate, df_dataset, working_folder, artifact_id)
 
-        if artifact.load is not None:
+            self.routes_service.post_result(artifact_id, path_estimator)
+
+        elif artifact.model is not None and artifact.load is not None:
+            LOGGER.info(f"artifact_id={artifact_id}: executing model training")
+
+            # model preparation
+            local_model = rebuild_model(artifact.model)
+
+            # LOAD execution plan
             plan = rebuild_plan(artifact.load)
 
             plan.load(df_dataset, local_model, working_folder, artifact_id)
@@ -99,4 +109,7 @@ class ExecuteAction(Action):
                 self.routes_service.post_metrics(m)
 
             if plan.path_model is not None:
-                self.routes_service.post_model(artifact_id, plan.path_model)
+                self.routes_service.post_result(artifact_id, plan.path_model)
+
+        else:
+            raise ValueError("Invalid artifact operations")

@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.plans.loading import BasePlan, LoadingPlan, GenericModel
+from ferdelance.schemas.plans.core import GenericPlan, Plan, GenericModel
 
 from sklearn.model_selection import train_test_split
 
@@ -12,7 +12,7 @@ import os
 LOGGER = logging.getLogger(__name__)
 
 
-class TrainTestSplit(BasePlan):
+class TrainTestSplit(GenericPlan):
     def __init__(self, label: str, test_percentage: float = 0.0, random_seed: float | None = None) -> None:
         super().__init__(TrainTestSplit.__name__, label, random_seed)
         self.test_percentage: float = test_percentage
@@ -39,10 +39,10 @@ class TrainTestSplit(BasePlan):
         # model training
         local_model.train(X_tr, Y_tr)
 
-        self._path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
-        local_model.save(self._path_model)
+        self.path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
+        local_model.save(self.path_model)
 
-        LOGGER.info(f"saved artifact_id={artifact_id} model to {self._path_model}")
+        LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
 
         # model testing
         if X_ts is not None and Y_ts is not None:
@@ -53,7 +53,7 @@ class TrainTestSplit(BasePlan):
             self.metrics.append(metrics)
 
 
-class TrainTestValSplit(BasePlan):
+class TrainTestValSplit(GenericPlan):
     def __init__(
         self, label: str, test_percentage: float = 0.0, val_percentage: float = 0.0, random_seed: float | None = None
     ) -> None:

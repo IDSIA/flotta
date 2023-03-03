@@ -11,6 +11,8 @@ VAR_PATTERN = re.compile(r".*?\${(\w+)}.*?")
 class ClientJoinRequest(BaseModel):
     """Data sent by the client to join the server."""
 
+    name: str
+
     system: str
     mac_address: str
     node: str
@@ -29,6 +31,7 @@ class ClientJoinData(BaseModel):
 
 class ClientDetails(BaseModel):
     client_id: str
+    name: str
     version: str
 
 
@@ -55,13 +58,28 @@ class DataSourceConfig(BaseModel):
     path: str | None = None
 
 
+class ResourceConfig(BaseModel):
+    training: int = 1
+    querying: int = 1
+
+    @validator("training", "querying", pre=True)
+    @classmethod
+    def check_min_thread(cls, value):
+        if isinstance(value, str):
+            value = int(value)
+        return max(1, value)
+
+
 class ArgumentsConfig(BaseModel):
+    name: str = ""
     server: str = "http://localhost/"
     heartbeat: float = 1.0
     workdir: str = "./workdir"
     private_key_location: str | None
 
-    datasources: list[DataSourceConfig]
+    datasources: list[DataSourceConfig] = list()
+
+    resources: ResourceConfig = ResourceConfig()
 
     @validator("server", "heartbeat", "workdir", "private_key_location", pre=True)
     @classmethod

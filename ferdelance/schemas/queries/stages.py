@@ -14,7 +14,12 @@ class QueryStage(BaseModel):
 
     _features: dict[str, QueryFeature] = dict()
 
-    def __init__(self, features: list[QueryFeature], transformer: QueryTransformer | None = None, **data: Any) -> None:
+    def __init__(
+        self,
+        features: list[QueryFeature],
+        transformer: QueryTransformer | None = None,
+        **data: Any,
+    ) -> None:
         super().__init__(features=features, transformer=transformer, **data)
 
         for f in self.features:

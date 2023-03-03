@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 class BaseComponent(BaseModel):
     type_name: str
+    name: str = ""
 
     public_key: str
 

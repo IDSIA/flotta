@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 
 class QueryTransformer(BaseModel):
-    """Query transformation to apply to the feature from the workbench."""
+    """Query transformation to apply to the features from the workbench."""
 
     features_in: list[QueryFeature]
     features_out: list[QueryFeature]

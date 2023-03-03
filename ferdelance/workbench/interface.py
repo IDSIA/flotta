@@ -5,7 +5,6 @@ __all__ = [
     "ArtifactStatus",
     "Client",
     "DataSource",
-    "LoadingPlan",
     "Feature",
     "Project",
 ]
@@ -23,5 +22,4 @@ from ferdelance.schemas.datasources import (
 from ferdelance.schemas.client import (
     ClientDetails as Client,
 )
-from ferdelance.schemas.plans import LoadingPlan
 from ferdelance.schemas.project import Project

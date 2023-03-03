@@ -5,6 +5,7 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
+from ferdelance.schemas.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
     WorkbenchClientList,
@@ -16,6 +17,9 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
+from ferdelance.shared.status import ArtifactJobStatus
+
+from time import sleep
 
 import pandas as pd
 
@@ -153,7 +157,54 @@ class Context:
 
         return data.datasources
 
-    def submit(self, artifact: Artifact) -> Artifact:
+    def execute(self, project: Project, estimate: QueryEstimate) -> None:
+        """Execute a statistical query."""
+
+        artifact = Artifact(
+            project_id=project.project_id,
+            transform=estimate.transform,
+            estimate=estimate.estimator,
+        )
+
+        res = requests.post(
+            f"{self.server}/workbench/artifact/submit",
+            headers=self.exc.headers(),
+            data=self.exc.create_payload(artifact.dict()),
+        )
+
+        res.raise_for_status()
+
+        art_status = ArtifactStatus(**self.exc.get_payload(res.content))
+
+        while art_status.status not in (ArtifactJobStatus.ERROR, ArtifactJobStatus.COMPLETED):
+            # TODO: add wait time
+            print(".")
+            sleep(1)
+
+            art_status = self.status(art_status)
+
+        if art_status.artifact_id is None:
+            raise ValueError("Invalid artifact status")
+
+        if art_status.status == ArtifactJobStatus.COMPLETED:
+
+            wba = WorkbenchArtifact(artifact_id=art_status.artifact_id)
+
+            res = requests.get(
+                f"{self.server}/workbench/artifact/result",
+                headers=self.exc.headers(),
+                data=self.exc.create_payload(wba.dict()),
+            )
+
+            res.raise_for_status()
+
+            # TODO: return of results
+
+        # TODO: error reporting
+
+        raise NotImplementedError()
+
+    def submit(self, project: Project, query: QueryModel) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
 
         :param artifact:
@@ -165,6 +216,13 @@ class Context:
             The same input artifact with an assigned artifact_id.
             If the `ret_status` flag is true, the status of the artifact is also returned.
         """
+        artifact: Artifact = Artifact(
+            project_id=project.project_id,
+            transform=query.transform,
+            load=query.plan,
+            model=query.model,
+        )
+
         res = requests.post(
             f"{self.server}/workbench/artifact/submit",
             headers=self.exc.headers(),
@@ -239,6 +297,9 @@ class Context:
         if artifact.artifact_id is None:
             raise ValueError("submit first the artifact to the server")
 
+        if artifact.model is None:
+            raise ValueError("no model attached to this artifact")
+
         if not path:
             path = f"{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model"
 
@@ -273,6 +334,9 @@ class Context:
         """
         if artifact.artifact_id is None:
             raise ValueError("submit first the artifact to the server")
+
+        if artifact.model is None:
+            raise ValueError("no model associated with this artifact")
 
         if not path:
             path = f"{artifact.artifact_id}.{artifact.model.name}.{client_id}.PARTIAL.model"

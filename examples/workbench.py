@@ -13,6 +13,7 @@ from ferdelance.schemas.models import (
     StrategyRandomForestClassifier,
 )
 from ferdelance.schemas.plans import TrainTestSplit
+from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
 
 import numpy as np
 
@@ -33,27 +34,13 @@ project: Project = ctx.load(project_token)  # if None check for environment vari
 
 # %% What is this project?
 
-project.describe()
-
-# class Project:
-#    data: AggregatedDataSource
-#    project_id: str
-#    name: str
-#    descr: str
-#    n_datasources: int
-#    n_clients: int
-
+print(project)
 
 # %% (for DEBUG) ask the context for clients of a project
 clients: list[Client] = ctx.clients(project)
 
 for c in clients:
     print(c)
-
-# class Client:
-#   client_id: str
-#   version: str
-#   name: str # <--- TODO: to implement in client
 
 # %% (for DEBUG) ask the context for data source of a project
 datasources: list[DataSource] = ctx.datasources(project)
@@ -65,7 +52,7 @@ for datasource in datasources:
 
 ds = project.data  # <--- AggregatedDataSource
 
-print(ds.describe())
+print(ds)
 
 # list of AggregatedFeature:
 # distributions, not discrete values
@@ -85,27 +72,47 @@ q = ds.extract()
 # inspect a feature data type
 feature = q["variety"]
 
-print(feature.dtype)
+print(feature)
 
 # add filter
+q = q.add(q["variety"] < 2)
 
-q.add(q["variety"] < 2)
+# %% add transformer
 
-# add transformer
-from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
-
-transformer = FederatedKBinsDiscretizer(q["variety"], "variety_discr")
-
-q.add(transformer)
-
-# %% statistics
-"""
-TODO: these statistics requires a new scheduler and a cache system on the client
-stats = Statistics(
-    data=ds,
+q = q.add(
+    FederatedKBinsDiscretizer(
+        q["variety"],
+        "variety_discr",
+    )
 )
-ret = ctx.statistics(stats)  # partial submit
-"""
+
+# %% statistics 1
+
+s1 = q.groupby(q["variety"])
+s1 = s1.count()
+
+# TODO: these statistics requires a new scheduler and a cache system on the client
+
+# this is a special kind of submit where the request hangs until the results is available
+ret = ctx.execute(project, s1)
+
+# output is something like:
+# submit: .........done!
+
+# %% statistics 2
+
+s2 = q.mean(q["variety"])
+
+ret = ctx.execute(project, s1)
+
+# %% create an execution plan
+
+q = q.add_plan(
+    TrainTestSplit(
+        label="variety",
+        test_percentage=0.5,
+    )
+)
 
 # %% develop a model
 
@@ -114,31 +121,18 @@ m = FederatedRandomForestClassifier(
     parameters=ParametersRandomForestClassifier(n_estimators=10),
 )
 
-# %% create an artifact and deploy query, model, and strategy
-a: Artifact = Artifact(
-    project_id=project.project_id,
-    model=m.build(),
-    transform=q,
-    load=TrainTestSplit(
-        label="variety",
-        test_percentage=0.5,
-    ).build(),
-)
+q = q.add_model(m)
+
+# %% submit the task to the server, it will be converted to an Artifact
+
+a: Artifact = ctx.submit(project, q)
 
 print(json.dumps(a.dict(), indent=True))  # view execution plan
-
-# %% submit artifact to the server
-a = ctx.submit(a)  # or execute
-
-assert a.artifact_id is not None
 
 # %% monitor learning progress
 status: ArtifactStatus = ctx.status(a)
 
 print(status)
-
-# %% evaluation
-
 
 # %% download trained model:
 m.load(ctx.get_model(a))
@@ -147,7 +141,6 @@ m.load(ctx.get_model(a))
 
 print(m.predict(np.array([[0, 0, 0, 0]])))
 print(m.predict(np.array([[1, 1, 1, 1]])))
-
 
 # %%
 
