@@ -1,8 +1,9 @@
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
+    Job as JobDB,
     Result as ResultDB,
 )
-from ferdelance.database.repositories import ProjectRepository
+from ferdelance.database.repositories import ProjectRepository, JobRepository
 from ferdelance.server.api import api
 from ferdelance.server.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
@@ -42,7 +43,7 @@ async def test_worker_artifact_not_found(session: AsyncSession, exchange: Exchan
 async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
         args = await connect(server, session)
-        await setup_worker(session, exchange)
+        worker_id = await setup_worker(session, exchange)
 
         # prepare new artifact
         pr: ProjectRepository = ProjectRepository(session)
@@ -57,7 +58,11 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         )
 
         # test artifact submit
-        res = server.post("/worker/artifact", headers=exchange.headers(), json=artifact.dict())
+        res = server.post(
+            "/worker/artifact",
+            headers=exchange.headers(),
+            json=artifact.dict(),
+        )
 
         assert res.status_code == 200
 
@@ -72,17 +77,45 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         assert JobStatus[status.status] == JobStatus.SCHEDULED
 
         res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).limit(1))
-        art_db: ArtifactDB | None = res.one()
+        art_db: ArtifactDB = res.one()
 
         assert art_db is not None
         assert os.path.exists(art_db.path)
 
+        res = await session.scalars(
+            select(JobDB).where(
+                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.component_id == args.client_id,
+            )
+        )
+        job: JobDB = res.one()
+
+        assert JobStatus[job.status] == JobStatus.SCHEDULED
+
         # simulate client work
         jm: JobManagementService = JobManagementService(session)
+        jr: JobRepository = JobRepository(session)
 
         await jm.client_task_start(artifact.artifact_id, args.client_id)
         await jm.client_result_create(artifact.artifact_id, args.client_id)
+        await jr.schedule_job(artifact.artifact_id, worker_id)
+
         await jm.ar.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
+
+        res = await session.scalars(
+            select(JobDB).where(
+                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.component_id == args.client_id,
+            )
+        )
+        job: JobDB = res.one()
+
+        assert JobStatus[job.status] == JobStatus.COMPLETED
+
+        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id))
+        art_db = res.one()
+
+        assert ArtifactJobStatus[art_db.status] == ArtifactJobStatus.AGGREGATING
 
         # test artifact get
         res = server.get(
@@ -121,7 +154,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert res.status_code == 200
 
-        res = await session.scalars(select(ResultDB))
+        res = await session.scalars(select(ResultDB).where(ResultDB.component_id == worker_id))
         results: list[ResultDB] = list(res.all())
 
         assert len(results) == 1

@@ -61,12 +61,14 @@ def create_client(client: TestClient, exc: Exchange) -> str:
     return cjd.id
 
 
-async def setup_worker(session: AsyncSession, exchange: Exchange):
+async def setup_worker(session: AsyncSession, exchange: Exchange) -> str:
     try:
         wr: WorkerRepository = WorkerRepository(session)
-        worker_token = await wr.get_worker_token()
+        worker_token, worker_id = await wr.get_worker_token()
 
         exchange.set_token(worker_token)
+
+        return worker_id
 
     except Exception:
         assert False

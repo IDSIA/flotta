@@ -99,18 +99,33 @@ class JobManagementService(Repository):
             LOGGER.warning(f"client_id={client_id}: task does not exists with artifact_id={artifact_id}")
             raise TaskDoesNotExists()
 
+    async def worker_task_start(self, artifact_id: str, client_id: str) -> None:
+        try:
+            artifact_db: ServerArtifact = await self.ar.get_artifact(artifact_id)
+
+            if ArtifactJobStatus[artifact_db.status] != ArtifactJobStatus.AGGREGATING:
+                raise ValueError("Wrong status for artifact")
+
+            job: Job = await self.jr.next_job_for_client(client_id)
+
+            await self.jr.start_execution(job)
+
+        except NoResultFound:
+            LOGGER.warning(f"client_id={client_id}: task does not exists with artifact_id={artifact_id}")
+            raise TaskDoesNotExists()
+
     def _start_aggregation(self, token: str, artifact_id: str, result_ids: list[str]) -> None:
         aggregation.delay(token, artifact_id, result_ids)
 
     async def client_result_create(self, artifact_id: str, client_id: str) -> Result:
         LOGGER.info(f"client_id={client_id}: creating results")
 
-        await self.jr.mark_completed(artifact_id, client_id)
-
         # simple check
         await self.ar.get_artifact(artifact_id)
 
         artifact: Artifact = await self.ar.load(artifact_id)
+
+        await self.jr.mark_completed(artifact_id, client_id)
 
         if artifact.is_estimator():
             # result is an estimator
@@ -125,7 +140,20 @@ class JobManagementService(Repository):
 
         return result
 
-    async def check_for_aggregation(self, result: Result) -> Result:
+    async def check_for_aggregation(self, result: Result) -> None:
+        """This function is a check used to determine if starting the aggregation
+        of an artifact or not. Conditions to start are: all jobs related to the
+        current artifact (referenced in the argument result) is completed, and
+        there are no errors.
+
+        Args:
+            result (Result):
+                Result produced by a client.
+
+        Raises:
+            ValueError:
+                If the artifact referenced by argument result does not exists.
+        """
         artifact_id = result.artifact_id
 
         try:
@@ -135,11 +163,11 @@ class JobManagementService(Repository):
 
             if completed < total:
                 LOGGER.info(f"Cannot aggregate: {completed} / {total} completed job(s)")
-                return result
+                return
 
             if error > 0:
                 LOGGER.error(f"Cannot aggregate: {error} jobs have error")
-                return result
+                return
 
             LOGGER.info(f"All {total} job(s) completed, starting aggregation")
 
@@ -147,17 +175,19 @@ class JobManagementService(Repository):
 
             if token is None:
                 LOGGER.error("Cannot aggregate: no worker available")
-                return result
+                return
 
             results: list[Result] = await self.rr.get_models_by_artifact_id(artifact_id)
 
             results_id: list[str] = [m.result_id for m in results]
 
+            worker_id = await self.cr.get_component_id_by_token(token)
+
+            await self.jr.schedule_job(artifact_id, worker_id)
+
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
 
             self._start_aggregation(token, artifact_id, results_id)
-
-            return result
 
         except NoResultFound:
             raise ValueError(f"artifact_id={artifact_id} not found")
@@ -165,13 +195,12 @@ class JobManagementService(Repository):
     async def worker_create_result(self, artifact_id: str, worker_id: str) -> Result:
         try:
             LOGGER.info(f"worker_id={worker_id}: creating results")
-
-            await self.jr.mark_completed(artifact_id, worker_id)
-
             # simple check
             await self.ar.get_artifact(artifact_id)
 
             artifact: Artifact = await self.ar.load(artifact_id)
+
+            await self.jr.mark_completed(artifact_id, worker_id)
 
             if artifact.is_estimator() is not None:
                 # result is an estimator

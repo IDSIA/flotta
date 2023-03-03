@@ -289,7 +289,8 @@ async def client_post_result(
     jm: JobManagementService = JobManagementService(session)
 
     result_db = await jm.client_result_create(artifact_id, client.client_id)
-    result_db = await jm.check_for_aggregation(result_db)
+
+    await jm.check_for_aggregation(result_db)
 
     await ss.setup(client.public_key)
     await ss.stream_decrypt_file(request, result_db.path)

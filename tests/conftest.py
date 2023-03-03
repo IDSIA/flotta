@@ -8,13 +8,11 @@ from ferdelance.shared.exchange import Exchange
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
 import os
 import pytest
 import pytest_asyncio
 import shutil
 
-LOGGER = logging.getLogger(__name__)
 
 db_file = "./tests/test_sqlite.db"
 db_path = os.path.join("./", db_file)

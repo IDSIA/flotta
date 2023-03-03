@@ -63,6 +63,9 @@ async def get_artifact(
     try:
         jms: JobManagementService = JobManagementService(session)
         artifact = await jms.get_artifact(artifact_id)
+
+        await jms.worker_task_start(artifact_id, worker.component_id)
+
         return artifact
 
     except ValueError as e:
