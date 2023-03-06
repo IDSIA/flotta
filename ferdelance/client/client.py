@@ -117,6 +117,7 @@ class FerdelanceClient:
         :return:
             Exit code to use
         """
+
         action_service = ActionService(self.config)
         routes_service = RouteService(self.config)
 
@@ -172,6 +173,10 @@ class FerdelanceClient:
             LOGGER.error("could not complete setup")
             LOGGER.exception(e)
             raise ErrorClient()
+
+        except KeyboardInterrupt:
+            LOGGER.info("stopping client")
+            self.stop = True
 
         except Exception as e:
             LOGGER.error("Unknown error")

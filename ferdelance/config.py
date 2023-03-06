@@ -1,3 +1,4 @@
+from typing import Any
 from sqlalchemy.engine import URL
 from pydantic import BaseModel
 from pytimeparse import parse

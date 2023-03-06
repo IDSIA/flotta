@@ -36,6 +36,9 @@ class LocalClient(Process):
 
         try:
             exit_code = self.client.run()
+        except KeyboardInterrupt:
+            exit_code = 0
+
         except ClientExitStatus as e:
             exit_code = e.exit_code
 
