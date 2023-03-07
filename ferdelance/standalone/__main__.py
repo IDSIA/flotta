@@ -1,12 +1,14 @@
+from ferdelance.config import conf
 from ferdelance.client.arguments import setup_config_from_arguments
+from ferdelance.server.api import api
 from ferdelance.standalone.processes import LocalClient, LocalServer, LocalWorker
 from ferdelance.standalone.extra import extra
 
 from multiprocessing import Queue
 
-import os
 import logging
 import signal
+import uvicorn
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,23 +22,31 @@ if __name__ == "__main__":
 
     LOGGER.info("standalone application starting")
 
-    os.environ["STANDALONE"] = "True"
-    os.environ[
-        "SERVER_MAIN_PASSWORD"
-    ] = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"  # this is a dummy key
-    os.environ["DB_DIALECT"] = "sqlite"
-    os.environ["DB_HOST"] = "./sqlite.db"
-    os.environ["SERVER_INTERFACE"] = "0.0.0.0"
-    os.environ["STANDALONE_WORKERS"] = "7"
-    os.environ["PROJECT_DEFAULT_TOKEN"] = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
+    conf.STANDALONE = True
+    conf.SERVER_MAIN_PASSWORD = (
+        "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"  # this is a dummy key
+    )
 
-    aggregation_queue = Queue()
+    conf.DB_DIALECT = "sqlite"
+    conf.DB_HOST = "./sqlite.db"
+    conf.SERVER_INTERFACE = "0.0.0.0"
+    conf.STANDALONE_WORKERS = 7
+    conf.PROJECT_DEFAULT_TOKEN = (
+        "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"  # this is a standard
+    )
 
-    extra.AGGREGATION_QUEUE = aggregation_queue
+    extra.aggregation_queue = Queue()
 
-    server_process = LocalServer()
-    worker_process = LocalWorker(aggregation_queue)
+    worker_process = LocalWorker(extra.aggregation_queue)
     client_process = LocalClient(client_conf)
+
+    server = LocalServer(
+        config=uvicorn.Config(
+            api,
+            host=conf.SERVER_INTERFACE,
+            port=conf.SERVER_PORT,
+        )
+    )
 
     def handler(signalname):
         def f(signal_received, frame):
@@ -47,17 +57,18 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, handler("SIGINT"))
     signal.signal(signal.SIGTERM, handler("SIGTERM"))
 
-    try:
-        server_process.start()
-        worker_process.start()
-        client_process.start()
+    with server.run_in_thread():
+        try:
+            worker_process.start()
+            client_process.start()
 
-    except KeyboardInterrupt:
-        LOGGER.info("stopping...")
+        except KeyboardInterrupt:
+            LOGGER.info("stopping...")
 
-    finally:
-        client_process.join()
-        worker_process.join()
-        server_process.join()
+        try:
+            client_process.join()
+            worker_process.join()
+        except KeyboardInterrupt:
+            LOGGER.info("stopping more...")
 
     LOGGER.info("standalone application terminated")
