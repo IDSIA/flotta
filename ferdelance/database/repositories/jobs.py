@@ -1,5 +1,6 @@
 from ferdelance.database.tables import Job as JobDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.schemas.database import ServerArtifact
 from ferdelance.schemas.jobs import Job
 from ferdelance.shared.status import JobStatus
 
@@ -22,6 +23,9 @@ def view(job: JobDB) -> Job:
         creation_time=job.creation_time,
         execution_time=job.execution_time,
         termination_time=job.termination_time,
+        is_model=job.is_model,
+        is_estimation=job.is_estimation,
+        is_aggregation=job.is_aggregation,
     )
 
 
@@ -29,13 +33,23 @@ class JobRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def schedule_job(self, artifact_id: str, client_id: str) -> Job:
+    async def schedule_job(
+        self,
+        artifact_id: str,
+        client_id: str,
+        is_model: bool = False,
+        is_estimation: bool = False,
+        is_aggregation: bool = False,
+    ) -> Job:
         LOGGER.info(f"component_id={client_id}: scheduled new job for artifact_id={artifact_id}")
 
         job = JobDB(
             artifact_id=artifact_id,
             component_id=client_id,
             status=JobStatus.SCHEDULED.name,
+            is_model=is_model,
+            is_estimation=is_estimation,
+            is_aggregation=is_aggregation,
         )
 
         self.session.add(job)

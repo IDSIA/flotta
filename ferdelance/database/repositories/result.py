@@ -16,9 +16,9 @@ def view(result: ResultDB) -> Result:
         client_id=result.component_id,
         path=result.path,
         creation_time=result.creation_time,
-        is_estimator=result.is_estimator,
         is_model=result.is_model,
-        is_aggregated=result.is_aggregated,
+        is_estimation=result.is_estimation,
+        is_aggregation=result.is_aggregation,
     )
 
 
@@ -43,7 +43,7 @@ class ResultRepository(Repository):
             path=out_path,
             artifact_id=artifact_id,
             component_id=client_id,
-            is_estimator=True,
+            is_estimation=True,
         )
 
         self.session.add(result_db)
@@ -63,8 +63,8 @@ class ResultRepository(Repository):
             path=out_path,
             artifact_id=artifact_id,
             component_id=client_id,
-            is_estimator=True,
-            is_aggregated=True,
+            is_estimation=True,
+            is_aggregation=True,
         )
 
         self.session.add(result_db)
@@ -104,7 +104,7 @@ class ResultRepository(Repository):
             artifact_id=artifact_id,
             component_id=client_id,
             is_model=True,
-            is_aggregated=True,
+            is_aggregation=True,
         )
 
         self.session.add(result_db)
@@ -152,7 +152,7 @@ class ResultRepository(Repository):
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
-                ResultDB.is_aggregated,
+                ResultDB.is_aggregation,
                 ResultDB.is_model,
             )
         )

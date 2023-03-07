@@ -3,8 +3,11 @@ from ferdelance.client.config import Config, ConfigError
 from ferdelance.client.exceptions import RelaunchClient, ErrorClient
 from ferdelance.client.services.actions import ActionService
 from ferdelance.client.services.routes import RouteService
+from ferdelance.client.worker import ClientWorker
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
+
+from multiprocessing import Queue
 
 from time import sleep
 
@@ -118,8 +121,32 @@ class FerdelanceClient:
             Exit code to use
         """
 
-        action_service = ActionService(self.config)
+        train_queue: Queue = Queue()
+        estimate_queue: Queue = Queue()
+
+        self.trainers = []
+        self.estimators = []
+
+        action_service = ActionService(self.config, train_queue, estimate_queue)
         routes_service = RouteService(self.config)
+
+        for i in range(self.config.resource_n_train_thread):
+            self.trainers.append(
+                ClientWorker(
+                    self.config,
+                    f"trainer-{i}",
+                    train_queue,
+                )
+            )
+
+        for i in range(self.config.resource_n_estimate_thread):
+            self.estimators.append(
+                ClientWorker(
+                    self.config,
+                    f"estimator-{i}",
+                    estimate_queue,
+                )
+            )
 
         try:
             LOGGER.info("running client")

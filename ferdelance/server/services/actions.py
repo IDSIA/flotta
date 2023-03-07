@@ -87,7 +87,15 @@ class ActionService(Repository):
         return await self.jr.next_job_for_client(client.client_id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateExecute:
-        return UpdateExecute(action=Action.EXECUTE.name, artifact_id=job.artifact_id)
+        if job.is_model:
+            action = Action.EXECUTE_TRAINING
+        elif job.is_estimation:
+            action = Action.EXECUTE_ESTIMATE
+        else:
+            LOGGER.error(f"Invalid action type for job_id={job.job_id}")
+            raise ValueError()
+
+        return UpdateExecute(action=action.name, artifact_id=job.artifact_id)
 
     async def _action_nothing(self) -> UpdateNothing:
         """Do nothing and waits for the next update request."""

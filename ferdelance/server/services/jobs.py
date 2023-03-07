@@ -53,7 +53,12 @@ class JobManagementService(Repository):
             for datasource_id in datasources_ids:
                 client: Client = await self.dsr.get_client_by_datasource_id(datasource_id)
 
-                await self.jr.schedule_job(artifact_db.artifact_id, client.client_id)
+                await self.jr.schedule_job(
+                    artifact_db.artifact_id,
+                    client.client_id,
+                    is_model=artifact.is_model(),
+                    is_estimation=artifact.is_estimation(),
+                )
 
             return artifact_db.get_status()
         except ValueError as e:
@@ -127,7 +132,7 @@ class JobManagementService(Repository):
 
         await self.jr.mark_completed(artifact_id, client_id)
 
-        if artifact.is_estimator():
+        if artifact.is_estimation():
             # result is an estimator
             result = await self.rr.create_result_estimator(artifact_id, client_id)
 
@@ -202,7 +207,7 @@ class JobManagementService(Repository):
 
             await self.jr.mark_completed(artifact_id, worker_id)
 
-            if artifact.is_estimator() is not None:
+            if artifact.is_estimation() is not None:
                 # result is an estimator
                 result = await self.rr.create_result_estimator_aggregated(artifact_id, worker_id)
 
