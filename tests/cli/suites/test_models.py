@@ -83,7 +83,7 @@ async def test_describe_client(session: AsyncSession):
             artifact_id="aid1",
             component_id="cid1",
             is_model=True,
-            is_aggregated=True,
+            is_aggregation=True,
             creation_time=None,
         )
     )

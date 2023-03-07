@@ -24,6 +24,9 @@ class Config:
         self.workdir: str = args.workdir
         self.private_key_location: str | None = args.private_key_location
 
+        self.resource_n_train_thread: int = args.resources.n_train_thread
+        self.resource_n_estimate_thread: int = args.resources.n_estimate_thread
+
         self.leave: bool = False
 
         self.machine_system: str = platform.system()

@@ -21,6 +21,8 @@ def view(artifact: ArtifactDB) -> ServerArtifact:
         creation_time=artifact.creation_time,
         path=artifact.path,
         status=artifact.status,
+        is_model=artifact.is_model,
+        is_estimation=artifact.is_estimation,
     )
 
 
@@ -41,6 +43,9 @@ class ArtifactRepository(Repository):
             if existing:
                 raise ValueError("artifact already exists!")
 
+        if artifact.is_model() and artifact.is_estimation():
+            raise ValueError(f"invalid artifact_id={artifact.artifact_id} with both model and estimation")
+
         status = ArtifactJobStatus.SCHEDULED.name
 
         path = await self.store(artifact)
@@ -49,6 +54,8 @@ class ArtifactRepository(Repository):
             artifact_id=artifact.artifact_id,
             path=path,
             status=status,
+            is_model=artifact.is_model(),
+            is_estimation=artifact.is_estimation(),
         )
 
         self.session.add(db_artifact)

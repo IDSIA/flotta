@@ -191,7 +191,7 @@ async def wb_post_artifact_submit(
 
         status = await jms.submit_artifact(artifact)
 
-        LOGGER.info(f"submitted artifact got artifact_id={status.artifact_id}")
+        LOGGER.info(f"user_id={user.component_id}: submitted artifact got artifact_id={status.artifact_id}")
 
         return ss.create_response(status.dict())
 
@@ -359,7 +359,7 @@ async def wb_get_project(
 
         project: Project = await pr.get_by_token(token=wpt.token)
 
-        LOGGER.info(f"Loaded project with project_id={project.project_id}")
+        LOGGER.info(f"user_id={user.component_id}: loaded project with project_id={project.project_id}")
 
         return ss.create_response(project.dict())
 

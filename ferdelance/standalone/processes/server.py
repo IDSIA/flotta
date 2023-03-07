@@ -1,11 +1,21 @@
-from ferdelance.config import conf
-from ferdelance.server.api import api
-
-from multiprocessing import Process
-
+import contextlib
+import time
+import threading
 import uvicorn
 
 
-class LocalServer(Process):
-    def run(self) -> None:
-        uvicorn.run(api, host=conf.SERVER_INTERFACE, port=conf.SERVER_PORT)
+class LocalServer(uvicorn.Server):
+    def install_signal_handlers(self):
+        pass
+
+    @contextlib.contextmanager
+    def run_in_thread(self):
+        thread = threading.Thread(target=self.run)
+        thread.start()
+        try:
+            while not self.started:
+                time.sleep(1e-3)
+            yield
+        finally:
+            self.should_exit = True
+            thread.join()

@@ -11,6 +11,8 @@ class ServerArtifact(BaseModel):
     path: str
     status: str
     creation_time: datetime
+    is_model: bool
+    is_estimation: bool
 
     def get_status(self) -> ArtifactStatus:
         return ArtifactStatus(
@@ -28,5 +30,5 @@ class Result(BaseModel):
     creation_time: datetime | None
     path: str
     is_model: bool = False
-    is_estimator: bool = False
-    is_aggregated: bool = False
+    is_estimation: bool = False
+    is_aggregation: bool = False

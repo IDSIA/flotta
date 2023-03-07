@@ -115,6 +115,9 @@ class Artifact(Base):
     path: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String)
 
+    is_model: Mapped[bool] = mapped_column(default=False)
+    is_estimation: Mapped[bool] = mapped_column(default=False)
+
 
 class Job(Base):
     """Table that keep track of which artifact has been submitted and the state of the request.
@@ -130,6 +133,10 @@ class Job(Base):
 
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))
     artifact = relationship("Artifact")
+
+    is_model: Mapped[bool] = mapped_column(default=False)
+    is_estimation: Mapped[bool] = mapped_column(default=False)
+    is_aggregation: Mapped[bool] = mapped_column(default=False)
 
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
@@ -150,11 +157,10 @@ class Result(Base):
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     path: Mapped[str] = mapped_column(String)
 
-    is_aggregated: Mapped[bool] = mapped_column(default=False)
-
     # TODO: if both is no, then it is a plain result?
     is_model: Mapped[bool] = mapped_column(default=False)
-    is_estimator: Mapped[bool] = mapped_column(default=False)
+    is_estimation: Mapped[bool] = mapped_column(default=False)
+    is_aggregation: Mapped[bool] = mapped_column(default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))

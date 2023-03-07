@@ -8,8 +8,6 @@ from multiprocessing import Process
 import logging
 import random
 import shutil
-import signal
-import time
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,8 +19,6 @@ class LocalClient(Process):
         self.client = FerdelanceClient(self.client_conf)
 
     def run(self):
-        time.sleep(3)  # this will give the server time to start
-
         LOGGER.info("starting client")
 
         self.client_conf.machine_mac_address = "02:00:00:%02x:%02x:%02x" % (
@@ -36,6 +32,9 @@ class LocalClient(Process):
 
         try:
             exit_code = self.client.run()
+        except KeyboardInterrupt:
+            exit_code = 0
+
         except ClientExitStatus as e:
             exit_code = e.exit_code
 

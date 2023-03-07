@@ -8,7 +8,10 @@ class Action(Enum):
     INIT = auto()
 
     """Execute a new train query."""
-    EXECUTE = auto()
+    EXECUTE_TRAINING = auto()
+
+    """Execute a new estimate query."""
+    EXECUTE_ESTIMATE = auto()
 
     """Server send that the token is expired, update with a new one."""
     UPDATE_TOKEN = auto()

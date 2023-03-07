@@ -147,7 +147,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         status_code, action, data = client_update(server, cl_exc)
 
         assert status_code == 200
-        assert Action[action] == Action.EXECUTE
+        assert Action[action] == Action.EXECUTE_TRAINING
 
         update_execute = UpdateExecute(**data)
 

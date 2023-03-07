@@ -59,10 +59,10 @@ class DataSourceConfig(BaseModel):
 
 
 class ResourceConfig(BaseModel):
-    training: int = 1
-    querying: int = 1
+    n_train_thread: int = 1  # used for training
+    n_estimate_thread: int = 1  # used for estimation
 
-    @validator("training", "querying", pre=True)
+    @validator("n_train_thread", "n_estimate_thread", pre=True)
     @classmethod
     def check_min_thread(cls, value):
         if isinstance(value, str):

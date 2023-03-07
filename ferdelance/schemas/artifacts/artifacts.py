@@ -24,7 +24,7 @@ class Artifact(BaseModel):
     model: Model | None = None
     estimate: Estimator | None = None
 
-    def is_estimator(self):
+    def is_estimation(self):
         return self.estimate is not None
 
     def is_model(self):
