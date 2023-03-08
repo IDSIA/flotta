@@ -10,7 +10,7 @@ async def list_projects() -> list[ProjectView]:
     db = DataBase()
     async with db.async_session() as session:
         project_repository: ProjectRepository = ProjectRepository(session)
-        projects: list[ProjectView] = await project_repository.get_project_list()
+        projects: list[ProjectView] = await project_repository.list_projects()
         show_many(projects)
         return projects
 

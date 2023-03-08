@@ -6,12 +6,17 @@ from sqlalchemy import select
 
 
 class WorkerRepository(Repository):
+    """Repository used to manage the components identified as workers.
+
+    Currently, this repository is used only for testing purposes.
+    """
+
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
     async def get_worker_token(self) -> tuple[str, str]:
-        """Get the token relative to the current active worker (there should be only one,
-        and all the workers share the same token).
+        """Get the token relative to the current active worker (there should be
+        only one record since all workers share the same token).
 
         Returns:
             str: the token of the current active worker.

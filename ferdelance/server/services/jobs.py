@@ -48,7 +48,7 @@ class JobManagementService(Repository):
             artifact_db: ServerArtifact = await self.ar.create_artifact(artifact)
 
             project = await self.pr.get_by_id(artifact.project_id)
-            datasources_ids = await self.pr.datasources_ids(project.token)
+            datasources_ids = await self.pr.list_datasources_ids(project.token)
 
             for datasource_id in datasources_ids:
                 client: Client = await self.dsr.get_client_by_datasource_id(datasource_id)
@@ -162,7 +162,7 @@ class JobManagementService(Repository):
         artifact_id = result.artifact_id
 
         try:
-            total = await self.jr.count_jobs_for_artifact(artifact_id)
+            total = await self.jr.count_jobs_by_artifact_id(artifact_id)
             completed = await self.jr.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
             error = await self.jr.count_jobs_by_status(artifact_id, JobStatus.ERROR)
 
@@ -182,7 +182,7 @@ class JobManagementService(Repository):
                 LOGGER.error("Cannot aggregate: no worker available")
                 return
 
-            results: list[Result] = await self.rr.get_models_by_artifact_id(artifact_id)
+            results: list[Result] = await self.rr.list_models_by_artifact_id(artifact_id)
 
             results_id: list[str] = [m.result_id for m in results]
 

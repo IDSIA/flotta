@@ -137,6 +137,7 @@ class ComponentRepository(Repository):
             mac_address=machine_mac_address,
             node=machine_node,
         )
+        self.session.add(token)
 
         component = ComponentDB(
             component_id=token.component_id,
@@ -152,7 +153,6 @@ class ComponentRepository(Repository):
 
         self.session.add(component)
 
-        await self.tr.create_token(token)
         await self.session.commit()
         await self.session.refresh(component)
         await self.session.refresh(token)
@@ -171,7 +171,8 @@ class ComponentRepository(Repository):
             LOGGER.warning(f"user_id={existing_user_id}: user already exists")
             raise ValueError("User already exists")
 
-        token: TokenDB = await self.tr.generate_token()
+        token: TokenDB = await self.tr.generate_user_token()
+        self.session.add(token)
 
         component = ComponentDB(
             component_id=token.component_id,
@@ -182,7 +183,6 @@ class ComponentRepository(Repository):
 
         self.session.add(component)
 
-        await self.tr.create_token(token)
         await self.session.commit()
         await self.session.refresh(component)
         await self.session.refresh(token)

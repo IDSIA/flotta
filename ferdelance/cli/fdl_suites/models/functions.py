@@ -18,9 +18,9 @@ async def list_models(artifact_id: str | None = None) -> list[Result]:
         result_repository = ResultRepository(session)
 
         if artifact_id is not None:
-            models: list[Result] = await result_repository.get_models_by_artifact_id(artifact_id)
+            models: list[Result] = await result_repository.list_models_by_artifact_id(artifact_id)
         else:
-            models: list[Result] = await result_repository.get_model_list()
+            models: list[Result] = await result_repository.list_models()
 
         show_many(models)
 

@@ -37,6 +37,8 @@ def build_settings_cipher() -> Fernet:
 
 
 class KeyValueStore(Repository):
+    """This is an encrypted storage for data required by the server."""
+
     def __init__(self, session: AsyncSession, encode: str = "utf8") -> None:
         super().__init__(session)
         self.cipher = build_settings_cipher()
