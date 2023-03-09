@@ -31,8 +31,9 @@ class ResultRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    def storage_dir(self, artifact_id: str) -> str:
-        """Checks that the output directory for this result exits. If not it will be created
+    def storage_directory(self, artifact_id: str) -> str:
+        """Checks that the output directory for this result exists. If not it
+        will be created.
 
         Args:
             artifact_id (str):
@@ -64,7 +65,7 @@ class ResultRepository(Repository):
         result_id: str = str(uuid4())
 
         out_path = os.path.join(
-            self.storage_dir(artifact_id), f"{artifact_id}.{client_id}.{result_id}.PARTIAL.estimator"
+            self.storage_directory(artifact_id), f"{artifact_id}.{client_id}.{result_id}.PARTIAL.estimator"
         )
 
         result_db = ResultDB(
@@ -100,7 +101,7 @@ class ResultRepository(Repository):
         result_id: str = str(uuid4())
 
         filename = f"{artifact_id}.{result_id}.AGGREGATED.estimator"
-        out_path = os.path.join(self.storage_dir(artifact_id), filename)
+        out_path = os.path.join(self.storage_directory(artifact_id), filename)
 
         result_db = ResultDB(
             result_id=result_id,
@@ -135,7 +136,9 @@ class ResultRepository(Repository):
         """
         result_id: str = str(uuid4())
 
-        out_path = os.path.join(self.storage_dir(artifact_id), f"{artifact_id}.{client_id}.{result_id}.PARTIAL.model")
+        out_path = os.path.join(
+            self.storage_directory(artifact_id), f"{artifact_id}.{client_id}.{result_id}.PARTIAL.model"
+        )
 
         result_db = ResultDB(
             result_id=result_id,
@@ -170,7 +173,7 @@ class ResultRepository(Repository):
         result_id: str = str(uuid4())
 
         filename = f"{artifact_id}.{result_id}.AGGREGATED.model"
-        out_path = os.path.join(self.storage_dir(artifact_id), filename)
+        out_path = os.path.join(self.storage_directory(artifact_id), filename)
 
         result_db = ResultDB(
             result_id=result_id,

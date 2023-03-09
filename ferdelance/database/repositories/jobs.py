@@ -1,6 +1,5 @@
 from ferdelance.database.tables import Job as JobDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
-from ferdelance.schemas.database import ServerArtifact
 from ferdelance.schemas.jobs import Job
 from ferdelance.shared.status import JobStatus
 
@@ -30,9 +29,11 @@ def view(job: JobDB) -> Job:
 
 
 class JobRepository(Repository):
-    """Repository used to manage and store jobs. Jobs are an alternate term for
-    Task. Everything that is submitted and need to be processed is a job. When
-    a client ask for update it can receive a new job to execute."""
+    """A repository used to manage and store jobs.
+
+    Jobs are an alternate term for Task. Everything that is submitted and need
+    to be processed is a job. When a client ask for update it can receive a new
+    job to execute."""
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
@@ -158,7 +159,7 @@ class JobRepository(Repository):
 
         Returns:
             Job:
-                Updated handler of the started job.
+                Updated handler of the job.
         """
         try:
             res = await self.session.scalars(
@@ -197,6 +198,22 @@ class JobRepository(Repository):
             )
 
     async def mark_error(self, job: Job) -> Job:
+        """Changes the state of a job to JobStatus.ERROR. The job is identified
+        by the job_id given in the handler. An exception is raised if no jobs
+        are found.
+
+        Args:
+            job (Job):
+                Handler of the job to mark as error.
+
+        Raises:
+            ValueError:
+                If no job has been found.
+
+        Returns:
+            Job:
+                Updated handler of the job.
+        """
 
         artifact_id: str = job.artifact_id
         component_id: str = job.component_id
@@ -225,42 +242,134 @@ class JobRepository(Repository):
             )
 
     async def get(self, job: Job) -> Job:
-        """Can raise NoResultFound."""
-        res = await self.session.execute(select(JobDB).where(JobDB.job_id == job.job_id))
-        return view(res.scalar_one())
+        """Gets an updated version of the given job.
+
+        Args:
+            job (Job):
+                Handler of the job.
+
+        Raises:
+            NoResultsFound:
+                If the job does not exists.
+
+        Returns:
+            Job:
+                Updated handler of the job.
+        """
+        res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.job_id))
+        return view(res.one())
 
     async def list_jobs_by_component_id(self, component_id: str) -> list[Job]:
+        """Returns a list of jobs assigned to the given component_id.
+
+        Args:
+            component_id (str):
+                Id of the component to list for.
+
+        Returns:
+            list[Job]:
+                A list of job handlers assigned to the given component. Note
+                that this list can be an empty list.
+        """
         res = await self.session.scalars(select(JobDB).where(JobDB.component_id == component_id))
         return [view(j) for j in res.all()]
 
+    async def list_jobs_by_status(self, status: JobStatus) -> list[Job]:
+        """Returns a list of all jobs with the given status.
+
+        Args:
+            status (JobStatus):
+                The status to search for.
+
+        Returns:
+            list[Job]:
+                A list of job handlers with the given status. Note that this list
+                can be an empty list.
+        """
+        res = await self.session.scalars(select(JobDB).where(JobDB.status == status.name))
+        return [view(j) for j in res.all()]
+
     async def list_jobs(self) -> list[Job]:
+        """Returns all jobs in the database.
+
+        Returns:
+            list[Job]:
+                A list of job handlers. Note that this list can be an empty list.
+        """
         res = await self.session.scalars(select(JobDB))
         job_list = [view(j) for j in res.all()]
         return job_list
 
     async def list_jobs_by_artifact_id(self, artifact_id: str) -> list[Job]:
+        """Returns a list of jobs created for the given artifact_id.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to list for.
+
+        Returns:
+            list[Job]:
+                A list of job handlers created by the given artifact. Note that
+                this list can be an empty list.
+        """
         res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
         return [view(j) for j in res.all()]
 
     async def count_jobs_by_artifact_id(self, artifact_id: str) -> int:
+        """Counts the number of jobs created for the given artifact_id.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to count for.
+
+        Returns:
+            int:
+                The number, greater than zero, of jobs created.
+        """
         res = await self.session.scalars(
             select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id)
         )
         return res.one()
 
-    async def count_jobs_by_status(self, artifact_id: str, status: JobStatus) -> int:
+    async def count_jobs_by_artifact_status(self, artifact_id: str, status: JobStatus) -> int:
+        """Counts the number of jobs created for the given artifact_id and in
+        the given status.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to count for.
+            status (JobStatus):
+                Desired status of the jobs.
+
+        Returns:
+            int:
+                The number, greater than zero, of jobs in the given state.
+        """
         res = await self.session.scalars(
             select(func.count()).select_from(JobDB).where(JobDB.artifact_id == artifact_id, JobDB.status == status.name)
         )
         return res.one()
 
     async def next_job_for_component(self, component_id: str) -> Job:
-        """Can raise NoResultFound."""
-        ret = await self.session.execute(
+        """Check the database for the next job for the given component. The
+        next job is the oldest job in the SCHEDULED state.
+
+        Args:
+            component_id (str):
+                Id of the component to search for.
+
+        Raises:
+            NoResultFound:
+                If there are no more jobs for the component.
+
+        Returns:
+            Job:
+                The next available job.
+        """
+        ret = await self.session.scalars(
             select(JobDB)
             .where(JobDB.component_id == component_id, JobDB.status == JobStatus.SCHEDULED.name)
             .order_by(JobDB.creation_time.asc())
             .limit(1)
         )
-
-        return view(ret.scalar_one())
+        return view(ret.one())

@@ -236,7 +236,7 @@ async def client_update_metadata(
     data = await ss.read_request(request)
     metadata = Metadata(**data)
 
-    await dsr.create_or_update_metadata(client.client_id, metadata)  # this will also update metadata
+    await dsr.create_or_update_from_metadata(client.client_id, metadata)  # this will also update metadata
     await pr.add_datasources_from_metadata(metadata)
 
     return ss.create_response(metadata.dict())
