@@ -66,7 +66,7 @@ async def test_jobs_next(session: AsyncSession):
     sc_2 = await jr.schedule_job(artifact_id_1, client_id_2)
     sc_3 = await jr.schedule_job(artifact_id_2, client_id_1)
 
-    job1 = await jr.next_job_for_client(client_id_1)
+    job1 = await jr.next_job_for_component(client_id_1)
 
     assert job1 is not None
     assert job1.execution_time is None
@@ -97,7 +97,7 @@ async def test_jobs_next(session: AsyncSession):
     assert sc_2.termination_time is None
     assert sc_3.termination_time is None
 
-    job2 = await jr.next_job_for_client(client_id_1)
+    job2 = await jr.next_job_for_component(client_id_1)
 
     assert job2 is not None
     assert job1.job_id != job2.job_id

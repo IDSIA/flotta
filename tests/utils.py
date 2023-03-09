@@ -140,7 +140,7 @@ def send_metadata(client: TestClient, exc: Exchange, metadata: Metadata) -> Resp
 async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> str:
     ps = ProjectRepository(session)
 
-    await ps.create("example", p_token)
+    await ps.create_project("example", p_token)
 
     return p_token
 

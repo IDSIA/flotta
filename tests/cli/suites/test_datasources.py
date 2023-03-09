@@ -41,7 +41,7 @@ async def populate_test_db(session: AsyncSession):
     dsr: DataSourceRepository = DataSourceRepository(session)
     pr: ProjectRepository = ProjectRepository(session)
 
-    await pr.create("test")
+    await pr.create_project("test")
 
     ds1 = await dsr.create_or_update_datasource(
         c1.component_id,
