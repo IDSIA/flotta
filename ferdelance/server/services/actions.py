@@ -37,7 +37,7 @@ class ActionService(Repository):
         :return:
             True if no valid token is found, otherwise False.
         """
-        return await self.cr.has_valid_token(client.client_id)
+        return await self.cr.has_invalid_token(client.client_id)
 
     async def _action_update_token(self, client: Client) -> UpdateToken:
         """Generates a new valid token.
@@ -84,7 +84,7 @@ class ActionService(Repository):
         )
 
     async def _check_scheduled_job(self, client: Client) -> Job:
-        return await self.jr.next_job_for_client(client.client_id)
+        return await self.jr.next_job_for_component(client.client_id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateExecute:
         if job.is_model:

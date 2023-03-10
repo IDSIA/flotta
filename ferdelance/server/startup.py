@@ -40,7 +40,7 @@ class ServerStartup(Repository):
         LOGGER.info(f"creating component {type}")
 
         try:
-            await self.cr.create(public_key=public_key, type_name=type)
+            await self.cr.create_component(public_key=public_key, type_name=type)
 
         except ValueError:
             LOGGER.warning(f"client already exists for type={type}")
@@ -50,7 +50,7 @@ class ServerStartup(Repository):
 
     async def create_project(self) -> None:
         try:
-            await self.pr.create("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
+            await self.pr.create_project("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
 
         except ValueError:
             LOGGER.warning("Project zero already exists")

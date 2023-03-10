@@ -23,7 +23,7 @@ async def test_load_project(session: AsyncSession, exchange: Exchange):
 
         pr: ProjectRepository = ProjectRepository(session)
 
-        list_project = await pr.get_project_list()
+        list_project = await pr.list_projects()
 
         assert len(list_project) == 2
 

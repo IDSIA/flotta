@@ -36,10 +36,30 @@ def view(datasource: DataSourceDB, features: list[Feature]) -> DataSource:
 
 
 class DataSourceRepository(Repository):
+    """A repository for data sources.
+
+    A datasource is a description of the data collected and managed by a component
+    (a client in current state). This information is limited to the descriptions
+    of the data, also called "metadata".
+
+    This repository is an hybrid repository since part of the data are stored
+    locally on disk. The database contains information on timings and path
+    to the real data sources on disk.
+    """
+
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def create_or_update_metadata(self, client_id: str, metadata: Metadata) -> None:
+    async def create_or_update_from_metadata(self, client_id: str, metadata: Metadata) -> None:
+        """Creates or updates records on datasources based on the metadata received by the client.
+
+        Args:
+            client_id (str):
+                Id of the client that sent the metadata.
+            metadata (Metadata):
+                Metadata content sent by the client.
+        """
+
         for ds in metadata.datasources:
             await self.create_or_update_datasource(client_id, ds, False)
         await self.session.commit()
@@ -49,6 +69,29 @@ class DataSourceRepository(Repository):
     async def create_or_update_datasource(
         self, client_id: str, meta_ds: MetaDataSource, commit: bool = True
     ) -> DataSource:
+        """Creates or updates records on datasources based on the received data.
+        If the datasource, identified by the hash created by the client, already
+        exists, then it will be updated; otherwise a new datasource will be
+        created.
+
+        Whit this update, a datasource can also be removed, if marked for
+        elimination.
+
+        Args:
+            client_id (str):
+                Id of the client that sent the metadata.
+            meta_ds (MetaDataSource):
+                Data on the datasources present in the metadata sent by the client.
+            commit (bool, optional):
+                If set to False, the transaction to the database will not be
+                committed. Use this flag if you plan to edit multiple datasource
+                at once.
+                Defaults to True.
+
+        Returns:
+            DataSource:
+                An handler to the edited data source.
+        """
         dt_now = datetime.now()
 
         res = await self.session.execute(
@@ -115,13 +158,35 @@ class DataSourceRepository(Repository):
         return view(ds_db, stored_ds.features)
 
     async def storage_location(self, datasource_id: str) -> str:
+        """Checks that the output directory for this datasource exists. If not
+        it will be created. Then it creates a path for the destination file.
+
+        The datasource file is supposed to be stored in the JSON format.
+
+        Args:
+            datasource_id (str):
+                Id of the datasource to save to or get from disk.
+
+        Returns:
+            str:
+                A valid path to the directory where the datasource can be saved
+                to or loaded from. Path is considered to be a JSON file.
+        """
         path = conf.storage_dir_datasources(datasource_id)
         await aos.makedirs(path, exist_ok=True)
         return os.path.join(path, "datasource.json")
 
     async def store(self, datasource: DataSource) -> str:
-        """Can raise ValueError."""
+        """Save a datasource on disk in JSON format.
 
+        Args:
+            datasource (DataSource):
+                The datasource content that will be saved on disk.
+
+        Returns:
+            str:
+                The path where the data have been saved to.
+        """
         path = await self.storage_location(datasource.datasource_id)
 
         async with aiofiles.open(path, "w") as f:
@@ -131,7 +196,24 @@ class DataSourceRepository(Repository):
         return path
 
     async def load(self, datasource_id: str) -> DataSource:
-        """Can raise ValueError."""
+        """Load a datasource from disk given its id, if it has been found on
+        disk and in the database.
+
+        Args:
+            datasource_id (str):
+                Id of the datasource to load.
+
+        Raises:
+            ValueError:
+                If the datasource path has not been found on disk.
+            ValueError:
+                If the datasource_id was not found in the database.
+
+        Returns:
+            DataSource:
+                The requested datasource.
+        """
+
         try:
             path = await self.storage_location(datasource_id)
 
@@ -146,6 +228,16 @@ class DataSourceRepository(Repository):
             raise ValueError(f"datasource_id={datasource_id} not found")
 
     async def remove(self, datasource_id: str) -> None:
+        """Removes a datasource from the disk given its datasource_id, if it exists.
+
+        Args:
+            datasource_id (str):
+                Id of the datasource to remove.
+
+        Raises:
+            ValueError:
+                If the datasource does not exists on disk.
+        """
         datasource_path: str = await self.get_datasource_path(datasource_id)
 
         if not await aos.path.exists(datasource_path):
@@ -154,19 +246,65 @@ class DataSourceRepository(Repository):
         await aos.remove(datasource_path)
 
     async def get_datasource_path(self, datasource_id: str) -> str:
-        """Can raise NoResultFound"""
+        """Return the location, or path, where the datasource is stored on disk,
+        if it exists in the database.
+
+        Args:
+            datasource_id (str):
+                Id of the datasource to search for.
+
+        Raises:
+            NoResultFound:
+                If the given datasource_id has not been found in the database.
+
+        Returns:
+            str:
+                The path where the datasource is stored on disk.
+        """
         res = await self.session.scalars(select(DataSourceDB.path).where(DataSourceDB.datasource_id == datasource_id))
         return res.one()
 
-    async def get_datasource_list(self) -> list[DataSource]:
+    async def list_datasources(self) -> list[DataSource]:
+        """List all datasources stored in the database.
+
+        Returns:
+            list[DataSource]:
+                A list with all the datasources available. Note that this list
+                can be an empty list.
+        """
         res = await self.session.scalars(select(DataSourceDB))
         return [view(d, list()) for d in res.all()]
 
-    async def get_datasources_by_client_id(self, client_id: str) -> list[DataSource]:
+    async def list_datasources_by_client_id(self, client_id: str) -> list[DataSource]:
+        """List all the datasources that have been sent to the server by the
+        given client_id.
+
+        Args:
+            client_id (str):
+                Id of the client that has the requested data sources.
+
+        Returns:
+            list[DataSource]:
+                A list with all the datasources of the client. Note that this
+                list can be an empty list.
+        """
         res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
         return [view(d, list()) for d in res.all()]
 
-    async def get_hash_by_client_and_project(self, client_id: str, project_id: str) -> list[str]:
+    async def list_hash_by_client_and_project(self, client_id: str, project_id: str) -> list[str]:
+        """List all the hashes of the data sources assigned to a given project
+        and sent by a specific client_id.
+
+        Args:
+            client_id (str):
+                Id of the client that has sent the data sources.
+            project_id (str):
+                Id of the project that the data source is part of.
+
+        Returns:
+            list[str]:
+                A list of hashes. Note that this can be an empty list().
+        """
         res = await self.session.scalars(
             select(DataSourceDB.datasource_hash)
             .join(project_datasource)
@@ -177,7 +315,22 @@ class DataSourceRepository(Repository):
         return list(res.all())
 
     async def get_datasource_by_id(self, datasource_id: str) -> DataSource:
-        """Can raise NoResultsFound."""
+        """Returns a data source, given its datasource_id. The data source
+        includes the data stored on disk.
+
+        Args:
+            datasource_id (str):
+                The id of the datasource to search for.
+
+        Raises:
+            NoResultsFound:
+                If the datasource_id has not been found in the database.
+
+        Returns:
+            DataSource:
+                The descriptor found in the database with all the data stored
+                on disk.
+        """
         res = await self.session.scalars(
             select(DataSourceDB).where(
                 DataSourceDB.datasource_id == datasource_id,
@@ -188,13 +341,26 @@ class DataSourceRepository(Repository):
         stored_ds = await self.load(datasource_id)
         return view(ds, stored_ds.features)
 
-    async def get_client_by_datasource_id(self, ds_id: str) -> Client:
-        """Can raise NoResultFound."""
+    async def get_client_by_datasource_id(self, datasource_id: str) -> Client:
+        """Return information on the client of the given datasource_id.
+
+        Args:
+            datasource_id (str):
+                Id of the datasource to search for.
+
+        Raises:
+            NoResultsFound:
+                If the datasource_id has not been found in the database.
+
+        Returns:
+            Client:
+                The client that has sent the data source data, if found.
+        """
         res = await self.session.scalars(
             select(ComponentDB)
             .join(DataSourceDB, ComponentDB.component_id == DataSourceDB.component_id)
             .where(
-                DataSourceDB.datasource_id == ds_id,
+                DataSourceDB.datasource_id == datasource_id,
                 DataSourceDB.removed == False,
             )
         )

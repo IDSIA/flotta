@@ -23,19 +23,49 @@ def view(result: ResultDB) -> Result:
 
 
 class ResultRepository(Repository):
+    """A repository for the result of training and estimation tasks. This object
+    can collect anything produced by clients (models, estimators) and workers
+    (aggregated models).
+    """
+
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    def storage_dir(self, artifact_id) -> str:
+    def storage_directory(self, artifact_id: str) -> str:
+        """Checks that the output directory for this result exists. If not it
+        will be created.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact that the result belongs to.
+
+        Returns:
+            str:
+                A valid path to the directory where a result can be saved to or loaded from.
+        """
         out_dir = os.path.join(conf.STORAGE_ARTIFACTS, artifact_id)
         os.makedirs(out_dir, exist_ok=True)
         return out_dir
 
     async def create_result_estimator(self, artifact_id: str, client_id: str) -> Result:
+        """Creates an entry in the database for the result produced by the client,
+        identified with client_id, and by setting the type of result as a partial estimator.
+
+        Args:
+            artifact_id (str):
+                The result will be produced and associated to this artifact_id
+            client_id (str):
+                The id of the client that produced the result
+
+        Returns:
+            Result:
+                An handler to the recorded result in the database. This handler can be
+                used to obtain the output path and save the result to disk.
+        """
         result_id: str = str(uuid4())
 
         out_path = os.path.join(
-            self.storage_dir(artifact_id), f"{artifact_id}.{client_id}.{result_id}.PARTIAL.estimator"
+            self.storage_directory(artifact_id), f"{artifact_id}.{client_id}.{result_id}.PARTIAL.estimator"
         )
 
         result_db = ResultDB(
@@ -52,17 +82,32 @@ class ResultRepository(Repository):
 
         return view(result_db)
 
-    async def create_result_estimator_aggregated(self, artifact_id: str, client_id: str) -> Result:
+    async def create_result_estimator_aggregated(self, artifact_id: str, worker_id: str) -> Result:
+        """Creates an entry in the database for the result produced by a worker,
+        identified with worker_id, and by setting the type of result as an
+        aggregated estimator.
+
+        Args:
+            artifact_id (str):
+                The result will be produced and associated to this artifact_id
+            worker_id (str):
+                The id of the worker that produced the result
+
+        Returns:
+            Result:
+                An handler to the recorded result in the database. This handler can be
+                used to obtain the output path and save the result to disk.
+        """
         result_id: str = str(uuid4())
 
         filename = f"{artifact_id}.{result_id}.AGGREGATED.estimator"
-        out_path = os.path.join(self.storage_dir(artifact_id), filename)
+        out_path = os.path.join(self.storage_directory(artifact_id), filename)
 
         result_db = ResultDB(
             result_id=result_id,
             path=out_path,
             artifact_id=artifact_id,
-            component_id=client_id,
+            component_id=worker_id,
             is_estimation=True,
             is_aggregation=True,
         )
@@ -74,9 +119,26 @@ class ResultRepository(Repository):
         return view(result_db)
 
     async def create_result_model(self, artifact_id: str, client_id: str) -> Result:
+        """Creates an entry in the database for the result produced by a client,
+        identified with client_id, and by setting the type of result as a partial
+        model.
+
+        Args:
+            artifact_id (str):
+                The result will be produced and associated to this artifact_id
+            client_id (str):
+                The id of the client that produced the result
+
+        Returns:
+            Result:
+                An handler to the recorded result in the database. This handler can be
+                used to obtain the output path and save the result to disk.
+        """
         result_id: str = str(uuid4())
 
-        out_path = os.path.join(self.storage_dir(artifact_id), f"{artifact_id}.{client_id}.{result_id}.PARTIAL.model")
+        out_path = os.path.join(
+            self.storage_directory(artifact_id), f"{artifact_id}.{client_id}.{result_id}.PARTIAL.model"
+        )
 
         result_db = ResultDB(
             result_id=result_id,
@@ -92,17 +154,32 @@ class ResultRepository(Repository):
 
         return view(result_db)
 
-    async def create_result_model_aggregated(self, artifact_id: str, client_id: str) -> Result:
+    async def create_result_model_aggregated(self, artifact_id: str, worker_id: str) -> Result:
+        """Creates an entry in the database for the result produced by a worker,
+        identified with worker_id, and by setting the type of result as an
+        aggregated model.
+
+        Args:
+            artifact_id (str):
+                The result will be produced and associated to this artifact_id
+            worker_id (str):
+                The id of the worker that produced the result
+
+        Returns:
+            Result:
+                An handler to the recorded result in the database. This handler can be
+                used to obtain the output path and save the result to disk.
+        """
         result_id: str = str(uuid4())
 
         filename = f"{artifact_id}.{result_id}.AGGREGATED.model"
-        out_path = os.path.join(self.storage_dir(artifact_id), filename)
+        out_path = os.path.join(self.storage_directory(artifact_id), filename)
 
         result_db = ResultDB(
             result_id=result_id,
             path=out_path,
             artifact_id=artifact_id,
-            component_id=client_id,
+            component_id=worker_id,
             is_model=True,
             is_aggregation=True,
         )
@@ -114,21 +191,87 @@ class ResultRepository(Repository):
         return view(result_db)
 
     async def get_by_id(self, result_id: str) -> Result:
-        """Can raise NoResultFound"""
-        res = await self.session.scalars(select(ResultDB).where(ResultDB.result_id == result_id))
-        return view(res.one())
+        """Get the result given its result_id.
 
-    async def get_model_by_id(self, model_id: str) -> Result:
-        """Can raise NoResultFound"""
+        Args:
+            result_id (str):
+                Id of the result to get.
+
+        Raises:
+            NoResultFound:
+                If the result does not exists
+
+        Returns:
+            Result:
+                The handler to the result, if one is found.
+        """
         res = await self.session.scalars(
             select(ResultDB).where(
-                ResultDB.result_id == model_id,
+                ResultDB.result_id == result_id,
+            )
+        )
+
+        return view(res.one())
+
+    async def get_model_by_id(self, result_id: str) -> Result:
+        """Get the result, considered a model, given its result_id.
+
+        Args:
+            result_id (str):
+                Id of the result to get.
+
+        Raises:
+            NoResultFound:
+                If the result does not exists
+
+        Returns:
+            Result:
+                The handler to the result, if one is found.
+        """
+        res = await self.session.scalars(
+            select(ResultDB).where(
+                ResultDB.result_id == result_id,
                 ResultDB.is_model,
             )
         )
         return view(res.one())
 
-    async def get_models_by_artifact_id(self, artifact_id: str) -> list[Result]:
+    async def get_estimator_by_id(self, result_id: str) -> Result:
+        """Get the result, considered an estimation, given its result_id.
+
+        Args:
+            result_id (str):
+                Id of the result to get.
+
+        Raises:
+            NoResultFound:
+                If the result does not exists
+
+        Returns:
+            Result:
+                The handler to the result, if one is found.
+        """
+        res = await self.session.scalars(
+            select(ResultDB).where(
+                ResultDB.result_id == result_id,
+                ResultDB.is_estimation,
+            )
+        )
+        return view(res.one())
+
+    async def list_models_by_artifact_id(self, artifact_id: str) -> list[Result]:
+        """Get a list of results associated with the given artifact_id. This
+        returns all kind of results, models and estimations, aggregated or not.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to search for.
+
+        Returns:
+            Result:
+                A list of all the results associated with the given artifact_id.
+                Note that his list can also be empty.
+        """
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
@@ -138,17 +281,55 @@ class ResultRepository(Repository):
         result_list = [view(m) for m in res.all()]
         return result_list
 
-    async def get_model_list(self) -> list[Result]:
+    async def list_models(self) -> list[Result]:
+        """Returns a list of all the results that are models, partial and aggregated,
+        stored in the database.
+
+        Returns:
+            list[Result]:
+                A list of results. Note that this list can be empty.
+        """
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.is_model,
             )
         )
-        result_list = [view(m) for m in res.all()]
+        result_list = [view(r) for r in res.all()]
+        return result_list
+
+    async def list_estimations(self) -> list[Result]:
+        """Returns al list of all the results that are estimations, partial and
+        aggregated, stored in the database.
+
+        Returns:
+            list[Result]:
+                A list of results. Note that this list can be empty.
+        """
+        res = await self.session.scalars(
+            select(ResultDB).where(
+                ResultDB.is_estimation,
+            )
+        )
+        result_list = [view(r) for r in res.all()]
         return result_list
 
     async def get_aggregated_model(self, artifact_id: str) -> Result:
-        """Can raise NoResultFound"""
+        """Get the result, considered an aggregated model, given the artifact id.
+
+        Note that for each artifact, only one aggregated model can exists.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to get.
+
+        Raises:
+            NoResultFound:
+                If the result does not exists.
+
+        Returns:
+            Result:
+                The handler to the result, if one is found.
+        """
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
@@ -159,12 +340,83 @@ class ResultRepository(Repository):
         return view(res.one())
 
     async def get_partial_model(self, artifact_id: str, client_id: str) -> Result:
-        """Can raise NoResultFound"""
+        """Get the result, considered as a partial model, given the artifact_id
+        it belongs to and the client_id that produced the model.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to get.
+            client_id (str):
+                Id of the client that produced the partial model.
+
+        Raises:
+            NoResultFound:
+                If the result does not exists.
+
+        Returns:
+            Result:
+                The handler to the result, if one is found.
+        """
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
                 ResultDB.component_id == client_id,
+                ResultDB.is_aggregation == False,
                 ResultDB.is_model,
+            )
+        )
+        return view(res.one())
+
+    async def get_aggregated_estimation(self, artifact_id: str) -> Result:
+        """Get the result, considered an aggregated estimation, given the artifact_id.
+
+        Note that for each artifact, only one aggregated estimation can exists.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to get.
+
+        Raises:
+            NoResultFound:
+                If the result does not exists.
+
+        Returns:
+            Result:
+                The handler to the result, if one is found.
+        """
+        res = await self.session.scalars(
+            select(ResultDB).where(
+                ResultDB.artifact_id == artifact_id,
+                ResultDB.is_aggregation,
+                ResultDB.is_estimation,
+            )
+        )
+        return view(res.one())
+
+    async def get_partial_estimation(self, artifact_id: str, client_id: str) -> Result:
+        """Get the result, considered as a partial estimation, given the artifact_id
+        it belongs to and the client_id that produced the estimation.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to get.
+            client_id (str):
+                Id of the client that produced the partial estimation.
+
+        Raises:
+            NoResultFound:
+                If the result does not exists.
+
+        Returns:
+            Result:
+                The handler to the result, if one is found.
+        """
+        res = await self.session.scalars(
+            select(ResultDB).where(
+                ResultDB.artifact_id == artifact_id,
+                ResultDB.component_id == client_id,
+                ResultDB.is_aggregation == False,
+                ResultDB.is_estimation,
             )
         )
         return view(res.one())

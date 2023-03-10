@@ -24,11 +24,11 @@ async def list_jobs(artifact_id: str | None = None, client_id: str | None = None
         jr = JobRepository(session)
 
         if artifact_id is not None:
-            jobs: list[Job] = await jr.get_jobs_for_artifact(artifact_id)
+            jobs: list[Job] = await jr.list_jobs_by_artifact_id(artifact_id)
         elif client_id is not None:
-            jobs: list[Job] = await jr.get_jobs_for_client(client_id)
+            jobs: list[Job] = await jr.list_jobs_by_component_id(client_id)
         else:
-            jobs: list[Job] = await jr.get_jobs_all()
+            jobs: list[Job] = await jr.list_jobs()
 
         show_many(jobs)
 

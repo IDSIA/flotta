@@ -48,7 +48,7 @@ class JobManagementService(Repository):
             artifact_db: ServerArtifact = await self.ar.create_artifact(artifact)
 
             project = await self.pr.get_by_id(artifact.project_id)
-            datasources_ids = await self.pr.datasources_ids(project.token)
+            datasources_ids = await self.pr.list_datasources_ids(project.token)
 
             for datasource_id in datasources_ids:
                 client: Client = await self.dsr.get_client_by_datasource_id(datasource_id)
@@ -86,7 +86,7 @@ class JobManagementService(Repository):
                 data = await f.read()
                 artifact = Artifact(**json.loads(data))
 
-            hashes = await self.dsr.get_hash_by_client_and_project(client_id, artifact.project_id)
+            hashes = await self.dsr.list_hash_by_client_and_project(client_id, artifact.project_id)
 
             if len(hashes) == 0:
                 LOGGER.warning(f"client_id={client_id}: task has no datasources with artifact_id={artifact_id}")
@@ -94,7 +94,7 @@ class JobManagementService(Repository):
 
             # TODO: for complex training, filter based on artifact.load field
 
-            job: Job = await self.jr.next_job_for_client(client_id)
+            job: Job = await self.jr.next_job_for_component(client_id)
 
             await self.jr.start_execution(job)
 
@@ -111,7 +111,7 @@ class JobManagementService(Repository):
             if ArtifactJobStatus[artifact_db.status] != ArtifactJobStatus.AGGREGATING:
                 raise ValueError("Wrong status for artifact")
 
-            job: Job = await self.jr.next_job_for_client(client_id)
+            job: Job = await self.jr.next_job_for_component(client_id)
 
             await self.jr.start_execution(job)
 
@@ -162,9 +162,9 @@ class JobManagementService(Repository):
         artifact_id = result.artifact_id
 
         try:
-            total = await self.jr.count_jobs_for_artifact(artifact_id)
-            completed = await self.jr.count_jobs_by_status(artifact_id, JobStatus.COMPLETED)
-            error = await self.jr.count_jobs_by_status(artifact_id, JobStatus.ERROR)
+            total = await self.jr.count_jobs_by_artifact_id(artifact_id)
+            completed = await self.jr.count_jobs_by_artifact_status(artifact_id, JobStatus.COMPLETED)
+            error = await self.jr.count_jobs_by_artifact_status(artifact_id, JobStatus.ERROR)
 
             if completed < total:
                 LOGGER.info(f"Cannot aggregate: {completed} / {total} completed job(s)")
@@ -176,13 +176,13 @@ class JobManagementService(Repository):
 
             LOGGER.info(f"All {total} job(s) completed, starting aggregation")
 
-            token = await self.cr.get_token_by_client_type("WORKER")
+            token = await self.cr.get_token_for_workers()
 
             if token is None:
                 LOGGER.error("Cannot aggregate: no worker available")
                 return
 
-            results: list[Result] = await self.rr.get_models_by_artifact_id(artifact_id)
+            results: list[Result] = await self.rr.list_models_by_artifact_id(artifact_id)
 
             results_id: list[str] = [m.result_id for m in results]
 

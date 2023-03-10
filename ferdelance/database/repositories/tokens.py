@@ -18,7 +18,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TokenRepository(Repository):
-    """This is an internal service used by ComponentService."""
+    """This repository creates and manages tokens for all component types.
+
+    A token is substantially a string object. In this case, we wrap the
+    string with an object that keep tracks of the validity of the token.
+
+    This is an internal repository used by the ComponentRepository and
+    should not be created outside of it.
+    """
 
     def __init__(self, session: AsyncSession, encoding: str = "utf8") -> None:
         super().__init__(session)
@@ -27,7 +34,27 @@ class TokenRepository(Repository):
         self.encoding: str = encoding
 
     async def generate_client_token(self, system: str, mac_address: str, node: str, client_id: str = "") -> Token:
-        """Generates a client token with the data received from the client."""
+        """Client tokens are based on the information received by the client,
+        such as system, hardware address, and uniq machine identifier. This
+        method can be used both to generate a first token for a new client or
+        re-generate a token for an existing one.
+
+        Args:
+            system (str):
+                Specifies the operative system of the client.
+            mac_address (str):
+                Specifies the current hardware address use by the client.
+            node (str):
+                Unique identifier created by the client.
+            client_id (str, optional):
+                If already exists, the unique identifier of the client.
+                Don't use if the client is a new one (leave default).
+                Defaults to "".
+
+        Returns:
+            Token:
+                Token generated with the input data.
+        """
         if client_id == "":
             client_id = str(uuid4())
             LOGGER.info(f"client_id={client_id}: generating new token")
@@ -48,8 +75,21 @@ class TokenRepository(Repository):
             expiration_time=exp_time,
         )
 
-    async def generate_token(self, user_id: str = "") -> Token:
-        """Generates a user token."""
+    async def generate_user_token(self, user_id: str = "") -> Token:
+        """User (or workbench) tokens are based on the id of the user. This
+        method can be used both to generate a first token for a new user or
+        re-generate a token for an existing one.
+
+        Args:
+            user_id (str, optional):
+                If already exists, the unique identifier of the user.
+                Don't use if the user is a new one (leave default).
+                Defaults to "".
+
+        Returns:
+            Token:
+                Token generated with the input data.
+        """
         if user_id == "":
             user_id = str(uuid4())
             LOGGER.info(f"user_id={user_id}: generating new token")
@@ -71,7 +111,19 @@ class TokenRepository(Repository):
             expiration_time=exp_time,
         )
 
-    async def project_token(self, name: str) -> str:
+    async def generate_project_token(self, name: str) -> str:
+        """Project have tokens assigned to them. The token is based on the name
+        of the project. Project's tokens are intended to not be replaceable.
+
+        Args:
+            name (str):
+                The name of the new project.
+
+        Returns:
+            str:
+                A string to use as a token.
+        """
+
         LOGGER.info("generating token for new project")
 
         ms = round(time() * 1000 + 7)
@@ -83,22 +135,15 @@ class TokenRepository(Repository):
 
         return token
 
-    async def create_token(self, token: Token) -> Token | None:
-        """Does not commit!"""
-        LOGGER.info(f"component_id={token.component_id}: creating new token")
-
-        res = await self.session.execute(select(Token).where(Token.token == token.token))
-
-        existing_token: Token | None = res.scalar_one_or_none()
-
-        if existing_token is not None:
-            LOGGER.warning(f"component_id={existing_token.component_id}: a valid token already exists")
-            # TODO: check if we have more strong condition for this
-            return existing_token
-
-        self.session.add(token)
-
     async def invalidate_tokens(self, component_id: str) -> None:
+        """Set to not valid all the tokens associated with the given component id.
+        This is useful when there is the need to update the token for the client
+        or to ban an user.
+
+        Args:
+            component_id (str):
+                Id of the component.
+        """
         res = await self.session.scalars(select(Token).where(Token.component_id == component_id))
         tokens: list[Token] = list(res.all())
 
@@ -107,24 +152,58 @@ class TokenRepository(Repository):
 
         await self.session.commit()
 
-    async def update_client_token(self, system: str, mac_address: str, node: str, component_id: str = "") -> Token:
+    async def update_client_token(self, system: str, mac_address: str, node: str, client_id: str) -> Token:
+        """Utility method that creates a new token for the client and set it as
+        the new valid token.
+
+        Args:
+            system (str):
+                Specifies the operative system of the client.
+            mac_address (str):
+                Specifies the current hardware address use by the client.
+            node (str):
+                Unique identifier created by the client.
+            client_id (str, optional):
+                The unique identifier of the client.
+
+        Returns:
+            Token:
+                The new token to use.
+        """
         token: Token = await self.generate_client_token(
             system,
             mac_address,
             node,
-            component_id,
+            client_id,
         )
-        await self.invalidate_tokens(component_id)
-        await self.create_token(token)
+        await self.invalidate_tokens(client_id)
+
+        self.session.add(token)
+
         await self.session.commit()
         await self.session.refresh(token)
 
         return token
 
     async def count_valid_tokens(self, client_id: str) -> int:
+        """Count how many valid tokens are recorded in the database for the given
+        client_id. Normally, only one token marked as valid should be available.
+        In case no tokens are recorded, the count is set to zero.
+
+        Args:
+            client_id (str):
+                Client unique identifier.
+
+        Returns:
+            int
+                The number of valid tokens recorded for the given client_id.
+        """
+
         n_tokens = await self.session.scalar(
             select(func.count()).select_from(Token).where(Token.component_id == client_id, Token.valid)
         )
+
         if n_tokens is None:
             return 0
+
         return n_tokens

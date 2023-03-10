@@ -19,9 +19,9 @@ async def list_datasources(client_id: str | None = None) -> list[DataSource]:
     async with db.async_session() as session:
         datasource_repository: DataSourceRepository = DataSourceRepository(session)
         if client_id is None:
-            datasources: list[DataSource] = await datasource_repository.get_datasource_list()
+            datasources: list[DataSource] = await datasource_repository.list_datasources()
         else:
-            datasources: list[DataSource] = await datasource_repository.get_datasources_by_client_id(
+            datasources: list[DataSource] = await datasource_repository.list_datasources_by_client_id(
                 client_id=client_id
             )
 

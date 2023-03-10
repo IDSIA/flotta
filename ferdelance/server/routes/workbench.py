@@ -92,7 +92,7 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
 
         except NoResultFound:
             # creating new user
-            user, token = await cr.create(TYPE_USER, public_key=user_public_key)
+            user, token = await cr.create_component(TYPE_USER, public_key=user_public_key)
 
             LOGGER.info(f"user_id={user.component_id}: created new user")
 
@@ -133,7 +133,7 @@ async def wb_get_client_list(
     data = await ss.read_request(request)
     wpt = WorkbenchProjectToken(**data)
 
-    client_ids = await pr.client_ids(wpt.token)
+    client_ids = await pr.list_client_ids(wpt.token)
 
     clients = await cr.list_clients_by_ids(client_ids)
 
@@ -161,7 +161,7 @@ async def wb_get_datasource_list(
     data = await ss.read_request(request)
     wpt = WorkbenchProjectToken(**data)
 
-    datasource_ids = await pr.datasources_ids(wpt.token)
+    datasource_ids = await pr.list_datasources_ids(wpt.token)
 
     datasources = [await dsr.load(ds_id) for ds_id in datasource_ids]
 

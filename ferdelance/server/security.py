@@ -72,7 +72,7 @@ async def generate_keys(session: AsyncSession) -> Exchange:
 
 async def check_token(
     credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)
-) -> Component | Client:
+) -> Component:
     """Checks if the given token exists in the database.
 
     :param credentials:
@@ -109,7 +109,7 @@ async def check_token(
     LOGGER.debug(f"component_id={component_id}: received valid token")
 
     try:
-        component: Component | Client = await cr.get_by_id(component_id)
+        component: Component = await cr.get_by_id(component_id)
 
         if component.left or not component.active:
             LOGGER.warning("Component that left or has been deactivated tried to connect!")
