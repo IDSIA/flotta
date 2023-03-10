@@ -77,7 +77,7 @@ async def test_client_connect_successful(session: AsyncSession, exchange: Exchan
 
         cr: ComponentRepository = ComponentRepository(session)
 
-        db_client: Component | Client = await cr.get_by_id(client_id)
+        db_client: Client = await cr.get_client_by_id(client_id)
 
         assert isinstance(db_client, Client)
         assert db_client.active
@@ -88,7 +88,7 @@ async def test_client_connect_successful(session: AsyncSession, exchange: Exchan
         assert db_token.token == exchange.token
         assert db_token.valid
 
-        db_events: list[Event] = await cr.get_events(client_id)
+        db_events: list[Event] = await cr.list_events(client_id)
 
         assert len(db_events) == 1
         assert db_events[0].event == "creation"
@@ -142,7 +142,7 @@ async def test_client_update(session: AsyncSession, exchange: Exchange):
         assert status_code == 200
         assert Action[action] == Action.DO_NOTHING
 
-        db_events: list[Event] = await cr.get_events(client_id)
+        db_events: list[Event] = await cr.list_events(client_id)
         events: list[str] = [e.event for e in db_events]
 
         assert len(events) == 3
@@ -176,7 +176,7 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
         assert db_client.active is False
         assert db_client.left
 
-        db_events: list[Event] = await cr.get_events(client_id)
+        db_events: list[Event] = await cr.list_events(client_id)
         events: list[str] = [e.event for e in db_events]
 
         assert "creation" in events
