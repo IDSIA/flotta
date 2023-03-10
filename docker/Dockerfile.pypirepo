@@ -1,0 +1,55 @@
+# This is for hosting a pypiserver https://github.com/pypiserver/pypiserver#quickstart-installation-and-usage
+
+# Build stage -----------------------------------------------------------------
+FROM python:3.10 AS downloader
+
+# install virtual environment
+RUN python -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:${PATH}"
+
+RUN python -m pip install --upgrade pip
+
+RUN mkdir /packages 
+
+# install all packages required for the framework
+COPY . /ferdelance
+
+RUN pip install --no-cache-dir "/ferdelance[prod]"
+
+RUN cd /packages && \
+    pip freeze list > packages.txt && \
+    pip download -r packages.txt
+
+RUN pip install build && \
+    python -m build --outdir /packages /ferdelance
+
+# Build stage -----------------------------------------------------------------
+FROM python:3.10 AS builder
+
+# install virtual environment
+RUN python -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:${PATH}"
+
+RUN python -m pip install --upgrade pip
+
+# install pypiserver
+RUN pip install pypiserver
+
+# Installation stage ----------------------------------------------------------
+FROM python:3.10-slim-buster
+
+# copy built virtual environment to base
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:${PATH}"
+
+# create and populate workdir
+WORKDIR /repository
+
+RUN mkdir /packages
+
+COPY --from=downloader /packages /packages
+
+ENTRYPOINT ["pypi-server", "run", "-p", "8080", "/packages", "-vvv", "--log-stream", "stdout"]

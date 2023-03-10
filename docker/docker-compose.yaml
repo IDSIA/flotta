@@ -111,3 +111,9 @@ services:
       - ferdelance
     depends_on:
       - server
+
+  repository:
+    image: idsia.ferdelance.repository
+    container_name: repository
+    networks:
+      - ferdelance

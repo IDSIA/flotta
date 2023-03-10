@@ -12,8 +12,24 @@ volumes:
 
 services:
 
-  # FerDeLance internal database
+  # Python packages repository
+  repository:
+    image: idsia.ferdelance.repository
+    container_name: repository
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.pypirepo
+    networks:
+      - ferdelance
+    networks:
+      - www
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ferdelance.entrypoints=web"
+      - "traefik.http.routers.ferdelance.rule=Host(`ferdelancerepo.${DOMAIN}`)"
+      - "traefik.http.services.ferdelance.loadbalancer.server.port=8080"
 
+  # Ferdelance internal database
   database:
     image: postgres
     container_name: database
@@ -28,8 +44,7 @@ services:
     networks:
       - ferdelance
 
-  # Tark Broker - Where server communicates the tasks to the worker
-
+  # Task Broker - Where server communicates the tasks to the worker
   rabbitmq:
     image: rabbitmq
     container_name: rabbitmq
@@ -38,7 +53,6 @@ services:
     command: rabbitmq-server
 
   # Result Storage - Where worker stores results
-
   redis:
     image: redis
     container_name: redis
@@ -46,8 +60,7 @@ services:
       - ferdelance
     command: redis-server
 
-  # Worker - The actual worker
-
+  # Ferdelane Worker - Server internal worker
   worker:
     image: idsia.ferdelance.server
     container_name: worker
@@ -67,28 +80,7 @@ services:
       - redis
       - rabbitmq
 
-  # Monitor - Where worker status can be monitored
-
-  # flower:
-  #   image: idsia.ferdelance.server
-  #   container_name: flower
-  #   networks:
-  #     - www
-  #     - ferdelance
-  #   environment:
-  #     - CELERY_BROKER_URL=pyamqp://rabbitmq/
-  #     - CELERY_BACKEND_URL=redis://redis/
-  #   command: --target flower
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.http.routers.flower.entrypoints=web"
-  #     - "traefik.http.routers.flower.rule=Host(`flower-ferdelance.${DOMAIN}`)"
-  #     - "traefik.http.services.flower.loadbalancer.server.port=5555"
-  #   depends_on:
-  #     - worker    
-
-  # FerDeLance server
-
+  # Ferdelance server
   server:
     image: idsia.ferdelance.server
     build:
@@ -112,6 +104,7 @@ services:
     depends_on:
       - database
       - worker
+      - repository
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ferdelance.entrypoints=web"

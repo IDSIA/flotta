@@ -17,14 +17,6 @@ case $W in
             worker \
             --loglevel INFO
         ;;
-    flower)
-        cd ferdelance 
-        celery \
-            --broker ${CELERY_BROKER_URL} \
-            --result-backend ${CELERY_BACKEND_URL} \
-            --app ferdelance.worker.celery \
-            flower
-        ;;
     server)
         uvicorn \
             ferdelance.server.api:api \
