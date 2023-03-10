@@ -176,7 +176,7 @@ class JobManagementService(Repository):
 
             LOGGER.info(f"All {total} job(s) completed, starting aggregation")
 
-            token = await self.cr.get_token_by_client_type("WORKER")
+            token = await self.cr.get_token_for_workers()
 
             if token is None:
                 LOGGER.error("Cannot aggregate: no worker available")

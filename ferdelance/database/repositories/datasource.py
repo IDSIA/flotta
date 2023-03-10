@@ -181,7 +181,7 @@ class DataSourceRepository(Repository):
 
         Args:
             datasource (DataSource):
-                The datasource content to save on disk.
+                The datasource content that will be saved on disk.
 
         Returns:
             str:

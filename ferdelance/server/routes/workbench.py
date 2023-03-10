@@ -92,7 +92,7 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
 
         except NoResultFound:
             # creating new user
-            user, token = await cr.create(TYPE_USER, public_key=user_public_key)
+            user, token = await cr.create_component(TYPE_USER, public_key=user_public_key)
 
             LOGGER.info(f"user_id={user.component_id}: created new user")
 

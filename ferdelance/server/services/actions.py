@@ -37,7 +37,7 @@ class ActionService(Repository):
         :return:
             True if no valid token is found, otherwise False.
         """
-        return await self.cr.has_valid_token(client.client_id)
+        return await self.cr.has_invalid_token(client.client_id)
 
     async def _action_update_token(self, client: Client) -> UpdateToken:
         """Generates a new valid token.

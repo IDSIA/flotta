@@ -19,6 +19,7 @@ from ferdelance.schemas.client import ClientJoinRequest, ClientJoinData
 from ferdelance.schemas.updates import DownloadApp, UpdateExecute
 from ferdelance.schemas.components import (
     Client,
+    Component,
     Application,
 )
 from ferdelance.schemas.models import Metrics
@@ -43,7 +44,7 @@ LOGGER = logging.getLogger(__name__)
 client_router = APIRouter()
 
 
-async def check_access(component: Client = Depends(check_token)) -> Client:
+async def check_access(component: Component = Depends(check_token)) -> Component:
     try:
         if component.type_name != TYPE_CLIENT:
             LOGGER.warning(f"client of type={component.type_name} cannot access this route")
@@ -51,7 +52,7 @@ async def check_access(component: Client = Depends(check_token)) -> Client:
 
         return component
     except NoResultFound:
-        LOGGER.warning(f"client_id={component.client_id} not found")
+        LOGGER.warning(f"client_id={component.component_id} not found")
         raise HTTPException(403)
 
 
@@ -128,15 +129,15 @@ async def client_join(
 @client_router.post("/client/leave")
 async def client_leave(
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_access),
+    component: Component = Depends(check_access),
 ):
     """API for existing client to be removed"""
     cr: ComponentRepository = ComponentRepository(session)
 
-    LOGGER.info(f"client_id={client.client_id}: request to leave")
+    LOGGER.info(f"client_id={component.component_id}: request to leave")
 
-    await cr.client_leave(client.client_id)
-    await cr.create_event(client.client_id, "left")
+    await cr.client_leave(component.component_id)
+    await cr.create_event(component.component_id, "left")
 
     return {}
 
@@ -145,7 +146,7 @@ async def client_leave(
 async def client_update(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_access),
+    component: Component = Depends(check_access),
 ):
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
@@ -158,17 +159,18 @@ async def client_update(
     acs: ActionService = ActionService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.setup(client.public_key)
-    await cr.create_event(client.client_id, "update")
+    await ss.setup(component.public_key)
+    await cr.create_event(component.component_id, "update")
+    client = await cr.get_client_by_id(component.component_id)
 
     # consume current results (if present) and compute next action
     payload: dict[str, Any] = await ss.read_request(request)
 
     next_action = await acs.next(client, payload)
 
-    LOGGER.debug(f"client_id={client.client_id}: update action={next_action.action}")
+    LOGGER.debug(f"client_id={component.component_id}: update action={next_action.action}")
 
-    await cr.create_event(client.client_id, f"action:{next_action.action}")
+    await cr.create_event(component.component_id, f"action:{next_action.action}")
 
     return ss.create_response(next_action.dict())
 
@@ -177,20 +179,20 @@ async def client_update(
 async def client_update_files(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_access),
+    component: Component = Depends(check_access),
 ):
     """
     API request by the client to get updated files. With this endpoint a client can:
     - update application software
     - obtain model files
     """
-    LOGGER.info(f"client_id={client.client_id}: update files request")
+    LOGGER.info(f"client_id={component.component_id}: update files request")
 
     cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.setup(client.public_key)
-    await cr.create_event(client.client_id, "update files")
+    await ss.setup(component.public_key)
+    await cr.create_event(component.component_id, "update files")
 
     data = await ss.read_request(request)
     payload = DownloadApp(**data)
@@ -200,13 +202,13 @@ async def client_update_files(
 
         if new_app.version != payload.version:
             LOGGER.warning(
-                f"client_id={client.client_id} requested app version={payload.version} while latest version={new_app.version}"
+                f"client_id={component.component_id} requested app version={payload.version} while latest version={new_app.version}"
             )
             raise HTTPException(400, "Old versions are not permitted")
 
-        await cr.update_client(client.client_id, version=payload.version)
+        await cr.update_client(component.component_id, version=payload.version)
 
-        LOGGER.info(f"client_id={client.client_id}: requested new client version={payload.version}")
+        LOGGER.info(f"client_id={component.component_id}: requested new client version={payload.version}")
 
         return ss.encrypt_file(new_app.path)
     except NoResultFound as _:
@@ -217,26 +219,26 @@ async def client_update_files(
 async def client_update_metadata(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_access),
+    component: Component = Depends(check_access),
 ):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
     """
-    LOGGER.info(f"client_id={client.client_id}: update metadata request")
+    LOGGER.info(f"client_id={component.component_id}: update metadata request")
 
     cr: ComponentRepository = ComponentRepository(session)
     dsr: DataSourceRepository = DataSourceRepository(session)
     pr: ProjectRepository = ProjectRepository(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.setup(client.public_key)
-    await cr.create_event(client.client_id, "update metadata")
+    await ss.setup(component.public_key)
+    await cr.create_event(component.component_id, "update metadata")
 
     data = await ss.read_request(request)
     metadata = Metadata(**data)
 
-    await dsr.create_or_update_from_metadata(client.client_id, metadata)  # this will also update metadata
+    await dsr.create_or_update_from_metadata(component.component_id, metadata)  # this will also update metadata
     await pr.add_datasources_from_metadata(metadata)
 
     return ss.create_response(metadata.dict())
@@ -246,23 +248,23 @@ async def client_update_metadata(
 async def client_get_task(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_access),
+    component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"client_id={client.client_id}: new task request")
+    LOGGER.info(f"client_id={component.component_id}: new task request")
 
     cr: ComponentRepository = ComponentRepository(session)
     jm: JobManagementService = JobManagementService(session)
     ss: SecurityService = SecurityService(session)
 
-    await ss.setup(client.public_key)
-    await cr.create_event(client.client_id, "schedule task")
+    await ss.setup(component.public_key)
+    await cr.create_event(component.component_id, "schedule task")
 
     data = await ss.read_request(request)
     payload = UpdateExecute(**data)
     artifact_id = payload.artifact_id
 
     try:
-        content = await jm.client_task_start(artifact_id, client.client_id)
+        content = await jm.client_task_start(artifact_id, component.component_id)
 
         return ss.create_response(content.dict())
 
@@ -281,18 +283,18 @@ async def client_post_result(
     request: Request,
     artifact_id: str,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_access),
+    component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"client_id={client.client_id}: complete work on artifact_id={artifact_id}")
+    LOGGER.info(f"client_id={component.component_id}: complete work on artifact_id={artifact_id}")
 
     ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
 
-    result_db = await jm.client_result_create(artifact_id, client.client_id)
+    result_db = await jm.client_result_create(artifact_id, component.component_id)
 
     await jm.check_for_aggregation(result_db)
 
-    await ss.setup(client.public_key)
+    await ss.setup(component.public_key)
     await ss.stream_decrypt_file(request, result_db.path)
 
     return {}
@@ -302,18 +304,18 @@ async def client_post_result(
 async def client_post_metrics(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    client: Client = Depends(check_access),
+    component: Component = Depends(check_access),
 ):
     ss: SecurityService = SecurityService(session)
     jm: JobManagementService = JobManagementService(session)
 
-    await ss.setup(client.public_key)
+    await ss.setup(component.public_key)
 
     data = await ss.read_request(request)
     metrics = Metrics(**data)
 
     LOGGER.info(
-        f"client_id={client.client_id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}"
+        f"client_id={component.component_id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}"
     )
 
     await jm.save_metrics(metrics)
