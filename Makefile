@@ -57,9 +57,10 @@ server-logs:
 	docker-compose -f docker-compose.server.yaml -p ferdelance logs -f server worker
 
 server-clean:
-	docker-compose down
+	docker-compose -f docker-compose.server.yaml -p ferdelance down
 	docker volume rm ferdelance_ferdelance-db-data
 	docker volume rm ferdelance_ferdelance-server-data
+	rm -rf ./storage/*
 
 # development
 create:
@@ -77,3 +78,22 @@ dev:
 
 test:
 	pytest
+
+# testing
+test-2clients-start:
+	docker-compose -f docker-compose.2clients.yaml -p ferdelance up -d
+
+test-2clients-stop:
+	docker-compose -f docker-compose.2clients.yaml -p ferdelance down
+
+test-2clients-logs:
+	docker-compose -f docker-compose.2clients.yaml -p ferdelance logs -f server worker
+
+test-2clients-clean:
+	docker-compose -f docker-compose.2clients.yaml -p ferdelance down
+	docker volume rm ferdelance_ferdelance-db-data
+	docker volume rm ferdelance_ferdelance-server-data
+	docker volume rm ferdelance_ferdelance-client-1-data
+	docker volume rm ferdelance_ferdelance-client-2-data
+	rm -rf ./storage/*
+	rm -rf ./workdir/*

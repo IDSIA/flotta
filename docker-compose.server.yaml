@@ -16,12 +16,8 @@ services:
   repository:
     image: idsia.ferdelance.repository
     container_name: repository
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.pypirepo
     networks:
       - ferdelance
-    networks:
       - www
     labels:
       - "traefik.enable=true"
@@ -34,11 +30,9 @@ services:
     image: postgres
     container_name: database
     environment:
-      - POSTGRES_USER=${DATABASE_USER}
-      - POSTGRES_PASSWORD=${DATABASE_PASS}
-      - POSTGRES_DB=${DATABASE_SCHEMA}
-    ports:
-      - 5432:5432
+      - POSTGRES_USER=${DATABASE_USER?Missing DATABASE_USER for database}
+      - POSTGRES_PASSWORD=${DATABASE_PASS?Missing DATABASE_PASS for database}
+      - POSTGRES_DB=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for database}
     volumes:
       - ferdelance-db-data:/var/lib/postgresql/data
     networks:
@@ -65,10 +59,10 @@ services:
     image: idsia.ferdelance.server
     container_name: worker
     environment:
-      - DB_HOST=${DATABASE_HOST}
-      - DB_USER=${DATABASE_USER}
-      - DB_PASS=${DATABASE_PASS}
-      - DB_SCHEMA=${DATABASE_SCHEMA}
+      - DB_HOST=database
+      - DB_USER=${DATABASE_USER?Missing DATABASE_USER for worker}
+      - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for worker}
+      - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for worker}
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
     volumes:
@@ -83,18 +77,15 @@ services:
   # Ferdelance server
   server:
     image: idsia.ferdelance.server
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.server
+    container_name: server
     environment:
-      - DB_HOST=${DATABASE_HOST}
-      - DB_USER=${DATABASE_USER}
-      - DB_PASS=${DATABASE_PASS}
-      - DB_SCHEMA=${DATABASE_SCHEMA}
-      - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
+      - DB_HOST=database
+      - DB_USER=${DATABASE_USER?Missing DATABASE_USER for server}
+      - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for server}
+      - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
+      - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
-    container_name: server
     volumes:
       - ./storage:/ferdelance/storage
     networks:

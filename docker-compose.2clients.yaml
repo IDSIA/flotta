@@ -13,15 +13,18 @@ volumes:
 
 services:
 
+  repository:
+    image: idsia.ferdelance.repository
+    container_name: repository
+    networks:
+      - ferdelance
   database:
     image: postgres
     container_name: database
     environment:
-      - POSTGRES_USER=${DATABASE_USER}
-      - POSTGRES_PASSWORD=${DATABASE_PASS}
-      - POSTGRES_DB=${DATABASE_SCHEMA}
-    ports:
-      - 5432:5432
+      - POSTGRES_USER=${DATABASE_USER?Missing DATABASE_USER for database}
+      - POSTGRES_PASSWORD=${DATABASE_PASS?Missing DATABASE_PASS for database}
+      - POSTGRES_DB=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for database}
     volumes:
       - ferdelance-db-data:/var/lib/postgresql/data
     networks:
@@ -45,12 +48,14 @@ services:
     image: idsia.ferdelance.server
     container_name: worker
     environment:
-      - DB_HOST=${DATABASE_HOST}
-      - DB_USER=${DATABASE_USER}
-      - DB_PASS=${DATABASE_PASS}
-      - DB_SCHEMA=${DATABASE_SCHEMA}
+      - DB_HOST=database
+      - DB_USER=${DATABASE_USER?Missing DATABASE_USER for worker}
+      - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for worker}
+      - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for worker}
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
+    volumes:
+      - ferdelance-server-data:/ferdelance/data
     networks:
       - ferdelance
     command: --target worker
@@ -62,14 +67,14 @@ services:
     image: idsia.ferdelance.server
     container_name: server
     environment:
-      - DB_HOST=${DATABASE_HOST}
-      - DB_USER=${DATABASE_USER}
-      - DB_PASS=${DATABASE_PASS}
-      - DB_SCHEMA=${DATABASE_SCHEMA}
-      - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD}
+      - DB_HOST=database
+      - DB_USER=${DATABASE_USER?Missing DATABASE_USER for server}
+      - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for server}
+      - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
+      - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
-    volumes: 
+    volumes:
       - ferdelance-server-data:/ferdelance/storage
     networks:
       - www
@@ -78,6 +83,7 @@ services:
     depends_on:
       - database
       - worker
+      - repository
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ferdelance.entrypoints=web"
@@ -111,9 +117,3 @@ services:
       - ferdelance
     depends_on:
       - server
-
-  repository:
-    image: idsia.ferdelance.repository
-    container_name: repository
-    networks:
-      - ferdelance

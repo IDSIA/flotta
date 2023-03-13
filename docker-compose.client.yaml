@@ -12,18 +12,12 @@ services:
   client:
     image: idsia.ferdelance.client
     container_name: ferdelance-client
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.client
     environment:
-      - FDL_SERVER=$SERVER
+      - FDL_SERVER=${SERVER?Missing server URL for client}
       - FDL_HEARTBEAT=10.0
     volumes:
       - ferdelance-client-data:/ferdelance/workdir
       - ./conf/config.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
-      - ./conf:/ferdelance/conf
     networks:
       - ferdelance
-    commands:
-      - -c conf/config.yaml
