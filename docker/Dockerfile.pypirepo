@@ -15,11 +15,25 @@ RUN mkdir /packages
 # install all packages required for the framework
 COPY . /ferdelance
 
-RUN pip install --no-cache-dir "/ferdelance[prod]"
+RUN pip install "/ferdelance[prod]"
 
+# download a list of all required packages for win and linux platforms
 RUN cd /packages && \
     pip freeze list > packages.txt && \
-    pip download -r packages.txt
+    pip download -r packages.txt \
+    pip download -r packages.txt \
+        --only-binary=:all: \
+        --platform win_amd64 \
+    pip download -r packages.txt \
+        --only-binary=:all: \
+        --platform manylinux_2_12_x86_64 \
+        --platform manylinux_2_17_x86_64 \
+        --platform manylinux_2_28_x86_64 \
+        --platform manylinux_2_5_x86_64 \
+        --platform manylinux1_x86_64 \
+        --platform manylinux2010_x86_64 \
+        --platform manylinux2014_x86_64 \
+        --platform any
 
 RUN pip install build && \
     python -m build --outdir /packages /ferdelance
@@ -52,4 +66,6 @@ RUN mkdir /packages
 
 COPY --from=downloader /packages /packages
 
-ENTRYPOINT ["pypi-server", "run", "-p", "8080", "/packages", "-vvv", "--log-stream", "stdout"]
+EXPOSE 8080
+
+ENTRYPOINT ["pypi-server", "run", "-p", "8080", "--log-stream", "stdout", "/packages"]

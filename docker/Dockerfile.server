@@ -30,6 +30,8 @@ COPY ./script/server.sh /ferdelance
 
 RUN chmod +x /ferdelance/server.sh
 
+EXPOSE 1456
+
 ENTRYPOINT ["/bin/bash", "server.sh"]
 
 # This image is used for 3 different containers with 3 different commands, they will be provided at compose level.

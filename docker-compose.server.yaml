@@ -25,9 +25,9 @@ services:
       - www
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ferdelance.entrypoints=web"
-      - "traefik.http.routers.ferdelance.rule=Host(`ferdelancerepo.${DOMAIN}`)"
-      - "traefik.http.services.ferdelance.loadbalancer.server.port=8080"
+      - "traefik.http.routers.repo.entrypoints=web"
+      - "traefik.http.routers.repo.rule=Host(`fdl-repo.${DOMAIN}`)"
+      - "traefik.http.services.repo.loadbalancer.server.port=8080"
 
   # Ferdelance internal database
   database:

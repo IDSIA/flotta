@@ -22,5 +22,8 @@ services:
       - ferdelance-client-data:/ferdelance/workdir
       - ./conf/config.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
+      - ./conf:/ferdelance/conf
     networks:
       - ferdelance
+    commands:
+      - -c conf/config.yaml
