@@ -1,4 +1,3 @@
-from typing import Any
 from sqlalchemy.engine import URL
 from pydantic import BaseModel
 from pytimeparse import parse
@@ -64,7 +63,7 @@ class Configuration(BaseModel):
     def server_url(self) -> str:
         return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
 
-    def db_connection_url(self, sync: bool = False) -> str:
+    def db_connection_url(self, sync: bool = False) -> URL | str:
         driver = ""
 
         if self.DB_MEMORY:
@@ -92,15 +91,13 @@ class Configuration(BaseModel):
             if not sync:
                 driver = "+asyncpg"
 
-            return str(
-                URL.create(
-                    f"postgresql{driver}",
-                    self.DB_USER,
-                    self.DB_PASS,
-                    self.DB_HOST,
-                    self.DB_PORT,
-                    self.DB_HOST,
-                )
+            return URL.create(
+                f"postgresql{driver}",
+                self.DB_USER,
+                self.DB_PASS,
+                self.DB_HOST,
+                self.DB_PORT,
+                self.DB_SCHEMA,
             )
 
         raise ValueError(f"dialect {dialect} is not supported")

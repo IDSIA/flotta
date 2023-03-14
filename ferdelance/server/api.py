@@ -33,16 +33,14 @@ async def populate_database() -> None:
 
     inst = DataBase()
 
-    async with inst.engine.connect() as _:
+    async with inst.engine.begin() as conn:
+        LOGGER.info("database creation started")
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+        LOGGER.info("database creation completed")
 
-        async with inst.engine.begin() as conn:
-            LOGGER.info("database creation started")
-            await conn.run_sync(Base.metadata.create_all, checkfirst=True)
-            LOGGER.info("database creation completed")
-
-        async with inst.async_session() as session:
-            ss = ServerStartup(session)
-            await ss.startup()
+    async with inst.async_session() as session:
+        ss = ServerStartup(session)
+        await ss.startup()
 
 
 @api.on_event("shutdown")

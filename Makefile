@@ -15,13 +15,13 @@ build:
 	docker-compose -f docker-compose.build.yaml build
 
 build-client:
-	docker-compose -f docker-compose.build.yaml client build
+	docker-compose -f docker-compose.build.yaml build client
 
 build-server:
-	docker-compose -f docker-compose.build.yaml server build
+	docker-compose -f docker-compose.build.yaml build server
 
 build-repo:
-	docker-compose -f docker-compose.build.yaml repository build
+	docker-compose -f docker-compose.build.yaml build repository
 
 # docker management client
 client-start:
@@ -87,7 +87,7 @@ test-2clients-stop:
 	docker-compose -f docker-compose.2clients.yaml -p ferdelance down
 
 test-2clients-logs:
-	docker-compose -f docker-compose.2clients.yaml -p ferdelance logs -f server worker
+	docker-compose -f docker-compose.2clients.yaml -p ferdelance logs -f 
 
 test-2clients-clean:
 	docker-compose -f docker-compose.2clients.yaml -p ferdelance down

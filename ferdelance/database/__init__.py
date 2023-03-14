@@ -6,6 +6,7 @@ from typing import Any, AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.engine import URL
 
 import logging
 
@@ -19,7 +20,7 @@ class Base(DeclarativeBase):
 
 class DataBase:
     def __init__(self) -> None:
-        self.database_url: str | None
+        self.database_url: URL | str | None
         self.engine: AsyncEngine
         self.async_session_factory: Any
         self.async_session: Any
@@ -30,6 +31,9 @@ class DataBase:
             cls.instance = super(DataBase, cls).__new__(cls)
 
             cls.instance.database_url = conf.db_connection_url()
+
+            if cls.instance.database_url is None:
+                raise ValueError("Connection to database is not set!")
 
             cls.instance.engine = create_async_engine(cls.instance.database_url)
             cls.instance.async_session = async_sessionmaker(

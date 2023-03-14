@@ -18,6 +18,7 @@ services:
     container_name: repository
     networks:
       - ferdelance
+
   database:
     image: postgres
     container_name: database
@@ -62,7 +63,7 @@ services:
     depends_on:
       - redis
       - rabbitmq
- 
+
   server: 
     image: idsia.ferdelance.server
     container_name: server
