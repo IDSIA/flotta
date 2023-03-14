@@ -1,4 +1,4 @@
-# Build stage
+# Build stage -----------------------------------------------------------------
 FROM python:3.10 AS builder
 
 # install virtual environment
@@ -13,7 +13,7 @@ COPY . /ferdelance
 
 RUN pip install --no-cache-dir "/ferdelance[client]"
 
-# Installation stage
+# Installation stage ----------------------------------------------------------
 FROM python:3.10-slim-buster AS base
 
 # copy built virtual environment to base

@@ -25,21 +25,21 @@ build-repo:
 
 # docker management client
 client-start:
-	docker-compose -f docker-compose.client.yaml -p ferdelance up -d
+	docker-compose -f docker-compose.client.yaml -p fdl_client up -d
 
 client-stop:
-	docker-compose -f docker-compose.client.yaml -p ferdelance down
+	docker-compose -f docker-compose.client.yaml -p fdl_client down
 
 client-reload:
-	docker-compose -f docker-compose.client.yaml -p ferdelance build
-	docker-compose -f docker-compose.client.yaml -p ferdelance up -d
+	docker-compose -f docker-compose.client.yaml -p fdl_client build
+	docker-compose -f docker-compose.client.yaml -p fdl_client up -d
 
 client-logs:
-	docker-compose -f docker-compose.client.yaml -p ferdelance logs -f 
+	docker-compose -f docker-compose.client.yaml -p fdl_client logs -f 
 
 client-clean:
-	docker-compose -f docker-compose.client.yaml -p ferdelance down
-	docker volume rm ferdelance_ferdelance-client-data
+	docker-compose -f docker-compose.client.yaml -p fdl_client down
+	docker volume rm fdl_client-data
 	rm -rf ./workdir/*
 
 # docker management server
@@ -48,6 +48,12 @@ server-start:
 
 server-stop:
 	docker-compose -f docker-compose.server.yaml -p ferdelance down
+
+server-start-repo:
+	docker-compose -f docker-compose.server.yaml -p ferdelance up -d repository
+
+server-stop-repo:
+	docker-compose -f docker-compose.server.yaml -p ferdelance down repository
 
 server-reload:
 	docker-compose -f docker-compose.server.yaml -p ferdelance build
@@ -81,19 +87,19 @@ test:
 
 # testing
 test-2clients-start:
-	docker-compose -f docker-compose.2clients.yaml -p ferdelance up -d
+	docker-compose -f docker-compose.2clients.yaml -p fdl_test up -d
 
 test-2clients-stop:
-	docker-compose -f docker-compose.2clients.yaml -p ferdelance down
+	docker-compose -f docker-compose.2clients.yaml -p fdl_test down
 
 test-2clients-logs:
-	docker-compose -f docker-compose.2clients.yaml -p ferdelance logs -f 
+	docker-compose -f docker-compose.2clients.yaml -p fdl_test logs -f
 
 test-2clients-clean:
-	docker-compose -f docker-compose.2clients.yaml -p ferdelance down
-	docker volume rm ferdelance_ferdelance-db-data
-	docker volume rm ferdelance_ferdelance-server-data
-	docker volume rm ferdelance_ferdelance-client-1-data
-	docker volume rm ferdelance_ferdelance-client-2-data
+	docker-compose -f docker-compose.2clients.yaml -p fdl_test down
+	docker volume rm fdl_test_db-data
+	docker volume rm fdl_test_server-data
+	docker volume rm fdl_test_client-1-data
+	docker volume rm fdl_test_client-2-data
 	rm -rf ./storage/*
 	rm -rf ./workdir/*

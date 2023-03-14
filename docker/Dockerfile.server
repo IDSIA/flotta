@@ -1,4 +1,7 @@
-# Build stage
+# This image is used for different containers with different commands
+# They will be provided at compose level.
+
+# Build stage -----------------------------------------------------------------
 FROM python:3.10 AS builder
 
 # install virtual environment
@@ -13,7 +16,7 @@ COPY . /ferdelance
 
 RUN pip install --no-cache-dir "/ferdelance[server]"
 
-# Installation stage
+# Installation stage ----------------------------------------------------------
 FROM python:3.10-slim-buster AS base
 
 # copy built virtual environment to base
@@ -33,6 +36,3 @@ RUN chmod +x /ferdelance/server.sh
 EXPOSE 1456
 
 ENTRYPOINT ["/bin/bash", "server.sh"]
-
-# This image is used for 3 different containers with 3 different commands, they will be provided at compose level.
-# CMD ["uvicorn", "ferdelance.server.api:api", "--host", "0.0.0.0", "--port", "1456"]

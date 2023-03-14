@@ -45,10 +45,16 @@ class FerdelanceClient:
         os.chmod(self.config.path_artifact_folder(), 0o700)
 
         if self.config.private_key_location is None:
-            # generate new key
-            LOGGER.info("private key location not set: creating a new one")
-            self.config.exc.generate_key()
-            self.config.exc.save_private_key(self.config.path_private_key())
+            if os.path.exists(self.config.path_private_key()):
+                # use existing one
+                LOGGER.info("private key location not set: using existing one")
+                self.config.private_key_location = self.config.path_private_key()
+                self.config.exc.load_key(self.config.private_key_location)
+            else:
+                # generate new key
+                LOGGER.info("private key location not set: creating a new one")
+                self.config.exc.generate_key()
+                self.config.exc.save_private_key(self.config.path_private_key())
 
         elif not os.path.exists(self.config.private_key_location):
             LOGGER.info("private key location not found: creating a new one")

@@ -5,7 +5,7 @@ networks:
 
 
 volumes:
-  ferdelance-client-data:
+  client-data:
 
 
 services:
@@ -16,7 +16,7 @@ services:
       - FDL_SERVER=${SERVER?Missing server URL for client}
       - FDL_HEARTBEAT=10.0
     volumes:
-      - ferdelance-client-data:/ferdelance/workdir
+      - client-data:/ferdelance/workdir
       - ./conf/config.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
     networks:
