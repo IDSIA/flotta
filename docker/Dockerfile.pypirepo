@@ -18,19 +18,23 @@ COPY . /ferdelance
 RUN pip install "/ferdelance[prod]"
 
 # download a list of all required packages for win and linux platforms
-RUN cd /packages && \
-    pip freeze list > packages.txt && \
+RUN cd /packages \
+    && \
+    pip freeze list > packages.txt \
+    && \
     pip download -r packages.txt \
+    && \
     pip download -r packages.txt \
         --only-binary=:all: \
         --platform win_amd64 \
+    && \
     pip download -r packages.txt \
         --only-binary=:all: \
+        --platform manylinux1_x86_64 \
+        --platform manylinux_2_5_x86_64 \
         --platform manylinux_2_12_x86_64 \
         --platform manylinux_2_17_x86_64 \
         --platform manylinux_2_28_x86_64 \
-        --platform manylinux_2_5_x86_64 \
-        --platform manylinux1_x86_64 \
         --platform manylinux2010_x86_64 \
         --platform manylinux2014_x86_64 \
         --platform any
