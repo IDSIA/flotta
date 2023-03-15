@@ -30,7 +30,7 @@ while [ ${EXIT_CODE} -eq 0 ]; do
         # install new environment and relaunch
         echo "updating packages"
 
-        pip install ferdelance --index-url http://${REPOSITORY_HOST}/simple/ --trusted-host ${REPOSITORY_HOST}
+        pip install --index-url http://${REPOSITORY_HOST}/simple/ --trusted-host ${REPOSITORY_HOST} ferdelance[client]
 
         echo "relaunch with exit_code=0"
         EXIT_CODE=0

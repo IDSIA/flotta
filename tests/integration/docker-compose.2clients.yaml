@@ -2,8 +2,6 @@ version: '3.3'
 
 networks:
   ferdelance:
-  www:
-    external: true
 
 volumes:
   server-data:
@@ -18,12 +16,7 @@ services:
     container_name: repository
     networks:
       - ferdelance
-      - www
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.repo.entrypoints=web"
-      - "traefik.http.routers.repo.rule=Host(`fdl-repo.${DOMAIN}`)"
-      - "traefik.http.services.repo.loadbalancer.server.port=8080"
+    entrypoint: pypi-server run -p 80 -vvv --log-stream stdout /packages
 
   database:
     image: postgres
@@ -79,23 +72,18 @@ services:
       - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for server}
       - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
+      - PROJECT_DEFAULT_TOKEN=${PROJECT_ID}
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
     volumes:
       - server-data:/ferdelance/storage
     networks:
-      - www
       - ferdelance
     command: --target server
     depends_on:
       - database
       - worker
       - repository
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.ferdelance.entrypoints=web"
-      - "traefik.http.routers.ferdelance.rule=Host(`ferdelance.${DOMAIN}`)"
-      - "traefik.http.services.ferdelance.loadbalancer.server.port=1456"
 
   client1:
     image: idsia.ferdelance.client
@@ -117,6 +105,7 @@ services:
     container_name: client2
     environment:
       - SERVER=http://server:1456
+      - REPOSITORY_HOST=repository
     volumes: 
       - client-2-data:/ferdelance/workdir
       - ./conf/config.2.yaml:/ferdelance/config.yaml
@@ -125,3 +114,20 @@ services:
       - ferdelance
     depends_on:
       - server
+
+  workbench:
+    image: python:3.10
+    container_name: workbench
+    environment:
+      - SERVER=http://server:1456
+      - REPOSITORY_HOST=repository
+      - PROJECT_ID=${PROJECT_ID}
+    volumes:
+      - ./tests:/tests
+    entrypoint: /tests/init.sh
+    networks:
+      - ferdelance
+    depends_on:
+      - server
+      - client1
+      - client2

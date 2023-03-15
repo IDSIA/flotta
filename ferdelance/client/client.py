@@ -29,6 +29,12 @@ class FerdelanceClient:
         self.setup_completed: bool = False
         self.stop: bool = False
 
+        self.trainers: list[ClientWorker] = []
+        self.estimators: list[ClientWorker] = []
+
+        self.train_queue: Queue = Queue()
+        self.estimate_queue: Queue = Queue()
+
     def beat(self):
         LOGGER.debug(f"waiting for {self.config.heartbeat}")
         sleep(self.config.heartbeat)
@@ -117,8 +123,11 @@ class FerdelanceClient:
         self.setup_completed = True
 
     def stop_loop(self):
-        LOGGER.info("stopping application")
+        LOGGER.info("gracefully stopping application")
         self.stop = True
+
+        self.train_queue.put(None)
+        self.estimate_queue.put(None)
 
     def run(self) -> int:
         """Main loop where the client contact the server for updates.
@@ -127,32 +136,7 @@ class FerdelanceClient:
             Exit code to use
         """
 
-        train_queue: Queue = Queue()
-        estimate_queue: Queue = Queue()
-
-        self.trainers = []
-        self.estimators = []
-
-        action_service = ActionService(self.config, train_queue, estimate_queue)
         routes_service = RouteService(self.config)
-
-        for i in range(self.config.resource_n_train_thread):
-            self.trainers.append(
-                ClientWorker(
-                    self.config,
-                    f"trainer-{i}",
-                    train_queue,
-                )
-            )
-
-        for i in range(self.config.resource_n_estimate_thread):
-            self.estimators.append(
-                ClientWorker(
-                    self.config,
-                    f"estimator-{i}",
-                    estimate_queue,
-                )
-            )
 
         try:
             LOGGER.info("running client")
@@ -166,6 +150,26 @@ class FerdelanceClient:
                 routes_service.leave()
 
             routes_service.send_metadata()
+
+            action_service = ActionService(self.config, self.train_queue, self.estimate_queue)
+
+            for i in range(self.config.resource_n_train_thread):
+                w = ClientWorker(
+                    self.config,
+                    f"trainer-{i}",
+                    self.train_queue,
+                )
+                w.start()
+                self.trainers.append(w)
+
+            for i in range(self.config.resource_n_estimate_thread):
+                w = ClientWorker(
+                    self.config,
+                    f"estimator-{i}",
+                    self.estimate_queue,
+                )
+                w.start()
+                self.estimators.append(w)
 
             while self.status != Action.CLIENT_EXIT and not self.stop:
                 try:
@@ -217,6 +221,12 @@ class FerdelanceClient:
             LOGGER.error("Unknown error")
             LOGGER.exception(e)
             raise ErrorClient()
+
+        finally:
+            for w in self.trainers:
+                w.join()
+            for w in self.estimators:
+                w.join()
 
         if self.stop:
             raise ErrorClient()
