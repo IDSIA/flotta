@@ -22,6 +22,17 @@ class RouteService:
     def __init__(self, config: Config) -> None:
         self.config = config
 
+    def check(self) -> None:
+        s = Session()
+
+        retries = Retry(total=10, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+
+        s.mount("http://", HTTPAdapter(max_retries=retries))
+
+        res = s.get(f"{self.config.server}/client/")
+
+        res.raise_for_status()
+
     def join(self, join_data: ClientJoinRequest) -> ClientJoinData:
         """Send a join request to the server.
 
@@ -38,14 +49,7 @@ class RouteService:
         :return:
             The connection data for a join request.
         """
-
-        s = Session()
-
-        retries = Retry(total=5, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
-
-        s.mount("http://", HTTPAdapter(max_retries=retries))
-
-        res = s.post(f"{self.config.server}/client/join", data=json.dumps(join_data.dict()))
+        res = post(f"{self.config.server}/client/join", data=json.dumps(join_data.dict()))
 
         res.raise_for_status()
 

@@ -157,6 +157,8 @@ class FerdelanceClient:
         try:
             LOGGER.info("running client")
 
+            routes_service.check()
+
             if not self.setup_completed:
                 self.setup(routes_service)
 
