@@ -14,14 +14,9 @@ worker = Celery(
     "ferdelance",
     backend=os.getenv("CELERY_BACKEND_URL", None),
     broker=os.getenv("CELERY_BROKER_URL", None),
-    include=[
-        "ferdelance.worker.tasks.aggregation",
-    ],
 )
 
-worker.conf.update(
-    result_expires=3600,
-)
+worker.config_from_object("ferdelance.worker.celeryconfig")
 
 # TODO: add security to workers?
 
