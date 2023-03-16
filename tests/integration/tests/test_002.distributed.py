@@ -71,7 +71,7 @@ if __name__ == "__main__":
     last_state = ""
 
     start_time = time.time()
-    max_wait = 30  # seconds
+    max_wait = 10
 
     while (status := ctx.status(a)).status != "COMPLETED":
         if status.status == last_state:
@@ -79,9 +79,9 @@ if __name__ == "__main__":
         else:
             last_state = status.status
             start_time = time.time()
-            print(last_state, end="", flush=True)
+            print(last_state, ".", end="", flush=True)
 
-        time.sleep(1)
+        time.sleep(2)
 
         if time.time() - start_time > max_wait:
             print("reached max wait time")

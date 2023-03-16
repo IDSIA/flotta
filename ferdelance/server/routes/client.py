@@ -285,19 +285,22 @@ async def client_post_result(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"client_id={component.component_id}: complete work on artifact_id={artifact_id}")
+    try:
+        LOGGER.info(f"client_id={component.component_id}: complete work on artifact_id={artifact_id}")
 
-    ss: SecurityService = SecurityService(session)
-    jm: JobManagementService = JobManagementService(session)
+        ss: SecurityService = SecurityService(session)
+        jm: JobManagementService = JobManagementService(session)
 
-    result_db = await jm.client_result_create(artifact_id, component.component_id)
+        result_db = await jm.client_result_create(artifact_id, component.component_id)
 
-    await jm.check_for_aggregation(result_db)
+        await jm.check_for_aggregation(result_db)
 
-    await ss.setup(component.public_key)
-    await ss.stream_decrypt_file(request, result_db.path)
+        await ss.setup(component.public_key)
+        await ss.stream_decrypt_file(request, result_db.path)
 
-    return {}
+        return {}
+    except Exception as e:
+        LOGGER.exception(e)
 
 
 @client_router.post("/client/metrics")

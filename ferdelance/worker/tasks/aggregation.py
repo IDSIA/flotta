@@ -6,6 +6,8 @@ from ferdelance.schemas.models import rebuild_model, Model, GenericModel
 from ferdelance.schemas.estimators import rebuild_estimator, Estimator, GenericEstimator
 from ferdelance.worker.celery import worker
 
+from celery import Task
+
 import logging
 import pickle
 import requests
@@ -13,8 +15,18 @@ import requests
 LOGGER = logging.getLogger(__name__)
 
 
-class Aggregator:
-    def __init__(self, artifact_id: str, token: str) -> None:
+class AggregationTask(Task):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.token: str = ""
+        self.server: str = ""
+        self.artifact_id: str = ""
+
+    def __call__(self, *args, **kwargs):
+        return super().__call__(*args, **kwargs)
+
+    def setup(self, artifact_id: str, token: str) -> None:
         self.server = conf.server_url()
         self.token = token
         self.artifact_id = artifact_id
@@ -23,7 +35,7 @@ class Aggregator:
         return {"Authorization": f"Bearer {self.token}"}
 
     def get_artifact(self) -> Artifact:
-        LOGGER.info(f"requesting artifact_id={self.artifact_id}")
+        LOGGER.info(f"artifact_id={self.artifact_id}: fetching artifact")
 
         res = requests.get(
             f"{self.server}/worker/artifact/{self.artifact_id}",
@@ -35,7 +47,7 @@ class Aggregator:
         return Artifact(**res.json())
 
     def get_partial(self, result_id: str) -> Any:
-        LOGGER.info(f"requesting result_id={result_id}")
+        LOGGER.info(f"artifact_id={self.artifact_id}: requesting partial result_id={result_id}")
 
         res = requests.get(
             f"{self.server}/worker/result/{result_id}",
@@ -47,9 +59,7 @@ class Aggregator:
         return pickle.loads(res.content)
 
     def post_result(self, base: Any) -> None:
-        LOGGER.info(f"posting result for artifact_id={self.artifact_id}")
-
-        server = conf.server_url()
+        LOGGER.info(f"artifact_id={self.artifact_id}: posting aggregated result")
 
         res = requests.post(
             f"{self.server}/worker/result/{self.artifact_id}",
@@ -74,7 +84,7 @@ class Aggregator:
             else:
                 base = agg.aggregate(base, partial)
 
-        LOGGER.info(f"aggregated {len(result_ids)} model(s)")
+        LOGGER.info(f"artifact_id={self.artifact_id}: aggregated {len(result_ids)} estimator(s)")
 
         return base
 
@@ -91,7 +101,7 @@ class Aggregator:
             else:
                 base = agg.aggregate(model.strategy, base, partial)
 
-        LOGGER.info(f"aggregated {len(result_ids)} model(s)")
+        LOGGER.info(f"artifact_id={self.artifact_id}: aggregated {len(result_ids)} model(s)")
 
         return base
 
@@ -115,18 +125,24 @@ class Aggregator:
             self.post_result(base)
 
         except requests.HTTPError as e:
-            LOGGER.error(f"{e}")
+            LOGGER.error(f"artifact_id={self.artifact_id}: {e}")
             LOGGER.exception(e)
 
 
 @worker.task(
     ignore_result=False,
     bind=True,
+    base=AggregationTask,
 )
-def aggregation(self, token: str, artifact_id: str, result_ids: list[str]) -> None:
-    task_id: str = str(self.request.id)
+def aggregation(self: AggregationTask, token: str, artifact_id: str, result_ids: list[str]) -> None:
+    try:
+        task_id: str = str(self.request.id)
 
-    LOGGER.info(f"beginning aggregation task={task_id} for artifact_id={artifact_id}")
+        LOGGER.info(f"artifact_id={artifact_id}: beginning aggregation task={task_id}")
 
-    a = Aggregator(artifact_id, token)
-    a.aggregate(result_ids)
+        self.setup(artifact_id, token)
+        self.aggregate(result_ids)
+
+    except Exception as e:
+        LOGGER.error(f"artifact_id={self.artifact_id}: {e}")
+        LOGGER.exception(e)

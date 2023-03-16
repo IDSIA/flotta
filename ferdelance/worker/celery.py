@@ -14,7 +14,9 @@ worker = Celery(
     "ferdelance",
     backend=os.getenv("CELERY_BACKEND_URL", None),
     broker=os.getenv("CELERY_BROKER_URL", None),
-    include=["ferdelance.worker.tasks"],
+    include=[
+        "ferdelance.worker.tasks.aggregation",
+    ],
 )
 
 worker.conf.update(

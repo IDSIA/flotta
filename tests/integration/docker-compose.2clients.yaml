@@ -16,7 +16,7 @@ services:
     container_name: repository
     networks:
       - ferdelance
-    entrypoint: pypi-server run -p 80 -vvv --log-stream stdout /packages
+    entrypoint: pypi-server run -p 80 --log-stream stdout /packages
 
   database:
     image: postgres

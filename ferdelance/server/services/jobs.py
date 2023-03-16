@@ -120,7 +120,8 @@ class JobManagementService(Repository):
             raise TaskDoesNotExists()
 
     def _start_aggregation(self, token: str, artifact_id: str, result_ids: list[str]) -> None:
-        aggregation.delay(token, artifact_id, result_ids)
+        LOGGER.info(f"artifact_id={artifact_id}: started aggregation task with ({len(result_ids)}) result(s)")
+        aggregation.apply_async((token, artifact_id, result_ids))
 
     async def client_result_create(self, artifact_id: str, client_id: str) -> Result:
         LOGGER.info(f"client_id={client_id}: creating results")
@@ -167,19 +168,21 @@ class JobManagementService(Repository):
             error = await self.jr.count_jobs_by_artifact_status(artifact_id, JobStatus.ERROR)
 
             if completed < total:
-                LOGGER.info(f"Cannot aggregate: {completed} / {total} completed job(s)")
+                LOGGER.info(
+                    f"artifact_id={result.artifact_id}: cannot aggregate: {completed} / {total} completed job(s)"
+                )
                 return
 
             if error > 0:
-                LOGGER.error(f"Cannot aggregate: {error} jobs have error")
+                LOGGER.error(f"artifact_id={result.artifact_id}: cannot aggregate: {error} jobs have error")
                 return
 
-            LOGGER.info(f"All {total} job(s) completed, starting aggregation")
+            LOGGER.info(f"artifact_id={result.artifact_id}: all {total} job(s) completed, starting aggregation")
 
             token = await self.cr.get_token_for_workers()
 
             if token is None:
-                LOGGER.error("Cannot aggregate: no worker available")
+                LOGGER.error(f"artifact_id={result.artifact_id}: cannot aggregate: no worker available")
                 return
 
             results: list[Result] = await self.rr.list_models_by_artifact_id(artifact_id)
@@ -196,6 +199,10 @@ class JobManagementService(Repository):
 
         except NoResultFound:
             raise ValueError(f"artifact_id={artifact_id} not found")
+
+        except Exception as e:
+            LOGGER.exception(e)
+            raise e
 
     async def worker_create_result(self, artifact_id: str, worker_id: str) -> Result:
         try:
