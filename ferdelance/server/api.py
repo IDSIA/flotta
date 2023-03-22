@@ -31,16 +31,21 @@ async def populate_database() -> None:
     """All operations marked as `on_event('startup')` are executed when the API are started."""
     LOGGER.info("server startup procedure started")
 
-    inst = DataBase()
+    try:
 
-    async with inst.engine.begin() as conn:
-        LOGGER.info("database creation started")
-        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
-        LOGGER.info("database creation completed")
+        inst = DataBase()
 
-    async with inst.async_session() as session:
-        ss = ServerStartup(session)
-        await ss.startup()
+        async with inst.engine.begin() as conn:
+            LOGGER.info("database creation started")
+            await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+            LOGGER.info("database creation completed")
+
+        async with inst.async_session() as session:
+            ss = ServerStartup(session)
+            await ss.startup()
+
+    except Exception as e:
+        LOGGER.exception(e)
 
 
 @api.on_event("shutdown")

@@ -14,3 +14,4 @@ class Job(BaseModel):
     is_model: bool = False
     is_estimation: bool = False
     is_aggregation: bool = False
+    celery_id: str | None = None

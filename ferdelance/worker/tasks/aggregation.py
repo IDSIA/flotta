@@ -4,18 +4,23 @@ from ferdelance.config import conf
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import rebuild_model, Model, GenericModel
 from ferdelance.schemas.estimators import rebuild_estimator, Estimator, GenericEstimator
+from ferdelance.schemas.errors import ErrorArtifact
 from ferdelance.worker.celery import worker
 
 from celery import Task
 
+import json
 import logging
 import pickle
 import requests
+import traceback
 
-LOGGER = logging.getLogger(__name__)
+# logging = logging.getLogger(__name__)
 
 
 class AggregationTask(Task):
+    abstract = True
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -24,7 +29,13 @@ class AggregationTask(Task):
         self.artifact_id: str = ""
 
     def __call__(self, *args, **kwargs):
-        return super().__call__(*args, **kwargs)
+        return self.run(*args, **kwargs)
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        logging.critical("{0!r} failed: {1!r}".format(task_id, exc))
+        logging.critical(f"{args}")
+        logging.critical(f"{kwargs}")
+        logging.critical(f"{einfo}")
 
     def setup(self, artifact_id: str, token: str) -> None:
         self.server = conf.server_url()
@@ -35,7 +46,7 @@ class AggregationTask(Task):
         return {"Authorization": f"Bearer {self.token}"}
 
     def get_artifact(self) -> Artifact:
-        LOGGER.info(f"artifact_id={self.artifact_id}: fetching artifact")
+        logging.info(f"artifact_id={self.artifact_id}: fetching artifact")
 
         res = requests.get(
             f"{self.server}/worker/artifact/{self.artifact_id}",
@@ -47,7 +58,7 @@ class AggregationTask(Task):
         return Artifact(**res.json())
 
     def get_partial(self, result_id: str) -> Any:
-        LOGGER.info(f"artifact_id={self.artifact_id}: requesting partial result_id={result_id}")
+        logging.info(f"artifact_id={self.artifact_id}: requesting partial result_id={result_id}")
 
         res = requests.get(
             f"{self.server}/worker/result/{result_id}",
@@ -59,7 +70,7 @@ class AggregationTask(Task):
         return pickle.loads(res.content)
 
     def post_result(self, base: Any) -> None:
-        LOGGER.info(f"artifact_id={self.artifact_id}: posting aggregated result")
+        logging.info(f"artifact_id={self.artifact_id}: posting aggregated result")
 
         res = requests.post(
             f"{self.server}/worker/result/{self.artifact_id}",
@@ -67,6 +78,17 @@ class AggregationTask(Task):
             files={
                 "file": pickle.dumps(base),
             },
+        )
+
+        res.raise_for_status()
+
+    def post_error(self, error: ErrorArtifact) -> None:
+        logging.info(f"artifact_id={self.artifact_id}: posting error")
+
+        res = requests.post(
+            f"{self.server}/worker/error/",
+            headers=self.headers(),
+            data=json.dumps(error.dict()),
         )
 
         res.raise_for_status()
@@ -84,7 +106,7 @@ class AggregationTask(Task):
             else:
                 base = agg.aggregate(base, partial)
 
-        LOGGER.info(f"artifact_id={self.artifact_id}: aggregated {len(result_ids)} estimator(s)")
+        logging.info(f"artifact_id={self.artifact_id}: aggregated {len(result_ids)} estimator(s)")
 
         return base
 
@@ -101,7 +123,7 @@ class AggregationTask(Task):
             else:
                 base = agg.aggregate(model.strategy, base, partial)
 
-        LOGGER.info(f"artifact_id={self.artifact_id}: aggregated {len(result_ids)} model(s)")
+        logging.info(f"artifact_id={self.artifact_id}: aggregated {len(result_ids)} model(s)")
 
         return base
 
@@ -109,7 +131,7 @@ class AggregationTask(Task):
         try:
             server = conf.server_url()
 
-            LOGGER.debug(f"using server {server}")
+            logging.debug(f"using server {server}")
 
             artifact = self.get_artifact()
 
@@ -120,17 +142,17 @@ class AggregationTask(Task):
                 base = self.aggregate_model(artifact.model, result_ids)
 
             else:
-                raise ValueError(f"Unsupported artifact_id={self.artifact_id}")  # manage
+                raise ValueError(f"Unsupported artifact_id={self.artifact_id}")
 
             self.post_result(base)
 
         except requests.HTTPError as e:
-            LOGGER.error(f"artifact_id={self.artifact_id}: {e}")
-            LOGGER.exception(e)
+            logging.error(f"artifact_id={self.artifact_id}: {e}")
+            logging.exception(e)
 
 
 @worker.task(
-    ignore_result=False,
+    ignore_result=True,
     bind=True,
     base=AggregationTask,
 )
@@ -138,11 +160,19 @@ def aggregation(self: AggregationTask, token: str, artifact_id: str, result_ids:
     try:
         task_id: str = str(self.request.id)
 
-        LOGGER.info(f"artifact_id={artifact_id}: beginning aggregation task={task_id}")
+        logging.info(f"artifact_id={artifact_id}: beginning aggregation task={task_id}")
 
         self.setup(artifact_id, token)
         self.aggregate(result_ids)
 
     except Exception as e:
-        LOGGER.error(f"artifact_id={self.artifact_id}: {e}")
-        LOGGER.exception(e)
+        logging.error(f"artifact_id={artifact_id}: {e}")
+        logging.exception(e)
+
+        error = ErrorArtifact(
+            artifact_id=self.artifact_id,
+            message=str(e),
+            stack_trace="".join(traceback.TracebackException.from_exception(e).format()),
+        )
+
+        self.post_error(error)

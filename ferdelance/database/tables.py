@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, String, DateTime, Integer, Float, Table, Column
+from sqlalchemy import ForeignKey, String, DateTime, Integer, Float, Table, Column, UniqueConstraint
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
@@ -138,6 +138,8 @@ class Job(Base):
     is_estimation: Mapped[bool] = mapped_column(default=False)
     is_aggregation: Mapped[bool] = mapped_column(default=False)
 
+    celery_id: Mapped[str | None] = mapped_column(default=None)
+
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
 
@@ -146,6 +148,8 @@ class Job(Base):
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     execution_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (UniqueConstraint("artifact_id", "component_id", name="_jobs_ids_unique"),)
 
 
 class Result(Base):
@@ -161,6 +165,7 @@ class Result(Base):
     is_model: Mapped[bool] = mapped_column(default=False)
     is_estimation: Mapped[bool] = mapped_column(default=False)
     is_aggregation: Mapped[bool] = mapped_column(default=False)
+    is_error: Mapped[bool] = mapped_column(default=False)
 
     # TODO: one model per artifact or one artifact can have multiple models
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))

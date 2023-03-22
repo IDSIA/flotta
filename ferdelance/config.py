@@ -15,7 +15,7 @@ class Configuration(BaseModel):
     STANDALONE_WORKERS: int = int(os.environ.get("STANDALONE_WORKERS", 1 if cpu_count is None else cpu_count - 1))
 
     SERVER_MAIN_PASSWORD: str | None = os.environ.get("SERVER_MAIN_PASSWORD", None)
-    SERVER_PROTOCOL: str = os.environ.get("SERVER_PROTOCOL", "http://")
+    SERVER_PROTOCOL: str = os.environ.get("SERVER_PROTOCOL", "http")
     SERVER_INTERFACE: str = os.environ.get("SERVER_INTERFACE", "localhost")
     SERVER_PORT: int = int(os.environ.get("SERVER_PORT", 1456))
 
@@ -60,7 +60,7 @@ class Configuration(BaseModel):
         return os.path.join(conf.STORAGE_RESULTS, result_id)
 
     def server_url(self) -> str:
-        return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
+        return f"{self.WORKER_SERVER_PROTOCOL}://{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
 
 
 conf: Configuration = Configuration()
