@@ -9,7 +9,6 @@ done
 
 case $W in
     worker)
-        cd ferdelance
         celery \
             --broker ${CELERY_BROKER_URL} \
             --result-backend ${CELERY_BACKEND_URL} \
@@ -22,6 +21,6 @@ case $W in
             ferdelance.server.api:api \
             --host 0.0.0.0 \
             --port 1456 \
-            --log-level critical
+            --log-level info
         ;;
 esac
