@@ -42,7 +42,7 @@ do
         TESTS_FAILED=$((TESTS_FAILED+1))
     else
         echo "TESTS_PASSED!"
-        TESTS_PASSED=$((TESTS_FAILED+1))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     fi
 
     echo ""

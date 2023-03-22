@@ -71,7 +71,7 @@ if __name__ == "__main__":
     last_state = ""
 
     start_time = time.time()
-    max_wait = 10
+    max_wait, wait_time = 15, 2  # equals to 30s
 
     while (status := ctx.status(a)).status != "COMPLETED":
         if status.status == last_state:
@@ -81,7 +81,7 @@ if __name__ == "__main__":
             start_time = time.time()
             print(last_state, ".", end="", flush=True)
 
-        time.sleep(2)
+        time.sleep(wait_time)
 
         if time.time() - start_time > max_wait:
             print("reached max wait time")
@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     print("partial model 2 saved to:", partial_model_path_2)
 
-    df = pd.read_csv("data/california_housing.validation.csv")
+    df = pd.read_csv("/data/california_housing.validation.csv")
 
     cls_pa1 = FederatedRandomForestClassifier(load=partial_model_path_1)
     cls_pa2 = FederatedRandomForestClassifier(load=partial_model_path_2)

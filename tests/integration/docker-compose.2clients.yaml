@@ -4,10 +4,10 @@ networks:
   ferdelance:
 
 volumes:
+  db-data:
   server-data:
   client-1-data:
   client-2-data:
-  db-data:
 
 services:
 
@@ -31,7 +31,7 @@ services:
       - ferdelance
 
   rabbitmq:
-    image: rabbitmq
+    image: rabbitmq:3
     container_name: rabbitmq
     networks:
       - ferdelance
@@ -48,14 +48,9 @@ services:
     image: idsia.ferdelance.server
     container_name: worker
     environment:
-      - DB_HOST=database
-      - DB_USER=${DATABASE_USER?Missing DATABASE_USER for worker}
-      - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for worker}
-      - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for worker}
-      - CELERY_BROKER_URL=pyamqp://rabbitmq/
+      - WORKER_SERVER_HOST=server
+      - CELERY_BROKER_URL=amqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
-    volumes:
-      - server-data:/ferdelance/data
     networks:
       - ferdelance
     command: --target worker
@@ -73,7 +68,7 @@ services:
       - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
       - PROJECT_DEFAULT_TOKEN=${PROJECT_ID}
-      - CELERY_BROKER_URL=pyamqp://rabbitmq/
+      - CELERY_BROKER_URL=amqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
     volumes:
       - server-data:/ferdelance/storage
@@ -124,6 +119,7 @@ services:
       - PROJECT_ID=${PROJECT_ID}
     volumes:
       - ./tests:/tests
+      - ./data:/data
     entrypoint: /tests/init.sh
     networks:
       - ferdelance
