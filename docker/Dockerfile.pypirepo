@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.5
+
 # This is for hosting a pypiserver https://github.com/pypiserver/pypiserver#quickstart-installation-and-usage
 
 # Build stage -----------------------------------------------------------------
@@ -15,10 +17,12 @@ RUN mkdir /packages
 # install all packages required for the framework
 COPY . /ferdelance
 
-RUN pip install "/ferdelance[prod]"
+RUN --mount=type=cache,target=/root/.cache \
+    pip install "/ferdelance[prod]"
 
 # download a list of all required packages for win and linux platforms
-RUN cd /packages \
+RUN --mount=type=cache,target=/root/.cache \
+    cd /packages \
     && \
     pip freeze list > packages.txt \
     && \
@@ -39,7 +43,9 @@ RUN cd /packages \
         --platform manylinux2014_x86_64 \
         --platform any
 
-RUN pip install build && \
+RUN --mount=type=cache,target=/root/.cache \
+    pip install build \
+    && \
     python -m build --outdir /packages /ferdelance
 
 # Build stage -----------------------------------------------------------------

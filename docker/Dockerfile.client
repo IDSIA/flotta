@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.5
+
 # Build stage -----------------------------------------------------------------
 FROM python:3.10 AS builder
 
@@ -11,7 +13,8 @@ RUN python -m pip install --upgrade pip
 # copy and install shared library
 COPY . /ferdelance
 
-RUN pip install --no-cache-dir "/ferdelance[client]"
+RUN --mount=type=cache,target=/root/.cache \ 
+    pip install "/ferdelance[client]"
 
 # Installation stage ----------------------------------------------------------
 FROM python:3.10-slim-buster AS base

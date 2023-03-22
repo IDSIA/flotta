@@ -59,14 +59,10 @@ services:
     image: idsia.ferdelance.server
     container_name: worker
     environment:
-      - DB_HOST=database
-      - DB_USER=${DATABASE_USER?Missing DATABASE_USER for worker}
-      - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for worker}
-      - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for worker}
+      - WORKER_SERVER_HOST=server
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
-    volumes:
-      - ferdelance-server-data:/ferdelance/data
+      - CELERY_QUEUE=${CELERY_QUEUE}
     networks:
       - ferdelance
     command: --target worker
