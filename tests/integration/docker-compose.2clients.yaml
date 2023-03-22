@@ -2,30 +2,22 @@ version: '3.3'
 
 networks:
   ferdelance:
-  www:
-    external: true
 
 volumes:
-  ferdelance-server-data:
-  ferdelance-db-data:
-
+  db-data:
+  server-data:
+  client-1-data:
+  client-2-data:
 
 services:
 
-  # Python packages repository
   repository:
     image: idsia.ferdelance.repository
     container_name: repository
     networks:
       - ferdelance
-      - www
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.repo.entrypoints=web"
-      - "traefik.http.routers.repo.rule=Host(`fdl-repo.${DOMAIN}`)"
-      - "traefik.http.services.repo.loadbalancer.server.port=8080"
+    entrypoint: pypi-server run -p 80 --log-stream stdout /packages
 
-  # Ferdelance internal database
   database:
     image: postgres
     container_name: database
@@ -34,19 +26,17 @@ services:
       - POSTGRES_PASSWORD=${DATABASE_PASS?Missing DATABASE_PASS for database}
       - POSTGRES_DB=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for database}
     volumes:
-      - ferdelance-db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
     networks:
       - ferdelance
 
-  # Task Broker - Where server communicates the tasks to the worker
   rabbitmq:
-    image: rabbitmq
+    image: rabbitmq:3
     container_name: rabbitmq
     networks:
       - ferdelance
     command: rabbitmq-server
 
-  # Result Storage - Where worker stores results
   redis:
     image: redis
     container_name: redis
@@ -54,15 +44,13 @@ services:
       - ferdelance
     command: redis-server
 
-  # Ferdelane Worker - Server internal worker
-  worker:
+  worker: 
     image: idsia.ferdelance.server
     container_name: worker
     environment:
       - WORKER_SERVER_HOST=server
-      - CELERY_BROKER_URL=pyamqp://rabbitmq/
+      - CELERY_BROKER_URL=amqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
-      - CELERY_QUEUE=${CELERY_QUEUE}
     networks:
       - ferdelance
     command: --target worker
@@ -70,8 +58,7 @@ services:
       - redis
       - rabbitmq
 
-  # Ferdelance server
-  server:
+  server: 
     image: idsia.ferdelance.server
     container_name: server
     environment:
@@ -80,20 +67,63 @@ services:
       - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for server}
       - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
-      - CELERY_BROKER_URL=pyamqp://rabbitmq/
+      - PROJECT_DEFAULT_TOKEN=${PROJECT_ID}
+      - CELERY_BROKER_URL=amqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
     volumes:
-      - ./storage:/ferdelance/storage
+      - server-data:/ferdelance/storage
     networks:
-      - www
       - ferdelance
     command: --target server
     depends_on:
       - database
       - worker
       - repository
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.ferdelance.entrypoints=web"
-      - "traefik.http.routers.ferdelance.rule=Host(`ferdelance.${DOMAIN}`)"
-      - "traefik.http.services.ferdelance.loadbalancer.server.port=1456"
+
+  client1:
+    image: idsia.ferdelance.client
+    container_name: client1
+    environment:
+      - SERVER=http://server:1456
+      - REPOSITORY_HOST=repository
+    volumes: 
+      - client-1-data:/ferdelance/workdir
+      - ./conf/config.1.yaml:/ferdelance/config.yaml
+      - ./data:/ferdelance/data
+    networks:
+      - ferdelance
+    depends_on:
+      - server
+
+  client2:
+    image: idsia.ferdelance.client
+    container_name: client2
+    environment:
+      - SERVER=http://server:1456
+      - REPOSITORY_HOST=repository
+    volumes: 
+      - client-2-data:/ferdelance/workdir
+      - ./conf/config.2.yaml:/ferdelance/config.yaml
+      - ./data:/ferdelance/data
+    networks:
+      - ferdelance
+    depends_on:
+      - server
+
+  workbench:
+    image: python:3.10
+    container_name: workbench
+    environment:
+      - SERVER=http://server:1456
+      - REPOSITORY_HOST=repository
+      - PROJECT_ID=${PROJECT_ID}
+    volumes:
+      - ./tests:/tests
+      - ./data:/data
+    entrypoint: /tests/init.sh
+    networks:
+      - ferdelance
+    depends_on:
+      - server
+      - client1
+      - client2

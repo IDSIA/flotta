@@ -4,6 +4,7 @@ from ferdelance.database.data import TYPE_WORKER
 from ferdelance.database.repositories import ResultRepository
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.components import Component
+from ferdelance.schemas.errors import ErrorArtifact
 from ferdelance.server.services import JobManagementService
 from ferdelance.server.security import check_token
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
@@ -14,6 +15,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.exc import NoResultFound
 
 import aiofiles
+import json
 import logging
 import os
 
@@ -74,23 +76,48 @@ async def get_artifact(
 
 
 @worker_router.post("/worker/result/{artifact_id}")
-async def post_model(
+async def post_result(
     file: UploadFile,
     artifact_id: str,
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):
     LOGGER.info(f"worker_id={worker.component_id}: send model for artifact_id={artifact_id}")
-    try:
-        js: JobManagementService = JobManagementService(session)
+    js: JobManagementService = JobManagementService(session)
 
-        result_db: Result = await js.worker_create_result(artifact_id, worker.component_id)
+    try:
+        result_db: Result = await js.worker_result_create(artifact_id, worker.component_id)
 
         async with aiofiles.open(result_db.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
         await js.aggregation_completed(artifact_id)
+
+    except Exception as e:
+        LOGGER.exception(e)
+        await js.aggregation_error(artifact_id, f"could not save result to disk, exception: {e}")
+        raise HTTPException(500)
+
+
+@worker_router.post("/worker/error/")
+async def post_error(
+    error: ErrorArtifact,
+    session: AsyncSession = Depends(get_session),
+    worker: Component = Depends(check_access),
+):
+    artifact_id = error.artifact_id
+    LOGGER.warn(f"worker_id={worker.component_id}: artifact_id={artifact_id} in error={error.message}")
+    js: JobManagementService = JobManagementService(session)
+
+    try:
+        result_db = await js.worker_error(artifact_id, worker.component_id)
+
+        await js.aggregation_error(error.artifact_id, error.message)
+
+        async with aiofiles.open(result_db.path, "w") as f:
+            content = json.dumps(error.dict())
+            await f.write(content)
 
     except Exception as e:
         LOGGER.exception(e)

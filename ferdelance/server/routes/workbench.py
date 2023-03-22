@@ -7,6 +7,7 @@ from ferdelance.database.repositories import (
     DataSourceRepository,
     ResultRepository,
     ProjectRepository,
+    JobRepository,
 )
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.workbench import (
@@ -33,6 +34,8 @@ from ferdelance.server.services import (
 )
 from ferdelance.standalone.services import JobManagementLocalService
 from ferdelance.shared.decode import decode_from_transfer
+
+from celery.result import AsyncResult
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -220,7 +223,11 @@ async def wb_get_artifact_status(
     try:
         status: ArtifactStatus = await ar.get_status(artifact.artifact_id)
 
-        # TODO: get status from celery
+        if status.status == "AGGREGATING":
+            jr: JobRepository = JobRepository(session)
+            job = await jr.get_celery_id_by_artifact(artifact.artifact_id)
+
+            status.agg_status = AsyncResult(job.celery_id).status
 
         return ss.create_response(status.dict())
     except NoResultFound as _:
@@ -260,7 +267,7 @@ async def wb_get_model(
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={user.component_id}: requested aggregate model for an artifact")
+    LOGGER.info(f"user_id={user.component_id}: requested aggregate model")
     rr: ResultRepository = ResultRepository(session)
     ss: SecurityService = SecurityService(session)
     await ss.setup(user.public_key)
@@ -288,9 +295,8 @@ async def wb_get_model(
         raise HTTPException(404)
 
     except MultipleResultsFound as _:
-        LOGGER.error(
-            f"multiple aggregated models found for artifact_id={artifact_id}"
-        )  # TODO: do we want to allow this?
+        # TODO: do we want to allow this?
+        LOGGER.error(f"multiple aggregated models found for artifact_id={artifact_id}")
         raise HTTPException(500)
 
 

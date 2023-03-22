@@ -1,5 +1,3 @@
-from typing import Any
-from sqlalchemy.engine import URL
 from pydantic import BaseModel
 from pytimeparse import parse
 
@@ -17,7 +15,7 @@ class Configuration(BaseModel):
     STANDALONE_WORKERS: int = int(os.environ.get("STANDALONE_WORKERS", 1 if cpu_count is None else cpu_count - 1))
 
     SERVER_MAIN_PASSWORD: str | None = os.environ.get("SERVER_MAIN_PASSWORD", None)
-    SERVER_PROTOCOL: str = os.environ.get("SERVER_PROTOCOL", "http://")
+    SERVER_PROTOCOL: str = os.environ.get("SERVER_PROTOCOL", "http")
     SERVER_INTERFACE: str = os.environ.get("SERVER_INTERFACE", "localhost")
     SERVER_PORT: int = int(os.environ.get("SERVER_PORT", 1456))
 
@@ -62,48 +60,7 @@ class Configuration(BaseModel):
         return os.path.join(conf.STORAGE_RESULTS, result_id)
 
     def server_url(self) -> str:
-        return f"{self.WORKER_SERVER_PROTOCOL}{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
-
-    def db_connection_url(self, sync: bool = False) -> str:
-        driver = ""
-
-        if self.DB_MEMORY:
-            if not sync:
-                driver = "+aiosqlite"
-
-            return f"sqlite{driver}://"
-
-        dialect = self.DB_DIALECT.lower()
-
-        assert self.DB_HOST is not None
-
-        if dialect == "sqlite":
-            if not sync:
-                driver = "+aiosqlite"
-
-            # in this case host is an absolute path
-            return f"sqlite{driver}:///{self.DB_HOST}"
-
-        if dialect == "postgresql":
-            assert self.DB_USER is not None
-            assert self.DB_PASS is not None
-            assert self.DB_PORT is not None
-
-            if not sync:
-                driver = "+asyncpg"
-
-            return str(
-                URL.create(
-                    f"postgresql{driver}",
-                    self.DB_USER,
-                    self.DB_PASS,
-                    self.DB_HOST,
-                    self.DB_PORT,
-                    self.DB_HOST,
-                )
-            )
-
-        raise ValueError(f"dialect {dialect} is not supported")
+        return f"{self.WORKER_SERVER_PROTOCOL}://{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
 
 
 conf: Configuration = Configuration()

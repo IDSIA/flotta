@@ -1,57 +1,74 @@
+export DOCKER_BUILDKIT=1
+
+# folder cleanup
+clean:
+	rm -rf workdir/ storage/ sqlite.db tests/test_sqlite.db ferdelance*.log*
+
 # launch client
 client:
 	python -m ferdelance.client -c conf/config.yaml
 
+# launch standalone mode
 standalone:
 	python -m ferdelance.standalone -c conf/config.yaml
 
-clean:
-	rm -rf workdir/ storage/ sqlite.db tests/test_sqlite.db ferdelance*.log*
-
 # docker build 
+build:
+	docker-compose -f docker-compose.build.yaml build
+
 build-client:
-	docker-compose -f docker-compose.client.yaml -p ferdelance build
+	docker-compose -f docker-compose.build.yaml build client
 
 build-server:
-	docker-compose -f docker-compose.server.yaml -p ferdelance build
+	docker-compose -f docker-compose.build.yaml build server
+
+build-repo:
+	docker-compose -f docker-compose.build.yaml build repository
 
 # docker management client
-start-client:
-	docker-compose -f docker-compose.client.yaml -p ferdelance up -d
+client-start:
+	docker-compose -f docker-compose.client.yaml -p fdl_client up -d
 
-stop-client:
-	docker-compose -f docker-compose.client.yaml -p ferdelance down
+client-stop:
+	docker-compose -f docker-compose.client.yaml -p fdl_client down
 
-reload-client:
-	docker-compose -f docker-compose.client.yaml -p ferdelance build
-	docker-compose -f docker-compose.client.yaml -p ferdelance up -d
+client-reload:
+	docker-compose -f docker-compose.client.yaml -p fdl_client build
+	docker-compose -f docker-compose.client.yaml -p fdl_client up -d
 
-logs-client:
-	docker-compose -f docker-compose.client.yaml -p ferdelance logs -f 
+client-logs:
+	docker-compose -f docker-compose.client.yaml -p fdl_client logs -f 
 
-clean-client:
-	docker-compose -f docker-compose.client.yaml -p ferdelance down
-	docker volume rm ferdelance_ferdelance-client-data
+client-clean:
+	docker-compose -f docker-compose.client.yaml -p fdl_client down
+	docker volume rm fdl_client-data
 	rm -rf ./workdir/*
 
 # docker management server
-start-server:
+server-start:
 	docker-compose -f docker-compose.server.yaml -p ferdelance up -d
 
-stop-server:
+server-stop:
 	docker-compose -f docker-compose.server.yaml -p ferdelance down
 
-reload-server:
+server-start-repo:
+	docker-compose -f docker-compose.server.yaml -p ferdelance up -d repository
+
+server-stop-repo:
+	docker-compose -f docker-compose.server.yaml -p ferdelance down repository
+
+server-reload:
 	docker-compose -f docker-compose.server.yaml -p ferdelance build
 	docker-compose -f docker-compose.server.yaml -p ferdelance up -d
 
-logs-server:
+server-logs:
 	docker-compose -f docker-compose.server.yaml -p ferdelance logs -f server worker
 
-clean-server:
-	docker-compose down
+server-clean:
+	docker-compose -f docker-compose.server.yaml -p ferdelance down
 	docker volume rm ferdelance_ferdelance-db-data
 	docker volume rm ferdelance_ferdelance-server-data
+	rm -rf ./storage/*
 
 # development
 create:
@@ -69,3 +86,22 @@ dev:
 
 test:
 	pytest
+
+# testing
+test-2clients-start:
+	docker-compose -f docker-compose.2clients.yaml -p fdl_test up -d
+
+test-2clients-stop:
+	docker-compose -f docker-compose.2clients.yaml -p fdl_test down
+
+test-2clients-logs:
+	docker-compose -f docker-compose.2clients.yaml -p fdl_test logs -f
+
+test-2clients-clean:
+	docker-compose -f docker-compose.2clients.yaml -p fdl_test down
+	docker volume rm fdl_test_db-data
+	docker volume rm fdl_test_server-data
+	docker volume rm fdl_test_client-1-data
+	docker volume rm fdl_test_client-2-data
+	rm -rf ./storage/*
+	rm -rf ./workdir/*

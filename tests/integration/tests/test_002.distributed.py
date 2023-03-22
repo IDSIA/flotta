@@ -13,6 +13,7 @@ import pandas as pd
 
 import time
 import os
+import sys
 
 
 def evaluate(model: FederatedRandomForestClassifier, x, y):
@@ -32,12 +33,22 @@ def evaluate(model: FederatedRandomForestClassifier, x, y):
     print(cm)
 
 
-# required docker version running
 if __name__ == "__main__":
 
-    ctx = Context(f'http://ferdelance.{os.environ.get("DOMAIN")}')
+    project_id: str | None = os.environ.get("PROJECT_ID", None)
+    server: str | None = os.environ.get("SERVER")
 
-    project = ctx.load("58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94")
+    if project_id is None:
+        print("Project id not found")
+        sys.exit(-1)
+
+    if server is None:
+        print("Server host not found")
+        sys.exit(-1)
+
+    ctx = Context(server)
+
+    project = ctx.load(project_id)
 
     clients = ctx.clients(project)
 
@@ -58,13 +69,24 @@ if __name__ == "__main__":
     print("Artifact id:", a.artifact_id)
 
     last_state = ""
+
+    start_time = time.time()
+    max_wait, wait_time = 15, 2  # equals to 30s
+
     while (status := ctx.status(a)).status != "COMPLETED":
         if status.status == last_state:
             print(".", end="", flush=True)
         else:
             last_state = status.status
-            print(last_state, end="", flush=True)
-        time.sleep(0.5)
+            start_time = time.time()
+            print(last_state, ".", end="", flush=True)
+
+        time.sleep(wait_time)
+
+        if time.time() - start_time > max_wait:
+            print("reached max wait time")
+            sys.exit(-1)
+
     print("done!")
 
     aggregated_model_path = ctx.get_model(a)
@@ -79,7 +101,7 @@ if __name__ == "__main__":
 
     print("partial model 2 saved to:", partial_model_path_2)
 
-    df = pd.read_csv("data/california_housing.validation.csv")
+    df = pd.read_csv("/data/california_housing.validation.csv")
 
     cls_pa1 = FederatedRandomForestClassifier(load=partial_model_path_1)
     cls_pa2 = FederatedRandomForestClassifier(load=partial_model_path_2)

@@ -318,8 +318,6 @@ class Context:
 
         return path
 
-    # OLD METHODS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-
     def get_partial_model(self, artifact: Artifact, client_id: str, path: str = "") -> str:
         """Get the trained partial model from the artifact and save it to disk.
 
@@ -349,18 +347,3 @@ class Context:
             res.raise_for_status()
             self.exc.stream_response_to_file(res, path)
         return path
-
-    def describe_project(self, project: WorkbenchProject) -> pd.DataFrame | pd.Series:
-        res = requests.get(
-            f"{self.server}/workbench/projects/descr",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload({"project_token": project.token}),
-        )
-
-        res.raise_for_status()
-
-        data = WorkbenchProjectDescription(**self.exc.get_payload(res.content))
-
-        print(pd.Series(data))
-
-        return data

@@ -28,9 +28,10 @@ while [ ${EXIT_CODE} -eq 0 ]; do
 
     if [ ${EXIT_CODE} -eq 1 ]; then
         # install new environment and relaunch
-        echo "installing new environment"
-        rm ${PYTHON_ENV}
-        unzip `cat .update`
+        echo "updating packages"
+
+        pip install --index-url http://${REPOSITORY_HOST}/simple/ --trusted-host ${REPOSITORY_HOST} ferdelance[client]
+
         echo "relaunch with exit_code=0"
         EXIT_CODE=0
     fi

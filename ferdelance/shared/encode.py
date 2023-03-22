@@ -134,7 +134,7 @@ class HybridEncrypter:
         """
         yield self.start()
 
-        with open(in_path, "r") as f:
+        with open(in_path, "rb") as f:
             while chunk := f.read(CHUNK_SIZE):
                 yield self.update(chunk)
 

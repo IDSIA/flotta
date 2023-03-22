@@ -4,22 +4,16 @@ from celery import Celery
 from celery.signals import worker_ready, worker_init, worker_shutdown, celeryd_init, after_setup_logger
 
 import logging
-import os
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-worker = Celery(
-    "ferdelance",
-    backend=os.getenv("CELERY_BACKEND_URL", None),
-    broker=os.getenv("CELERY_BROKER_URL", None),
-    include=["ferdelance.worker.tasks"],
-)
+worker = Celery("ferdelance")
 
-worker.conf.update(
-    result_expires=3600,
-)
+worker.config_from_object("ferdelance.worker.celeryconfig")
+
+worker.autodiscover_tasks(["ferdelance.worker.tasks"])
 
 # TODO: add security to workers?
 
@@ -34,6 +28,7 @@ def setup_loggers(logger, *args, **kwargs):
 @celeryd_init.connect
 def celery_init(sender=None, conf=None, instance=None, **kwargs):
     LOGGER.info("celery daemon initialization")
+    LOGGER.info(f"using server: {config.server_url()}")
 
 
 @worker_init.connect

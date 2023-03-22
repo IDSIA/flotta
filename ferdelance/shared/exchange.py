@@ -167,7 +167,7 @@ class Exchange:
         """
         self.token = token
 
-    def set_remote_key(self, data: str, encoding="utf8") -> None:
+    def set_remote_key(self, data: str, encoding: str = "utf8") -> None:
         """Decode and set a public key from a remote host.
 
         :param data:
@@ -185,7 +185,7 @@ class Exchange:
         """
         self.remote_key = public_key_from_bytes(remote_key)
 
-    def transfer_public_key(self, encoding="utf8") -> str:
+    def transfer_public_key(self, encoding: str = "utf8") -> str:
         """Encode the stored public key for secure transfer to remote host.
 
         :return:
@@ -201,7 +201,7 @@ class Exchange:
         data: str = bytes_from_public_key(self.public_key).decode(encoding)
         return encode_to_transfer(data, encoding)
 
-    def encrypt(self, content: str, encoding="utf8") -> str:
+    def encrypt(self, content: str, encoding: str = "utf8") -> str:
         """Encrypt a text for the remote host using the stored remote public key.
 
         :param content:
@@ -216,7 +216,7 @@ class Exchange:
 
         return encrypt(self.remote_key, content, encoding)
 
-    def decrypt(self, content: str, encoding="utf8") -> str:
+    def decrypt(self, content: str, encoding: str = "utf8") -> str:
         """Decrypt a text encrypted by the remote host with the public key,
         using the stored private key.
 
@@ -245,7 +245,7 @@ class Exchange:
 
         return {"Authorization": f"Bearer {self.token}"}
 
-    def create_payload(self, content: dict[str, Any], encoding="utf8") -> bytes:
+    def create_payload(self, content: dict[str, Any], encoding: str = "utf8") -> bytes:
         """Convert a dictionary in a JSON object in string format, then
         encode it for transfer using an hybrid encryption algorithm.
 
@@ -263,7 +263,7 @@ class Exchange:
 
         return HybridEncrypter(self.remote_key, encoding=encoding).encrypt(payload)
 
-    def get_payload(self, content: bytes, encoding="utf8") -> dict[str, Any]:
+    def get_payload(self, content: bytes, encoding: str = "utf8") -> dict[str, Any]:
         """Convert the received content in bytes format to a dictionary
         assuming the content is a JSON object in string format, then
         decode it using an hybrid encryption algorithm.
@@ -282,7 +282,7 @@ class Exchange:
 
         return json.loads(HybridDecrypter(self.private_key, encoding=encoding).decrypt(content))
 
-    def stream(self, content: str, encoding="utf8") -> Iterator[bytes]:
+    def stream(self, content: str, encoding: str = "utf8") -> Iterator[bytes]:
         """Creates a stream from content in memory.
 
         :param content:
@@ -301,7 +301,7 @@ class Exchange:
 
         return enc.encrypt_to_stream(content)
 
-    def stream_from_file(self, path: str, encoding="utf8") -> Iterator[bytes]:
+    def stream_from_file(self, path: str, encoding: str = "utf8") -> Iterator[bytes]:
         """Creates a stream from content from a file.
 
         :param path:
@@ -320,7 +320,7 @@ class Exchange:
 
         return enc.encrypt_file_to_stream(path)
 
-    def stream_response(self, stream: Response, encoding="utf8") -> tuple[str, str]:
+    def stream_response(self, stream: Response, encoding: str = "utf8") -> tuple[str, str]:
         """Consumes the stream content of a response, and save the content in memory.
 
         :param stream:
@@ -338,7 +338,9 @@ class Exchange:
         data = dec.decrypt_stream(stream.iter_content())
         return data, dec.get_checksum()
 
-    def stream_response_to_file(self, stream: Response, path: str, encoding="utf8") -> str:
+    def stream_response_to_file(
+        self, stream: Response, path: str, encoding: str = "utf8", CHUNK_SIZE: int = 4096
+    ) -> str:
         """Consumes the stream content of a response, and save the content to file.
 
         :param stream:
@@ -357,7 +359,7 @@ class Exchange:
             raise ValueError(f"path {path} already exists")
 
         dec = HybridDecrypter(self.private_key, encoding=encoding)
-        dec.decrypt_stream_to_file(stream.iter_content(), path)
+        dec.decrypt_stream_to_file(stream.iter_content(chunk_size=CHUNK_SIZE), path)
 
         return dec.get_checksum()
 

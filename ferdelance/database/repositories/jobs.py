@@ -25,6 +25,7 @@ def view(job: JobDB) -> Job:
         is_model=job.is_model,
         is_estimation=job.is_estimation,
         is_aggregation=job.is_aggregation,
+        celery_id=job.celery_id,
     )
 
 
@@ -139,6 +140,29 @@ class JobRepository(Repository):
                 f"Job in status SCHEDULED not found for job_id={job_id} artifact_id={artifact_id} component_id={component_id}"
             )
 
+    async def set_celery_id(self, job: Job, celery_id: str) -> Job:
+
+        artifact_id = job.artifact_id
+        component_id = job.component_id
+        try:
+            res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.job_id))
+            job_db: JobDB = res.one()
+
+            job_db.celery_id = celery_id
+
+            await self.session.commit()
+            await self.session.refresh(job_db)
+
+            return view(job_db)
+
+        except NoResultFound:
+            LOGGER.error(f"Could not set task_id to a job with artifact_id={artifact_id} component_id={component_id}")
+            raise ValueError(f"Job not found for artifact_id={artifact_id} component_id={component_id}")
+
+        except MultipleResultsFound:
+            LOGGER.error(f"Multiple jobs have been started for artifact_id={artifact_id} component_id={component_id}")
+            raise ValueError(f"Multiple job found for artifact_id={artifact_id} component_id={component_id}")
+
     async def mark_completed(self, artifact_id: str, component_id: str) -> Job:
         """Changes the state of a job to JobStatus.COMPLETED. The job is identified
         by the artifact_id and the component_id that have completed the required
@@ -197,14 +221,16 @@ class JobRepository(Repository):
                 f"Multiple job in status RUNNING found for artifact_id={artifact_id} component_id={component_id}"
             )
 
-    async def mark_error(self, job: Job) -> Job:
+    async def mark_error(self, artifact_id: str, component_id: str) -> Job:
         """Changes the state of a job to JobStatus.ERROR. The job is identified
         by the job_id given in the handler. An exception is raised if no jobs
         are found.
 
         Args:
-            job (Job):
-                Handler of the job to mark as error.
+            artifact_id (str):
+                Id of the artifact that has been completed.
+            component_id (str):
+                Id of the component that has completed the job.
 
         Raises:
             ValueError:
@@ -215,31 +241,33 @@ class JobRepository(Repository):
                 Updated handler of the job.
         """
 
-        artifact_id: str = job.artifact_id
-        component_id: str = job.component_id
         try:
-            res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.job_id))
-            job_db: JobDB = res.one()
+            res = await self.session.scalars(
+                select(JobDB).where(
+                    JobDB.artifact_id == artifact_id,
+                    JobDB.component_id == component_id,
+                    JobDB.status == JobStatus.RUNNING.name,
+                )
+            )
+            job: JobDB = res.one()
 
-            job_db.status = JobStatus.ERROR.name
-            job_db.termination_time = datetime.now(tz=job.creation_time.tzinfo)
+            job.status = JobStatus.ERROR.name
+            job.termination_time = datetime.now(tz=job.creation_time.tzinfo)
 
             await self.session.commit()
             await self.session.refresh(job)
 
             LOGGER.warn(
-                f"component_id={job_db.component_id}: failed execution of job_id={job_db.job_id} artifact_id={job_db.artifact_id} component_id={component_id}"
+                f"component_id={job.component_id}: failed execution of job_id={job.job_id} artifact_id={job.artifact_id} component_id={component_id}"
             )
 
-            return view(job_db)
+            return view(job)
 
         except NoResultFound:
             LOGGER.error(
-                f"Could not terminate a job that does not exists with job_id={job.job_id} artifact_id={artifact_id} component_id={component_id}"
+                f"component_id={component_id}: could not mark error a job that does not exists with for artifact_id={artifact_id} "
             )
-            raise ValueError(
-                f"Job not found for job_id={job.job_id} artifact_id={artifact_id} component_id={component_id}"
-            )
+            raise ValueError(f"Job not found for artifact_id={artifact_id} component_id={component_id}")
 
     async def get(self, job: Job) -> Job:
         """Gets an updated version of the given job.
@@ -314,6 +342,13 @@ class JobRepository(Repository):
         """
         res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
         return [view(j) for j in res.all()]
+
+    async def get_celery_id_by_artifact(self, artifact_id: str) -> Job:
+
+        res = await self.session.scalars(
+            select(JobDB).select_from(JobDB).where(JobDB.artifact_id == artifact_id, JobDB.celery_id != None)
+        )
+        return view(res.one())
 
     async def count_jobs_by_artifact_id(self, artifact_id: str) -> int:
         """Counts the number of jobs created for the given artifact_id.

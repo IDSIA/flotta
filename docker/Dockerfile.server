@@ -1,4 +1,9 @@
-# Build stage
+# syntax=docker/dockerfile:1.5
+
+# This image is used for different containers with different commands
+# They will be provided at compose level.
+
+# Build stage -----------------------------------------------------------------
 FROM python:3.10 AS builder
 
 # install virtual environment
@@ -8,12 +13,13 @@ ENV PATH="/opt/venv/bin:${PATH}"
 
 RUN python -m pip install --upgrade pip
 
-# copy and install shared library
+# copy source files
 COPY . /ferdelance
 
-RUN pip install --no-cache-dir "/ferdelance[server]"
+RUN --mount=type=cache,target=/root/.cache \
+    pip install "/ferdelance[server]"
 
-# Installation stage
+# Installation stage ----------------------------------------------------------
 FROM python:3.10-slim-buster AS base
 
 # copy built virtual environment to base
@@ -21,16 +27,22 @@ COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:${PATH}"
 
+RUN useradd -m -d /ferdelance ferdelance
+
 # create and populate workdir
+USER ferdelance
 WORKDIR /ferdelance
 
-COPY . /ferdelance
+RUN mkdir -p \ 
+    /ferdelance/storage/datasources \ 
+    /ferdelance/storage/artifacts \ 
+    /ferdelance/storage/clients \ 
+    /ferdelance/storage/results
 
-COPY ./script/server.sh /ferdelance
+COPY --chown=ferdelance ./script/server.sh .
 
-RUN chmod +x /ferdelance/server.sh
+RUN chmod +x ./server.sh
+
+EXPOSE 1456
 
 ENTRYPOINT ["/bin/bash", "server.sh"]
-
-# This image is used for 3 different containers with 3 different commands, they will be provided at compose level.
-# CMD ["uvicorn", "ferdelance.server.api:api", "--host", "0.0.0.0", "--port", "1456"]

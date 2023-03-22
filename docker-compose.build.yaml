@@ -1,0 +1,28 @@
+version: '3.3'
+
+
+services:
+
+  # Python packages repository
+  repository:
+    container_name: repository
+    image: idsia.ferdelance.repository
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.pypirepo
+
+  # Ferdelance server
+  server:
+    container_name: server
+    image: idsia.ferdelance.server
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+
+  # Ferdelance client
+  client:
+    container_name: server
+    image: idsia.ferdelance.client
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
