@@ -4,6 +4,7 @@ from ferdelance.schemas.queries.features import QueryFeature, QueryFilter, Opera
 from ferdelance.schemas.queries.stages import QueryStage, QueryTransformer
 from ferdelance.schemas.estimators import (
     Estimator,
+    GenericEstimator,
     CountEstimator,
     MeanEstimator,
     GroupCountEstimator,
@@ -63,18 +64,18 @@ class Query(BaseModel):
         return GroupingQuery(feature, self)
 
     def count(self) -> QueryEstimate:
-        return self.add_estimator(CountEstimator().build())
+        return self.add_estimator(CountEstimator())
 
     def mean(self, feature: str | QueryFeature) -> QueryEstimate:
         if isinstance(feature, str):
             feature = self[feature]
 
-        return self.add_estimator(MeanEstimator().build())
+        return self.add_estimator(MeanEstimator())
 
-    def add_estimator(self, estimator: Estimator) -> QueryEstimate:
+    def add_estimator(self, estimator: GenericEstimator) -> QueryEstimate:
         return QueryEstimate(
             transform=self,
-            estimator=estimator,
+            estimator=estimator.build(),
         )
 
     def add_transformer(self, transformer: QueryTransformer) -> None:
@@ -197,14 +198,14 @@ class GroupingQuery:
         return self.q.add_estimator(
             GroupCountEstimator(
                 feature_in=self.feature,
-            ).build()
+            )
         )
 
     def mean(self) -> QueryEstimate:
         return self.q.add_estimator(
             GroupMeanEstimator(
                 feature_in=self.feature,
-            ).build()
+            )
         )
 
 

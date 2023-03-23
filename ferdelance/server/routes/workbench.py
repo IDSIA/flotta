@@ -261,8 +261,8 @@ async def wb_get_artifact(
         raise HTTPException(404)
 
 
-@workbench_router.get("/workbench/model", response_class=FileResponse)
-async def wb_get_model(
+@workbench_router.get("/workbench/result", response_class=FileResponse)
+async def wb_get_result(
     request: Request,
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
@@ -277,7 +277,7 @@ async def wb_get_model(
     artifact_id = artifact.artifact_id
 
     try:
-        result_db: Result = await rr.get_aggregated_model(artifact_id)
+        result_db: Result = await rr.get_aggregated_result(artifact_id)
 
         result_path = result_db.path
 
@@ -301,10 +301,10 @@ async def wb_get_model(
 
 
 @workbench_router.get(
-    "/workbench/model/partial/{artifact_id}/{builder_user_id}",
+    "/workbench/result/partial/{artifact_id}/{builder_user_id}",
     response_class=FileResponse,
 )
-async def wb_get_partial_model(
+async def wb_get_partial_result(
     artifact_id: str,
     builder_user_id: str,
     session: AsyncSession = Depends(get_session),
@@ -320,7 +320,7 @@ async def wb_get_partial_model(
 
         await ss.setup(user.public_key)
 
-        result_db: Result = await rr.get_partial_model(artifact_id, builder_user_id)
+        result_db: Result = await rr.get_partial_result(artifact_id, builder_user_id)
 
         result_path = result_db.path
 

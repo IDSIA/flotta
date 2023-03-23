@@ -7,8 +7,8 @@ import pandas as pd
 
 
 class MeanEstimator(GenericEstimator):
-    def __init__(self, features_in: QueryFeature | None = None) -> None:
-        super().__init__(MeanEstimator.__name__, features_in)
+    def __init__(self, feature_in: QueryFeature | None = None) -> None:
+        super().__init__(MeanEstimator.__name__, feature_in)
 
         self.mean: float = 0
 

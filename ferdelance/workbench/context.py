@@ -12,16 +12,12 @@ from ferdelance.schemas.workbench import (
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
-    WorkbenchProject,
-    WorkbenchProjectDescription,
     WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus
 
 from time import sleep
-
-import pandas as pd
 
 import json
 import logging
@@ -157,7 +153,7 @@ class Context:
 
         return data.datasources
 
-    def execute(self, project: Project, estimate: QueryEstimate) -> None:
+    def execute(self, project: Project, estimate: QueryEstimate, path: str = "", wait_interval: int = 1) -> str:
         """Execute a statistical query."""
 
         artifact = Artifact(
@@ -175,32 +171,24 @@ class Context:
         res.raise_for_status()
 
         art_status = ArtifactStatus(**self.exc.get_payload(res.content))
+        artifact.artifact_id = art_status.artifact_id
 
         while art_status.status not in (ArtifactJobStatus.ERROR, ArtifactJobStatus.COMPLETED):
-            # TODO: add wait time
-            print(".")
-            sleep(1)
+            print(".", end="")
+            sleep(wait_interval)
 
             art_status = self.status(art_status)
 
         if art_status.artifact_id is None:
             raise ValueError("Invalid artifact status")
 
+        path = self.get_result(artifact, path)
+
         if art_status.status == ArtifactJobStatus.COMPLETED:
+            return path
 
-            wba = WorkbenchArtifact(artifact_id=art_status.artifact_id)
-
-            res = requests.get(
-                f"{self.server}/workbench/artifact/result",
-                headers=self.exc.headers(),
-                data=self.exc.create_payload(wba.dict()),
-            )
-
-            res.raise_for_status()
-
-            # TODO: return of results
-
-        # TODO: error reporting
+        if art_status.status == ArtifactJobStatus.ERROR:
+            raise ValueError(f"Error on artifact. Details available ath path={path}")
 
         raise NotImplementedError()
 
@@ -284,13 +272,15 @@ class Context:
 
         return Artifact(**self.exc.get_payload(res.content))
 
-    def get_model(self, artifact: Artifact, path: str = "") -> str:
-        """Get the trained and aggregated model from the artifact and save it to disk.
+    def get_result(self, artifact: Artifact, path: str = "") -> str:
+        """Get the trained and aggregated result for the the artifact and save it
+        to disk. The result can be a model or an estimation.
 
         :param artifact:
-            Artifact to get the model from.
+            Artifact to get the result from.
         :param path:
-            Optional, destination path on disk. If none, a UUID will be used to store the downloaded model.
+            Optional, destination path on disk. If none, a UUID will be generated
+            and used to store the downloaded model.
         :raises HTTPError:
             If the return code of the response is not a 2xx type.
         """
@@ -298,7 +288,7 @@ class Context:
             raise ValueError("submit first the artifact to the server")
 
         if artifact.model is None:
-            raise ValueError("no model attached to this artifact")
+            raise ValueError("no results attached to this artifact")
 
         if not path:
             path = f"{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model"
@@ -306,7 +296,7 @@ class Context:
         wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
 
         with requests.get(
-            f"{self.server}/workbench/model",
+            f"{self.server}/workbench/result",
             headers=self.exc.headers(),
             data=self.exc.create_payload(wba.dict()),
             stream=True,
@@ -318,7 +308,7 @@ class Context:
 
         return path
 
-    def get_partial_model(self, artifact: Artifact, client_id: str, path: str = "") -> str:
+    def get_partial_result(self, artifact: Artifact, client_id: str, path: str = "") -> str:
         """Get the trained partial model from the artifact and save it to disk.
 
         :param artifact:
@@ -340,7 +330,7 @@ class Context:
             path = f"{artifact.artifact_id}.{artifact.model.name}.{client_id}.PARTIAL.model"
 
         with requests.get(
-            f"{self.server}/workbench/model/partial/{artifact.artifact_id}/{client_id}",
+            f"{self.server}/workbench/result/partial/{artifact.artifact_id}/{client_id}",
             headers=self.exc.headers(),
             stream=True,
         ) as res:
