@@ -29,7 +29,7 @@ class ActionService:
             self.train_queue.put(data)
             return ActionType.DO_NOTHING
 
-        if action == ActionType.EXECUTE_TRAINING:
+        if action == ActionType.EXECUTE_ESTIMATE:
             self.estimate_queue.put(data)
             return ActionType.DO_NOTHING
 
@@ -42,5 +42,6 @@ class ActionService:
             DoNothingAction().execute()
             return ActionType.DO_NOTHING
 
+        # TODO: this should be an error that invalidates a job
         LOGGER.error(f"cannot complete action={action}")
         return ActionType.DO_NOTHING

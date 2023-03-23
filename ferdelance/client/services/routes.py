@@ -5,6 +5,7 @@ from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientTask
 from ferdelance.schemas.updates import DownloadApp, UpdateClientApp, UpdateExecute
+from ferdelance.shared.exchange import Exchange
 
 from requests import Session, get, post
 from requests.adapters import HTTPAdapter, Retry
@@ -21,6 +22,16 @@ LOGGER = logging.getLogger(__name__)
 class RouteService:
     def __init__(self, config: Config) -> None:
         self.config = config
+        self.exc: Exchange = Exchange()
+
+        if self.config.private_key_location is not None:
+            self.exc.load_key(self.config.private_key_location)
+
+        if self.config.server_public_key is not None:
+            self.exc.set_remote_key(self.config.server_public_key)
+
+        if self.config.client_token is not None:
+            self.exc.set_token(self.config.client_token)
 
     def check(self) -> None:
         s = Session()
@@ -53,12 +64,12 @@ class RouteService:
 
         res.raise_for_status()
 
-        return ClientJoinData(**self.config.exc.get_payload(res.content))
+        return ClientJoinData(**self.exc.get_payload(res.content))
 
     def leave(self) -> None:
         res = post(
             f"{self.config.server}/client/leave",
-            headers=self.config.exc.headers(),
+            headers=self.exc.headers(),
         )
 
         res.raise_for_status()
@@ -76,8 +87,8 @@ class RouteService:
 
         res = post(
             f"{self.config.server}/client/update/metadata",
-            data=self.config.exc.create_payload(metadata.dict()),
-            headers=self.config.exc.headers(),
+            data=self.exc.create_payload(metadata.dict()),
+            headers=self.exc.headers(),
         )
 
         res.raise_for_status()
@@ -91,13 +102,13 @@ class RouteService:
 
         res = get(
             f"{self.config.server}/client/update",
-            data=self.config.exc.create_payload(content),
-            headers=self.config.exc.headers(),
+            data=self.exc.create_payload(content),
+            headers=self.exc.headers(),
         )
 
         res.raise_for_status()
 
-        data = self.config.exc.get_payload(res.content)
+        data = self.exc.get_payload(res.content)
 
         return Action[data["action"]], data
 
@@ -106,13 +117,13 @@ class RouteService:
 
         res = get(
             f"{self.config.server}/client/task",
-            data=self.config.exc.create_payload(task.dict()),
-            headers=self.config.exc.headers(),
+            data=self.exc.create_payload(task.dict()),
+            headers=self.exc.headers(),
         )
 
         res.raise_for_status()
 
-        return ClientTask(**self.config.exc.get_payload(res.content))
+        return ClientTask(**self.exc.get_payload(res.content))
 
     def get_new_client(self, data: UpdateClientApp):
         expected_checksum = data.checksum
@@ -120,8 +131,8 @@ class RouteService:
 
         with post(
             f"{self.config.server}/client/download/application",
-            data=self.config.exc.create_payload(download_app.dict()),
-            headers=self.config.exc.headers(),
+            data=self.exc.create_payload(download_app.dict()),
+            headers=self.exc.headers(),
             stream=True,
         ) as stream:
             if not stream.ok:
@@ -129,7 +140,7 @@ class RouteService:
                 return "update"
 
             path_file: str = os.path.join(self.config.workdir, data.name)
-            checksum: str = self.config.exc.stream_response_to_file(stream, path_file)
+            checksum: str = self.exc.stream_response_to_file(stream, path_file)
 
             if checksum != expected_checksum:
                 LOGGER.error("Checksum mismatch: received invalid data!")
@@ -143,12 +154,12 @@ class RouteService:
     def post_result(self, artifact_id: str, path_in: str):
         path_out = f"{path_in}.enc"
 
-        self.config.exc.encrypt_file_for_remote(path_in, path_out)
+        self.exc.encrypt_file_for_remote(path_in, path_out)
 
         res = post(
             f"{self.config.server}/client/result/{artifact_id}",
             data=open(path_out, "rb"),
-            headers=self.config.exc.headers(),
+            headers=self.exc.headers(),
         )
 
         if os.path.exists(path_out):
@@ -161,8 +172,8 @@ class RouteService:
     def post_metrics(self, metrics: Metrics):
         res = post(
             f"{self.config.server}/client/metrics",
-            data=self.config.exc.create_payload(metrics.dict()),
-            headers=self.config.exc.headers(),
+            data=self.exc.create_payload(metrics.dict()),
+            headers=self.exc.headers(),
         )
 
         res.raise_for_status()

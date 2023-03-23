@@ -2,7 +2,6 @@ from ferdelance import __version__
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
 from ferdelance.client.exceptions import ConfigError
 from ferdelance.schemas.client import ArgumentsConfig
-from ferdelance.shared.exchange import Exchange
 
 from getmac import get_mac_address
 
@@ -32,8 +31,6 @@ class Config:
         self.machine_system: str = platform.system()
         self.machine_mac_address: str = get_mac_address() or ""
         self.machine_node: str = str(uuid.getnode())
-
-        self.exc: Exchange = Exchange()
 
         self.client_id: str | None = None
         self.client_token: str | None = None
@@ -73,9 +70,6 @@ class Config:
         self.client_token = client_token
         self.server_public_key = server_public_key
 
-        self.exc.set_token(client_token)
-        self.exc.set_remote_key(server_public_key)
-
         self.dump_props()
 
     def get_server(self) -> str:
@@ -86,7 +80,7 @@ class Config:
 
     def path_private_key(self) -> str:
         if self.private_key_location is None:
-            return os.path.join(self.workdir, "private_key.pem")
+            self.private_key_location = os.path.join(self.workdir, "private_key.pem")
         return self.private_key_location
 
     def path_artifact_folder(self) -> str:
@@ -103,9 +97,6 @@ class Config:
             self.client_id = props["client_id"]
             self.client_token = props["client_token"]
             self.server_public_key = props["server_public_key"]
-
-            self.exc.set_token(self.client_token)
-            self.exc.set_remote_key(self.server_public_key)
 
     def dump_props(self):
         """Save current configuration to a file in the working directory."""

@@ -21,6 +21,7 @@ class ClientWorker(Process):
         self.stop: bool = False
 
     def run(self) -> None:
+
         try:
             while not self.stop:
                 data: dict | None = self.queue.get()
