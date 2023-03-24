@@ -188,7 +188,7 @@ class ResultRepository(Repository):
         )
         return view(res.one())
 
-    async def list_models_by_artifact_id(self, artifact_id: str) -> list[Result]:
+    async def list_results_by_artifact_id(self, artifact_id: str) -> list[Result]:
         """Get a list of results associated with the given artifact_id. This
         returns all kind of results, models and estimations, aggregated or not.
 
@@ -201,10 +201,27 @@ class ResultRepository(Repository):
                 A list of all the results associated with the given artifact_id.
                 Note that his list can also be empty.
         """
+        res = await self.session.scalars(select(ResultDB).where(ResultDB.artifact_id == artifact_id))
+        result_list = [view(m) for m in res.all()]
+        return result_list
+
+    async def list_models_by_artifact_id(self, artifact_id: str) -> list[Result]:
+        """Get a list of models associated with the given artifact_id. This
+        returns all kind of results, both partial and aggregated.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to search for.
+
+        Returns:
+            Result:
+                A list of all the models associated with the given artifact_id.
+                Note that his list can also be empty.
+        """
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
-                ResultDB.is_model,
+                ResultDB.is_model == True,
             )
         )
         result_list = [view(m) for m in res.all()]

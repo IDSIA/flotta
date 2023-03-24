@@ -120,7 +120,7 @@ class JobManagementService(Repository):
             LOGGER.warning(f"client_id={client_id}: task does not exists with artifact_id={artifact_id}")
             raise TaskDoesNotExists()
 
-    def _start_aggregation(self, token: str, artifact_id: str, result_ids: list[str]) -> AsyncResult:
+    def _start_aggregation(self, token: str, artifact_id: str, result_ids: list[str]) -> str:
         LOGGER.info(f"artifact_id={artifact_id}: started aggregation task with ({len(result_ids)}) result(s)")
         task: AsyncResult = aggregation.apply_async(
             args=[
@@ -129,8 +129,9 @@ class JobManagementService(Repository):
                 result_ids,
             ],
         )
-        LOGGER.info(f"artifact_id={artifact_id}: scheduled task with celery_id={task.task_id} status={task.status}")
-        return task
+        task_id = str(task.task_id)
+        LOGGER.info(f"artifact_id={artifact_id}: scheduled task with celery_id={task_id} status={task.status}")
+        return task_id
 
     async def client_result_create(self, artifact_id: str, client_id: str) -> Result:
         LOGGER.info(f"client_id={client_id}: creating results")
@@ -201,15 +202,15 @@ class JobManagementService(Repository):
                 is_aggregation=True,
             )
 
-            results: list[Result] = await self.rr.list_models_by_artifact_id(artifact_id)
+            results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id)
             result_ids: list[str] = [m.result_id for m in results]
 
-            task: AsyncResult = self._start_aggregation(token, artifact_id, result_ids)
+            task_id: str = self._start_aggregation(token, artifact_id, result_ids)
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
-            await self.jr.set_celery_id(job, str(task.task_id))
+            await self.jr.set_celery_id(job, str(task_id))
 
-            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task.task_id} to job with job_id={job.job_id}")
+            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job with job_id={job.job_id}")
 
         except IntegrityError:
             LOGGER.warning(f"artifact_id={artifact_id}: trying to re-schedule an already existing aggregation job")

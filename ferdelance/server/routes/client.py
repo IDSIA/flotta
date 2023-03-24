@@ -6,10 +6,10 @@ from ferdelance.database.repositories import (
     DataSourceRepository,
     ProjectRepository,
 )
+from ferdelance.server.utils import job_manager, JobManagementService
 from ferdelance.server.services import (
     ActionService,
     SecurityService,
-    JobManagementService,
 )
 from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
@@ -253,7 +253,7 @@ async def client_get_task(
     LOGGER.info(f"client_id={component.component_id}: new task request")
 
     cr: ComponentRepository = ComponentRepository(session)
-    jm: JobManagementService = JobManagementService(session)
+    jm: JobManagementService = job_manager(session)
     ss: SecurityService = SecurityService(session)
 
     await ss.setup(component.public_key)
@@ -289,7 +289,7 @@ async def client_post_result(
         LOGGER.info(f"client_id={component.component_id}: complete work on artifact_id={artifact_id}")
 
         ss: SecurityService = SecurityService(session)
-        jm: JobManagementService = JobManagementService(session)
+        jm: JobManagementService = job_manager(session)
 
         result_db = await jm.client_result_create(artifact_id, component.component_id)
 
@@ -310,7 +310,7 @@ async def client_post_metrics(
     component: Component = Depends(check_access),
 ):
     ss: SecurityService = SecurityService(session)
-    jm: JobManagementService = JobManagementService(session)
+    jm: JobManagementService = job_manager(session)
 
     await ss.setup(component.public_key)
 

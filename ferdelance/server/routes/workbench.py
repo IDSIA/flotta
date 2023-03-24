@@ -1,4 +1,3 @@
-from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_USER
 from ferdelance.database.repositories import (
@@ -7,7 +6,6 @@ from ferdelance.database.repositories import (
     DataSourceRepository,
     ResultRepository,
     ProjectRepository,
-    JobRepository,
 )
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.workbench import (
@@ -27,15 +25,10 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
+from ferdelance.server.utils import job_manager, JobManagementService
 from ferdelance.server.security import check_token
-from ferdelance.server.services import (
-    JobManagementService,
-    SecurityService,
-)
-from ferdelance.standalone.services import JobManagementLocalService
+from ferdelance.server.services import SecurityService
 from ferdelance.shared.decode import decode_from_transfer
-
-from celery.result import AsyncResult
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -49,12 +42,6 @@ LOGGER = logging.getLogger(__name__)
 
 
 workbench_router = APIRouter()
-
-
-def job_manager(session: AsyncSession) -> JobManagementService:
-    if conf.STANDALONE:
-        return JobManagementLocalService(session)
-    return JobManagementService(session)
 
 
 async def check_access(component: Component = Depends(check_token)) -> Component:
@@ -210,7 +197,7 @@ async def wb_get_artifact_status(
     session: AsyncSession = Depends(get_session),
     user: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={user.component_id}: requested status of an artifact")
+    LOGGER.info(f"user_id={user.component_id}: requested status of artifact")
 
     ar: ArtifactRepository = ArtifactRepository(session)
     ss: SecurityService = SecurityService(session)
@@ -222,12 +209,6 @@ async def wb_get_artifact_status(
 
     try:
         status: ArtifactStatus = await ar.get_status(artifact.artifact_id)
-
-        if status.status == "AGGREGATING":
-            jr: JobRepository = JobRepository(session)
-            job = await jr.get_celery_id_by_artifact(artifact.artifact_id)
-
-            status.agg_status = AsyncResult(job.celery_id).status
 
         return ss.create_response(status.dict())
     except NoResultFound as _:

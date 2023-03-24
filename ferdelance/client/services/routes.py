@@ -167,7 +167,7 @@ class RouteService:
 
         res.raise_for_status()
 
-        LOGGER.info(f"artifact_id={artifact_id}: model from source={path_in} upload successful")
+        LOGGER.info(f"artifact_id={artifact_id}: result from source={path_in} upload successful")
 
     def post_metrics(self, metrics: Metrics):
         res = post(

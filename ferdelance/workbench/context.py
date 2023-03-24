@@ -1,3 +1,4 @@
+from typing import Any
 from ferdelance.workbench.interface import (
     Project,
     Client,
@@ -21,6 +22,7 @@ from time import sleep
 
 import json
 import logging
+import pickle
 import requests
 import os
 
@@ -153,7 +155,7 @@ class Context:
 
         return data.datasources
 
-    def execute(self, project: Project, estimate: QueryEstimate, path: str = "", wait_interval: int = 1) -> str:
+    def execute(self, project: Project, estimate: QueryEstimate, path: str = "", wait_interval: int = 1) -> Any:
         """Execute a statistical query."""
 
         artifact = Artifact(
@@ -173,7 +175,10 @@ class Context:
         art_status = ArtifactStatus(**self.exc.get_payload(res.content))
         artifact.artifact_id = art_status.artifact_id
 
-        while art_status.status not in (ArtifactJobStatus.ERROR, ArtifactJobStatus.COMPLETED):
+        while art_status.status not in (
+            ArtifactJobStatus.ERROR.name,
+            ArtifactJobStatus.COMPLETED.name,
+        ):
             print(".", end="")
             sleep(wait_interval)
 
@@ -182,13 +187,15 @@ class Context:
         if art_status.artifact_id is None:
             raise ValueError("Invalid artifact status")
 
-        path = self.get_result(artifact, path)
+        estimate = self.get_result(artifact)
 
-        if art_status.status == ArtifactJobStatus.COMPLETED:
-            return path
+        if art_status.status == ArtifactJobStatus.COMPLETED.name:
+            return estimate
 
-        if art_status.status == ArtifactJobStatus.ERROR:
-            raise ValueError(f"Error on artifact. Details available ath path={path}")
+        if art_status.status == ArtifactJobStatus.ERROR.name:
+            LOGGER.error(f"Error on artifact {art_status.artifact_id}")
+            LOGGER.error(estimate)
+            raise ValueError(f"Error on artifact {art_status.artifact_id}")
 
         raise NotImplementedError()
 
@@ -272,7 +279,7 @@ class Context:
 
         return Artifact(**self.exc.get_payload(res.content))
 
-    def get_result(self, artifact: Artifact, path: str = "") -> str:
+    def get_result(self, artifact: Artifact) -> Any:
         """Get the trained and aggregated result for the the artifact and save it
         to disk. The result can be a model or an estimation.
 
@@ -287,12 +294,6 @@ class Context:
         if artifact.artifact_id is None:
             raise ValueError("submit first the artifact to the server")
 
-        if artifact.model is None:
-            raise ValueError("no results attached to this artifact")
-
-        if not path:
-            path = f"{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model"
-
         wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
 
         with requests.get(
@@ -304,11 +305,13 @@ class Context:
 
             res.raise_for_status()
 
-            self.exc.stream_response_to_file(res, path)
+            data, _ = self.exc.stream_response(res)
 
-        return path
+            obj = pickle.loads(data)
 
-    def get_partial_result(self, artifact: Artifact, client_id: str, path: str = "") -> str:
+            return obj
+
+    def get_partial_result(self, artifact: Artifact, client_id: str, path: str = "") -> Any:
         """Get the trained partial model from the artifact and save it to disk.
 
         :param artifact:
@@ -335,5 +338,9 @@ class Context:
             stream=True,
         ) as res:
             res.raise_for_status()
-            self.exc.stream_response_to_file(res, path)
-        return path
+
+            data, _ = self.exc.stream_response(res, path)
+
+            obj = pickle.loads(data)
+
+            return obj

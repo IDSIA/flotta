@@ -5,8 +5,8 @@ from ferdelance.database.repositories import ResultRepository
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.errors import ErrorArtifact
-from ferdelance.server.services import JobManagementService
 from ferdelance.server.security import check_token
+from ferdelance.server.utils import job_manager, JobManagementService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -44,7 +44,7 @@ async def post_artifact(
     LOGGER.info(f"worker_id={worker.component_id}: sent new artifact")
 
     try:
-        jms: JobManagementService = JobManagementService(session)
+        jms: JobManagementService = job_manager(session)
 
         status = await jms.submit_artifact(artifact)
 
@@ -63,7 +63,7 @@ async def get_artifact(
     LOGGER.info(f"worker_id={worker.component_id}: requested artifact_id={artifact_id}")
 
     try:
-        jms: JobManagementService = JobManagementService(session)
+        jms: JobManagementService = job_manager(session)
         artifact = await jms.get_artifact(artifact_id)
 
         await jms.worker_task_start(artifact_id, worker.component_id)
@@ -83,7 +83,7 @@ async def post_result(
     worker: Component = Depends(check_access),
 ):
     LOGGER.info(f"worker_id={worker.component_id}: send model for artifact_id={artifact_id}")
-    js: JobManagementService = JobManagementService(session)
+    js: JobManagementService = job_manager(session)
 
     try:
         result_db: Result = await js.worker_result_create(artifact_id, worker.component_id)
