@@ -6,6 +6,7 @@ from ferdelance.client.services.routes import RouteService
 from ferdelance.client.worker import ClientWorker
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
+from ferdelance.shared.exchange import Exchange
 
 from multiprocessing import Queue
 
@@ -35,11 +36,15 @@ class FerdelanceClient:
         self.train_queue: Queue = Queue()
         self.estimate_queue: Queue = Queue()
 
+    def check_server(self):
+        routes_service = RouteService(self.config)
+        routes_service.check()
+
     def beat(self):
         LOGGER.debug(f"waiting for {self.config.heartbeat}")
         sleep(self.config.heartbeat)
 
-    def setup(self, routes_service: RouteService) -> None:
+    def setup(self) -> None:
         """Component initialization (keys setup), joining the server (if not already joined), and sending metadata."""
 
         LOGGER.info("client initialization")
@@ -50,27 +55,31 @@ class FerdelanceClient:
         os.makedirs(self.config.path_artifact_folder(), exist_ok=True)
         os.chmod(self.config.path_artifact_folder(), 0o700)
 
+        exc = Exchange()
+
         if self.config.private_key_location is None:
             if os.path.exists(self.config.path_private_key()):
                 # use existing one
                 LOGGER.info("private key location not set: using existing one")
                 self.config.private_key_location = self.config.path_private_key()
-                self.config.exc.load_key(self.config.private_key_location)
+
             else:
                 # generate new key
                 LOGGER.info("private key location not set: creating a new one")
-                self.config.exc.generate_key()
-                self.config.exc.save_private_key(self.config.path_private_key())
+
+                exc.generate_key()
+                exc.save_private_key(self.config.path_private_key())
 
         elif not os.path.exists(self.config.private_key_location):
             LOGGER.info("private key location not found: creating a new one")
-            self.config.exc.generate_key()
-            self.config.exc.save_private_key(self.config.path_private_key())
+
+            exc.generate_key()
+            exc.save_private_key(self.config.path_private_key())
 
         else:
             # load key
             LOGGER.info(f"private key found at {self.config.private_key_location}")
-            self.config.exc.load_key(self.config.private_key_location)
+            exc.load_key(self.config.private_key_location)
 
         if os.path.exists(self.config.path_properties()):
             # already joined
@@ -86,11 +95,12 @@ class FerdelanceClient:
                 system=self.config.machine_system,
                 mac_address=self.config.machine_mac_address,
                 node=self.config.machine_node,
-                public_key=self.config.exc.transfer_public_key(),
+                public_key=exc.transfer_public_key(),
                 version=__version__,
             )
 
             try:
+                routes_service: RouteService = RouteService(self.config)
                 data: ClientJoinData = routes_service.join(join_data)
                 self.config.join(data.id, data.token, data.public_key)
 
@@ -136,15 +146,15 @@ class FerdelanceClient:
             Exit code to use
         """
 
-        routes_service = RouteService(self.config)
-
         try:
             LOGGER.info("running client")
 
-            routes_service.check()
+            self.check_server()
 
             if not self.setup_completed:
-                self.setup(routes_service)
+                self.setup()
+
+            routes_service = RouteService(self.config)
 
             if self.config.leave:
                 routes_service.leave()

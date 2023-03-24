@@ -1,3 +1,4 @@
+from typing import Any
 from ferdelance.workbench.interface import (
     Project,
     Client,
@@ -12,8 +13,6 @@ from ferdelance.schemas.workbench import (
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
     WorkbenchJoinData,
-    WorkbenchProject,
-    WorkbenchProjectDescription,
     WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
@@ -21,10 +20,9 @@ from ferdelance.shared.status import ArtifactJobStatus
 
 from time import sleep
 
-import pandas as pd
-
 import json
 import logging
+import pickle
 import requests
 import os
 
@@ -157,7 +155,7 @@ class Context:
 
         return data.datasources
 
-    def execute(self, project: Project, estimate: QueryEstimate) -> None:
+    def execute(self, project: Project, estimate: QueryEstimate, path: str = "", wait_interval: int = 1) -> Any:
         """Execute a statistical query."""
 
         artifact = Artifact(
@@ -175,32 +173,29 @@ class Context:
         res.raise_for_status()
 
         art_status = ArtifactStatus(**self.exc.get_payload(res.content))
+        artifact.artifact_id = art_status.artifact_id
 
-        while art_status.status not in (ArtifactJobStatus.ERROR, ArtifactJobStatus.COMPLETED):
-            # TODO: add wait time
-            print(".")
-            sleep(1)
+        while art_status.status not in (
+            ArtifactJobStatus.ERROR.name,
+            ArtifactJobStatus.COMPLETED.name,
+        ):
+            print(".", end="")
+            sleep(wait_interval)
 
             art_status = self.status(art_status)
 
         if art_status.artifact_id is None:
             raise ValueError("Invalid artifact status")
 
-        if art_status.status == ArtifactJobStatus.COMPLETED:
+        estimate = self.get_result(artifact)
 
-            wba = WorkbenchArtifact(artifact_id=art_status.artifact_id)
+        if art_status.status == ArtifactJobStatus.COMPLETED.name:
+            return estimate
 
-            res = requests.get(
-                f"{self.server}/workbench/artifact/result",
-                headers=self.exc.headers(),
-                data=self.exc.create_payload(wba.dict()),
-            )
-
-            res.raise_for_status()
-
-            # TODO: return of results
-
-        # TODO: error reporting
+        if art_status.status == ArtifactJobStatus.ERROR.name:
+            LOGGER.error(f"Error on artifact {art_status.artifact_id}")
+            LOGGER.error(estimate)
+            raise ValueError(f"Error on artifact {art_status.artifact_id}")
 
         raise NotImplementedError()
 
@@ -284,29 +279,25 @@ class Context:
 
         return Artifact(**self.exc.get_payload(res.content))
 
-    def get_model(self, artifact: Artifact, path: str = "") -> str:
-        """Get the trained and aggregated model from the artifact and save it to disk.
+    def get_result(self, artifact: Artifact) -> Any:
+        """Get the trained and aggregated result for the the artifact and save it
+        to disk. The result can be a model or an estimation.
 
         :param artifact:
-            Artifact to get the model from.
+            Artifact to get the result from.
         :param path:
-            Optional, destination path on disk. If none, a UUID will be used to store the downloaded model.
+            Optional, destination path on disk. If none, a UUID will be generated
+            and used to store the downloaded model.
         :raises HTTPError:
             If the return code of the response is not a 2xx type.
         """
         if artifact.artifact_id is None:
             raise ValueError("submit first the artifact to the server")
 
-        if artifact.model is None:
-            raise ValueError("no model attached to this artifact")
-
-        if not path:
-            path = f"{artifact.artifact_id}.{artifact.model.name}.AGGREGATED.model"
-
         wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
 
         with requests.get(
-            f"{self.server}/workbench/model",
+            f"{self.server}/workbench/result",
             headers=self.exc.headers(),
             data=self.exc.create_payload(wba.dict()),
             stream=True,
@@ -314,11 +305,13 @@ class Context:
 
             res.raise_for_status()
 
-            self.exc.stream_response_to_file(res, path)
+            data, _ = self.exc.stream_response(res.iter_content())
 
-        return path
+            obj = pickle.loads(data)
 
-    def get_partial_model(self, artifact: Artifact, client_id: str, path: str = "") -> str:
+            return obj
+
+    def get_partial_result(self, artifact: Artifact, client_id: str, path: str = "") -> Any:
         """Get the trained partial model from the artifact and save it to disk.
 
         :param artifact:
@@ -340,10 +333,14 @@ class Context:
             path = f"{artifact.artifact_id}.{artifact.model.name}.{client_id}.PARTIAL.model"
 
         with requests.get(
-            f"{self.server}/workbench/model/partial/{artifact.artifact_id}/{client_id}",
+            f"{self.server}/workbench/result/partial/{artifact.artifact_id}/{client_id}",
             headers=self.exc.headers(),
             stream=True,
         ) as res:
             res.raise_for_status()
-            self.exc.stream_response_to_file(res, path)
-        return path
+
+            data, _ = self.exc.stream_response(res.iter_content(), path)
+
+            obj = pickle.loads(data)
+
+            return obj

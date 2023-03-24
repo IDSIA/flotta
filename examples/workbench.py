@@ -135,7 +135,7 @@ status: ArtifactStatus = ctx.status(a)
 print(status)
 
 # %% download trained model:
-m.load(ctx.get_model(a))
+m.load(ctx.get_result(a))
 
 # %%
 

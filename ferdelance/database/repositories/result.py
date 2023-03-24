@@ -188,7 +188,7 @@ class ResultRepository(Repository):
         )
         return view(res.one())
 
-    async def list_models_by_artifact_id(self, artifact_id: str) -> list[Result]:
+    async def list_results_by_artifact_id(self, artifact_id: str) -> list[Result]:
         """Get a list of results associated with the given artifact_id. This
         returns all kind of results, models and estimations, aggregated or not.
 
@@ -201,10 +201,27 @@ class ResultRepository(Repository):
                 A list of all the results associated with the given artifact_id.
                 Note that his list can also be empty.
         """
+        res = await self.session.scalars(select(ResultDB).where(ResultDB.artifact_id == artifact_id))
+        result_list = [view(m) for m in res.all()]
+        return result_list
+
+    async def list_models_by_artifact_id(self, artifact_id: str) -> list[Result]:
+        """Get a list of models associated with the given artifact_id. This
+        returns all kind of results, both partial and aggregated.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to search for.
+
+        Returns:
+            Result:
+                A list of all the models associated with the given artifact_id.
+                Note that his list can also be empty.
+        """
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
-                ResultDB.is_model,
+                ResultDB.is_model == True,
             )
         )
         result_list = [view(m) for m in res.all()]
@@ -242,10 +259,11 @@ class ResultRepository(Repository):
         result_list = [view(r) for r in res.all()]
         return result_list
 
-    async def get_aggregated_model(self, artifact_id: str) -> Result:
-        """Get the result, considered an aggregated model, given the artifact id.
+    async def get_aggregated_result(self, artifact_id: str) -> Result:
+        """Get the result, considered an aggregated model or estimation, given
+        the artifact id.
 
-        Note that for each artifact, only one aggregated model can exists.
+        Note that for each artifact, only one aggregated result can exists.
 
         Args:
             artifact_id (str):
@@ -262,15 +280,17 @@ class ResultRepository(Repository):
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
-                ResultDB.is_aggregation,
-                ResultDB.is_model,
+                ResultDB.is_aggregation == True,
             )
         )
         return view(res.one())
 
-    async def get_partial_model(self, artifact_id: str, client_id: str) -> Result:
-        """Get the result, considered as a partial model, given the artifact_id
-        it belongs to and the client_id that produced the model.
+    async def get_partial_result(self, artifact_id: str, client_id: str) -> Result:
+        """Get the result, considered as a partial model or estimation, given
+        the artifact_id it belongs to and the client_id that produced the result.
+
+        Note that for each pair artifact_id - client_id, only on aggregated
+        result can exists.
 
         Args:
             artifact_id (str):
@@ -291,61 +311,6 @@ class ResultRepository(Repository):
                 ResultDB.artifact_id == artifact_id,
                 ResultDB.component_id == client_id,
                 ResultDB.is_aggregation == False,
-                ResultDB.is_model,
-            )
-        )
-        return view(res.one())
-
-    async def get_aggregated_estimation(self, artifact_id: str) -> Result:
-        """Get the result, considered an aggregated estimation, given the artifact_id.
-
-        Note that for each artifact, only one aggregated estimation can exists.
-
-        Args:
-            artifact_id (str):
-                Id of the artifact to get.
-
-        Raises:
-            NoResultFound:
-                If the result does not exists.
-
-        Returns:
-            Result:
-                The handler to the result, if one is found.
-        """
-        res = await self.session.scalars(
-            select(ResultDB).where(
-                ResultDB.artifact_id == artifact_id,
-                ResultDB.is_aggregation,
-                ResultDB.is_estimation,
-            )
-        )
-        return view(res.one())
-
-    async def get_partial_estimation(self, artifact_id: str, client_id: str) -> Result:
-        """Get the result, considered as a partial estimation, given the artifact_id
-        it belongs to and the client_id that produced the estimation.
-
-        Args:
-            artifact_id (str):
-                Id of the artifact to get.
-            client_id (str):
-                Id of the client that produced the partial estimation.
-
-        Raises:
-            NoResultFound:
-                If the result does not exists.
-
-        Returns:
-            Result:
-                The handler to the result, if one is found.
-        """
-        res = await self.session.scalars(
-            select(ResultDB).where(
-                ResultDB.artifact_id == artifact_id,
-                ResultDB.component_id == client_id,
-                ResultDB.is_aggregation == False,
-                ResultDB.is_estimation,
             )
         )
         return view(res.one())

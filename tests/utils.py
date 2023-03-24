@@ -43,7 +43,7 @@ def create_client(client: TestClient, exc: Exchange) -> str:
         version="test",
     )
 
-    response_join = client.post("/client/join", data=json.dumps(cjr.dict()))
+    response_join = client.post("/client/join", content=json.dumps(cjr.dict()))
 
     assert response_join.status_code == 200
 
@@ -127,14 +127,14 @@ def get_metadata(
     )
 
 
-def send_metadata(client: TestClient, exc: Exchange, metadata: Metadata) -> Response:
+def send_metadata(client: TestClient, exc: Exchange, metadata: Metadata) -> None:
     upload_response = client.post(
         "/client/update/metadata",
-        data=exc.create_payload(metadata.dict()),
+        content=exc.create_payload(metadata.dict()),
         headers=exc.headers(),
     )
 
-    return upload_response
+    upload_response.raise_for_status()
 
 
 async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> str:
@@ -166,14 +166,12 @@ async def connect(server: TestClient, session: AsyncSession, p_token: str = TEST
     client_id = create_client(server, cl_exc)
 
     metadata: Metadata = get_metadata()
-    upload_response: Response = send_metadata(server, cl_exc, metadata)
-
-    assert upload_response.status_code == 200
+    send_metadata(server, cl_exc, metadata)
 
     # this is for connect a new workbench
     wjr = WorkbenchJoinRequest(public_key=wb_exc.transfer_public_key())
 
-    res = server.post("/workbench/connect", data=json.dumps(wjr.dict()))
+    res = server.post("/workbench/connect", content=json.dumps(wjr.dict()))
 
     res.raise_for_status()
 
@@ -194,7 +192,12 @@ async def connect(server: TestClient, session: AsyncSession, p_token: str = TEST
 def client_update(client: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
     payload = ClientUpdate(action=Action.DO_NOTHING.name)
 
-    response = client.get("/client/update", data=exchange.create_payload(payload.dict()), headers=exchange.headers())
+    response = client.request(
+        method="GET",
+        url="/client/update",
+        content=exchange.create_payload(payload.dict()),
+        headers=exchange.headers(),
+    )
 
     if response.status_code != 200:
         return response.status_code, "", None

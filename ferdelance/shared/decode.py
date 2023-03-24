@@ -146,7 +146,7 @@ class HybridDecrypter:
             data = self.end()
             f.write(data)
 
-    def decrypt_stream(self, stream_func: Iterator[bytes]) -> str:
+    def decrypt_stream(self, stream_func: Iterator[bytes]) -> bytes:
         """Consumer method that takes an iterable of chunks produced by an HybridEncryptor object.
 
         Decrypted data are joined in a single output stored in memory.
@@ -166,7 +166,7 @@ class HybridDecrypter:
 
         data.extend(self.end())
 
-        return data.decode(self.encoding)
+        return data
 
     def start(self) -> bytes:
         """Initialize the decryption algorithm.

@@ -32,16 +32,56 @@ def load(path: str) -> GenericEstimator:
 
 
 def rebuild_estimator(estimator: Estimator) -> GenericEstimator:
+    """Rebuilds the estimator given its description. The description came from
+    the server in string format, then it is converted in the descriptor, and
+    here it can be used to rebuild (o recreate) the original object.
+
+    Args:
+        estimator (Estimator):
+            Descriptor of the estimator to rebuild.
+
+    Returns:
+        GenericEstimator:
+            The estimator, in generic form, that can be used.
+    """
 
     c = globals()[estimator.name]
 
     p = estimator.params
-    params = {v: p[v] for v in signature(c).parameters}
 
-    return c(**params)
+    if p:
+        params = {v: p[v] for v in signature(c).parameters}
+
+        if len(estimator.features_in) == 1:
+            return c(**params, feature_in=estimator.features_in[0])
+
+        return c(**params, features_in=estimator.features_in)
+
+    if len(estimator.features_in) == 1:
+        return c(feature_in=estimator.features_in[0])
+
+    return c(features_in=estimator.features_in)
 
 
 def apply_estimator(estimator: Estimator, df: pd.DataFrame, working_folder: str, artifact_id: str) -> str:
+    """Fits an estimator on the given data, then saves it to a path in the
+    current working folder, and returns the path.
+
+    Args:
+        estimator (Estimator):
+            Estimator to be fitted.
+        df (pd.DataFrame):
+            Data to fit the estimator on.
+        working_folder (str):
+            Current working directory.
+        artifact_id (str):
+            Id of the current artifact that has been executed.
+
+    Returns:
+        str:
+            The path on local disk with the fitted estimator.
+    """
+
     e = rebuild_estimator(estimator)
 
     e.fit(df)

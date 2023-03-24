@@ -89,15 +89,15 @@ if __name__ == "__main__":
 
     print("done!")
 
-    aggregated_model_path = ctx.get_model(a)
+    aggregated_model_path = ctx.get_result(a)
 
     print("model saved to:          ", aggregated_model_path)
 
-    partial_model_path_1 = ctx.get_partial_model(a, client_id_1)
+    partial_model_path_1 = ctx.get_partial_result(a, client_id_1)
 
     print("partial model 1 saved to:", partial_model_path_1)
 
-    partial_model_path_2 = ctx.get_partial_model(a, client_id_2)
+    partial_model_path_2 = ctx.get_partial_result(a, client_id_2)
 
     print("partial model 2 saved to:", partial_model_path_2)
 
