@@ -18,7 +18,7 @@ from ferdelance.schemas.workbench import (
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus
 
-from time import sleep
+from time import sleep, time
 
 import json
 import logging
@@ -155,7 +155,13 @@ class Context:
 
         return data.datasources
 
-    def execute(self, project: Project, estimate: QueryEstimate, path: str = "", wait_interval: int = 1) -> Any:
+    def execute(
+        self,
+        project: Project,
+        estimate: QueryEstimate,
+        wait_interval: int = 1,
+        max_time: int = 30,
+    ) -> Any:
         """Execute a statistical query."""
 
         artifact = Artifact(
@@ -175,6 +181,7 @@ class Context:
         art_status = ArtifactStatus(**self.exc.get_payload(res.content))
         artifact.artifact_id = art_status.artifact_id
 
+        start_time = time()
         while art_status.status not in (
             ArtifactJobStatus.ERROR.name,
             ArtifactJobStatus.COMPLETED.name,
@@ -183,6 +190,9 @@ class Context:
             sleep(wait_interval)
 
             art_status = self.status(art_status)
+
+            if time() > start_time + max_time:
+                raise ValueError("Timeout exceeded")
 
         if art_status.artifact_id is None:
             raise ValueError("Invalid artifact status")
@@ -311,7 +321,7 @@ class Context:
 
             return obj
 
-    def get_partial_result(self, artifact: Artifact, client_id: str, path: str = "") -> Any:
+    def get_partial_result(self, artifact: Artifact, client_id: str) -> Any:
         """Get the trained partial model from the artifact and save it to disk.
 
         :param artifact:
@@ -329,9 +339,6 @@ class Context:
         if artifact.model is None:
             raise ValueError("no model associated with this artifact")
 
-        if not path:
-            path = f"{artifact.artifact_id}.{artifact.model.name}.{client_id}.PARTIAL.model"
-
         with requests.get(
             f"{self.server}/workbench/result/partial/{artifact.artifact_id}/{client_id}",
             headers=self.exc.headers(),
@@ -339,7 +346,7 @@ class Context:
         ) as res:
             res.raise_for_status()
 
-            data, _ = self.exc.stream_response(res.iter_content(), path)
+            data, _ = self.exc.stream_response(res.iter_content())
 
             obj = pickle.loads(data)
 

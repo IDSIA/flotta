@@ -89,23 +89,19 @@ if __name__ == "__main__":
 
     print("done!")
 
-    aggregated_model_path = ctx.get_result(a)
+    cls_agg = ctx.get_result(a)
 
-    print("model saved to:          ", aggregated_model_path)
+    print("aggregated model fetched:", cls_agg)
 
-    partial_model_path_1 = ctx.get_partial_result(a, client_id_1)
+    cls_pa1 = ctx.get_partial_result(a, client_id_1)
 
-    print("partial model 1 saved to:", partial_model_path_1)
+    print("partial model 1 fetched: ", cls_pa1)
 
-    partial_model_path_2 = ctx.get_partial_result(a, client_id_2)
+    cls_pa2 = ctx.get_partial_result(a, client_id_2)
 
-    print("partial model 2 saved to:", partial_model_path_2)
+    print("partial model 2 fetched: ", cls_pa2)
 
     df = pd.read_csv("/data/california_housing.validation.csv")
-
-    cls_pa1 = FederatedRandomForestClassifier(load=partial_model_path_1)
-    cls_pa2 = FederatedRandomForestClassifier(load=partial_model_path_2)
-    cls_agg = FederatedRandomForestClassifier(load=aggregated_model_path)
 
     X = df.drop("MedHouseValDiscrete", axis=1).values
     Y = df["MedHouseValDiscrete"]

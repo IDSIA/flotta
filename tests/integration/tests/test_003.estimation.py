@@ -1,4 +1,3 @@
-# %%
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.estimators import (
     GroupCountEstimator,
@@ -6,19 +5,10 @@ from ferdelance.schemas.estimators import (
 )
 from ferdelance.workbench.context import Context
 
-import pandas as pd
-
-import pickle
-import time
 import os
 import sys
 
-# %%
 if __name__ == "__main__":
-
-    # %%
-    os.environ["PROJECT_ID"] = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
-    os.environ["SERVER"] = "http://localhost:1456"
 
     project_id: str | None = os.environ.get("PROJECT_ID", None)
     server: str | None = os.environ.get("SERVER")
@@ -36,10 +26,8 @@ if __name__ == "__main__":
     project = ctx.load(project_id)
 
     q = project.extract()
-    e_mean = q.add_estimator(MeanEstimator(q["sepal.length"]))
+    e_mean = q.add_estimator(MeanEstimator(q["HouseAge"]))
 
     mean = ctx.execute(project, e_mean)
 
     print(mean.mean)
-
-# %%
