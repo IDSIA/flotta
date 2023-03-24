@@ -306,15 +306,15 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         assert exchange.remote_key is not None
 
         # download new client
-        with client.get(
-            "/client/download/application",
-            data=exchange.create_payload(download_app.dict()),
+        with client.stream(
+            method="GET",
+            url="/client/download/application",
+            content=exchange.create_payload(download_app.dict()),
             headers=exchange.headers(),
-            stream=True,
         ) as stream:
             assert stream.status_code == 200
 
-            content, checksum = exchange.stream_response(stream)
+            content, checksum = exchange.stream_response(stream.iter_bytes())
 
             assert update_client_app.checksum == checksum
             assert json.loads(content) == {"version": version_app}
@@ -337,9 +337,7 @@ async def test_update_metadata(session: AsyncSession, exchange: Exchange):
         assert client_id is not None
 
         metadata: Metadata = get_metadata()
-        upload_response: Response = send_metadata(client, exchange, metadata)
-
-        assert upload_response.status_code == 200
+        send_metadata(client, exchange, metadata)
 
         res = await session.execute(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
         ds_db: DataSourceDB = res.scalar_one()
@@ -357,9 +355,10 @@ async def test_client_access(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
         create_client(client, exchange)
 
-        res = client.get(
-            "/client/update",
-            data=exchange.create_payload({}),
+        res = client.request(
+            method="GET",
+            url="/client/update",
+            content=exchange.create_payload({}),
             headers=exchange.headers(),
         )
 

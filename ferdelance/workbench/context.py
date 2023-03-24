@@ -305,7 +305,7 @@ class Context:
 
             res.raise_for_status()
 
-            data, _ = self.exc.stream_response(res)
+            data, _ = self.exc.stream_response(res.iter_content())
 
             obj = pickle.loads(data)
 
@@ -339,7 +339,7 @@ class Context:
         ) as res:
             res.raise_for_status()
 
-            data, _ = self.exc.stream_response(res, path)
+            data, _ = self.exc.stream_response(res.iter_content(), path)
 
             obj = pickle.loads(data)
 

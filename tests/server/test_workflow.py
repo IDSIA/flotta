@@ -50,10 +50,11 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        res = server.get(
+        res = server.request(
+            "GET",
             f"/workbench/project",
             headers=wb_exc.headers(),
-            data=wb_exc.create_payload(wpt.dict()),
+            content=wb_exc.create_payload(wpt.dict()),
         )
 
         assert res.status_code == 200
@@ -86,7 +87,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         res = server.post(
             "/workbench/artifact/submit",
-            data=wb_exc.create_payload(artifact.dict()),
+            content=wb_exc.create_payload(artifact.dict()),
             headers=wb_exc.headers(),
         )
 
@@ -102,9 +103,10 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        res = server.get(
+        res = server.request(
+            "GET",
             f"/workbench/artifact/status",
-            data=wb_exc.create_payload(wba.dict()),
+            content=wb_exc.create_payload(wba.dict()),
             headers=wb_exc.headers(),
         )
 
@@ -117,9 +119,10 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-        res = server.get(
+        res = server.request(
+            "GET",
             f"/workbench/artifact",
-            data=wb_exc.create_payload(wba.dict()),
+            content=wb_exc.create_payload(wba.dict()),
             headers=wb_exc.headers(),
         )
 
@@ -155,29 +158,29 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         LOGGER.info("get task for client")
 
-        with server.get(
-            "/client/task",
-            data=cl_exc.create_payload(update_execute.dict()),
+        task_response = server.request(
+            method="GET",
+            url="/client/task",
             headers=cl_exc.headers(),
-            stream=True,
-        ) as task_response:
-            assert task_response.status_code == 200
+            content=cl_exc.create_payload(update_execute.dict()),
+        )
+        assert task_response.status_code == 200
 
-            content = cl_exc.get_payload(task_response.content)
+        content = cl_exc.get_payload(task_response.content)
 
-            task = ClientTask(**content)
+        task = ClientTask(**content)
 
-            assert TEST_DATASOURCE_HASH in task.datasource_hashes
+        assert TEST_DATASOURCE_HASH in task.datasource_hashes
 
-            art = task.artifact
+        art = task.artifact
 
-            assert art.artifact_id == job.artifact_id
-            assert art.artifact_id == status.artifact_id
-            assert art.project_id == project.project_id
-            assert len(art.transform.stages) == 1
-            assert len(art.transform.stages[0].features) == 2
-            assert art.load is not None
-            assert art.load.params["label"] == datasource.features[0].name
+        assert art.artifact_id == job.artifact_id
+        assert art.artifact_id == status.artifact_id
+        assert art.project_id == project.project_id
+        assert len(art.transform.stages) == 1
+        assert len(art.transform.stages[0].features) == 2
+        assert art.load is not None
+        assert art.load.params["label"] == datasource.features[0].name
 
         # cleanup
 

@@ -320,7 +320,7 @@ class Exchange:
 
         return enc.encrypt_file_to_stream(path)
 
-    def stream_response(self, stream: Response, encoding: str = "utf8") -> tuple[bytes, str]:
+    def stream_response(self, content: Iterator[bytes], encoding: str = "utf8") -> tuple[bytes, str]:
         """Consumes the stream content of a response, and save the content in memory.
 
         :param stream:
@@ -335,7 +335,7 @@ class Exchange:
 
         dec = HybridDecrypter(self.private_key, encoding=encoding)
 
-        data = dec.decrypt_stream(stream.iter_content())
+        data = dec.decrypt_stream(content)
         return data, dec.get_checksum()
 
     def stream_response_to_file(

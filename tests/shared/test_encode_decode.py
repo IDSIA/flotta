@@ -76,7 +76,7 @@ def test_stream_from_memory():
 
     dec_content = dec.decrypt_stream(iter(chunks_encrypted))
 
-    assert content == dec_content
+    assert content == dec_content.decode("utf8")
 
 
 def test_stream_from_file():

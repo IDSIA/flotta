@@ -78,10 +78,11 @@ async def test_workbench_get_project(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=token)
 
-        res = server.get(
-            "/workbench/project",
+        res = server.request(
+            method="GET",
+            url="/workbench/project",
             headers=wb_exc.headers(),
-            data=wb_exc.create_payload(wpt.dict()),
+            content=wb_exc.create_payload(wpt.dict()),
         )
 
         assert res.status_code == 200
@@ -104,10 +105,11 @@ async def test_workbench_list_client(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        res = server.get(
-            "/workbench/clients",
+        res = server.request(
+            method="GET",
+            url="/workbench/clients",
             headers=wb_exc.headers(),
-            data=wb_exc.create_payload(wpt.dict()),
+            content=wb_exc.create_payload(wpt.dict()),
         )
 
         res.raise_for_status()
@@ -127,10 +129,11 @@ async def test_workbench_list_datasources(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        res = server.get(
-            "/workbench/datasources",
+        res = server.request(
+            method="GET",
+            url="/workbench/datasources",
             headers=wb_exc.headers(),
-            data=wb_exc.create_payload(wpt.dict()),
+            content=wb_exc.create_payload(wpt.dict()),
         )
 
         res.raise_for_status()
@@ -148,10 +151,11 @@ async def test_workflow_submit(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        res = server.get(
-            f"/workbench/project",
+        res = server.request(
+            method="GET",
+            url="/workbench/project",
             headers=wb_exc.headers(),
-            data=wb_exc.create_payload(wpt.dict()),
+            content=wb_exc.create_payload(wpt.dict()),
         )
 
         assert res.status_code == 200
@@ -181,7 +185,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         res = server.post(
             "/workbench/artifact/submit",
-            data=wb_exc.create_payload(artifact.dict()),
+            content=wb_exc.create_payload(artifact.dict()),
             headers=wb_exc.headers(),
         )
 
@@ -197,9 +201,10 @@ async def test_workflow_submit(session: AsyncSession):
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        res = server.get(
-            f"/workbench/artifact/status",
-            data=wb_exc.create_payload(wba.dict()),
+        res = server.request(
+            method="GET",
+            url="/workbench/artifact/status",
+            content=wb_exc.create_payload(wba.dict()),
             headers=wb_exc.headers(),
         )
 
@@ -210,10 +215,11 @@ async def test_workflow_submit(session: AsyncSession):
         assert status.status is not None
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
-        res = server.get(
-            f"/workbench/artifact",
-            data=wb_exc.create_payload(wba.dict()),
+        res = server.request(
+            method="GET",
+            url="/workbench/artifact",
             headers=wb_exc.headers(),
+            content=wb_exc.create_payload(wba.dict()),
         )
 
         assert res.status_code == 200
@@ -250,10 +256,11 @@ async def test_workbench_access(session):
 
         wpt = WorkbenchProjectToken(token=token)
 
-        res = server.get(
-            "/workbench/clients",
+        res = server.request(
+            method="GET",
+            url="/workbench/clients",
             headers=wb_exc.headers(),
-            data=wb_exc.create_payload(wpt.dict()),
+            content=wb_exc.create_payload(wpt.dict()),
         )
 
         assert res.status_code == 200
