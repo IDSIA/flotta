@@ -30,7 +30,7 @@ ctx = Context("http://localhost:1456")
 # %% load a project given a token
 project_token = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
 
-project: Project = ctx.load(project_token)  # if None check for environment variable
+project: Project = ctx.load(project_token)
 
 # %% What is this project?
 
@@ -90,8 +90,6 @@ q = q.add(
 
 s1 = q.groupby(q["variety"])
 s1 = s1.count()
-
-# TODO: these statistics requires a new scheduler and a cache system on the client
 
 # this is a special kind of submit where the request hangs until the results is available
 ret = ctx.execute(project, s1)

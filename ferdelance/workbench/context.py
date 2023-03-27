@@ -96,7 +96,16 @@ class Context:
         self.exc.set_token(data.token)
         self.exc.set_remote_key(data.public_key)
 
-    def load(self, token: str) -> Project:
+    def load(self, token: str | None = None) -> Project:
+        if token is None:
+            token = os.environ.get("PROJECT", None)
+
+        if token is None:
+            token = os.environ.get("PROJECT_TOKEN", None)
+
+        if token is None:
+            raise ValueError("Project token not found")
+
         wpt = WorkbenchProjectToken(token=token)
 
         res = requests.get(
