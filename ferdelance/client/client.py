@@ -81,6 +81,8 @@ class FerdelanceClient:
             LOGGER.info(f"private key found at {self.config.private_key_location}")
             exc.load_key(self.config.private_key_location)
 
+        self.check_server()
+
         if os.path.exists(self.config.path_properties()):
             # already joined
             LOGGER.info(f"loading connection data from {self.config.path_properties()}")
@@ -148,8 +150,6 @@ class FerdelanceClient:
 
         try:
             LOGGER.info("running client")
-
-            self.check_server()
 
             if not self.setup_completed:
                 self.setup()
