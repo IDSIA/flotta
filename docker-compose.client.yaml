@@ -13,7 +13,7 @@ services:
     image: idsia.ferdelance.client
     container_name: ferdelance-client
     environment:
-      - FDL_SERVER=${SERVER?Missing server URL for client}
+      - FDL_SERVER=${FDL_SERVER?Missing server URL for client}
       - FDL_HEARTBEAT=10.0
     volumes:
       - client-data:/ferdelance/workdir
