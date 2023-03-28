@@ -1,4 +1,4 @@
-# Fer-De-Lance, a Federated Learning framework
+# Ferdelance, a Federated Learning framework
 
 
 ## What is Ferdelance?
@@ -146,6 +146,11 @@ DATABASE_SCHEMA=ferdelance
 SERVER_MAIN_PASSWORD=<something strong>
 ```
 
+> **Note:** `SERVER_MAIN_PASSWORD` defines the main secret key of the server.
+> This key is used to encrypt sensible information and data in the database.
+
+> ⚠ Losing this key will cause data loss in the server application!
+
 Once the stack is up and running, thanks to Traefik support, the server will be reachable at `ferdelance.${DOMAIN}` while the repository at `fdl-repo.${DOMAIN}`.
 
 
@@ -167,13 +172,15 @@ The minimal content of the configuration file is the definition of the server ur
 The datasource must have a name and be associated with one or more project thought the `token` field. 
 
 ```yaml
-server: http://localhost:8080/
+server: http://localhost:8080/  # url of remote server
+workdir: ./workdir              # OPTIONAL: local path of the working directory
+heartbeat: 10.0                 # OPTIONAL: float, waiting seconds for server updates
 
 datasources:
-  - name: iris
-    type: csv
-    path: /data/iris.csv
-    kind: file
+  - name: iris                  # name of the source
+    kind: file                  # how the datasource is stored (only 'file')
+    type: csv                   # file format supported (only 'csv' or 'tsv')
+    path: /data/iris.csv        # path to the file to use
     token: 
     - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 ```
@@ -189,6 +196,12 @@ It is also required to specify through environment variables or with a `.env` fi
 
 The Ferdelance framework is open for contributions and offer a quick development environment.
 
+It is usefull to use a local Python virtual environment, like [virtualenv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/), during the development of the library.
+
+The repository contains a `Makefile` that can be used to quickly create an environment and install the framework in development mode.
+
+> **Note:** Make sure that the `make` command is available.
+
 To install the library in development mode, use the following command:
 
 ```bash
@@ -202,9 +215,21 @@ To test the changes in development mode there are a number of possibilities:
 - integration tests using Docker,
 - full development using Docker.
 
+---
+
+## Testing
+
+For testing purposes it is useful to install the test version of the framework:
+
+```bash
+pip install ferdelance[test]
+```
+
+> **Note:** The development version already include the test part
+
 ### Standalone mode
 
-One of the simple way to test changes to the framework is through the so called `standalone mode`.
+One of the simplest way to test changes to the framework is through the so called `standalone mode`.
 In this mode, the framework is executed as a standalone application. 
 
 ```bash
@@ -213,15 +238,13 @@ python -m ferdelance.standalone -c ./config.yaml
 
 The server's variables can be set as environment variables, while the client config file can be set through the `-c` or `--config` arguments.
 
-> **Note:** in this mode the frameworks will spawn several processes to simulate the clients and the worker; it will use a local [`SQLite`](https://www.sqlite.org/) database; and it will not use the [Celery](https://docs.celeryq.dev/) infrastructure (so no [RabbitMQ](https://www.rabbitmq.com/) and no [Redis](https://redis.io/)).
+> **Note:** in this mode the frameworks will spawn several processes to simulate the clients and the worker; it will use a local [`SQLite`](https://www.sqlite.org/) database; and it will not use the [Celery](https://docs.celeryq.dev/) infrastructure (so no [RabbitMQ](https://www.rabbitmq.com/) and no [Redis](https://redis.io/)); other behavior is equivalent to the distributed version.
 
-Instead, to develop for the whole infrastructure, the Docker Compose way is the right one.
+Instead, to develop for the whole infrastructure, the Docker Compose is the right way.
 
 ### Unit tests
 
 To test single part of code, such as transformers, models, or estimators, it is possible to write test files with the [`pytest`](https://docs.pytest.org/) library.
-
-> **Note:** Remember that the framework uses [`FastAPI`](https://fastapi.tiangolo.com/) in full asynchronous mode.
 
 A simple test case can be setup as follow:
 
@@ -232,6 +255,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.utils import connect
+import pytest
 
 @pytest.mark.asyncio
 async def test_workbench_read_home(session: AsyncSession):
@@ -251,6 +275,9 @@ The fixture to connect to the test db (which is an [`SQLite`](https://www.sqlite
 
 Other utility (component connection, clients operations, ...) methods are defined in the `/tests/utils.py` file.
 
+> **Note:** Remember that the framework uses [`FastAPI`](https://fastapi.tiangolo.com/) in full asynchronous mode: the test functions need to be defined as `async` and decorated with `@pytest.mark.asyncio` to work with the fixtures.
+
+
 ### Integration tests
 
 Integration tests are done using a special [Docker Compose](./tests/integration/docker-compose.2clients.yaml) file.
@@ -269,104 +296,6 @@ To execute the integration tests, simply run the following command from inside t
 make start
 ```
 
-> **Note:** A practical Makefile is included in the `tests/integration` folder with useful commands.
+> **Note:** A practical Makefile is included in the `tests/integration` folder with useful commands to start, stop, clear, and reload the Docker compose stack.
 
 ---
-
-## Makefile
-
-Make sure that the `make` command is available.
-
-The `Makefile` is used to group commands commonly used during the development of the application.
-
-To start from zero, create a new virtual environment:
-
-```bash
-make venv-create
-```
-
-In case you need to delete and create from scratch the environment, use this command:
-
-```bash
-make venv-recreate
-```
-
-To install the server in development mode (pip editable mode), with the  dependencies also for the tests, use this command:
-
-```bash
-make venv-dev-install
-```
-
-
-### Classic development
-
-Craete a virtual env:
-
-```bash
-python -m venv SpearHeadServerEnv
-```
-
-Install the submodule [federated-learning-shared](https://gitlab-core.supsi.ch/dti-idsia/spearhead/federated-learning-shared), since it is a dependency:
-
-```bash
-pip install federated-learning-shared/
-```
-
-For testing purposes, install the server in editable mode using pip:
-
-```bash
-pip install -e ".[test]"
-```
-
----
-
-## Environment variables
-
-* `DATABASE_URL` specifies the url to the database.\
-  For a [PostgreSQL](https://www.postgresql.org/) database, the connection string could be something like
-
-```
-[PostgreSQL](https://www.postgresql.org/)://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}/${DATABASE_SCHEMA}
-```
-
-* `SERVER_MAIN_PASSWORD` defines the main secret key of the server.\
-  This key is used to encrypt sensible information and data to the database.\
-  Losing this key will cause data loss in the application!
-
-Client application for the Federated Learning Framework.
-
-# Development client
-
-The Docker Compose file requires a `.env` file with the following information in it:
-
-```
-SERVER=<url of the server to use>
-```
-
-If useful, it is possible to create a `config.yaml` file and use it in the Docker Compose file by mounting the following volume:
-
-````
-volumes:
-  - <path to local config.yaml>:/spearhead/config.yaml
-```
-
-The content of the `config.yaml` file is the following:
-
-```
-ferdelance:
-  client:
-    server: <url of remote server>
-    workdir: <local path - don't use it in docker>
-    heartbeat: <float, in seconds>
-
-  datasource:
-    - name: <name of the source>
-      kind: file
-      type: <'csv' or 'tsv'> 
-      path: <path to the file to use (in docker, remember to mount volume to this path!)>
-
-    - name: <name of the source>
-      kind: db
-      type: <'sqlite' or 'postgres'>
-      conn: <connection string to use>
-```
