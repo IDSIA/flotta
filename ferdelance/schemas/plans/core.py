@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Any
 from abc import ABC, abstractmethod
 
@@ -14,21 +15,23 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Plan(BaseModel):
-
     name: str
     params: dict[str, Any]
+    local_plan: Plan | None = None
 
 
 class GenericPlan(ABC):
     """Describe how to train and evaluate a model based on the input data source."""
 
-    def __init__(self, name: str, label: str, random_seed: float | None = None) -> None:
+    def __init__(self, name: str, label: str, random_seed: Any = None, local_plan: GenericPlan | None = None) -> None:
         self.name: str = name
         self.label: str = label
-        self.random_seed: float | None = random_seed
+        self.random_seed: Any = random_seed
 
         self.metrics: list[Metrics] = list()
         self.path_model: str | None = None
+
+        self.local_plan: GenericPlan | None = local_plan
 
     def params(self) -> dict[str, Any]:
         return {
@@ -38,6 +41,12 @@ class GenericPlan(ABC):
         }
 
     def build(self) -> Plan:
+        if self.local_plan is not None:
+            return Plan(
+                name=self.name,
+                params=self.params(),
+                local_plan=self.local_plan.build(),
+            )
         return Plan(
             name=self.name,
             params=self.params(),
