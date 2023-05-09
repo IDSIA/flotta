@@ -4,9 +4,7 @@ from ferdelance.client.services.routes import RouteService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.estimators import apply_estimator
-from ferdelance.schemas.models import rebuild_model
 from ferdelance.schemas.transformers import apply_transformer
-from ferdelance.schemas.plans import rebuild_plan
 from ferdelance.schemas.updates import UpdateExecute
 
 import pandas as pd
@@ -28,7 +26,6 @@ class ExecuteAction(Action):
         pass
 
     def execute(self) -> None:
-
         task: ClientTask = self.routes_service.get_task(self.update_execute)
         artifact: Artifact = task.artifact
         artifact_id = artifact.artifact_id
@@ -87,21 +84,21 @@ class ExecuteAction(Action):
         LOGGER.info(f"artifact_id={artifact_id}: saved data to {path_datasource}")
 
         # do we have an estimator?
-        if artifact.estimate is not None:
+        if artifact.estimator is not None:
             LOGGER.info(f"artifact_id={artifact_id}: executing estimation")
 
-            path_estimator = apply_estimator(artifact.estimate, df_dataset, working_folder, artifact_id)
+            path_estimator = apply_estimator(artifact.estimator, df_dataset, working_folder, artifact_id)
 
             self.routes_service.post_result(artifact_id, path_estimator)
 
-        elif artifact.model is not None and artifact.load is not None:
+        elif artifact.model is not None and artifact.plan is not None:
             LOGGER.info(f"artifact_id={artifact_id}: executing model training")
 
             # model preparation
-            local_model = rebuild_model(artifact.model)
+            local_model = artifact.get_model()
 
             # LOAD execution plan
-            plan = rebuild_plan(artifact.load)
+            plan = artifact.get_plan()
 
             plan.load(df_dataset, local_model, working_folder, artifact_id)
 

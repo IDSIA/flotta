@@ -72,6 +72,11 @@ class Config:
 
         self.dump_props()
 
+    def set_token(self, client_token: str) -> None:
+        self.client_token = client_token
+
+        self.dump_props()
+
     def get_server(self) -> str:
         return self.server.rstrip("/")
 
