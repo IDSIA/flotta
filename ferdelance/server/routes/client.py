@@ -18,7 +18,6 @@ from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.client import ClientJoinRequest, ClientJoinData
 from ferdelance.schemas.updates import DownloadApp, UpdateExecute
 from ferdelance.schemas.components import (
-    Client,
     Component,
     Application,
 )
@@ -293,10 +292,10 @@ async def client_post_result(
 
         result_db = await jm.client_result_create(artifact_id, component.component_id)
 
-        await jm.check_for_aggregation(result_db)
-
         await ss.setup(component.public_key)
         await ss.stream_decrypt_file(request, result_db.path)
+
+        await jm.check_for_aggregation(result_db)
 
         return {}
     except Exception as e:

@@ -11,7 +11,6 @@ import pandas as pd
 
 
 class Estimator(BaseModel):
-
     name: str
     features_in: list[QueryFeature]
     params: dict[str, Any]
@@ -48,11 +47,11 @@ class GenericEstimator(ABC):
         raise NotImplementedError()
 
     @abstractclassmethod
-    def estimate(self) -> Any:
+    def estimate(self, df: pd.DataFrame) -> Any:
         raise NotImplementedError()
 
     @abstractclassmethod
-    def aggregate(self, estimator_a: Estimator, estimator_b: Estimator) -> Estimator:
+    def aggregate(self, estimator_a: GenericEstimator, estimator_b: GenericEstimator) -> Estimator:
         """Merge two estimators together. A new estimator need to be created.
         If an issue occurs, raise ValueError exception.
 

@@ -1,7 +1,7 @@
 from ferdelance.schemas.queries.queries import Query
-from ferdelance.schemas.models import Model
-from ferdelance.schemas.plans import Plan
-from ferdelance.schemas.estimators import Estimator
+from ferdelance.schemas.models import Model, GenericModel, rebuild_model
+from ferdelance.schemas.plans import Plan, GenericPlan, rebuild_plan
+from ferdelance.schemas.estimators import Estimator, GenericEstimator, rebuild_estimator
 
 from pydantic import BaseModel
 
@@ -20,12 +20,36 @@ class Artifact(BaseModel):
     artifact_id: str | None = None
     project_id: str
     transform: Query
-    load: Plan | None = None
+    plan: Plan | None = None
     model: Model | None = None
-    estimate: Estimator | None = None
+    estimator: Estimator | None = None
 
     def is_estimation(self):
-        return self.estimate is not None
+        return self.estimator is not None
 
     def is_model(self):
         return self.model is not None
+
+    def get_plan(self) -> GenericPlan:
+        if self.plan is None:
+            raise ValueError(f"No plan available with artifact_id={self.artifact_id}")
+
+        return rebuild_plan(self.plan)
+
+    def get_model(self) -> GenericModel:
+        if self.model is None:
+            raise ValueError(f"No model available with artifact_id={self.artifact_id}")
+
+        return rebuild_model(self.model)
+
+    def get_strategy(self) -> str:
+        if self.model is None:
+            raise ValueError(f"No model available with artifact_id={self.artifact_id}")
+
+        return self.model.strategy
+
+    def get_estimator(self) -> GenericEstimator:
+        if self.estimator is None:
+            raise ValueError(f"No estimator available with artifact_id={self.artifact_id}")
+
+        return rebuild_estimator(self.estimator)

@@ -2,8 +2,8 @@ from typing import Any
 
 from ferdelance.config import conf
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.models import rebuild_model, Model, GenericModel
-from ferdelance.schemas.estimators import rebuild_estimator, Estimator, GenericEstimator
+from ferdelance.schemas.models import GenericModel
+from ferdelance.schemas.estimators import GenericEstimator
 from ferdelance.schemas.errors import ErrorArtifact
 from ferdelance.worker.celery import worker
 
@@ -14,8 +14,6 @@ import logging
 import pickle
 import requests
 import traceback
-
-# logging = logging.getLogger(__name__)
 
 
 class AggregationTask(Task):
@@ -32,10 +30,10 @@ class AggregationTask(Task):
         return self.run(*args, **kwargs)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        logging.critical("{0!r} failed: {1!r}".format(task_id, exc))
-        logging.critical(f"{args}")
-        logging.critical(f"{kwargs}")
-        logging.critical(f"{einfo}")
+        logging.critical(f"{task_id} failed: exc={exc!r}")
+        logging.critical(f"{task_id} failed: args={args!r}")
+        logging.critical(f"{task_id} failed: kwargs={kwargs!r}")
+        logging.critical(f"{task_id} failed: extra_info={einfo!r}")
 
     def setup(self, artifact_id: str, token: str) -> None:
         self.server = conf.server_url()
@@ -93,8 +91,8 @@ class AggregationTask(Task):
 
         res.raise_for_status()
 
-    def aggregate_estimator(self, estimator: Estimator, result_ids: list[str]) -> GenericEstimator:
-        agg = rebuild_estimator(estimator)
+    def aggregate_estimator(self, artifact: Artifact, result_ids: list[str]) -> GenericEstimator:
+        agg = artifact.get_estimator()
 
         base: Any = None
 
@@ -110,8 +108,9 @@ class AggregationTask(Task):
 
         return base
 
-    def aggregate_model(self, model: Model, result_ids: list[str]) -> GenericModel:
-        agg = rebuild_model(model)
+    def aggregate_model(self, artifact: Artifact, result_ids: list[str]) -> GenericModel:
+        agg = artifact.get_model()
+        strategy = artifact.get_strategy()
 
         base: Any = None
 
@@ -121,7 +120,7 @@ class AggregationTask(Task):
             if base is None:
                 base = partial
             else:
-                base = agg.aggregate(model.strategy, base, partial)
+                base = agg.aggregate(strategy, base, partial)
 
         logging.info(f"artifact_id={self.artifact_id}: aggregated {len(result_ids)} model(s)")
 
@@ -133,13 +132,13 @@ class AggregationTask(Task):
 
             logging.debug(f"using server {server}")
 
-            artifact = self.get_artifact()
+            artifact: Artifact = self.get_artifact()
 
-            if artifact.estimate is not None:
-                base = self.aggregate_estimator(artifact.estimate, result_ids)
+            if artifact.is_estimation():
+                base = self.aggregate_estimator(artifact, result_ids)
 
-            elif artifact.model is not None:
-                base = self.aggregate_model(artifact.model, result_ids)
+            elif artifact.is_model():
+                base = self.aggregate_model(artifact, result_ids)
 
             else:
                 raise ValueError(f"Unsupported artifact_id={self.artifact_id}")

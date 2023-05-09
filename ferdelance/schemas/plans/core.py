@@ -3,6 +3,7 @@ from typing import Any
 from abc import ABC, abstractmethod
 
 from ferdelance.schemas.models import GenericModel, Metrics
+from ferdelance.database.repositories import AggregationContext
 
 from pydantic import BaseModel
 
@@ -41,6 +42,12 @@ class GenericPlan(ABC):
         }
 
     def build(self) -> Plan:
+        """Converts the GenericPlan instance to a Plan exchange object.
+
+        Returns:
+            Plan:
+                Object that can be sent to a server or a client in JSON format.
+        """
         if self.local_plan is not None:
             return Plan(
                 name=self.name,
@@ -52,8 +59,31 @@ class GenericPlan(ABC):
             params=self.params(),
         )
 
+    async def pre_aggregation_hook(self, artifact_id: str, context: AggregationContext) -> None:
+        pass
+
+    async def post_aggregation_hook(self, artifact_id: str, context: AggregationContext) -> None:
+        pass
+
     @abstractmethod
     def load(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> None:
+        """Method executed by each client. Implement this method to specify what a client need to do to build and
+        evaluate a local model.
+
+        Args:
+            df (pd.DataFrame):
+                Data to work on from the previous extraction query.
+            local_model (GenericModel):
+                Description of the local model to build.
+            working_folder (str):
+                Working folder to use
+            artifact_id (str):
+                Id of the artifact that will be executed
+
+        Raises:
+            NotImplementedError:
+                If the plan does not implement this method.
+        """
         raise NotImplementedError()
 
     def validate_input(self, df: pd.DataFrame) -> None:
