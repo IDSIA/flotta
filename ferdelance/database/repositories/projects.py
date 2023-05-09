@@ -14,7 +14,6 @@ from ferdelance.schemas.project import (
 )
 
 from sqlalchemy import select
-from sqlalchemy.exc import NoReferenceError
 from sqlalchemy.orm import selectinload
 
 import logging
@@ -117,7 +116,6 @@ class ProjectRepository(Repository):
                 Metadata object received from a client.
         """
         for mdds in metadata.datasources:
-
             res = await self.session.scalars(
                 select(DataSourceDB).where(DataSourceDB.datasource_id == mdds.datasource_id)
             )
