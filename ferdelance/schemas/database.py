@@ -22,8 +22,9 @@ class ServerArtifact(BaseModel):
 
 
 class Result(BaseModel):
-    """Model data stored in the database."""
+    """Model, estimation, or aggregation data stored in the database."""
 
+    job_id: str
     result_id: str
     artifact_id: str
     client_id: str

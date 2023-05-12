@@ -151,13 +151,13 @@ class RouteService:
             with open(".update", "w") as f:
                 f.write(path_file)
 
-    def post_result(self, artifact_id: str, path_in: str):
+    def post_result(self, job_id: str, path_in: str):
         path_out = f"{path_in}.enc"
 
         self.exc.encrypt_file_for_remote(path_in, path_out)
 
         res = post(
-            f"{self.config.server}/client/result/{artifact_id}",
+            f"{self.config.server}/client/result/{job_id}",
             data=open(path_out, "rb"),
             headers=self.exc.headers(),
         )
@@ -167,7 +167,7 @@ class RouteService:
 
         res.raise_for_status()
 
-        LOGGER.info(f"artifact_id={artifact_id}: result from source={path_in} upload successful")
+        LOGGER.info(f"job_id={job_id}: result from source={path_in} upload successful")
 
     def post_metrics(self, metrics: Metrics):
         res = post(
@@ -178,4 +178,6 @@ class RouteService:
 
         res.raise_for_status()
 
-        LOGGER.info(f"artifact_id={metrics.artifact_id}: metrics from source={metrics.source} upload successful")
+        LOGGER.info(
+            f"job_id={metrics.job_id}: metrics for artifact_id={metrics.artifact_id} from source={metrics.source} upload successful"
+        )

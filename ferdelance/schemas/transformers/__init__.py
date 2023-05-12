@@ -1,7 +1,7 @@
 __all__ = [
     "apply_transformer",
     "save",
-    "load",
+    "run",
     "Transformer",
     "FederatedPipeline",
     "FederatedFilter",
@@ -62,13 +62,12 @@ def save(obj: Transformer, path: str) -> None:
         pickle.dump(obj, f)
 
 
-def load(path: str) -> Transformer:
+def run(path: str) -> Transformer:
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
 def rebuild_transformer(transformer: QueryTransformer) -> Transformer:
-
     LOGGER.info(f"apply transformer {transformer.name}")
     c = globals()[transformer.name]
 
@@ -79,7 +78,6 @@ def rebuild_transformer(transformer: QueryTransformer) -> Transformer:
 
 
 def rebuild_pipeline(query_transformer: QueryTransformer) -> FederatedPipeline:
-
     stages = []
 
     params = query_transformer.params()
@@ -104,7 +102,6 @@ def apply_transformer(
     artifact_id: str | None = None,
     i: int | None = None,
 ) -> pd.DataFrame:
-
     if query_transformer.name == "FederatedPipeline":
         transformer = rebuild_pipeline(query_transformer)
 

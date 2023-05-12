@@ -247,7 +247,7 @@ class ArtifactRepository(Repository):
             status=artifact.status,
         )
 
-    async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> None:
+    async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus, iteration: int = 0) -> None:
         """Updated the current status of the given artifact with the new status
         provided, if the artifact exists.
 
@@ -256,6 +256,8 @@ class ArtifactRepository(Repository):
                 Id of the artifact to update.
             new_status (ArtifactJobStatus):
                 New status of the artifact.
+            iteration (int):
+                Index of the last updated iteration.
 
         Raises:
             NoResultFound:
@@ -265,5 +267,6 @@ class ArtifactRepository(Repository):
 
         artifact: ArtifactDB = res.one()
         artifact.status = new_status.name
+        artifact.iteration = iteration
 
         await self.session.commit()

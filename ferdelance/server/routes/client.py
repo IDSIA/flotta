@@ -260,10 +260,10 @@ async def client_get_task(
 
     data = await ss.read_request(request)
     payload = UpdateExecute(**data)
-    artifact_id = payload.artifact_id
+    job_id = payload.job_id
 
     try:
-        content = await jm.client_task_start(artifact_id, component.component_id)
+        content = await jm.client_task_start(job_id, component.component_id)
 
         return ss.create_response(content.dict())
 
@@ -277,20 +277,20 @@ async def client_get_task(
 # TODO: add endpoint for failed job executions
 
 
-@client_router.post("/client/result/{artifact_id}")
+@client_router.post("/client/result/{job_id}")
 async def client_post_result(
     request: Request,
-    artifact_id: str,
+    job_id: str,
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
     try:
-        LOGGER.info(f"client_id={component.component_id}: complete work on artifact_id={artifact_id}")
+        LOGGER.info(f"client_id={component.component_id}: complete work on job_id={job_id}")
 
         ss: SecurityService = SecurityService(session)
         jm: JobManagementService = job_manager(session)
 
-        result_db = await jm.client_result_create(artifact_id, component.component_id)
+        result_db = await jm.client_result_create(job_id, component.component_id)
 
         await ss.setup(component.public_key)
         await ss.stream_decrypt_file(request, result_db.path)

@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.plans.core import GenericPlan, GenericModel
+from ferdelance.schemas.plans.core import GenericPlan, GenericModel, Metrics
 
 from sklearn.model_selection import train_test_split
 
@@ -23,7 +23,7 @@ class TrainAll(GenericPlan):
     def params(self) -> dict[str, Any]:
         return super().params() | {}
 
-    def load(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> None:
+    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> list[Metrics]:
         label = self.label
 
         self.validate_input(df)
@@ -39,6 +39,8 @@ class TrainAll(GenericPlan):
 
         LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
 
+        return list()
+
 
 class TrainTestSplit(GenericPlan):
     """Execution plan that train a model on a percentage of available data and test it on the remaining part."""
@@ -52,7 +54,7 @@ class TrainTestSplit(GenericPlan):
             "test_percentage": self.test_percentage,
         }
 
-    def load(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> None:
+    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> list[Metrics]:
         label = self.label
         test_p = self.test_percentage
 
@@ -75,12 +77,15 @@ class TrainTestSplit(GenericPlan):
         LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
 
         # model testing
+        metrics_list: list[Metrics] = list()
         if X_ts is not None and Y_ts is not None:
             metrics = local_model.eval(X_ts, Y_ts)
             metrics.source = "test"
             metrics.artifact_id = artifact_id
 
-            self.metrics.append(metrics)
+            metrics_list.append(metrics)
+
+        return metrics_list
 
 
 class TrainTestValSplit(GenericPlan):
@@ -104,7 +109,7 @@ class TrainTestValSplit(GenericPlan):
     test_percentage: float = 0.0
     val_percentage: float = 0.0
 
-    def load(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> None:
+    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> list[Metrics]:
         label = self.label
         val_p = self.val_percentage
         test_p = self.test_percentage
@@ -131,13 +136,15 @@ class TrainTestValSplit(GenericPlan):
 
         LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
 
+        list_metrics: list[Metrics] = list()
+
         # model testing
         if X_ts is not None and Y_ts is not None:
             metrics = local_model.eval(X_ts, Y_ts)
             metrics.source = "test"
             metrics.artifact_id = artifact_id
 
-            self.metrics.append(metrics)
+            list_metrics.append(metrics)
 
         # model validation
         if X_val is not None and Y_val is not None:
@@ -145,4 +152,6 @@ class TrainTestValSplit(GenericPlan):
             metrics.source = "val"
             metrics.artifact_id = artifact_id
 
-            self.metrics.append(metrics)
+            list_metrics.append(metrics)
+
+        return list_metrics

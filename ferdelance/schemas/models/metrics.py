@@ -2,9 +2,9 @@ from pydantic import BaseModel
 
 
 class Metrics(BaseModel):
-
-    artifact_id: str = ''
-    source: str = ''
+    artifact_id: str = ""
+    job_id: str = ""
+    source: str = ""
 
     accuracy_score: float = -1.0
     precision_score: float = -1.0

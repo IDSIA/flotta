@@ -10,7 +10,6 @@ __all__ = [
     "setup_settings",
     "KeyValueStore",
     "WorkerRepository",
-    "AggregationContext",
 ]
 
 from .core import AsyncSession, Repository
@@ -22,4 +21,3 @@ from .result import ResultRepository
 from .projects import ProjectRepository
 from .settings import KeyValueStore, setup_settings
 from .workers import WorkerRepository
-from .context import AggregationContext

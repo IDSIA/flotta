@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, String, DateTime, Integer, Float, Table, Column, UniqueConstraint
+from sqlalchemy import ForeignKey, String, DateTime, Integer, Table, Column, UniqueConstraint
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
@@ -115,12 +115,15 @@ class Artifact(Base):
     path: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String)
 
+    # Zero-based index, same as relative Job.iteration
+    iteration: Mapped[int] = mapped_column(default=0)
+
     is_model: Mapped[bool] = mapped_column(default=False)
     is_estimation: Mapped[bool] = mapped_column(default=False)
 
 
 class Job(Base):
-    """Table that keep track of which artifact has been submitted and the state of the request.
+    """Table that keeps track of which artifact has been submitted and the state of the request.
 
     A task is equal to an artifact and is composed by a filter query, a model to train, and an aggregation strategy.
 
@@ -129,31 +132,42 @@ class Job(Base):
 
     __tablename__ = "jobs"
 
-    job_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, index=True)
+    job_id: Mapped[str] = mapped_column(String(36), primary_key=True)
 
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))
     artifact = relationship("Artifact")
 
+    # True if the job trains a new model
     is_model: Mapped[bool] = mapped_column(default=False)
+    # True if the job fit a new estimation
     is_estimation: Mapped[bool] = mapped_column(default=False)
+    # True if the job is an aggregation of models or estimations
     is_aggregation: Mapped[bool] = mapped_column(default=False)
+    # Zero-based counter for iterations
+    iteration: Mapped[int] = mapped_column(default=0)
 
+    # Id of the task assigned by celery (only if aggregation)
     celery_id: Mapped[str | None] = mapped_column(default=None)
 
+    # Id of the component executing the job
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
     component = relationship("Component")
 
+    # Last known status of the job
     status: Mapped[str] = mapped_column(nullable=True)
 
+    # When the job has been submitted
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    # When the job started
     execution_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the job terminated
     termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (UniqueConstraint("artifact_id", "component_id", name="_jobs_ids_unique"),)
+    __table_args__ = (UniqueConstraint("artifact_id", "component_id", "iteration", name="_jobs_ids_unique"),)
 
 
 class Result(Base):
-    """Table that keep track of all the task produced and stored on the server."""
+    """Table that keep track of all the results produced by each job and stored on the server."""
 
     __tablename__ = "results"
 
@@ -167,7 +181,12 @@ class Result(Base):
     is_aggregation: Mapped[bool] = mapped_column(default=False)
     is_error: Mapped[bool] = mapped_column(default=False)
 
-    # TODO: one model per artifact or one artifact can have multiple models
+    iteration: Mapped[int] = mapped_column(default=0)
+
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.job_id"))
+    job = relationship("Job")
+
+    # TODO: one model per artifact or one artifact can have multiple models?
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))
     artifact = relationship("Artifact")
 

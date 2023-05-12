@@ -11,6 +11,7 @@ import os
 
 def view(result: ResultDB) -> Result:
     return Result(
+        job_id=result.job_id,
         result_id=result.result_id,
         artifact_id=result.artifact_id,
         client_id=result.component_id,
@@ -31,7 +32,7 @@ class ResultRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    def storage_directory(self, artifact_id: str) -> str:
+    def storage_directory(self, artifact_id: str, iteration: int) -> str:
         """Checks that the output directory for this result exists. If not it
         will be created.
 
@@ -43,14 +44,16 @@ class ResultRepository(Repository):
             str:
                 A valid path to the directory where a result can be saved to or loaded from.
         """
-        out_dir = os.path.join(conf.STORAGE_ARTIFACTS, artifact_id)
+        out_dir = os.path.join(conf.STORAGE_ARTIFACTS, artifact_id, str(iteration))
         os.makedirs(out_dir, exist_ok=True)
         return out_dir
 
     async def create_result(
         self,
+        job_id: str,
         artifact_id: str,
         producer_id: str,
+        iteration: int,
         is_estimation: bool = False,
         is_model: bool = False,
         is_aggregation: bool = False,
@@ -86,7 +89,7 @@ class ResultRepository(Repository):
         result_id: str = str(uuid4())
 
         # name creation
-        filename = f"{artifact_id}.{producer_id}.{result_id}"
+        filename = f"{artifact_id}.{producer_id}.{result_id}.{iteration}"
 
         if is_error:
             filename += ".ERROR"
@@ -100,17 +103,19 @@ class ResultRepository(Repository):
         elif is_estimation:
             filename += ".estimator"
 
-        out_path = os.path.join(self.storage_directory(artifact_id), filename)
+        out_path = os.path.join(self.storage_directory(artifact_id, iteration), filename)
 
         result_db = ResultDB(
             result_id=result_id,
             path=out_path,
+            job_id=job_id,
             artifact_id=artifact_id,
             component_id=producer_id,
             is_estimation=is_estimation,
             is_model=is_model,
             is_aggregation=is_aggregation,
             is_error=is_error,
+            iteration=iteration,
         )
 
         self.session.add(result_db)

@@ -88,7 +88,7 @@ class Config:
             self.private_key_location = os.path.join(self.workdir, "private_key.pem")
         return self.private_key_location
 
-    def path_artifact_folder(self) -> str:
+    def path_artifacts_folder(self) -> str:
         path = os.path.join(self.workdir, "artifacts")
         os.makedirs(path, exist_ok=True)
         return path

@@ -3,7 +3,7 @@ from typing import Any
 from abc import ABC, abstractmethod
 
 from ferdelance.schemas.models import GenericModel, Metrics
-from ferdelance.database.repositories import AggregationContext
+from ferdelance.schemas.context import AggregationContext
 
 from pydantic import BaseModel
 
@@ -29,7 +29,6 @@ class GenericPlan(ABC):
         self.label: str = label
         self.random_seed: Any = random_seed
 
-        self.metrics: list[Metrics] = list()
         self.path_model: str | None = None
 
         self.local_plan: GenericPlan | None = local_plan
@@ -59,14 +58,16 @@ class GenericPlan(ABC):
             params=self.params(),
         )
 
-    async def pre_aggregation_hook(self, artifact_id: str, context: AggregationContext) -> None:
+    async def pre_aggregation_hook(self, context: AggregationContext) -> None:
+        """This hook controls the start of an aggregation job."""
         pass
 
-    async def post_aggregation_hook(self, artifact_id: str, context: AggregationContext) -> None:
+    async def post_aggregation_hook(self, context: AggregationContext) -> None:
+        """This hook controls the scheduling of new training jobs."""
         pass
 
     @abstractmethod
-    def load(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> None:
+    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> list[Metrics]:
         """Method executed by each client. Implement this method to specify what a client need to do to build and
         evaluate a local model.
 
