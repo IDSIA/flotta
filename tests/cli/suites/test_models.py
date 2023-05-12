@@ -10,7 +10,6 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_models_list(session: AsyncSession):
-
     session.add(
         Artifact(
             artifact_id="aid1",
@@ -35,6 +34,7 @@ async def test_models_list(session: AsyncSession):
     session.add(
         ResultDB(
             result_id="mid1",
+            job_id="job-1",
             path=".",
             artifact_id="aid1",
             component_id="cid1",
@@ -79,6 +79,7 @@ async def test_describe_client(session: AsyncSession):
     session.add(
         ResultDB(
             result_id="mid1",
+            job_id="job-1",
             path=".",
             artifact_id="aid1",
             component_id="cid1",

@@ -1,10 +1,8 @@
 from pydantic import BaseModel
 
-from ferdelance.schemas.artifacts import Artifact
-
 
 class AggregationContext(BaseModel):
-    artifact: Artifact
+    artifact_id: str
 
     job_total: int = 0
     job_completed: int = 0

@@ -225,7 +225,11 @@ class JobManagementService(Repository):
             it = job.iteration
 
             artifact: Artifact = await self.get_artifact(artifact_id)
-            context = AggregationContext(artifact=artifact, current_iteration=it, next_iteration=it + 1)
+            context = AggregationContext(
+                artifact_id=artifact_id,
+                current_iteration=it,
+                next_iteration=it + 1,
+            )
 
             context.job_total = await self.jr.count_jobs_by_artifact_id(artifact_id, it)
             context.job_completed = await self.jr.count_jobs_by_artifact_status(artifact_id, JobStatus.COMPLETED, it)
@@ -355,7 +359,11 @@ class JobManagementService(Repository):
         await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED)
 
         artifact: Artifact = await self.get_artifact(artifact_id)
-        context = AggregationContext(artifact=artifact)
+        context = AggregationContext(
+            artifact_id=artifact_id,
+            current_iteration=job.iteration,
+            next_iteration=job.iteration + 1,
+        )
 
         await artifact.get_plan().post_aggregation_hook(context)
 

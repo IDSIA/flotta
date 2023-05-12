@@ -54,7 +54,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
             project_id=project.project_id,
             transform=project.data.extract(),
             model=Model(name="model", strategy=""),
-            load=None,
+            plan=None,
         )
 
         # test artifact submit
@@ -100,7 +100,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         await jm.client_result_create(artifact.artifact_id, args.client_id)
         await jr.schedule_job(artifact.artifact_id, worker_id)
 
-        await jm.ar.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
+        await jm.context.ar.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
 
         res = await session.scalars(
             select(JobDB).where(
