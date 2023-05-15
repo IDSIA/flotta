@@ -95,7 +95,7 @@ class ActionService(Repository):
             LOGGER.error(f"Invalid action type for job_id={job.job_id}")
             raise ValueError()
 
-        return UpdateExecute(action=action.name, job_id=job.artifact_id)
+        return UpdateExecute(action=action.name, job_id=job.job_id)
 
     async def _action_nothing(self) -> UpdateNothing:
         """Do nothing and waits for the next update request."""

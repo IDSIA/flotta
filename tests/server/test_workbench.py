@@ -246,7 +246,7 @@ async def test_workbench_access(session):
         assert res.status_code == 403
 
         res = server.get(
-            "/worker/artifact/none",
+            "/worker/task/none",
             headers=wb_exc.headers(),
         )
 

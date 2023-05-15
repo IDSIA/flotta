@@ -57,7 +57,7 @@ async def worker_post_artifact(
         raise HTTPException(403)
 
 
-@worker_router.get("/worker/task/{job_id}", response_model=Artifact)
+@worker_router.get("/worker/task/{job_id}", response_model=WorkerTask)
 async def worker_get_task(
     job_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):

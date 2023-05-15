@@ -154,7 +154,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         update_execute = UpdateExecute(**data)
 
-        assert update_execute.job_id == job.artifact_id
+        assert update_execute.job_id == job.job_id
 
         LOGGER.info("get task for client")
 

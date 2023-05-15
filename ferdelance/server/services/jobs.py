@@ -304,7 +304,7 @@ class JobManagementService(Repository):
 
             artifact: Artifact = await self.get_artifact(artifact_id)
 
-            await self.jr.mark_completed(artifact_id, worker_id)
+            await self.jr.mark_completed(job_id, worker_id)
 
             result = await self.rr.create_result(
                 job_id=job_id,
