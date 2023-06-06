@@ -5,7 +5,7 @@ from ferdelance.database.tables import (
 )
 from ferdelance.database.repositories import ProjectRepository, JobRepository
 from ferdelance.server.api import api
-from ferdelance.server.services import JobManagementService
+from ferdelance.jobs import JobManagementService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainAll

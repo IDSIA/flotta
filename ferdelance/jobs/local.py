@@ -1,5 +1,5 @@
 from ferdelance.database import AsyncSession
-from ferdelance.server.services import JobManagementService
+from ferdelance.jobs.server import JobManagementService
 from ferdelance.standalone.extra import extra
 
 from multiprocessing import Queue

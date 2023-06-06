@@ -1,27 +1,17 @@
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.repositories import (
-    AsyncSession,
-    ComponentRepository,
-    DataSourceRepository,
-    ProjectRepository,
-)
-from ferdelance.server.utils import job_manager, JobManagementService
-from ferdelance.server.services import (
-    ActionService,
-    SecurityService,
-)
-from ferdelance.server.security import check_token
-from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
-
+from ferdelance.database.repositories import AsyncSession
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.client import ClientJoinRequest, ClientJoinData
+from ferdelance.schemas.client import ClientJoinRequest
 from ferdelance.schemas.updates import DownloadApp, UpdateExecute
 from ferdelance.schemas.components import (
     Component,
     Application,
 )
 from ferdelance.schemas.models import Metrics
+from ferdelance.server.services import SecurityService, ClientConnectService, ClientService
+from ferdelance.server.security import check_token
+from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import (
@@ -69,8 +59,8 @@ async def client_join(
     """API for new client joining."""
     LOGGER.info("new client join request")
 
-    cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
+    cs: ClientConnectService = ClientConnectService(session)
 
     if request.client is None:
         LOGGER.warning("client not set for request?")
@@ -81,37 +71,10 @@ async def client_join(
     try:
         client_public_key = decode_from_transfer(data.public_key)
 
-        try:
-            await cr.get_by_key(client_public_key)
-
-            raise HTTPException(403, "Invalid client data")
-
-        except NoResultFound as e:
-            LOGGER.info("joining new client")
-            # create new client
-            client, token = await cr.create_client(
-                name=data.name,
-                version=data.version,
-                public_key=client_public_key,
-                machine_system=data.system,
-                machine_mac_address=data.mac_address,
-                machine_node=data.node,
-                ip_address=ip_address,
-            )
-
-            LOGGER.info(f"client_id={client.client_id}: created new client")
-
-            await cr.create_event(client.client_id, "creation")
-
-        LOGGER.info(f"client_id={client.client_id}: created new client")
+        cjd, client = await cs.connect(client_public_key, data, ip_address)
 
         await ss.setup(client.public_key)
-
-        cjd = ClientJoinData(
-            id=client.client_id,
-            token=token.token,
-            public_key=ss.get_server_public_key(),
-        )
+        cjd.public_key = ss.get_server_public_key()
 
         return ss.create_response(cjd.dict())
 
@@ -131,12 +94,11 @@ async def client_leave(
     component: Component = Depends(check_access),
 ):
     """API for existing client to be removed"""
-    cr: ComponentRepository = ComponentRepository(session)
-
     LOGGER.info(f"client_id={component.component_id}: request to leave")
 
-    await cr.client_leave(component.component_id)
-    await cr.create_event(component.component_id, "left")
+    cs: ClientService = ClientService(session, component)
+
+    await cs.leave()
 
     return {}
 
@@ -153,23 +115,17 @@ async def client_update(
     - new client app package
     - nothing (keep alive)
     """
+    LOGGER.info(f"client_id={component.component_id}: update request")
 
-    cr: ComponentRepository = ComponentRepository(session)
-    acs: ActionService = ActionService(session)
     ss: SecurityService = SecurityService(session)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
-    await cr.create_event(component.component_id, "update")
-    client = await cr.get_client_by_id(component.component_id)
 
     # consume current results (if present) and compute next action
     payload: dict[str, Any] = await ss.read_request(request)
 
-    next_action = await acs.next(client, payload)
-
-    LOGGER.debug(f"client_id={component.component_id}: update action={next_action.action}")
-
-    await cr.create_event(component.component_id, f"action:{next_action.action}")
+    next_action = await cs.update(payload)
 
     return ss.create_response(next_action.dict())
 
@@ -187,29 +143,21 @@ async def client_update_files(
     """
     LOGGER.info(f"client_id={component.component_id}: update files request")
 
-    cr: ComponentRepository = ComponentRepository(session)
     ss: SecurityService = SecurityService(session)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
-    await cr.create_event(component.component_id, "update files")
 
     data = await ss.read_request(request)
     payload = DownloadApp(**data)
 
     try:
-        new_app: Application = await cr.get_newest_app()
-
-        if new_app.version != payload.version:
-            LOGGER.warning(
-                f"client_id={component.component_id} requested app version={payload.version} while latest version={new_app.version}"
-            )
-            raise HTTPException(400, "Old versions are not permitted")
-
-        await cr.update_client(component.component_id, version=payload.version)
-
-        LOGGER.info(f"client_id={component.component_id}: requested new client version={payload.version}")
+        new_app: Application = await cs.update_files(payload)
 
         return ss.encrypt_file(new_app.path)
+    except ValueError as e:
+        raise HTTPException(400, "Old versions are not permitted")
+
     except NoResultFound as _:
         raise HTTPException(404, "no newest version found")
 
@@ -226,19 +174,14 @@ async def client_update_metadata(
     """
     LOGGER.info(f"client_id={component.component_id}: update metadata request")
 
-    cr: ComponentRepository = ComponentRepository(session)
-    dsr: DataSourceRepository = DataSourceRepository(session)
-    pr: ProjectRepository = ProjectRepository(session)
     ss: SecurityService = SecurityService(session)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
-    await cr.create_event(component.component_id, "update metadata")
 
     data = await ss.read_request(request)
     metadata = Metadata(**data)
-
-    await dsr.create_or_update_from_metadata(component.component_id, metadata)  # this will also update metadata
-    await pr.add_datasources_from_metadata(metadata)
+    metadata = await cs.update_metadata(metadata)
 
     return ss.create_response(metadata.dict())
 
@@ -251,19 +194,16 @@ async def client_get_task(
 ):
     LOGGER.info(f"client_id={component.component_id}: new task request")
 
-    cr: ComponentRepository = ComponentRepository(session)
-    jm: JobManagementService = job_manager(session)
     ss: SecurityService = SecurityService(session)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
-    await cr.create_event(component.component_id, "schedule task")
 
     data = await ss.read_request(request)
     payload = UpdateExecute(**data)
-    job_id = payload.job_id
 
     try:
-        content = await jm.client_task_start(job_id, component.component_id)
+        content = await cs.get_task(payload)
 
         return ss.create_response(content.dict())
 
@@ -284,18 +224,19 @@ async def client_post_result(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
+    LOGGER.info(f"client_id={component.component_id}: complete work on job_id={job_id}")
+
+    ss: SecurityService = SecurityService(session)
+    cs: ClientService = ClientService(session, component)
+
+    await ss.setup(component.public_key)
+
     try:
-        LOGGER.info(f"client_id={component.component_id}: complete work on job_id={job_id}")
+        result_db = await cs.result(job_id)
 
-        ss: SecurityService = SecurityService(session)
-        jm: JobManagementService = job_manager(session)
-
-        result_db = await jm.client_result_create(job_id, component.component_id)
-
-        await ss.setup(component.public_key)
         await ss.stream_decrypt_file(request, result_db.path)
 
-        await jm.check_for_aggregation(result_db)
+        await cs.check(result_db)
 
         return {}
     except Exception as e:
@@ -309,7 +250,7 @@ async def client_post_metrics(
     component: Component = Depends(check_access),
 ):
     ss: SecurityService = SecurityService(session)
-    jm: JobManagementService = job_manager(session)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
 
@@ -320,6 +261,6 @@ async def client_post_metrics(
         f"client_id={component.component_id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}"
     )
 
-    await jm.save_metrics(metrics)
+    await cs.metrics(metrics)
 
     return {}

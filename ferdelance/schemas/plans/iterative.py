@@ -14,12 +14,11 @@ LOGGER = logging.getLogger(__name__)
 class IterativePlan(GenericPlan):
     def __init__(
         self,
-        label: str,
         local_plan: GenericPlan,
         iterations: int = -1,
         random_seed: float | None = None,
     ) -> None:
-        super().__init__(IterativePlan.__name__, label, random_seed, local_plan)
+        super().__init__(IterativePlan.__name__, local_plan.label, random_seed, local_plan)
 
         self.iterations: int = iterations
 

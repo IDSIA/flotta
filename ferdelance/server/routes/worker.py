@@ -7,8 +7,10 @@ from ferdelance.schemas.components import Component
 from ferdelance.schemas.errors import ErrorArtifact
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.server.security import check_token
-from ferdelance.server.utils import job_manager, JobManagementService
+from ferdelance.jobs import JobManagementService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
+
+from ferdelance.server.services import WorkerService
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -44,10 +46,10 @@ async def worker_post_artifact(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: sent new artifact")
 
-    try:
-        jms: JobManagementService = job_manager(session)
+    ws: WorkerService = WorkerService(session, worker)
 
-        status = await jms.submit_artifact(artifact)
+    try:
+        status = await ws.submit_artifact(artifact)
 
         return status
 
@@ -63,10 +65,10 @@ async def worker_get_task(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: requested job_id={job_id}")
 
-    try:
-        jms: JobManagementService = job_manager(session)
+    ws: WorkerService = WorkerService(session, worker)
 
-        task: WorkerTask = await jms.worker_task_start(job_id, worker.component_id)
+    try:
+        task = await ws.get_task(job_id)
 
         return task
 
@@ -83,20 +85,21 @@ async def post_result(
     worker: Component = Depends(check_access),
 ):
     LOGGER.info(f"worker_id={worker.component_id}: send result for job_id={job_id}")
-    js: JobManagementService = job_manager(session)
+
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
-        result_db: Result = await js.worker_result_create(job_id, worker.component_id)
+        result: Result = await ws.result(job_id)
 
-        async with aiofiles.open(result_db.path, "wb") as out_file:
+        async with aiofiles.open(result.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
-        await js.aggregation_completed(job_id)
+        await ws.completed(job_id)
 
     except Exception as e:
         LOGGER.exception(e)
-        await js.aggregation_error(job_id, f"could not save result to disk, exception: {e}")
+        await ws.error(job_id, f"could not save result to disk, exception: {e}")
         raise HTTPException(500)
 
 
@@ -106,21 +109,20 @@ async def post_error(
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):
-    artifact_id = error.artifact_id
-    LOGGER.warn(f"worker_id={worker.component_id}: artifact_id={artifact_id} in error={error.message}")
-    js: JobManagementService = JobManagementService(session)
+    LOGGER.warn(f"worker_id={worker.component_id}: artifact_id={error.artifact_id} in error={error.message}")
+
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
-        result_db = await js.worker_error(artifact_id, worker.component_id)
+        result = await ws.failed(error)
 
-        await js.aggregation_error(error.artifact_id, error.message)
-
-        async with aiofiles.open(result_db.path, "w") as f:
+        async with aiofiles.open(result.path, "w") as f:
             content = json.dumps(error.dict())
             await f.write(content)
 
     except Exception as e:
         LOGGER.exception(e)
+        await ws.error(error.artifact_id, f"could not save result to disk, exception: {e}")
         raise HTTPException(500)
 
 
@@ -129,15 +131,16 @@ async def get_result(
     result_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
     LOGGER.info(f"worker_id={worker.component_id}: request result_id={result_id}")
+
+    ws: WorkerService = WorkerService(session, worker)
+
     try:
-        rr: ResultRepository = ResultRepository(session)
+        result = await ws.get_result(result_id)
 
-        result_db: Result = await rr.get_by_id(result_id)
-
-        if not os.path.exists(result_db.path):
+        if not os.path.exists(result.path):
             raise NoResultFound()
 
-        return FileResponse(result_db.path)
+        return FileResponse(result.path)
 
     except NoResultFound:
         raise HTTPException(404)

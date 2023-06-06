@@ -1,9 +1,15 @@
 __all__ = [
     "ActionService",
     "SecurityService",
-    "JobManagementService",
+    "ClientConnectService",
+    "ClientService",
+    "WorkbenchConnectService",
+    "WorkbenchService",
+    "WorkerService",
 ]
 
 from .security import SecurityService
 from .actions import ActionService
-from .jobs import JobManagementService
+from .client import ClientConnectService, ClientService
+from .workbench import WorkbenchConnectService, WorkbenchService
+from .worker import WorkerService
