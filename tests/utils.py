@@ -1,15 +1,14 @@
 from typing import Any
 
 from ferdelance.database.repositories import ProjectRepository, WorkerRepository
-from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientUpdate
+from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
 from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange
 
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
-from requests import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import json

@@ -204,7 +204,7 @@ class JobManagementService(Repository):
 
         return result
 
-    async def check_for_aggregation(self, result: Result) -> None:
+    async def check_and_start_aggregation(self, result: Result) -> None:
         """This function is a check used to determine if starting the aggregation
         of an artifact or not. Conditions to start are: all jobs related to the
         current artifact (referenced in the argument result) is completed, and
@@ -218,6 +218,12 @@ class JobManagementService(Repository):
             ValueError:
                 If the artifact referenced by argument result does not exists.
         """
+        aggregate = await self.check_for_aggregation(result)
+
+        if aggregate:
+            await self.start_aggregation(result)
+
+    async def check_for_aggregation(self, result: Result) -> bool:
         artifact_id = result.artifact_id
 
         try:
@@ -241,34 +247,57 @@ class JobManagementService(Repository):
                 LOGGER.error(
                     f"artifact_id={result.artifact_id}: cannot aggregate: {context.job_failed} jobs have error"
                 )
-                return
+                return False
 
             if not context.completed():
                 LOGGER.info(
                     f"artifact_id={result.artifact_id}: cannot aggregate: {context.job_completed} / {context.job_total} completed job(s)"
                 )
-                return
+                return False
 
             LOGGER.info(
                 f"artifact_id={result.artifact_id}: all {context.job_total} job(s) completed, starting aggregation"
             )
 
-            token = await self.cr.get_token_for_workers()
+            return True
 
-            if token is None:
-                LOGGER.error(f"artifact_id={result.artifact_id}: cannot aggregate: no worker available")
-                return
+        except NoResultFound:
+            raise ValueError(f"artifact_id={artifact_id} not found")
 
-            # schedule an aggregation
-            worker_id = await self.cr.get_component_id_by_token(token)
+        except Exception as e:
+            LOGGER.exception(e)
+            raise e
 
-            job: Job = await self.jr.schedule_job(
-                artifact_id,
-                worker_id,
-                is_model=result.is_model,
-                is_estimation=result.is_estimation,
-                is_aggregation=True,
-            )
+    async def check_for_worker(self) -> tuple[str, str]:
+        token = await self.cr.get_token_for_workers()
+
+        if token is None:
+            raise ValueError("No worker available")
+
+        # schedule an aggregation
+        worker_id = await self.cr.get_component_id_by_token(token)
+
+        return token, worker_id
+
+    async def schedule_aggregation_job(self, result: Result, worker_id: str) -> Job:
+        artifact_id = result.artifact_id
+
+        job: Job = await self.jr.schedule_job(
+            artifact_id,
+            worker_id,
+            is_model=result.is_model,
+            is_estimation=result.is_estimation,
+            is_aggregation=True,
+        )
+
+        return job
+
+    async def start_aggregation(self, result: Result) -> None:
+        artifact_id = result.artifact_id
+
+        try:
+            token, worker_id = await self.check_for_worker()
+            job = await self.schedule_aggregation_job(result, worker_id)
 
             results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id)
             result_ids: list[str] = [m.result_id for m in results]
@@ -280,12 +309,16 @@ class JobManagementService(Repository):
 
             LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job with job_id={job.job_id}")
 
-        except IntegrityError:
+        except ValueError as _:
+            LOGGER.error(f"artifact_id={artifact_id}: cannot aggregate: no worker available")
+            return
+
+        except IntegrityError as _:
             LOGGER.warning(f"artifact_id={artifact_id}: trying to re-schedule an already existing aggregation job")
             await self.session.rollback()
             return
 
-        except NoResultFound:
+        except NoResultFound as _:
             raise ValueError(f"artifact_id={artifact_id} not found")
 
         except Exception as e:

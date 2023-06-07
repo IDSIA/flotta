@@ -13,15 +13,13 @@ from ferdelance.schemas.artifacts import (
     Artifact,
 )
 from ferdelance.schemas.client import ClientDetails
-from ferdelance.schemas.components import Component, Token
+from ferdelance.schemas.components import Token
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinData,
-    WorkbenchProjectToken,
-    WorkbenchArtifact,
 )
 
 from sqlalchemy.exc import NoResultFound
@@ -81,48 +79,48 @@ class WorkbenchConnectService:
 
 
 class WorkbenchService:
-    def __init__(self, session: AsyncSession, user: Component) -> None:
+    def __init__(self, session: AsyncSession, component_id: str) -> None:
         self.session: AsyncSession = session
-        self.user: Component = user
+        self.component_id: str = component_id
 
-    async def project(self, wpt: WorkbenchProjectToken) -> Project:
+    async def project(self, project_token: str) -> Project:
         """
         :raise:
             NoResultFound when there is no project with the given token.
         """
         pr: ProjectRepository = ProjectRepository(self.session)
 
-        project = await pr.get_by_token(token=wpt.token)
+        project = await pr.get_by_token(project_token)
 
-        LOGGER.info(f"user_id={self.user.component_id}: loaded project with project_id={project.project_id}")
+        LOGGER.info(f"user_id={self.component_id}: loaded project with project_id={project.project_id}")
 
         return project
 
-    async def get_client_list(self, wpt: WorkbenchProjectToken) -> WorkbenchClientList:
+    async def get_client_list(self, project_token: str) -> WorkbenchClientList:
         cr: ComponentRepository = ComponentRepository(self.session)
         pr: ProjectRepository = ProjectRepository(self.session)
 
-        client_ids = await pr.list_client_ids(wpt.token)
+        client_ids = await pr.list_client_ids(project_token)
 
         clients = await cr.list_clients_by_ids(client_ids)
 
         client_details = [ClientDetails(**c.dict()) for c in clients]
 
         LOGGER.info(
-            f"user_id={self.user.component_id}: found {len(client_details)} datasource(s) with token={wpt.token}"
+            f"user_id={self.component_id}: found {len(client_details)} datasource(s) with token={project_token}"
         )
 
         return WorkbenchClientList(clients=client_details)
 
-    async def get_datasource_list(self, wpt: WorkbenchProjectToken) -> WorkbenchDataSourceIdList:
+    async def get_datasource_list(self, project_token: str) -> WorkbenchDataSourceIdList:
         dsr: DataSourceRepository = DataSourceRepository(self.session)
         pr: ProjectRepository = ProjectRepository(self.session)
 
-        datasource_ids = await pr.list_datasources_ids(wpt.token)
+        datasource_ids = await pr.list_datasources_ids(project_token)
 
         datasources = [await dsr.load(ds_id) for ds_id in datasource_ids]
 
-        LOGGER.info(f"user_id={self.user.component_id}: found {len(datasources)} datasource(s) with token={wpt.token}")
+        LOGGER.info(f"user_id={self.component_id}: found {len(datasources)} datasource(s) with token={project_token}")
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
@@ -134,37 +132,37 @@ class WorkbenchService:
 
         status = await jms.submit_artifact(artifact)
 
-        LOGGER.info(f"user_id={self.user.component_id}: submitted artifact got artifact_id={status.artifact_id}")
+        LOGGER.info(f"user_id={self.component_id}: submitted artifact got artifact_id={status.artifact_id}")
 
         return status
 
-    async def get_status_artifact(self, artifact: WorkbenchArtifact) -> ArtifactStatus:
+    async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """
         :raise:
             NoResultFound if the artifact was not found in the database.
         """
         ar: ArtifactRepository = ArtifactRepository(self.session)
 
-        status = await ar.get_status(artifact.artifact_id)
+        status = await ar.get_status(artifact_id)
 
-        LOGGER.info(f"user_id={self.user.component_id}: got status of artifact_id={artifact.artifact_id}")
+        LOGGER.info(f"user_id={self.component_id}: got status of artifact_id={artifact_id}")
 
         return status
 
-    async def get_artifact(self, artifact: WorkbenchArtifact) -> Artifact:
+    async def get_artifact(self, artifact_id: str) -> Artifact:
         """
         :raise:
             ValueError if the requested artifact cannot be found.
         """
         jms: JobManagementService = job_manager(self.session)
 
-        art = await jms.get_artifact(artifact.artifact_id)
+        art = await jms.get_artifact(artifact_id)
 
-        LOGGER.info(f"user_id={self.user.component_id}: downloaded artifact with artifact_id={artifact.artifact_id}")
+        LOGGER.info(f"user_id={self.component_id}: downloaded artifact with artifact_id={artifact_id}")
 
         return art
 
-    async def get_result(self, artifact: WorkbenchArtifact) -> Result:
+    async def get_result(self, artifact_id: str) -> Result:
         """
         :raise:
             ValueError when the requested result exists on the database but not on disk.
@@ -175,14 +173,12 @@ class WorkbenchService:
         """
         rr: ResultRepository = ResultRepository(self.session)
 
-        artifact_id = artifact.artifact_id
-
         result: Result = await rr.get_aggregated_result(artifact_id)
 
         if not os.path.exists(result.path):
             raise ValueError(f"result_id={result.result_id} not found at path={result.path}")
 
-        LOGGER.info(f"user_id={self.user.component_id}: downloaded results for artifact_id={artifact.artifact_id}")
+        LOGGER.info(f"user_id={self.component_id}: downloaded results for artifact_id={artifact_id}")
 
         return result
 
@@ -204,7 +200,7 @@ class WorkbenchService:
             raise ValueError(f"partial result_id={result.result_id} not found at path={result.path}")
 
         LOGGER.info(
-            f"user_id={self.user.component_id}: downloaded partial result for artifact_id={artifact_id} and builder_user_id={builder_user_id}"
+            f"user_id={self.component_id}: downloaded partial result for artifact_id={artifact_id} and builder_user_id={builder_user_id}"
         )
 
         return result

@@ -96,7 +96,7 @@ async def client_leave(
     """API for existing client to be removed"""
     LOGGER.info(f"client_id={component.component_id}: request to leave")
 
-    cs: ClientService = ClientService(session, component)
+    cs: ClientService = ClientService(session, component.component_id)
 
     await cs.leave()
 
@@ -118,7 +118,7 @@ async def client_update(
     LOGGER.info(f"client_id={component.component_id}: update request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
+    cs: ClientService = ClientService(session, component.component_id)
 
     await ss.setup(component.public_key)
 
@@ -144,7 +144,7 @@ async def client_update_files(
     LOGGER.info(f"client_id={component.component_id}: update files request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
+    cs: ClientService = ClientService(session, component.component_id)
 
     await ss.setup(component.public_key)
 
@@ -175,7 +175,7 @@ async def client_update_metadata(
     LOGGER.info(f"client_id={component.component_id}: update metadata request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
+    cs: ClientService = ClientService(session, component.component_id)
 
     await ss.setup(component.public_key)
 
@@ -195,7 +195,7 @@ async def client_get_task(
     LOGGER.info(f"client_id={component.component_id}: new task request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
+    cs: ClientService = ClientService(session, component.component_id)
 
     await ss.setup(component.public_key)
 
@@ -227,16 +227,16 @@ async def client_post_result(
     LOGGER.info(f"client_id={component.component_id}: complete work on job_id={job_id}")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
+    cs: ClientService = ClientService(session, component.component_id)
 
     await ss.setup(component.public_key)
 
     try:
-        result_db = await cs.result(job_id)
+        result = await cs.result(job_id)
 
-        await ss.stream_decrypt_file(request, result_db.path)
+        await ss.stream_decrypt_file(request, result.path)
 
-        await cs.check(result_db)
+        await cs.check(result)
 
         return {}
     except Exception as e:
@@ -250,7 +250,7 @@ async def client_post_metrics(
     component: Component = Depends(check_access),
 ):
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
+    cs: ClientService = ClientService(session, component.component_id)
 
     await ss.setup(component.public_key)
 

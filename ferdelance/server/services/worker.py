@@ -7,6 +7,8 @@ from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import ErrorArtifact
 from ferdelance.schemas.worker import WorkerTask
 
+from sqlalchemy.exc import NoResultFound
+
 import logging
 import os
 
@@ -14,9 +16,9 @@ LOGGER = logging.getLogger(__name__)
 
 
 class WorkerService:
-    def __init__(self, session: AsyncSession, worker: Component) -> None:
+    def __init__(self, session: AsyncSession, component_id: str) -> None:
         self.session: AsyncSession = session
-        self.worker: Component = worker
+        self.component_id: str = component_id
         self.jms: JobManagementService = job_manager(self.session)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
@@ -26,24 +28,31 @@ class WorkerService:
         """
         status = await self.jms.submit_artifact(artifact)
 
-        LOGGER.info(f"worker_id={self.worker.component_id}: submitted artifact got artifact_id={status.artifact_id}")
+        LOGGER.info(f"worker_id={self.component_id}: submitted artifact got artifact_id={status.artifact_id}")
 
         return status
 
     async def get_task(self, job_id: str) -> WorkerTask:
-        task: WorkerTask = await self.jms.worker_task_start(job_id, self.worker.component_id)
+        task: WorkerTask = await self.jms.worker_task_start(job_id, self.component_id)
 
         return task
 
     async def result(self, job_id: str) -> Result:
-        result = await self.jms.client_result_create(job_id, self.worker.component_id)
+        result = await self.jms.client_result_create(job_id, self.component_id)
 
         return result
 
     async def get_result(self, result_id: str) -> Result:
+        """
+        :raise:
+            NoResultFound if there is no result on the disk.
+        """
         rr: ResultRepository = ResultRepository(self.session)
 
         result: Result = await rr.get_by_id(result_id)
+
+        if not os.path.exists(result.path):
+            raise NoResultFound()
 
         return result
 
@@ -52,8 +61,8 @@ class WorkerService:
         await self.jms.aggregation_completed(job_id)
 
     async def failed(self, error: ErrorArtifact) -> Result:
-        """Aggregation failed."""
-        result = await self.jms.worker_error(error.artifact_id, self.worker.component_id)
+        """Aggregation failed, and worker did an error."""
+        result = await self.jms.worker_error(error.artifact_id, self.component_id)
 
         await self.error(error.artifact_id, error.message)
 

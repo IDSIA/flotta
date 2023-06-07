@@ -1,3 +1,5 @@
+from typing import Any
+
 from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
     ComponentRepository,
@@ -89,9 +91,9 @@ class ClientConnectService:
 
 
 class ClientService:
-    def __init__(self, session: AsyncSession, component: Component) -> None:
+    def __init__(self, session: AsyncSession, component_id: str) -> None:
         self.session: AsyncSession = session
-        self.component: Component = component
+        self.component_id: str = component_id
 
     async def leave(self) -> None:
         """
@@ -99,40 +101,40 @@ class ClientService:
             NoResultFound when there is no project with the given token.
         """
         cr: ComponentRepository = ComponentRepository(self.session)
-        await cr.client_leave(self.component.component_id)
-        await cr.create_event(self.component.component_id, "left")
+        await cr.client_leave(self.component_id)
+        await cr.create_event(self.component_id, "left")
 
-    async def update(self, payload) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
+    async def update(self, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         cr: ComponentRepository = ComponentRepository(self.session)
         acs: ActionService = ActionService(self.session)
 
-        await cr.create_event(self.component.component_id, "update")
-        client = await cr.get_client_by_id(self.component.component_id)
+        await cr.create_event(self.component_id, "update")
+        client = await cr.get_client_by_id(self.component_id)
 
         next_action = await acs.next(client, payload)
 
-        LOGGER.debug(f"client_id={self.component.component_id}: update action={next_action.action}")
+        LOGGER.debug(f"client_id={self.component_id}: update action={next_action.action}")
 
-        await cr.create_event(self.component.component_id, f"action:{next_action.action}")
+        await cr.create_event(self.component_id, f"action:{next_action.action}")
 
         return next_action
 
     async def update_files(self, payload: DownloadApp) -> Application:
         cr: ComponentRepository = ComponentRepository(self.session)
 
-        await cr.create_event(self.component.component_id, "update files")
+        await cr.create_event(self.component_id, "update files")
 
         new_app: Application = await cr.get_newest_app()
 
         if new_app.version != payload.version:
             LOGGER.warning(
-                f"client_id={self.component.component_id} requested app version={payload.version} while latest version={new_app.version}"
+                f"client_id={self.component_id} requested app version={payload.version} while latest version={new_app.version}"
             )
             raise ValueError("Old versions are not permitted")
 
-        await cr.update_client(self.component.component_id, version=payload.version)
+        await cr.update_client(self.component_id, version=payload.version)
 
-        LOGGER.info(f"client_id={self.component.component_id}: requested new client version={payload.version}")
+        LOGGER.info(f"client_id={self.component_id}: requested new client version={payload.version}")
 
         return new_app
 
@@ -141,11 +143,9 @@ class ClientService:
         dsr: DataSourceRepository = DataSourceRepository(self.session)
         pr: ProjectRepository = ProjectRepository(self.session)
 
-        await cr.create_event(self.component.component_id, "update metadata")
+        await cr.create_event(self.component_id, "update metadata")
 
-        await dsr.create_or_update_from_metadata(
-            self.component.component_id, metadata
-        )  # this will also update existing metadata
+        await dsr.create_or_update_from_metadata(self.component_id, metadata)  # this will also update existing metadata
         await pr.add_datasources_from_metadata(metadata)
 
         return metadata
@@ -154,24 +154,24 @@ class ClientService:
         cr: ComponentRepository = ComponentRepository(self.session)
         jm: JobManagementService = job_manager(self.session)
 
-        await cr.create_event(self.component.component_id, "schedule task")
+        await cr.create_event(self.component_id, "schedule task")
 
         job_id = payload.job_id
 
-        content = await jm.client_task_start(job_id, self.component.component_id)
+        content = await jm.client_task_start(job_id, self.component_id)
 
         return content
 
     async def result(self, job_id: str):
         jm: JobManagementService = job_manager(self.session)
 
-        result_db = await jm.client_result_create(job_id, self.component.component_id)
+        result_db = await jm.client_result_create(job_id, self.component_id)
 
         return result_db
 
     async def check(self, result_db: Result) -> None:
         jm: JobManagementService = job_manager(self.session)
-        await jm.check_for_aggregation(result_db)
+        await jm.check_and_start_aggregation(result_db)
 
     async def metrics(self, metrics: Metrics) -> None:
         jm: JobManagementService = job_manager(self.session)

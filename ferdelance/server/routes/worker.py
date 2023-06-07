@@ -1,15 +1,12 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.database.repositories import ResultRepository
-from ferdelance.schemas.database import Result
+from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
+from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import ErrorArtifact
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.server.security import check_token
-from ferdelance.jobs import JobManagementService
-from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
-
 from ferdelance.server.services import WorkerService
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -20,7 +17,6 @@ from sqlalchemy.exc import NoResultFound
 import aiofiles
 import json
 import logging
-import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +42,7 @@ async def worker_post_artifact(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: sent new artifact")
 
-    ws: WorkerService = WorkerService(session, worker)
+    ws: WorkerService = WorkerService(session, worker.component_id)
 
     try:
         status = await ws.submit_artifact(artifact)
@@ -65,7 +61,7 @@ async def worker_get_task(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: requested job_id={job_id}")
 
-    ws: WorkerService = WorkerService(session, worker)
+    ws: WorkerService = WorkerService(session, worker.component_id)
 
     try:
         task = await ws.get_task(job_id)
@@ -86,7 +82,7 @@ async def post_result(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: send result for job_id={job_id}")
 
-    ws: WorkerService = WorkerService(session, worker)
+    ws: WorkerService = WorkerService(session, worker.component_id)
 
     try:
         result: Result = await ws.result(job_id)
@@ -111,7 +107,7 @@ async def post_error(
 ):
     LOGGER.warn(f"worker_id={worker.component_id}: artifact_id={error.artifact_id} in error={error.message}")
 
-    ws: WorkerService = WorkerService(session, worker)
+    ws: WorkerService = WorkerService(session, worker.component_id)
 
     try:
         result = await ws.failed(error)
@@ -132,13 +128,10 @@ async def get_result(
 ):
     LOGGER.info(f"worker_id={worker.component_id}: request result_id={result_id}")
 
-    ws: WorkerService = WorkerService(session, worker)
+    ws: WorkerService = WorkerService(session, worker.component_id)
 
     try:
         result = await ws.get_result(result_id)
-
-        if not os.path.exists(result.path):
-            raise NoResultFound()
 
         return FileResponse(result.path)
 
