@@ -1,4 +1,5 @@
 from typing import Any
+from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.models import GenericModel
 
 from ferdelance.schemas.plans.core import GenericPlan, GenericModel, Metrics
@@ -32,3 +33,6 @@ class IterativePlan(GenericPlan):
             raise ValueError("No local plan defined!")
 
         return self.local_plan.run(df, local_model, working_folder, artifact_id)
+
+    async def post_aggregation_hook(self, context: AggregationContext) -> None:
+        context.schedule_next_iteration = context.current_iteration < self.iterations

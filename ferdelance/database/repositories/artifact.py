@@ -23,6 +23,7 @@ def view(artifact: ArtifactDB) -> ServerArtifact:
         status=artifact.status,
         is_model=artifact.is_model,
         is_estimation=artifact.is_estimation,
+        iteration=artifact.iteration,
     )
 
 

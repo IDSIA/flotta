@@ -24,9 +24,12 @@ def rebuild_plan(plan: Plan) -> GenericPlan:
     c = globals()[plan.name]
 
     p = plan.params
-    params = {v: p[v] for v in signature(c).parameters}
+    params = dict()
 
-    if plan.local_plan is not None:
-        params["local_plan"] = rebuild_plan(plan.local_plan)
+    for v in signature(c).parameters:
+        if v == "local_plan" and plan.local_plan is not None:
+            params["local_plan"] = rebuild_plan(plan.local_plan)
+        else:
+            params[v] = p[v]
 
     return c(**params)

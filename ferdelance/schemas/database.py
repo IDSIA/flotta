@@ -14,6 +14,8 @@ class ServerArtifact(BaseModel):
     is_model: bool
     is_estimation: bool
 
+    iteration: int
+
     def get_status(self) -> ArtifactStatus:
         return ArtifactStatus(
             artifact_id=self.artifact_id,

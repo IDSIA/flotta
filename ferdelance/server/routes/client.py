@@ -236,7 +236,7 @@ async def client_post_result(
 
         await ss.stream_decrypt_file(request, result.path)
 
-        await cs.check(result)
+        await cs.check_and_start(result)
 
         return {}
     except Exception as e:
