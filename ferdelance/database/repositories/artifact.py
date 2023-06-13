@@ -246,9 +246,12 @@ class ArtifactRepository(Repository):
         return ArtifactStatus(
             artifact_id=artifact.artifact_id,
             status=artifact.status,
+            iteration=artifact.iteration,
         )
 
-    async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus, iteration: int = 0) -> None:
+    async def update_status(
+        self, artifact_id: str, new_status: ArtifactJobStatus | None = None, iteration: int = -1
+    ) -> ServerArtifact:
         """Updated the current status of the given artifact with the new status
         provided, if the artifact exists.
 
@@ -267,7 +270,12 @@ class ArtifactRepository(Repository):
         res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id))
 
         artifact: ArtifactDB = res.one()
-        artifact.status = new_status.name
-        artifact.iteration = iteration
+        if new_status is not None:
+            artifact.status = new_status.name
+        if iteration > -1:
+            artifact.iteration = iteration
 
         await self.session.commit()
+        await self.session.refresh(artifact)
+
+        return view(artifact)

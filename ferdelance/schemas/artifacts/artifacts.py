@@ -12,6 +12,7 @@ class ArtifactStatus(BaseModel):
     artifact_id: str | None
     status: str | None
     results: str | None = None
+    iteration: int = 0
 
 
 class Artifact(BaseModel):

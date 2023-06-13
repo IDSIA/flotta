@@ -46,7 +46,7 @@ class JobManagementService(Repository):
         self.pr: ProjectRepository = ProjectRepository(session)
         self.rr: ResultRepository = ResultRepository(session)
 
-    async def submit_artifact(self, artifact: Artifact, iteration=0) -> ArtifactStatus:
+    async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         """The submitted artifact will be stored on disk after an handler has been created in the database.
 
         If everything has been created successfully, then multiple jobs will be created for the clients. Otherwise, a
@@ -73,15 +73,17 @@ class JobManagementService(Repository):
 
             artifact_db: ServerArtifact = await self.ar.create_artifact(artifact)
 
-            await self._schedule_tasks_for_clients(artifact_db.artifact_id, artifact)
+            await self._schedule_tasks_for_clients(artifact_db.artifact_id, artifact, 0)
 
             return artifact_db.get_status()
         except ValueError as e:
             raise e
 
-    async def _schedule_tasks_for_clients(self, artifact_id: str, artifact: Artifact) -> None:
+    async def _schedule_tasks_for_clients(self, artifact_id: str, artifact: Artifact, iteration: int) -> None:
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
+
+        LOGGER.info(f"artifact_id={artifact_id}: scheduling {len(datasources_ids)} job(s) for iteration #{iteration}")
 
         for datasource_id in datasources_ids:
             client: Client = await self.dsr.get_client_by_datasource_id(datasource_id)
@@ -91,6 +93,7 @@ class JobManagementService(Repository):
                 client.client_id,
                 is_model=artifact.is_model(),
                 is_estimation=artifact.is_estimation(),
+                iteration=iteration,
             )
 
     async def get_artifact(self, artifact_id: str) -> Artifact:
@@ -263,6 +266,8 @@ class JobManagementService(Repository):
             if token is None:
                 raise ValueError("No worker available")
 
+            artifact = await self.ar.get_status(artifact_id)
+
             # schedule an aggregation
             worker_id = await self.cr.get_component_id_by_token(token)
 
@@ -272,6 +277,7 @@ class JobManagementService(Repository):
                 is_model=result.is_model,
                 is_estimation=result.is_estimation,
                 is_aggregation=True,
+                iteration=artifact.iteration,
             )
 
             results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id)
@@ -282,7 +288,7 @@ class JobManagementService(Repository):
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
             await self.jr.set_celery_id(job, task_id)
 
-            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job with job_id={job.job_id}")
+            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job_id={job.job_id}")
 
             return job
 
@@ -342,7 +348,7 @@ class JobManagementService(Repository):
 
             artifact: Artifact = await self.get_artifact(artifact_id)
 
-            await self.jr.mark_error(job_id, worker_id, job.iteration)
+            await self.jr.mark_error(job_id, worker_id)
 
             result = await self.rr.create_result(
                 job_id=job_id,
@@ -366,8 +372,6 @@ class JobManagementService(Repository):
         job = await self.jr.get_by_id(job_id)
         artifact_id = job.artifact_id
 
-        await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED)
-
         artifact: Artifact = await self.get_artifact(artifact_id)
         context = AggregationContext(
             artifact_id=artifact_id,
@@ -379,10 +383,14 @@ class JobManagementService(Repository):
         await plan.post_aggregation_hook(context)
 
         if context.schedule_next_iteration:
-            LOGGER.info(f"job_id={job_id}: scheduling next iteration ({context.next_iteration})")
+            LOGGER.info(f"artifact_id={artifact_id}: scheduling next iteration #{context.next_iteration}")
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.SCHEDULED, context.next_iteration)
-            await self._schedule_tasks_for_clients(artifact_id, artifact)
+            await self._schedule_tasks_for_clients(artifact_id, artifact, context.next_iteration)
+
+        else:
+            LOGGER.info(f"artifact_id={artifact_id}: artifact completed ")
+            await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, context.next_iteration)
 
     async def aggregation_error(self, job_id: str, error: str) -> None:
         LOGGER.warning(f"job_id={job_id}: aggregation completed with error: {error}")

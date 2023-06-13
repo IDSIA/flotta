@@ -7,7 +7,6 @@ from ferdelance.schemas.plans.core import GenericPlan, GenericModel, Metrics
 import pandas as pd
 
 import logging
-import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,4 +34,4 @@ class IterativePlan(GenericPlan):
         return self.local_plan.run(df, local_model, working_folder, artifact_id)
 
     async def post_aggregation_hook(self, context: AggregationContext) -> None:
-        context.schedule_next_iteration = context.current_iteration < self.iterations
+        context.schedule_next_iteration = context.current_iteration < self.iterations - 1
