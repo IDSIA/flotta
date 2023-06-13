@@ -8,7 +8,6 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_jobs_list(session: AsyncSession):
-
     c1: Component = Component(
         component_id="C1",
         version="test",
@@ -20,7 +19,7 @@ async def test_jobs_list(session: AsyncSession):
         type_name="CLIENT",
     )
     a1: Artifact = Artifact(artifact_id="A1", path="test-path", status="S1")
-    j1: Job = Job(artifact_id="A1", component_id="C1", status="J1")
+    j1: Job = Job(job_id="job-1", artifact_id="A1", component_id="C1", status="J1")
 
     session.add(c1)
     session.add(a1)

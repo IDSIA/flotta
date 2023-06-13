@@ -98,7 +98,6 @@ async def test_workbench_get_project(session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_workbench_list_client(session: AsyncSession):
-
     with TestClient(api) as server:
         args = await connect(server, session)
         wb_exc = args.wb_exc
@@ -122,7 +121,6 @@ async def test_workbench_list_client(session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_workbench_list_datasources(session: AsyncSession):
-
     with TestClient(api) as server:
         args = await connect(server, session)
         wb_exc = args.wb_exc
@@ -180,7 +178,7 @@ async def test_workflow_submit(session: AsyncSession):
             project_id=project.project_id,
             transform=datasource.extract(),
             model=Model(name="model", strategy=""),
-            load=None,
+            plan=None,
         )
 
         res = server.post(
@@ -248,7 +246,7 @@ async def test_workbench_access(session):
         assert res.status_code == 403
 
         res = server.get(
-            "/worker/artifact/none",
+            "/worker/task/none",
             headers=wb_exc.headers(),
         )
 

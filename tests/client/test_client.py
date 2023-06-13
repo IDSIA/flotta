@@ -6,7 +6,6 @@ from ferdelance.database.tables import (
     Token as TokenDB,
 )
 from ferdelance.schemas.components import (
-    Component,
     Client,
     Event,
     Token,
@@ -31,7 +30,6 @@ from tests.utils import (
 
 from fastapi.testclient import TestClient
 
-from requests import Response
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -365,7 +363,7 @@ async def test_client_access(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 200
 
         res = client.get(
-            "/worker/artifact/none",
+            "/worker/task/none",
             headers=exchange.headers(),
         )
 

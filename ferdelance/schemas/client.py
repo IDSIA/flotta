@@ -46,6 +46,7 @@ class ClientUpdateTaskCompleted(ClientUpdate):
 
 class ClientTask(BaseModel):
     artifact: Artifact
+    job_id: str
     datasource_hashes: list[str]
 
 

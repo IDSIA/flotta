@@ -79,7 +79,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
             project_id=project.project_id,
             transform=datasource.extract(),
             model=Model(name="model", strategy=""),
-            load=TrainTestSplit(
+            plan=TrainTestSplit(
                 label=datasource.features[0].name,
                 test_percentage=0.5,
             ).build(),
@@ -154,7 +154,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         update_execute = UpdateExecute(**data)
 
-        assert update_execute.artifact_id == job.artifact_id
+        assert update_execute.job_id == job.job_id
 
         LOGGER.info("get task for client")
 
@@ -179,8 +179,8 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         assert art.project_id == project.project_id
         assert len(art.transform.stages) == 1
         assert len(art.transform.stages[0].features) == 2
-        assert art.load is not None
-        assert art.load.params["label"] == datasource.features[0].name
+        assert art.plan is not None
+        assert art.plan.params["label"] == datasource.features[0].name
 
         # cleanup
 

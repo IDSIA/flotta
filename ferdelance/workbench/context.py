@@ -176,7 +176,7 @@ class Context:
         artifact = Artifact(
             project_id=project.project_id,
             transform=estimate.transform,
-            estimate=estimate.estimator,
+            estimator=estimate.estimator,
         )
 
         res = requests.post(
@@ -233,7 +233,7 @@ class Context:
         artifact: Artifact = Artifact(
             project_id=project.project_id,
             transform=query.transform,
-            load=query.plan,
+            plan=query.plan,
             model=query.model,
         )
 
@@ -321,7 +321,6 @@ class Context:
             data=self.exc.create_payload(wba.dict()),
             stream=True,
         ) as res:
-
             res.raise_for_status()
 
             data, _ = self.exc.stream_response(res.iter_content())

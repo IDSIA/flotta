@@ -12,8 +12,6 @@ from ferdelance.database.repositories import (
 from ferdelance.database.repositories.settings import setup_settings
 from ferdelance.server import security
 
-from sqlalchemy.exc import NoResultFound
-
 import aiofiles.os
 import logging
 

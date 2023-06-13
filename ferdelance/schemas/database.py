@@ -14,6 +14,8 @@ class ServerArtifact(BaseModel):
     is_model: bool
     is_estimation: bool
 
+    iteration: int
+
     def get_status(self) -> ArtifactStatus:
         return ArtifactStatus(
             artifact_id=self.artifact_id,
@@ -22,8 +24,9 @@ class ServerArtifact(BaseModel):
 
 
 class Result(BaseModel):
-    """Model data stored in the database."""
+    """Model, estimation, or aggregation data stored in the database."""
 
+    job_id: str
     result_id: str
     artifact_id: str
     client_id: str

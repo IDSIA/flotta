@@ -21,5 +21,4 @@ class UpdateTokenAction(Action):
 
     def execute(self) -> None:
         LOGGER.info("updating client token with a new one")
-        self.config.exc.set_token(self.data.token)
-        self.config.dump_props()
+        self.config.set_token(self.data.token)

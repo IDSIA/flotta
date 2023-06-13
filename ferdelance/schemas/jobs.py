@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class Job(BaseModel):
-    job_id: int
+    job_id: str
     artifact_id: str
     component_id: str
     status: str
@@ -15,3 +15,4 @@ class Job(BaseModel):
     is_estimation: bool = False
     is_aggregation: bool = False
     celery_id: str | None = None
+    iteration: int

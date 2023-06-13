@@ -23,6 +23,7 @@ def view(artifact: ArtifactDB) -> ServerArtifact:
         status=artifact.status,
         is_model=artifact.is_model,
         is_estimation=artifact.is_estimation,
+        iteration=artifact.iteration,
     )
 
 
@@ -245,9 +246,12 @@ class ArtifactRepository(Repository):
         return ArtifactStatus(
             artifact_id=artifact.artifact_id,
             status=artifact.status,
+            iteration=artifact.iteration,
         )
 
-    async def update_status(self, artifact_id: str, new_status: ArtifactJobStatus) -> None:
+    async def update_status(
+        self, artifact_id: str, new_status: ArtifactJobStatus | None = None, iteration: int = -1
+    ) -> ServerArtifact:
         """Updated the current status of the given artifact with the new status
         provided, if the artifact exists.
 
@@ -256,6 +260,8 @@ class ArtifactRepository(Repository):
                 Id of the artifact to update.
             new_status (ArtifactJobStatus):
                 New status of the artifact.
+            iteration (int):
+                Index of the last updated iteration.
 
         Raises:
             NoResultFound:
@@ -264,6 +270,12 @@ class ArtifactRepository(Repository):
         res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id))
 
         artifact: ArtifactDB = res.one()
-        artifact.status = new_status.name
+        if new_status is not None:
+            artifact.status = new_status.name
+        if iteration > -1:
+            artifact.iteration = iteration
 
         await self.session.commit()
+        await self.session.refresh(artifact)
+
+        return view(artifact)

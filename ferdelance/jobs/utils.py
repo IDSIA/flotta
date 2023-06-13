@@ -1,7 +1,7 @@
 from ferdelance.config import conf
 from ferdelance.database import AsyncSession
-from ferdelance.server.services import JobManagementService
-from ferdelance.standalone.services import JobManagementLocalService
+from ferdelance.jobs.server import JobManagementService
+from ferdelance.jobs.local import JobManagementLocalService
 
 
 def job_manager(session: AsyncSession) -> JobManagementService:

@@ -52,8 +52,8 @@ class FerdelanceClient:
         # create required directories
         os.makedirs(self.config.workdir, exist_ok=True)
         os.chmod(self.config.workdir, 0o700)
-        os.makedirs(self.config.path_artifact_folder(), exist_ok=True)
-        os.chmod(self.config.path_artifact_folder(), 0o700)
+        os.makedirs(self.config.path_artifacts_folder(), exist_ok=True)
+        os.chmod(self.config.path_artifacts_folder(), 0o700)
 
         exc = Exchange()
 
@@ -107,7 +107,6 @@ class FerdelanceClient:
                 self.config.join(data.id, data.token, data.public_key)
 
             except requests.HTTPError as e:
-
                 if e.response.status_code == 404:
                     LOGGER.error(f"remote server {self.config.server} not found.")
                     self.beat()
