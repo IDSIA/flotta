@@ -1,3 +1,5 @@
+from typing import Any
+
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.repositories import AsyncSession
@@ -23,7 +25,6 @@ from fastapi import (
 from fastapi.responses import Response
 
 from sqlalchemy.exc import SQLAlchemyError, NoResultFound
-from typing import Any
 
 import logging
 

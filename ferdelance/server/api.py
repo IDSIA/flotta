@@ -1,5 +1,7 @@
+from ferdelance.config import conf
 from ferdelance.database import DataBase, Base
 from ferdelance.server.routes.client import client_router
+from ferdelance.server.routes.server import server_router
 from ferdelance.server.routes.workbench import workbench_router
 from ferdelance.server.routes.worker import worker_router
 from ferdelance.server.startup import ServerStartup
@@ -20,6 +22,9 @@ def init_api() -> FastAPI:
     api.include_router(workbench_router)
     api.include_router(worker_router)
 
+    if conf.DISTRIBUTED:
+        api.include_router(server_router)
+
     return api
 
 
@@ -32,7 +37,6 @@ async def populate_database() -> None:
     LOGGER.info("server startup procedure started")
 
     try:
-
         inst = DataBase()
 
         async with inst.engine.begin() as conn:
