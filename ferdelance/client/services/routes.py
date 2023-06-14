@@ -3,7 +3,8 @@ from ferdelance.client.exceptions import ErrorClient
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientTask
+from ferdelance.schemas.node import JoinData, JoinRequest
+from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.updates import DownloadApp, UpdateClientApp, UpdateExecute
 from ferdelance.shared.exchange import Exchange
 
@@ -44,7 +45,7 @@ class RouteService:
 
         res.raise_for_status()
 
-    def join(self, join_data: ClientJoinRequest) -> ClientJoinData:
+    def join(self, join_data: JoinRequest) -> JoinData:
         """Send a join request to the server.
 
         :param system:
@@ -60,15 +61,15 @@ class RouteService:
         :return:
             The connection data for a join request.
         """
-        res = post(f"{self.config.server}/client/join", data=json.dumps(join_data.dict()))
+        res = post(f"{self.config.server}/node/join", data=json.dumps(join_data.dict()))
 
         res.raise_for_status()
 
-        return ClientJoinData(**self.exc.get_payload(res.content))
+        return JoinData(**self.exc.get_payload(res.content))
 
     def leave(self) -> None:
         res = post(
-            f"{self.config.server}/client/leave",
+            f"{self.config.server}/node/leave",
             headers=self.exc.headers(),
         )
 
@@ -86,7 +87,7 @@ class RouteService:
         metadata: Metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
 
         res = post(
-            f"{self.config.server}/client/update/metadata",
+            f"{self.config.server}/node/metadata",
             data=self.exc.create_payload(metadata.dict()),
             headers=self.exc.headers(),
         )

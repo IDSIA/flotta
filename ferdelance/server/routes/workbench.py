@@ -29,7 +29,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-workbench_router = APIRouter()
+workbench_router = APIRouter(prefix="/workbench")
 
 
 async def check_access(component: Component = Depends(check_token)) -> Component:
@@ -44,12 +44,12 @@ async def check_access(component: Component = Depends(check_token)) -> Component
         raise HTTPException(403)
 
 
-@workbench_router.get("/workbench/")
+@workbench_router.get("/")
 async def wb_home():
     return "Workbench 🔧"
 
 
-@workbench_router.post("/workbench/connect", response_class=Response)
+@workbench_router.post("/connect", response_class=Response)
 async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends(get_session)):
     LOGGER.info("new workbench connected")
 
@@ -62,7 +62,6 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
         wjd = await wb.connect(user_public_key)
 
         await ss.setup(user_public_key)
-
         wjd.public_key = ss.get_server_public_key()
 
         return ss.create_response(wjd.dict())
@@ -81,7 +80,7 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
         raise HTTPException(403, "Invalid client data")
 
 
-@workbench_router.get("/workbench/project", response_class=Response)
+@workbench_router.get("/project", response_class=Response)
 async def wb_get_project(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -107,7 +106,7 @@ async def wb_get_project(
         raise HTTPException(404)
 
 
-@workbench_router.get("/workbench/clients", response_class=Response)
+@workbench_router.get("/clients", response_class=Response)
 async def wb_get_client_list(
     request: Request, session: AsyncSession = Depends(get_session), component: Component = Depends(check_access)
 ):
@@ -126,7 +125,7 @@ async def wb_get_client_list(
     return ss.create_response(wcl.dict())
 
 
-@workbench_router.get("/workbench/datasources", response_class=Response)
+@workbench_router.get("/datasources", response_class=Response)
 async def wb_get_datasource_list(
     request: Request, session: AsyncSession = Depends(get_session), component: Component = Depends(check_access)
 ):
@@ -145,7 +144,7 @@ async def wb_get_datasource_list(
     return ss.create_response(wdsl.dict())
 
 
-@workbench_router.post("/workbench/artifact/submit", response_class=Response)
+@workbench_router.post("/artifact/submit", response_class=Response)
 async def wb_post_artifact_submit(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -172,7 +171,7 @@ async def wb_post_artifact_submit(
         raise HTTPException(403)
 
 
-@workbench_router.get("/workbench/artifact/status", response_class=Response)
+@workbench_router.get("/artifact/status", response_class=Response)
 async def wb_get_artifact_status(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -197,7 +196,7 @@ async def wb_get_artifact_status(
         raise HTTPException(404)
 
 
-@workbench_router.get("/workbench/artifact", response_class=Response)
+@workbench_router.get("/artifact", response_class=Response)
 async def wb_get_artifact(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -223,7 +222,7 @@ async def wb_get_artifact(
         raise HTTPException(404)
 
 
-@workbench_router.get("/workbench/result", response_class=FileResponse)
+@workbench_router.get("/result", response_class=FileResponse)
 async def wb_get_result(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -258,7 +257,7 @@ async def wb_get_result(
 
 
 @workbench_router.get(
-    "/workbench/result/partial/{artifact_id}/{builder_user_id}",
+    "/result/partial/{artifact_id}/{builder_user_id}",
     response_class=FileResponse,
 )
 async def wb_get_partial_result(

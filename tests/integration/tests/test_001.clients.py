@@ -5,7 +5,6 @@ import sys
 
 
 if __name__ == "__main__":
-
     project_id: str | None = os.environ.get("PROJECT_ID", None)
     server: str | None = os.environ.get("SERVER")
 
@@ -19,7 +18,7 @@ if __name__ == "__main__":
 
     ctx = Context(server)
 
-    project = ctx.load(project_id)
+    project = ctx.project(project_id)
 
     if project.n_clients != 2:
         print("Invalid number of clients, expected 2 found", project.n_clients)

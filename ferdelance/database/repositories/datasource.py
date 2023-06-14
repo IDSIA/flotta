@@ -1,9 +1,9 @@
+from ferdelance.config import conf
 from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.component import viewClient, ComponentDB, Client
 from ferdelance.schemas.metadata import Metadata, MetaDataSource
 from ferdelance.schemas.datasources import DataSource, Feature
-from ferdelance.config import conf
 
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound

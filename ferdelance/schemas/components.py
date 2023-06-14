@@ -16,6 +16,16 @@ class Component(BaseComponent):
     component_id: str
 
 
+dummy = Component(
+    type_name="DUMMY",
+    name="dummy",
+    public_key="",
+    active=False,
+    left=False,
+    component_id="dummy",
+)
+
+
 class Client(BaseComponent):
     client_id: str
 

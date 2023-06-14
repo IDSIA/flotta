@@ -2,7 +2,6 @@ from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import ResultRepository
 from ferdelance.jobs import job_manager, JobManagementService
 from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
-from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import ErrorArtifact
 from ferdelance.schemas.worker import WorkerTask

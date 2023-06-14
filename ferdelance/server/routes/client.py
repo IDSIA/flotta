@@ -3,18 +3,15 @@ from typing import Any
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.repositories import AsyncSession
-from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.client import ClientJoinRequest
 from ferdelance.schemas.updates import DownloadApp, UpdateExecute
 from ferdelance.schemas.components import (
     Component,
     Application,
 )
 from ferdelance.schemas.models import Metrics
-from ferdelance.server.services import SecurityService, ClientConnectService, ClientService
+from ferdelance.server.services import SecurityService, ClientService
 from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
-from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import (
     APIRouter,
@@ -24,14 +21,14 @@ from fastapi import (
 )
 from fastapi.responses import Response
 
-from sqlalchemy.exc import SQLAlchemyError, NoResultFound
+from sqlalchemy.exc import NoResultFound
 
 import logging
 
 LOGGER = logging.getLogger(__name__)
 
 
-client_router = APIRouter()
+client_router = APIRouter(prefix="/client")
 
 
 async def check_access(component: Component = Depends(check_token)) -> Component:
@@ -46,65 +43,12 @@ async def check_access(component: Component = Depends(check_token)) -> Component
         raise HTTPException(403)
 
 
-@client_router.get("/client/")
+@client_router.get("/")
 async def client_home():
     return "Client 🏠"
 
 
-@client_router.post("/client/join", response_class=Response)
-async def client_join(
-    request: Request,
-    data: ClientJoinRequest,
-    session: AsyncSession = Depends(get_session),
-):
-    """API for new client joining."""
-    LOGGER.info("new client join request")
-
-    ss: SecurityService = SecurityService(session)
-    cs: ClientConnectService = ClientConnectService(session)
-
-    if request.client is None:
-        LOGGER.warning("client not set for request?")
-        raise HTTPException(400)
-
-    ip_address = request.client.host
-
-    try:
-        client_public_key = decode_from_transfer(data.public_key)
-
-        cjd, client = await cs.connect(client_public_key, data, ip_address)
-
-        await ss.setup(client.public_key)
-        cjd.public_key = ss.get_server_public_key()
-
-        return ss.create_response(cjd.dict())
-
-    except SQLAlchemyError as e:
-        LOGGER.exception(e)
-        LOGGER.exception("Database error")
-        raise HTTPException(500, "Internal error")
-
-    except ValueError as e:
-        LOGGER.exception(e)
-        raise HTTPException(403, "Invalid client data")
-
-
-@client_router.post("/client/leave")
-async def client_leave(
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
-):
-    """API for existing client to be removed"""
-    LOGGER.info(f"client_id={component.component_id}: request to leave")
-
-    cs: ClientService = ClientService(session, component.component_id)
-
-    await cs.leave()
-
-    return {}
-
-
-@client_router.get("/client/update", response_class=Response)
+@client_router.get("/update", response_class=Response)
 async def client_update(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -131,7 +75,8 @@ async def client_update(
     return ss.create_response(next_action.dict())
 
 
-@client_router.get("/client/download/application", response_class=Response)
+# TODO: this can be removed
+@client_router.get("/download/application", response_class=Response)
 async def client_update_files(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -163,31 +108,7 @@ async def client_update_files(
         raise HTTPException(404, "no newest version found")
 
 
-@client_router.post("/client/update/metadata")
-async def client_update_metadata(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
-):
-    """Endpoint used by a client to send information regarding its metadata. These metadata includes:
-    - data source available
-    - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
-    """
-    LOGGER.info(f"client_id={component.component_id}: update metadata request")
-
-    ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.component_id)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    metadata = Metadata(**data)
-    metadata = await cs.update_metadata(metadata)
-
-    return ss.create_response(metadata.dict())
-
-
-@client_router.get("/client/task", response_class=Response)
+@client_router.get("/task", response_class=Response)
 async def client_get_task(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -218,7 +139,7 @@ async def client_get_task(
 # TODO: add endpoint for failed job executions
 
 
-@client_router.post("/client/result/{job_id}")
+@client_router.post("/result/{job_id}")
 async def client_post_result(
     request: Request,
     job_id: str,
@@ -244,7 +165,7 @@ async def client_post_result(
         LOGGER.exception(e)
 
 
-@client_router.post("/client/metrics")
+@client_router.post("/metrics")
 async def client_post_metrics(
     request: Request,
     session: AsyncSession = Depends(get_session),

@@ -1,6 +1,7 @@
-from ferdelance.database import get_session
+from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_SERVER
 from ferdelance.schemas.components import Component
+from ferdelance.schemas.server import ServerJoinData, ServerJoinRequest
 from ferdelance.server.security import check_token
 
 from fastapi import (
@@ -34,5 +35,14 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
 
 @server_router.get("/server/")
-async def client_home():
+async def server_home():
     return "Server 🏢"
+
+
+@server_router.post("/node/join", response_class=Response)
+async def server_connect(
+    request: Request,
+    data: ServerJoinRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    LOGGER.info("new node join request")

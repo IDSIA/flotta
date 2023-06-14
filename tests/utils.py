@@ -1,7 +1,8 @@
 from typing import Any
 
 from ferdelance.database.repositories import ProjectRepository, WorkerRepository
-from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest, ClientUpdate
+from ferdelance.schemas.client import ClientUpdate
+from ferdelance.schemas.node import JoinData, JoinRequest
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
 from ferdelance.shared.actions import Action
@@ -33,7 +34,7 @@ def create_client(client: TestClient, exc: Exchange) -> str:
     mac_address = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     node = 1000000000000 + int(random.uniform(0, 1.0) * 1000000000)
 
-    cjr = ClientJoinRequest(
+    cjr = JoinRequest(
         name="testing_client",
         system="Linux",
         mac_address=mac_address,
@@ -42,11 +43,11 @@ def create_client(client: TestClient, exc: Exchange) -> str:
         version="test",
     )
 
-    response_join = client.post("/client/join", content=json.dumps(cjr.dict()))
+    response_join = client.post("/node/join", content=json.dumps(cjr.dict()))
 
     assert response_join.status_code == 200
 
-    cjd = ClientJoinData(**exc.get_payload(response_join.content))
+    cjd = JoinData(**exc.get_payload(response_join.content))
 
     LOGGER.info(f"client_id={cjd.id}: successfully created new client")
 
@@ -128,7 +129,7 @@ def get_metadata(
 
 def send_metadata(client: TestClient, exc: Exchange, metadata: Metadata) -> None:
     upload_response = client.post(
-        "/client/update/metadata",
+        "/node/metadata",
         content=exc.create_payload(metadata.dict()),
         headers=exc.headers(),
     )

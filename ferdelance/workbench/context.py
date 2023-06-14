@@ -96,7 +96,7 @@ class Context:
         self.exc.set_token(data.token)
         self.exc.set_remote_key(data.public_key)
 
-    def load(self, token: str | None = None) -> Project:
+    def project(self, token: str | None = None) -> Project:
         if token is None:
             token = os.environ.get("PROJECT", None)
 

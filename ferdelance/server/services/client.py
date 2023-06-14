@@ -1,24 +1,12 @@
 from typing import Any, Callable
 
 from ferdelance.database import AsyncSession
-from ferdelance.database.repositories import (
-    ComponentRepository,
-    DataSourceRepository,
-    ProjectRepository,
-)
+from ferdelance.database.repositories import ComponentRepository
 from ferdelance.jobs import job_manager, JobManagementService
-from ferdelance.schemas.client import (
-    ClientJoinRequest,
-    ClientJoinData,
-    ClientTask,
-)
-from ferdelance.schemas.components import (
-    Client,
-    Application,
-)
+from ferdelance.schemas.client import ClientTask
+from ferdelance.schemas.components import Application
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.updates import (
     DownloadApp,
@@ -29,65 +17,9 @@ from ferdelance.schemas.updates import (
 )
 from ferdelance.server.services import ActionService
 
-from sqlalchemy.exc import NoResultFound
-
 import logging
 
 LOGGER = logging.getLogger(__name__)
-
-
-class ClientConnectService:
-    def __init__(self, session: AsyncSession) -> None:
-        self.session: AsyncSession = session
-
-    async def connect(
-        self, client_public_key: str, data: ClientJoinRequest, ip_address: str
-    ) -> tuple[ClientJoinData, Client]:
-        """
-        :raise:
-            NoResultFound if the access parameters (token) is not valid.
-
-            SLQAlchemyError if there are issues with the creation of a new user in the database.
-
-            ValueError if the given client data are incomplete or wrong.
-
-        :return:
-            A WorkbenchJoinData object that can be returned to the connected workbench.
-        """
-        cr: ComponentRepository = ComponentRepository(self.session)
-
-        try:
-            await cr.get_by_key(client_public_key)
-
-            raise ValueError("Invalid client data")
-
-        except NoResultFound as e:
-            LOGGER.info("joining new client")
-            # create new client
-            client, token = await cr.create_client(
-                name=data.name,
-                version=data.version,
-                public_key=client_public_key,
-                machine_system=data.system,
-                machine_mac_address=data.mac_address,
-                machine_node=data.node,
-                ip_address=ip_address,
-            )
-
-            LOGGER.info(f"client_id={client.client_id}: created new client")
-
-            await cr.create_event(client.client_id, "creation")
-
-        LOGGER.info(f"client_id={client.client_id}: created new client")
-
-        return (
-            ClientJoinData(
-                id=client.client_id,
-                token=token.token,
-                public_key="",
-            ),
-            client,
-        )
 
 
 class ClientService:
@@ -95,15 +27,6 @@ class ClientService:
         self.session: AsyncSession = session
         self.component_id: str = component_id
         self.jm: JobManagementService = JobManagementService(session)
-
-    async def leave(self) -> None:
-        """
-        :raise:
-            NoResultFound when there is no project with the given token.
-        """
-        cr: ComponentRepository = ComponentRepository(self.session)
-        await cr.client_leave(self.component_id)
-        await cr.create_event(self.component_id, "left")
 
     async def update(self, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         cr: ComponentRepository = ComponentRepository(self.session)
@@ -138,18 +61,6 @@ class ClientService:
         LOGGER.info(f"client_id={self.component_id}: requested new client version={payload.version}")
 
         return new_app
-
-    async def update_metadata(self, metadata: Metadata) -> Metadata:
-        cr: ComponentRepository = ComponentRepository(self.session)
-        dsr: DataSourceRepository = DataSourceRepository(self.session)
-        pr: ProjectRepository = ProjectRepository(self.session)
-
-        await cr.create_event(self.component_id, "update metadata")
-
-        await dsr.create_or_update_from_metadata(self.component_id, metadata)  # this will also update existing metadata
-        await pr.add_datasources_from_metadata(metadata)
-
-        return metadata
 
     async def get_task(self, payload: UpdateExecute) -> ClientTask:
         cr: ComponentRepository = ComponentRepository(self.session)

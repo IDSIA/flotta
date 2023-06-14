@@ -1,15 +1,10 @@
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.estimators import (
-    GroupCountEstimator,
-    MeanEstimator,
-)
+from ferdelance.schemas.estimators import MeanEstimator
 from ferdelance.workbench.context import Context
 
 import os
 import sys
 
 if __name__ == "__main__":
-
     project_id: str | None = os.environ.get("PROJECT_ID", None)
     server: str | None = os.environ.get("SERVER")
 
@@ -23,7 +18,7 @@ if __name__ == "__main__":
 
     ctx = Context(server)
 
-    project = ctx.load(project_id)
+    project = ctx.project(project_id)
 
     q = project.extract()
     e_mean = q.add_estimator(MeanEstimator(q["HouseAge"]))

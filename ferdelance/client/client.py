@@ -5,7 +5,7 @@ from ferdelance.client.services.actions import ActionService
 from ferdelance.client.services.routes import RouteService
 from ferdelance.client.worker import ClientWorker
 from ferdelance.shared.actions import Action
-from ferdelance.schemas.client import ClientJoinData, ClientJoinRequest
+from ferdelance.schemas.node import JoinData, JoinRequest
 from ferdelance.shared.exchange import Exchange
 
 from multiprocessing import Queue
@@ -92,7 +92,7 @@ class FerdelanceClient:
             # not joined yet
             LOGGER.info("collecting system info")
 
-            join_data = ClientJoinRequest(
+            join_data = JoinRequest(
                 name=self.config.name,
                 system=self.config.machine_system,
                 mac_address=self.config.machine_mac_address,
@@ -103,7 +103,7 @@ class FerdelanceClient:
 
             try:
                 routes_service: RouteService = RouteService(self.config)
-                data: ClientJoinData = routes_service.join(join_data)
+                data: JoinData = routes_service.join(join_data)
                 self.config.join(data.id, data.token, data.public_key)
 
             except requests.HTTPError as e:

@@ -68,7 +68,7 @@ project_token = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b9
 ctx = Context(server_url)
 
 # load a project
-project = ctx.load(project_token)
+project = ctx.project(project_token)
 
 # an aggregated view on data
 ds = project.data  

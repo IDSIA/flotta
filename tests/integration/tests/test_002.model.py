@@ -34,7 +34,6 @@ def evaluate(model: FederatedRandomForestClassifier, x, y):
 
 
 if __name__ == "__main__":
-
     project_id: str | None = os.environ.get("PROJECT_ID", None)
     server: str | None = os.environ.get("SERVER")
 
@@ -48,7 +47,7 @@ if __name__ == "__main__":
 
     ctx = Context(server)
 
-    project = ctx.load(project_id)
+    project = ctx.project(project_id)
 
     clients = ctx.clients(project)
 

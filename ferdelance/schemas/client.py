@@ -8,27 +8,6 @@ import re
 VAR_PATTERN = re.compile(r".*?\${(\w+)}.*?")
 
 
-class ClientJoinRequest(BaseModel):
-    """Data sent by the client to join the server."""
-
-    name: str
-
-    system: str
-    mac_address: str
-    node: str
-
-    public_key: str  # b64encoded bytes
-    version: str
-
-
-class ClientJoinData(BaseModel):
-    """Data sent by the server to the client after a successful join."""
-
-    id: str
-    token: str
-    public_key: str
-
-
 class ClientDetails(BaseModel):
     client_id: str
     name: str
