@@ -53,14 +53,14 @@ class NodeService:
                 ip_address=ip_address,
             )
 
-            LOGGER.info(f"client_id={client.client_id}: created new client")
+            LOGGER.info(f"client_id={client.id}: created new client")
 
-            await cr.create_event(client.client_id, "creation")
+            await cr.create_event(client.id, "creation")
 
-        LOGGER.info(f"client_id={client.client_id}: created new client")
+        LOGGER.info(f"client_id={client.id}: created new client")
 
         return JoinData(
-            id=client.client_id,
+            id=client.id,
             token=token.token,
             public_key="",
         )
@@ -71,18 +71,18 @@ class NodeService:
             NoResultFound when there is no project with the given token.
         """
         cr: ComponentRepository = ComponentRepository(self.session)
-        await cr.client_leave(self.component.component_id)
-        await cr.create_event(self.component.component_id, "left")
+        await cr.client_leave(self.component.id)
+        await cr.create_event(self.component.id, "left")
 
     async def metadata(self, metadata: Metadata) -> Metadata:
         cr: ComponentRepository = ComponentRepository(self.session)
         dsr: DataSourceRepository = DataSourceRepository(self.session)
         pr: ProjectRepository = ProjectRepository(self.session)
 
-        await cr.create_event(self.component.component_id, "update metadata")
+        await cr.create_event(self.component.id, "update metadata")
 
         # this will also update existing metadata
-        await dsr.create_or_update_from_metadata(self.component.component_id, metadata)
+        await dsr.create_or_update_from_metadata(self.component.id, metadata)
         await pr.add_datasources_from_metadata(metadata)
 
         return metadata

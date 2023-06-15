@@ -5,14 +5,13 @@ import json
 
 
 def test_aggregation():
-
     ds_name = "ds1"
     ds_id = "ds1"
 
     ds1 = DataSource(
         client_id="client1",
-        datasource_id=ds_id,
-        datasource_hash=ds_name,
+        id=ds_id,
+        hash=ds_name,
         name=ds_name,
         n_records=10,
         n_features=2,
@@ -27,8 +26,8 @@ def test_aggregation():
 
     ds2 = DataSource(
         client_id="client1",
-        datasource_id=ds_id,
-        datasource_hash=ds_name,
+        id=ds_id,
+        hash=ds_name,
         name=ds_name,
         n_records=15,
         n_features=2,
@@ -43,8 +42,8 @@ def test_aggregation():
 
     ds3 = DataSource(
         client_id="client2",
-        datasource_id=ds_id,
-        datasource_hash=ds_name,
+        id=ds_id,
+        hash=ds_name,
         name=ds_name,
         n_records=15,
         n_features=2,

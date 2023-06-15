@@ -52,7 +52,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         project = await pr.get_by_token(TEST_PROJECT_TOKEN)
 
         artifact = Artifact(
-            artifact_id=None,
+            id=None,
             project_id=project.project_id,
             transform=project.data.extract(),
             model=Model(name="model", strategy=""),
@@ -70,15 +70,15 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         status: ArtifactStatus = ArtifactStatus(**res.json())
 
-        LOGGER.info(f"artifact_id: {status.artifact_id}")
+        LOGGER.info(f"artifact_id: {status.id}")
 
-        artifact.artifact_id = status.artifact_id
-        assert artifact.artifact_id is not None
+        artifact.id = status.id
+        assert artifact.id is not None
 
         assert status.status is not None
         assert JobStatus[status.status] == JobStatus.SCHEDULED
 
-        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).limit(1))
+        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.id).limit(1))
         art_db: ArtifactDB = res.one()
 
         assert art_db is not None
@@ -86,7 +86,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         res = await session.scalars(
             select(JobDB).where(
-                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.artifact_id == artifact.id,
                 JobDB.component_id == args.client_id,
             )
         )
@@ -100,14 +100,14 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         await jm.client_task_start(job.job_id, args.client_id)
         await jm.client_result_create(job.job_id, args.client_id)
-        await jr.schedule_job(artifact.artifact_id, worker_id)
+        await jr.schedule_job(artifact.id, worker_id)
 
-        await jm.ar.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
+        await jm.ar.update_status(artifact.id, ArtifactJobStatus.AGGREGATING)
 
         # check status of job completed by the client
         res = await session.scalars(
             select(JobDB).where(
-                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.artifact_id == artifact.id,
                 JobDB.component_id == args.client_id,
             )
         )
@@ -118,7 +118,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         # check status of artifact
         res = await session.scalars(
             select(ArtifactDB).where(
-                ArtifactDB.artifact_id == artifact.artifact_id,
+                ArtifactDB.artifact_id == artifact.id,
             )
         )
         art_db = res.one()
@@ -128,7 +128,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         # get job scheduled for worker
         res = await session.scalars(
             select(JobDB).where(
-                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.artifact_id == artifact.id,
                 JobDB.component_id == worker_id,
                 JobDB.status == JobStatus.SCHEDULED.name,
             )
@@ -149,7 +149,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert wt.job_id == job_worker.job_id
 
-        assert artifact.artifact_id == wt.artifact.artifact_id
+        assert artifact.id == wt.artifact.id
 
         assert artifact.model is not None
         assert wt.artifact.model is not None

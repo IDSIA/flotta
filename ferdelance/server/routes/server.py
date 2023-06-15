@@ -30,7 +30,7 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
         return component
     except NoResultFound:
-        LOGGER.warning(f"client_id={component.component_id} not found")
+        LOGGER.warning(f"client_id={component.id} not found")
         raise HTTPException(403)
 
 

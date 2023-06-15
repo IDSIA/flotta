@@ -27,7 +27,7 @@ class WorkerService:
         """
         status = await self.jms.submit_artifact(artifact)
 
-        LOGGER.info(f"worker_id={self.component_id}: submitted artifact got artifact_id={status.artifact_id}")
+        LOGGER.info(f"worker_id={self.component_id}: submitted artifact got artifact_id={status.id}")
 
         return status
 

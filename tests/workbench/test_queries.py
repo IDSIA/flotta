@@ -58,8 +58,8 @@ def datasource1() -> DataSource:
         feature2(),
     ]
     return DataSource(
-        datasource_id=DS1_ID,
-        datasource_hash="1",
+        id=DS1_ID,
+        hash="1",
         name=DS1_NAME,
         n_records=1000,
         n_features=len(features),
@@ -74,8 +74,8 @@ def datasource2() -> DataSource:
         feature3(),
     ]
     return DataSource(
-        datasource_id=DS2_ID,
-        datasource_hash="2",
+        id=DS2_ID,
+        hash="2",
         name=DS2_NAME,
         n_records=1000,
         n_features=len(features),
@@ -86,7 +86,6 @@ def datasource2() -> DataSource:
 
 
 def test_features():
-
     f1 = feature1()
 
     fq1 = f1.qf()
@@ -111,7 +110,6 @@ def test_features():
 
 
 def test_query_composition():
-
     ds: DataSource = datasource1()
 
     f1: QueryFeature = ds.features[0].qf()

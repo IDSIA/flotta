@@ -9,7 +9,7 @@ VAR_PATTERN = re.compile(r".*?\${(\w+)}.*?")
 
 
 class ClientDetails(BaseModel):
-    client_id: str
+    id: str
     name: str
     version: str
 

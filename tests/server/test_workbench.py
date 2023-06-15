@@ -174,7 +174,7 @@ async def test_workflow_submit(session: AsyncSession):
         assert "int" in dtypes
 
         artifact = Artifact(
-            artifact_id=None,
+            id=None,
             project_id=project.project_id,
             transform=datasource.extract(),
             model=Model(name="model", strategy=""),
@@ -191,7 +191,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         status = ArtifactStatus(**wb_exc.get_payload(res.content))
 
-        artifact_id = status.artifact_id
+        artifact_id = status.id
 
         assert status.status is not None
         assert artifact_id is not None
@@ -224,7 +224,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         downloaded_artifact = Artifact(**wb_exc.get_payload(res.content))
 
-        assert downloaded_artifact.artifact_id is not None
+        assert downloaded_artifact.id is not None
         assert len(downloaded_artifact.transform.stages) == 1
         assert len(downloaded_artifact.transform.stages[0].features) == 2
 

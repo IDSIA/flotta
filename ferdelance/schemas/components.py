@@ -2,7 +2,9 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class BaseComponent(BaseModel):
+class Component(BaseModel):
+    id: str
+
     type_name: str
     name: str = ""
 
@@ -12,23 +14,17 @@ class BaseComponent(BaseModel):
     left: bool
 
 
-class Component(BaseComponent):
-    component_id: str
-
-
 dummy = Component(
+    id="dummy",
     type_name="DUMMY",
     name="dummy",
     public_key="",
     active=False,
     left=False,
-    component_id="dummy",
 )
 
 
-class Client(BaseComponent):
-    client_id: str
-
+class Client(Component):
     version: str
 
     machine_system: str
@@ -40,7 +36,7 @@ class Client(BaseComponent):
 
 
 class Token(BaseModel):
-    token_id: int
+    id: int
     component_id: str
     token: str
     creation_time: datetime
@@ -49,14 +45,14 @@ class Token(BaseModel):
 
 
 class Event(BaseModel):
+    id: int
     component_id: str
-    event_id: int
-    event_time: datetime
+    time: datetime
     event: str
 
 
 class Application(BaseModel):
-    app_id: str
+    id: str
     creation_time: datetime
     version: str
     active: bool

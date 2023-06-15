@@ -39,7 +39,7 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
         return component
     except NoResultFound:
-        LOGGER.warning(f"client_id={component.component_id} not found")
+        LOGGER.warning(f"client_id={component.id} not found")
         raise HTTPException(403)
 
 
@@ -60,10 +60,10 @@ async def client_update(
     - new client app package
     - nothing (keep alive)
     """
-    LOGGER.info(f"client_id={component.component_id}: update request")
+    LOGGER.info(f"client_id={component.id}: update request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.component_id)
+    cs: ClientService = ClientService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -87,10 +87,10 @@ async def client_update_files(
     - update application software
     - obtain model files
     """
-    LOGGER.info(f"client_id={component.component_id}: update files request")
+    LOGGER.info(f"client_id={component.id}: update files request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.component_id)
+    cs: ClientService = ClientService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -114,10 +114,10 @@ async def client_get_task(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"client_id={component.component_id}: new task request")
+    LOGGER.info(f"client_id={component.id}: new task request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.component_id)
+    cs: ClientService = ClientService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -146,10 +146,10 @@ async def client_post_result(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"client_id={component.component_id}: complete work on job_id={job_id}")
+    LOGGER.info(f"client_id={component.id}: complete work on job_id={job_id}")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.component_id)
+    cs: ClientService = ClientService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -172,7 +172,7 @@ async def client_post_metrics(
     component: Component = Depends(check_access),
 ):
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.component_id)
+    cs: ClientService = ClientService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -180,7 +180,7 @@ async def client_post_metrics(
     metrics = Metrics(**data)
 
     LOGGER.info(
-        f"client_id={component.component_id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}"
+        f"client_id={component.id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}"
     )
 
     await cs.metrics(metrics)

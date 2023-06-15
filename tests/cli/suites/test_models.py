@@ -94,7 +94,7 @@ async def test_describe_client(session: AsyncSession):
     res: Result | None = await describe_model(task_id="mid1")
 
     assert res is not None
-    assert res.result_id == "mid1"
+    assert res.id == "mid1"
     assert res.path == "."
 
     res = await describe_model(task_id="do not exist")

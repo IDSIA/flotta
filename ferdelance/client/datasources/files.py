@@ -41,7 +41,7 @@ class DataSourceFile(DataSource):
 
             if feature in df_desc:
                 f = MetaFeature(
-                    datasource_hash=self.datasource_hash,
+                    datasource_hash=self.hash,
                     name=str(feature),
                     dtype=dtype,
                     v_mean=df_desc[feature]["mean"],
@@ -56,7 +56,7 @@ class DataSourceFile(DataSource):
                 )
             else:
                 f = MetaFeature(
-                    datasource_hash=self.datasource_hash,
+                    datasource_hash=self.hash,
                     name=str(feature),
                     dtype=dtype,
                     v_mean=None,
@@ -72,8 +72,8 @@ class DataSourceFile(DataSource):
             features.append(f)
 
         return MetaDataSource(
-            datasource_id=None,
-            datasource_hash=self.datasource_hash,
+            id=None,
+            hash=self.hash,
             name=self.name,
             removed=False,
             n_records=n_records,

@@ -22,8 +22,8 @@ LOGGER = logging.getLogger(__name__)
 
 def view(datasource: DataSourceDB, features: list[Feature]) -> DataSource:
     return DataSource(
-        datasource_id=datasource.datasource_id,
-        datasource_hash=datasource.datasource_hash,
+        id=datasource.datasource_id,
+        hash=datasource.datasource_hash,
         name=datasource.name,
         creation_time=datasource.creation_time,
         update_time=datasource.update_time,
@@ -97,7 +97,7 @@ class DataSourceRepository(Repository):
         res = await self.session.execute(
             select(DataSourceDB).where(
                 DataSourceDB.component_id == client_id,
-                DataSourceDB.datasource_hash == meta_ds.datasource_hash,
+                DataSourceDB.datasource_hash == meta_ds.hash,
             )
         )
 
@@ -108,14 +108,14 @@ class DataSourceRepository(Repository):
             # create a new data source for this client
             LOGGER.info(f"client_id={client_id}: creating new data source={meta_ds.name}")
 
-            meta_ds.datasource_id = str(uuid4())
+            meta_ds.id = str(uuid4())
 
             ds = DataSource(**meta_ds.dict(), client_id=client_id)
             path = await self.store(ds)
 
             ds_db = DataSourceDB(
-                datasource_id=ds.datasource_id,
-                datasource_hash=ds.datasource_hash,
+                datasource_id=ds.id,
+                datasource_hash=ds.hash,
                 name=ds.name,
                 path=path,
                 n_records=ds.n_records,
@@ -141,7 +141,7 @@ class DataSourceRepository(Repository):
                 # update data source info
                 LOGGER.info(f"client_id={client_id}: updating data source={ds_db.name}")
 
-                meta_ds.datasource_id = ds_db.datasource_id
+                meta_ds.id = ds_db.datasource_id
                 ds_db.n_records = meta_ds.n_records
                 ds_db.n_features = meta_ds.n_features
                 ds_db.update_time = dt_now
@@ -187,7 +187,7 @@ class DataSourceRepository(Repository):
             str:
                 The path where the data have been saved to.
         """
-        path = await self.storage_location(datasource.datasource_id)
+        path = await self.storage_location(datasource.id)
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(datasource.dict())

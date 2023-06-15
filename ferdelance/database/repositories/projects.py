@@ -116,9 +116,7 @@ class ProjectRepository(Repository):
                 Metadata object received from a client.
         """
         for mdds in metadata.datasources:
-            res = await self.session.scalars(
-                select(DataSourceDB).where(DataSourceDB.datasource_id == mdds.datasource_id)
-            )
+            res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.datasource_id == mdds.id))
             ds: DataSourceDB = res.one()
 
             if not mdds.tokens:
@@ -128,9 +126,7 @@ class ProjectRepository(Repository):
             project_ids: list[str] = list(res.all())
 
             if not project_ids:
-                LOGGER.warn(
-                    f"No project id found for datasource_id={mdds.datasource_id} and datasource_hash={mdds.datasource_hash}"
-                )
+                LOGGER.warn(f"No project id found for datasource_id={mdds.id} and datasource_hash={mdds.hash}")
                 continue
 
             for project_id in project_ids:

@@ -29,7 +29,7 @@ class ExecuteAction(Action):
         task: ClientTask = self.routes_service.get_task(self.update_execute)
         job_id = task.job_id
         artifact: Artifact = task.artifact
-        artifact_id = artifact.artifact_id
+        artifact_id = artifact.id
 
         if artifact_id is None:
             raise ValueError("Invalid Artifact")

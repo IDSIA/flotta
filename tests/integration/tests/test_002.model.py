@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     clients = ctx.clients(project)
 
-    client_id_1, client_id_2 = [c.client_id for c in clients]
+    client_id_1, client_id_2 = [c.id for c in clients]
 
     q = project.extract()
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     a: Artifact = ctx.submit(project, q)
 
-    print("Artifact id:", a.artifact_id)
+    print("Artifact id:", a.id)
 
     last_state = ""
 

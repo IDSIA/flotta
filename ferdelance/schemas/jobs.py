@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class Job(BaseModel):
-    job_id: str
+    id: str
     artifact_id: str
     component_id: str
     status: str

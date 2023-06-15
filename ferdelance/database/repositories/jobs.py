@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 
 def view(job: JobDB) -> Job:
     return Job(
-        job_id=job.job_id,
+        id=job.job_id,
         artifact_id=job.artifact_id,
         component_id=job.component_id,
         status=job.status,
@@ -112,14 +112,14 @@ class JobRepository(Repository):
                 Updated handler of the started job.
         """
 
-        job_id: str = job.job_id
+        job_id: str = job.id
         artifact_id: str = job.artifact_id
         component_id: str = job.component_id
 
         try:
             res = await self.session.scalars(
                 select(JobDB).where(
-                    JobDB.job_id == job.job_id,
+                    JobDB.job_id == job.id,
                     JobDB.status == JobStatus.SCHEDULED.name,
                 )
             )
@@ -149,7 +149,7 @@ class JobRepository(Repository):
         artifact_id = job.artifact_id
         component_id = job.component_id
         try:
-            res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.job_id))
+            res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.id))
             job_db: JobDB = res.one()
 
             job_db.celery_id = celery_id
@@ -300,7 +300,7 @@ class JobRepository(Repository):
             Job:
                 Updated handler of the job.
         """
-        res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.job_id))
+        res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.id))
         return view(res.one())
 
     async def list_jobs_by_component_id(self, component_id: str) -> list[Job]:

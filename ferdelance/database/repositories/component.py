@@ -26,7 +26,7 @@ LOGGER = logging.getLogger(__name__)
 
 def viewComponent(component: ComponentDB) -> Component:
     return Component(
-        component_id=component.component_id,
+        id=component.component_id,
         public_key=component.public_key,
         active=component.active,
         left=component.left,
@@ -43,7 +43,7 @@ def viewClient(component: ComponentDB) -> Client:
     assert component.ip_address is not None
 
     return Client(
-        client_id=component.component_id,
+        id=component.component_id,
         public_key=component.public_key,
         active=component.active,
         left=component.left,
@@ -59,7 +59,7 @@ def viewClient(component: ComponentDB) -> Client:
 
 def viewToken(token: TokenDB) -> Token:
     return Token(
-        token_id=token.token_id,
+        id=token.token_id,
         component_id=token.component_id,
         token=token.token,
         creation_time=token.creation_time,
@@ -71,14 +71,23 @@ def viewToken(token: TokenDB) -> Token:
 def viewEvent(event: EventDB) -> Event:
     return Event(
         component_id=event.component_id,
-        event_id=event.event_id,
-        event_time=event.event_time,
+        id=event.event_id,
+        time=event.event_time,
         event=event.event,
     )
 
 
 def viewApplication(app: ApplicationDB) -> Application:
-    return Application(**app.__dict__)
+    return Application(
+        id=app.app_id,
+        creation_time=app.creation_time,
+        version=app.version,
+        active=app.active,
+        path=app.path,
+        name=app.name,
+        description=app.description,
+        checksum=app.checksum,
+    )
 
 
 class ComponentRepository(Repository):
@@ -482,7 +491,7 @@ class ComponentRepository(Repository):
             client.machine_system,
             client.machine_mac_address,
             client.machine_node,
-            client.client_id,
+            client.id,
         )
         return viewToken(token)
 

@@ -40,7 +40,7 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
         return component
     except NoResultFound:
-        LOGGER.warning(f"component_id={component.component_id} not found")
+        LOGGER.warning(f"component_id={component.id} not found")
         raise HTTPException(403)
 
 
@@ -86,10 +86,10 @@ async def wb_get_project(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={component.component_id}: requested a project given its token")
+    LOGGER.info(f"user_id={component.id}: requested a project given its token")
 
     ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component.component_id)
+    ws: WorkbenchService = WorkbenchService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -102,7 +102,7 @@ async def wb_get_project(
         return ss.create_response(project.dict())
 
     except NoResultFound as _:
-        LOGGER.warning(f"user_id={component.component_id}: request project with invalid token={wpt.token}")
+        LOGGER.warning(f"user_id={component.id}: request project with invalid token={wpt.token}")
         raise HTTPException(404)
 
 
@@ -110,10 +110,10 @@ async def wb_get_project(
 async def wb_get_client_list(
     request: Request, session: AsyncSession = Depends(get_session), component: Component = Depends(check_access)
 ):
-    LOGGER.info(f"user_id={component.component_id}: requested a list of clients")
+    LOGGER.info(f"user_id={component.id}: requested a list of clients")
 
     ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component.component_id)
+    ws: WorkbenchService = WorkbenchService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -129,10 +129,10 @@ async def wb_get_client_list(
 async def wb_get_datasource_list(
     request: Request, session: AsyncSession = Depends(get_session), component: Component = Depends(check_access)
 ):
-    LOGGER.info(f"user_id={component.component_id}: requested a list of available data source")
+    LOGGER.info(f"user_id={component.id}: requested a list of available data source")
 
     ss: SecurityService = SecurityService(session)
-    wb: WorkbenchService = WorkbenchService(session, component.component_id)
+    wb: WorkbenchService = WorkbenchService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -150,10 +150,10 @@ async def wb_post_artifact_submit(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={component.component_id}: submitted a new artifact")
+    LOGGER.info(f"user_id={component.id}: submitted a new artifact")
 
     ss: SecurityService = SecurityService(session)
-    wb: WorkbenchService = WorkbenchService(session, component.component_id)
+    wb: WorkbenchService = WorkbenchService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -177,10 +177,10 @@ async def wb_get_artifact_status(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={component.component_id}: requested status of artifact")
+    LOGGER.info(f"user_id={component.id}: requested status of artifact")
 
     ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component.component_id)
+    ws: WorkbenchService = WorkbenchService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -202,10 +202,10 @@ async def wb_get_artifact(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={component.component_id}: requested details on artifact")
+    LOGGER.info(f"user_id={component.id}: requested details on artifact")
 
     ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component.component_id)
+    ws: WorkbenchService = WorkbenchService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -228,9 +228,9 @@ async def wb_get_result(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={component.component_id}: requested aggregate model")
+    LOGGER.info(f"user_id={component.id}: requested aggregate model")
     ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component.component_id)
+    ws: WorkbenchService = WorkbenchService(session, component.id)
 
     await ss.setup(component.public_key)
 
@@ -267,11 +267,11 @@ async def wb_get_partial_result(
     component: Component = Depends(check_access),
 ):
     LOGGER.info(
-        f"user_id={component.component_id}: requested partial model for artifact_id={artifact_id} from user_id={builder_user_id}"
+        f"user_id={component.id}: requested partial model for artifact_id={artifact_id} from user_id={builder_user_id}"
     )
 
     ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component.component_id)
+    ws: WorkbenchService = WorkbenchService(session, component.id)
 
     await ss.setup(component.public_key)
 

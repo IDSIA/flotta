@@ -32,7 +32,7 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
         return component
     except NoResultFound:
-        LOGGER.warning(f"worker_id={component.component_id} not found")
+        LOGGER.warning(f"worker_id={component.id} not found")
         raise HTTPException(403)
 
 
@@ -40,9 +40,9 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 async def worker_post_artifact(
     artifact: Artifact, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
-    LOGGER.info(f"worker_id={worker.component_id}: sent new artifact")
+    LOGGER.info(f"worker_id={worker.id}: sent new artifact")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker.id)
 
     try:
         status = await ws.submit_artifact(artifact)
@@ -59,9 +59,9 @@ async def worker_post_artifact(
 async def worker_get_task(
     job_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
-    LOGGER.info(f"worker_id={worker.component_id}: requested job_id={job_id}")
+    LOGGER.info(f"worker_id={worker.id}: requested job_id={job_id}")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker.id)
 
     try:
         task = await ws.get_task(job_id)
@@ -80,9 +80,9 @@ async def post_result(
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):
-    LOGGER.info(f"worker_id={worker.component_id}: send result for job_id={job_id}")
+    LOGGER.info(f"worker_id={worker.id}: send result for job_id={job_id}")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker.id)
 
     try:
         result: Result = await ws.result(job_id)
@@ -105,9 +105,9 @@ async def post_error(
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):
-    LOGGER.warn(f"worker_id={worker.component_id}: artifact_id={error.artifact_id} in error={error.message}")
+    LOGGER.warn(f"worker_id={worker.id}: artifact_id={error.artifact_id} in error={error.message}")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker.id)
 
     try:
         result = await ws.failed(error)
@@ -126,9 +126,9 @@ async def post_error(
 async def get_result(
     result_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
-    LOGGER.info(f"worker_id={worker.component_id}: request result_id={result_id}")
+    LOGGER.info(f"worker_id={worker.id}: request result_id={result_id}")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker.id)
 
     try:
         result = await ws.get_result(result_id)

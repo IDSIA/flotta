@@ -85,7 +85,7 @@ async def test_jobs_next(session: AsyncSession):
     assert sc_2.execution_time is None
     assert sc_3.execution_time is None
 
-    await jr.mark_completed(job1.job_id, job1.component_id)
+    await jr.mark_completed(job1.id, job1.component_id)
 
     sc_1 = await jr.get(sc_1)
     sc_2 = await jr.get(sc_2)
@@ -100,4 +100,4 @@ async def test_jobs_next(session: AsyncSession):
     job2 = await jr.next_job_for_component(client_id_1)
 
     assert job2 is not None
-    assert job1.job_id != job2.job_id
+    assert job1.id != job2.id

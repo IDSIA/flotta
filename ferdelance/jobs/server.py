@@ -73,7 +73,7 @@ class JobManagementService(Repository):
 
             artifact_db: ServerArtifact = await self.ar.create_artifact(artifact)
 
-            await self._schedule_tasks_for_clients(artifact_db.artifact_id, artifact, 0)
+            await self._schedule_tasks_for_clients(artifact_db.id, artifact, 0)
 
             return artifact_db.get_status()
         except ValueError as e:
@@ -90,7 +90,7 @@ class JobManagementService(Repository):
 
             await self.jr.schedule_job(
                 artifact_id,
-                client.client_id,
+                client.id,
                 is_model=artifact.is_model(),
                 is_estimation=artifact.is_estimation(),
                 iteration=iteration,
@@ -140,7 +140,7 @@ class JobManagementService(Repository):
 
             await self.jr.start_execution(job)
 
-            return ClientTask(artifact=artifact, job_id=job.job_id, datasource_hashes=hashes)
+            return ClientTask(artifact=artifact, job_id=job.id, datasource_hashes=hashes)
 
         except NoResultFound as _:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
@@ -281,14 +281,14 @@ class JobManagementService(Repository):
             )
 
             results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id)
-            result_ids: list[str] = [m.result_id for m in results]
+            result_ids: list[str] = [m.id for m in results]
 
-            task_id: str = start_function(token, job.job_id, result_ids, artifact_id)
+            task_id: str = start_function(token, job.id, result_ids, artifact_id)
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
             await self.jr.set_celery_id(job, task_id)
 
-            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job_id={job.job_id}")
+            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job_id={job.id}")
 
             return job
 
@@ -406,7 +406,7 @@ class JobManagementService(Repository):
         if artifact is None:
             raise ValueError(f"artifact_id={metrics.artifact_id} assigned to metrics not found")
 
-        path = await self.ar.storage_location(artifact.artifact_id, f"metrics_{metrics.source}.json")
+        path = await self.ar.storage_location(artifact.id, f"metrics_{metrics.source}.json")
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(metrics.dict())

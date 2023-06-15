@@ -58,7 +58,7 @@ class WorkbenchConnectService:
             user = await cr.get_by_key(user_public_key)
 
             try:
-                token: Token = await cr.get_token_by_component_id(user.component_id)
+                token: Token = await cr.get_token_by_component_id(user.id)
 
             except NoResultFound as e:
                 raise e
@@ -67,12 +67,12 @@ class WorkbenchConnectService:
             # creating new user
             user, token = await cr.create_component(TYPE_USER, public_key=user_public_key)
 
-            LOGGER.info(f"user_id={user.component_id}: created new user")
+            LOGGER.info(f"user_id={user.id}: created new user")
 
-        LOGGER.info(f"user_id={user.component_id}: new workbench connected")
+        LOGGER.info(f"user_id={user.id}: new workbench connected")
 
         return WorkbenchJoinData(
-            id=user.component_id,
+            id=user.id,
             token=token.token,
             public_key="",
         )
@@ -132,7 +132,7 @@ class WorkbenchService:
 
         status = await jms.submit_artifact(artifact)
 
-        LOGGER.info(f"user_id={self.component_id}: submitted artifact got artifact_id={status.artifact_id}")
+        LOGGER.info(f"user_id={self.component_id}: submitted artifact got artifact_id={status.id}")
 
         return status
 
@@ -176,7 +176,7 @@ class WorkbenchService:
         result: Result = await rr.get_aggregated_result(artifact_id)
 
         if not os.path.exists(result.path):
-            raise ValueError(f"result_id={result.result_id} not found at path={result.path}")
+            raise ValueError(f"result_id={result.id} not found at path={result.path}")
 
         LOGGER.info(f"user_id={self.component_id}: downloaded results for artifact_id={artifact_id}")
 
@@ -197,7 +197,7 @@ class WorkbenchService:
         result: Result = await rr.get_partial_result(artifact_id, builder_user_id)
 
         if not os.path.exists(result.path):
-            raise ValueError(f"partial result_id={result.result_id} not found at path={result.path}")
+            raise ValueError(f"partial result_id={result.id} not found at path={result.path}")
 
         LOGGER.info(
             f"user_id={self.component_id}: downloaded partial result for artifact_id={artifact_id} and builder_user_id={builder_user_id}"

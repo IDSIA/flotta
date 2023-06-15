@@ -188,7 +188,7 @@ class Context:
         res.raise_for_status()
 
         art_status = ArtifactStatus(**self.exc.get_payload(res.content))
-        artifact.artifact_id = art_status.artifact_id
+        artifact.id = art_status.id
 
         start_time = time()
         while art_status.status not in (
@@ -203,7 +203,7 @@ class Context:
             if time() > start_time + max_time:
                 raise ValueError("Timeout exceeded")
 
-        if art_status.artifact_id is None:
+        if art_status.id is None:
             raise ValueError("Invalid artifact status")
 
         estimate = self.get_result(artifact)
@@ -212,9 +212,9 @@ class Context:
             return estimate
 
         if art_status.status == ArtifactJobStatus.ERROR.name:
-            LOGGER.error(f"Error on artifact {art_status.artifact_id}")
+            LOGGER.error(f"Error on artifact {art_status.id}")
             LOGGER.error(estimate)
-            raise ValueError(f"Error on artifact {art_status.artifact_id}")
+            raise ValueError(f"Error on artifact {art_status.id}")
 
         raise NotImplementedError()
 
@@ -246,7 +246,7 @@ class Context:
         res.raise_for_status()
 
         status = ArtifactStatus(**self.exc.get_payload(res.content))
-        artifact.artifact_id = status.artifact_id
+        artifact.id = status.id
 
         return artifact
 
@@ -260,10 +260,10 @@ class Context:
         :returns:
             An ArtifactStatus object with the status of the artifact on the server.
         """
-        if artifact.artifact_id is None:
+        if artifact.id is None:
             raise ValueError("submit first the artifact to the server")
 
-        wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
+        wba = WorkbenchArtifact(artifact_id=artifact.id)
 
         res = requests.get(
             f"{self.server}/workbench/artifact/status",
@@ -310,10 +310,10 @@ class Context:
         :raises HTTPError:
             If the return code of the response is not a 2xx type.
         """
-        if artifact.artifact_id is None:
+        if artifact.id is None:
             raise ValueError("submit first the artifact to the server")
 
-        wba = WorkbenchArtifact(artifact_id=artifact.artifact_id)
+        wba = WorkbenchArtifact(artifact_id=artifact.id)
 
         with requests.get(
             f"{self.server}/workbench/result",
@@ -341,14 +341,14 @@ class Context:
         :raises HTTPError:
             If the return code of the response is not a 2xx type.
         """
-        if artifact.artifact_id is None:
+        if artifact.id is None:
             raise ValueError("submit first the artifact to the server")
 
         if artifact.model is None:
             raise ValueError("no model associated with this artifact")
 
         with requests.get(
-            f"{self.server}/workbench/result/partial/{artifact.artifact_id}/{client_id}",
+            f"{self.server}/workbench/result/partial/{artifact.id}/{client_id}",
             headers=self.exc.headers(),
             stream=True,
         ) as res:

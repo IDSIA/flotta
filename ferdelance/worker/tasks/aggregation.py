@@ -57,10 +57,10 @@ class AggregationTask(Task):
 
         task = WorkerTask(**res.json())
 
-        if task.artifact.artifact_id is None:
+        if task.artifact.id is None:
             raise ValueError("worker: artifact_id not found")
 
-        self.artifact_id = task.artifact.artifact_id
+        self.artifact_id = task.artifact.id
 
         return task.artifact
 

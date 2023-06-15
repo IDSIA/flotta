@@ -52,14 +52,14 @@ class Config:
                     LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
                     continue
                 datasource = DataSourceDB(ds.name, ds.type, ds.conn, tokens)
-                self.datasources[datasource.datasource_hash] = datasource
+                self.datasources[datasource.hash] = datasource
 
             if ds.kind == "file":
                 if ds.path is None:
                     LOGGER.error(f"Missing path for datasource with name={ds.conn}")
                     continue
                 datasource = DataSourceFile(ds.name, ds.type, ds.path, tokens)
-                self.datasources[datasource.datasource_hash] = datasource
+                self.datasources[datasource.hash] = datasource
 
         if not self.datasources:
             LOGGER.error("No valid datasource available!")

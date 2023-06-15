@@ -34,7 +34,7 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
         return component
     except NoResultFound:
-        LOGGER.warning(f"component_id={component.component_id} not found")
+        LOGGER.warning(f"component_id={component.id} not found")
         raise HTTPException(403)
 
 
@@ -92,7 +92,7 @@ async def node_leave(
     component: Component = Depends(check_access),
 ):
     """API for existing client to be removed"""
-    LOGGER.info(f"client_id={component.component_id}: request to leave")
+    LOGGER.info(f"client_id={component.id}: request to leave")
 
     ns: NodeService = NodeService(session, component)
 
@@ -111,7 +111,7 @@ async def node_metadata(
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
     """
-    LOGGER.info(f"client_id={component.component_id}: update metadata request")
+    LOGGER.info(f"client_id={component.id}: update metadata request")
 
     ss: SecurityService = SecurityService(session)
     ns: NodeService = NodeService(session, component)
@@ -130,7 +130,7 @@ async def node_update_add(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_distributed),
 ):
-    LOGGER.info(f"component_id={component.component_id}: adding new node")
+    LOGGER.info(f"component_id={component.id}: adding new node")
 
     ss: SecurityService = SecurityService(session)
     ns: NodeService = NodeService(session, component)
@@ -143,7 +143,7 @@ async def node_update_remove(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_distributed),
 ):
-    LOGGER.info(f"component_id={component.component_id}: removing node")
+    LOGGER.info(f"component_id={component.id}: removing node")
 
     ss: SecurityService = SecurityService(session)
     ns: NodeService = NodeService(session, component)
@@ -156,7 +156,7 @@ async def node_update_metadata(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_distributed),
 ):
-    LOGGER.info(f"component_id={component.component_id}: updating metadata")
+    LOGGER.info(f"component_id={component.id}: updating metadata")
 
     ss: SecurityService = SecurityService(session)
     ns: NodeService = NodeService(session, component)

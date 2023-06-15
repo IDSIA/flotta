@@ -12,7 +12,7 @@ import os
 def view(result: ResultDB) -> Result:
     return Result(
         job_id=result.job_id,
-        result_id=result.result_id,
+        id=result.result_id,
         artifact_id=result.artifact_id,
         client_id=result.component_id,
         path=result.path,

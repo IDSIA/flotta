@@ -59,7 +59,7 @@ async def test_artifacts_description(session: AsyncSession):
     res: ServerArtifact | None = await describe_artifact(artifact_id=artifact_id_1)
 
     assert res is not None
-    assert res.artifact_id == "artifact1"
+    assert res.id == "artifact1"
     assert res.path == "."
     assert res.status == ""
 

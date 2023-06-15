@@ -50,8 +50,8 @@ class ServerlessExecution:
         worker_component, _ = await self.cr.create_component(TYPE_WORKER, "worker-1")
 
         self.node_service = NodeService(self.session, client_component)
-        self.client_service = ClientService(self.session, client_component.client_id)
-        self.worker_service = WorkerService(self.session, worker_component.component_id)
+        self.client_service = ClientService(self.session, client_component.id)
+        self.worker_service = WorkerService(self.session, worker_component.id)
         self.workbench_service = WorkbenchService(self.session, "workbench-1")
 
         metadata = get_metadata()
@@ -66,9 +66,9 @@ class ServerlessExecution:
     async def submit(self, artifact: Artifact) -> str:
         status = await self.workbench_service.submit_artifact(artifact)
 
-        assert status.artifact_id is not None
+        assert status.id is not None
 
-        return status.artifact_id
+        return status.id
 
     async def next_action(self) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         return await self.client_service.update({})
@@ -86,7 +86,7 @@ class ServerlessExecution:
         return await self.client_service.start_aggregation(result, start_function)
 
     async def get_worker_task(self, job: Job) -> WorkerTask:
-        return await self.worker_service.get_task(job.job_id)
+        return await self.worker_service.get_task(job.id)
 
     async def post_worker_result(self, job: Job):
-        return await self.worker_service.completed(job.job_id)
+        return await self.worker_service.completed(job.id)
