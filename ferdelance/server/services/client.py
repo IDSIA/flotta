@@ -4,7 +4,7 @@ from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.jobs import job_manager, JobManagementService
 from ferdelance.schemas.client import ClientTask
-from ferdelance.schemas.components import Application
+from ferdelance.schemas.components import Application, Component
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
@@ -23,58 +23,58 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ClientService:
-    def __init__(self, session: AsyncSession, component_id: str) -> None:
+    def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
-        self.component_id: str = component_id
+        self.component: Component = component
         self.jm: JobManagementService = JobManagementService(session)
 
     async def update(self, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         cr: ComponentRepository = ComponentRepository(self.session)
         acs: ActionService = ActionService(self.session)
 
-        await cr.create_event(self.component_id, "update")
-        client = await cr.get_client_by_id(self.component_id)
+        await cr.create_event(self.component.id, "update")
+        client = await cr.get_client_by_id(self.component.id)
 
         next_action = await acs.next(client, payload)
 
-        LOGGER.debug(f"client_id={self.component_id}: update action={next_action.action}")
+        LOGGER.debug(f"client_id={self.component.id}: update action={next_action.action}")
 
-        await cr.create_event(self.component_id, f"action:{next_action.action}")
+        await cr.create_event(self.component.id, f"action:{next_action.action}")
 
         return next_action
 
     async def update_files(self, payload: DownloadApp) -> Application:
         cr: ComponentRepository = ComponentRepository(self.session)
 
-        await cr.create_event(self.component_id, "update files")
+        await cr.create_event(self.component.id, "update files")
 
         new_app: Application = await cr.get_newest_app()
 
         if new_app.version != payload.version:
             LOGGER.warning(
-                f"client_id={self.component_id} requested app version={payload.version} while latest version={new_app.version}"
+                f"client_id={self.component.id} requested app version={payload.version} while latest version={new_app.version}"
             )
             raise ValueError("Old versions are not permitted")
 
-        await cr.update_client(self.component_id, version=payload.version)
+        await cr.update_client(self.component.id, version=payload.version)
 
-        LOGGER.info(f"client_id={self.component_id}: requested new client version={payload.version}")
+        LOGGER.info(f"client_id={self.component.id}: requested new client version={payload.version}")
 
         return new_app
 
     async def get_task(self, payload: UpdateExecute) -> ClientTask:
         cr: ComponentRepository = ComponentRepository(self.session)
 
-        await cr.create_event(self.component_id, "schedule task")
+        await cr.create_event(self.component.id, "schedule task")
 
         job_id = payload.job_id
 
-        content = await self.jm.client_task_start(job_id, self.component_id)
+        content = await self.jm.client_task_start(job_id, self.component.id)
 
         return content
 
     async def result(self, job_id: str):
-        result_db = await self.jm.client_result_create(job_id, self.component_id)
+        result_db = await self.jm.client_result_create(job_id, self.component.id)
 
         return result_db
 

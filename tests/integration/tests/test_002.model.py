@@ -59,7 +59,8 @@ if __name__ == "__main__":
 
     q = q.add_model(
         FederatedRandomForestClassifier(
-            strategy=StrategyRandomForestClassifier.MERGE, parameters=ParametersRandomForestClassifier(n_estimators=10)
+            strategy=StrategyRandomForestClassifier.MERGE,
+            parameters=ParametersRandomForestClassifier(n_estimators=10),
         )
     )
 

@@ -42,7 +42,7 @@ async def worker_post_artifact(
 ):
     LOGGER.info(f"worker_id={worker.id}: sent new artifact")
 
-    ws: WorkerService = WorkerService(session, worker.id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
         status = await ws.submit_artifact(artifact)
@@ -61,7 +61,7 @@ async def worker_get_task(
 ):
     LOGGER.info(f"worker_id={worker.id}: requested job_id={job_id}")
 
-    ws: WorkerService = WorkerService(session, worker.id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
         task = await ws.get_task(job_id)
@@ -82,7 +82,7 @@ async def post_result(
 ):
     LOGGER.info(f"worker_id={worker.id}: send result for job_id={job_id}")
 
-    ws: WorkerService = WorkerService(session, worker.id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
         result: Result = await ws.result(job_id)
@@ -107,7 +107,7 @@ async def post_error(
 ):
     LOGGER.warn(f"worker_id={worker.id}: artifact_id={error.artifact_id} in error={error.message}")
 
-    ws: WorkerService = WorkerService(session, worker.id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
         result = await ws.failed(error)
@@ -128,7 +128,7 @@ async def get_result(
 ):
     LOGGER.info(f"worker_id={worker.id}: request result_id={result_id}")
 
-    ws: WorkerService = WorkerService(session, worker.id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
         result = await ws.get_result(result_id)

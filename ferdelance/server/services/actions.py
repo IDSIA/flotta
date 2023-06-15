@@ -116,7 +116,12 @@ class ActionService(Repository):
             task = await self._check_scheduled_job(client)
             return await self._action_schedule_job(task)
 
+        except NoResultFound as e:
+            # no tasks to do
+            pass
+
         except Exception as e:
-            LOGGER.exception(e)
+            # real exception
+            LOGGER.warn(e)
 
         return await self._action_nothing()

@@ -63,7 +63,7 @@ async def client_update(
     LOGGER.info(f"client_id={component.id}: update request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.id)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
 
@@ -90,7 +90,7 @@ async def client_update_files(
     LOGGER.info(f"client_id={component.id}: update files request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.id)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
 
@@ -117,7 +117,7 @@ async def client_get_task(
     LOGGER.info(f"client_id={component.id}: new task request")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.id)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
 
@@ -149,7 +149,7 @@ async def client_post_result(
     LOGGER.info(f"client_id={component.id}: complete work on job_id={job_id}")
 
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.id)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
 
@@ -172,7 +172,7 @@ async def client_post_metrics(
     component: Component = Depends(check_access),
 ):
     ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component.id)
+    cs: ClientService = ClientService(session, component)
 
     await ss.setup(component.public_key)
 

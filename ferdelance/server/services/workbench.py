@@ -13,7 +13,7 @@ from ferdelance.schemas.artifacts import (
     Artifact,
 )
 from ferdelance.schemas.client import ClientDetails
-from ferdelance.schemas.components import Token
+from ferdelance.schemas.components import Component, Token
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
@@ -79,9 +79,9 @@ class WorkbenchConnectService:
 
 
 class WorkbenchService:
-    def __init__(self, session: AsyncSession, component_id: str) -> None:
+    def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
-        self.component_id: str = component_id
+        self.component: Component = component
 
     async def project(self, project_token: str) -> Project:
         """
@@ -92,7 +92,7 @@ class WorkbenchService:
 
         project = await pr.get_by_token(project_token)
 
-        LOGGER.info(f"user_id={self.component_id}: loaded project with project_id={project.id}")
+        LOGGER.info(f"user_id={self.component.id}: loaded project with project_id={project.id}")
 
         return project
 
@@ -107,7 +107,7 @@ class WorkbenchService:
         client_details = [ClientDetails(**c.dict()) for c in clients]
 
         LOGGER.info(
-            f"user_id={self.component_id}: found {len(client_details)} datasource(s) with token={project_token}"
+            f"user_id={self.component.id}: found {len(client_details)} datasource(s) with token={project_token}"
         )
 
         return WorkbenchClientList(clients=client_details)
@@ -120,7 +120,7 @@ class WorkbenchService:
 
         datasources = [await dsr.load(ds_id) for ds_id in datasource_ids]
 
-        LOGGER.info(f"user_id={self.component_id}: found {len(datasources)} datasource(s) with token={project_token}")
+        LOGGER.info(f"user_id={self.component.id}: found {len(datasources)} datasource(s) with token={project_token}")
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
@@ -132,7 +132,7 @@ class WorkbenchService:
 
         status = await jms.submit_artifact(artifact)
 
-        LOGGER.info(f"user_id={self.component_id}: submitted artifact got artifact_id={status.id}")
+        LOGGER.info(f"user_id={self.component.id}: submitted artifact got artifact_id={status.id}")
 
         return status
 
@@ -145,7 +145,7 @@ class WorkbenchService:
 
         status = await ar.get_status(artifact_id)
 
-        LOGGER.info(f"user_id={self.component_id}: got status of artifact_id={artifact_id}")
+        LOGGER.info(f"user_id={self.component.id}: got status of artifact_id={artifact_id} status={status.status}")
 
         return status
 
@@ -158,7 +158,7 @@ class WorkbenchService:
 
         art = await jms.get_artifact(artifact_id)
 
-        LOGGER.info(f"user_id={self.component_id}: downloaded artifact with artifact_id={artifact_id}")
+        LOGGER.info(f"user_id={self.component.id}: downloaded artifact with artifact_id={artifact_id}")
 
         return art
 
@@ -178,7 +178,7 @@ class WorkbenchService:
         if not os.path.exists(result.path):
             raise ValueError(f"result_id={result.id} not found at path={result.path}")
 
-        LOGGER.info(f"user_id={self.component_id}: downloaded results for artifact_id={artifact_id}")
+        LOGGER.info(f"user_id={self.component.id}: downloaded results for artifact_id={artifact_id}")
 
         return result
 
@@ -200,7 +200,7 @@ class WorkbenchService:
             raise ValueError(f"partial result_id={result.id} not found at path={result.path}")
 
         LOGGER.info(
-            f"user_id={self.component_id}: downloaded partial result for artifact_id={artifact_id} and builder_user_id={builder_user_id}"
+            f"user_id={self.component.id}: downloaded partial result for artifact_id={artifact_id} and builder_user_id={builder_user_id}"
         )
 
         return result
