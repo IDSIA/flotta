@@ -9,7 +9,7 @@ def test_aggregation():
     ds_id = "ds1"
 
     ds1 = DataSource(
-        client_id="client1",
+        component_id="client1",
         id=ds_id,
         hash=ds_name,
         name=ds_name,
@@ -25,7 +25,7 @@ def test_aggregation():
     ds_id = "ds2"
 
     ds2 = DataSource(
-        client_id="client1",
+        component_id="client1",
         id=ds_id,
         hash=ds_name,
         name=ds_name,
@@ -41,7 +41,7 @@ def test_aggregation():
     ds_id = "ds3"
 
     ds3 = DataSource(
-        client_id="client2",
+        component_id="client2",
         id=ds_id,
         hash=ds_name,
         name=ds_name,

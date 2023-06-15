@@ -76,7 +76,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         artifact = Artifact(
             id=None,
-            project_id=project.project_id,
+            project_id=project.id,
             transform=datasource.extract(),
             model=Model(name="model", strategy=""),
             plan=TrainTestSplit(
@@ -154,7 +154,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         update_execute = UpdateExecute(**data)
 
-        assert update_execute.job_id == job.job_id
+        assert update_execute.job_id == job.id
 
         LOGGER.info("get task for client")
 
@@ -176,7 +176,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         assert art.id == job.artifact_id
         assert art.id == status.id
-        assert art.project_id == project.project_id
+        assert art.project_id == project.id
         assert len(art.transform.stages) == 1
         assert len(art.transform.stages[0].features) == 2
         assert art.plan is not None

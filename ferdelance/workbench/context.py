@@ -174,7 +174,7 @@ class Context:
         """Execute a statistical query."""
 
         artifact = Artifact(
-            project_id=project.project_id,
+            project_id=project.id,
             transform=estimate.transform,
             estimator=estimate.estimator,
         )
@@ -231,7 +231,7 @@ class Context:
             If the `ret_status` flag is true, the status of the artifact is also returned.
         """
         artifact: Artifact = Artifact(
-            project_id=project.project_id,
+            project_id=project.id,
             transform=query.transform,
             plan=query.plan,
             model=query.model,

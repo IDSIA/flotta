@@ -12,7 +12,7 @@ import pytest
 async def test_models_list(session: AsyncSession):
     session.add(
         Artifact(
-            artifact_id="aid1",
+            id="aid1",
             path=".",
             status="",
         )
@@ -20,7 +20,7 @@ async def test_models_list(session: AsyncSession):
 
     session.add(
         Component(
-            component_id="cid1",
+            id="cid1",
             version="test",
             public_key="1",
             machine_system="1",
@@ -33,7 +33,7 @@ async def test_models_list(session: AsyncSession):
 
     session.add(
         ResultDB(
-            result_id="mid1",
+            id="mid1",
             job_id="job-1",
             path=".",
             artifact_id="aid1",
@@ -57,7 +57,7 @@ async def test_models_list(session: AsyncSession):
 async def test_describe_client(session: AsyncSession):
     session.add(
         Artifact(
-            artifact_id="aid1",
+            id="aid1",
             path=".",
             status="",
         )
@@ -65,7 +65,7 @@ async def test_describe_client(session: AsyncSession):
 
     session.add(
         Component(
-            component_id="cid1",
+            id="cid1",
             version="test",
             public_key="1",
             machine_system="1",
@@ -78,7 +78,7 @@ async def test_describe_client(session: AsyncSession):
 
     session.add(
         ResultDB(
-            result_id="mid1",
+            id="mid1",
             job_id="job-1",
             path=".",
             artifact_id="aid1",

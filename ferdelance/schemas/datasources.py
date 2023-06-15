@@ -108,7 +108,7 @@ class DataSource(BaseDataSource):
     # TODO: should we remove this in favor of AggregatedDataSource?
     # TODO: this need to keep track of everything through a query node
 
-    client_id: str
+    component_id: str
 
     id: str
     hash: str
@@ -161,7 +161,7 @@ class DataSource(BaseDataSource):
         raise ValueError(f'Feature "{str(key)}" not found in this datasource')
 
     def __str__(self) -> str:
-        return super().__str__() + f"client_id={self.client_id} features=[{self.features}]"
+        return super().__str__() + f"client_id={self.component_id} features=[{self.features}]"
 
     def extract(self) -> Query:
         """Proceeds on extracting all the features and creating a transformation
@@ -206,7 +206,7 @@ class AggregatedDataSource(BaseDataSource):
 
         for ds in datasources:
             n_records += ds.n_records
-            clients.add(ds.client_id)
+            clients.add(ds.component_id)
             hashes.update(ds.hash.encode("utf8"))
 
             for f in ds.features:

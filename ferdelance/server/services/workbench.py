@@ -92,7 +92,7 @@ class WorkbenchService:
 
         project = await pr.get_by_token(project_token)
 
-        LOGGER.info(f"user_id={self.component_id}: loaded project with project_id={project.project_id}")
+        LOGGER.info(f"user_id={self.component_id}: loaded project with project_id={project.id}")
 
         return project
 

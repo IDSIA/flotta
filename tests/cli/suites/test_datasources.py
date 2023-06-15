@@ -13,7 +13,7 @@ import pytest
 
 async def populate_test_db(session: AsyncSession):
     c1: Component = Component(
-        component_id="C1",
+        id="C1",
         version="test",
         public_key="1",
         machine_system="1",
@@ -23,7 +23,7 @@ async def populate_test_db(session: AsyncSession):
         type_name=TYPE_CLIENT,
     )
     c2: Component = Component(
-        component_id="C2",
+        id="C2",
         version="test",
         public_key="2",
         machine_system="2",
@@ -44,7 +44,7 @@ async def populate_test_db(session: AsyncSession):
     await pr.create_project("test")
 
     ds1 = await dsr.create_or_update_datasource(
-        c1.component_id,
+        c1.id,
         MetaDataSource(
             name="DS1",
             hash="DS1",
@@ -55,7 +55,7 @@ async def populate_test_db(session: AsyncSession):
         ),
     )
     ds2 = await dsr.create_or_update_datasource(
-        c1.component_id,
+        c1.id,
         MetaDataSource(
             name="DS2",
             hash="DS2",
@@ -66,7 +66,7 @@ async def populate_test_db(session: AsyncSession):
         ),
     )
     ds3 = await dsr.create_or_update_datasource(
-        c2.component_id,
+        c2.id,
         MetaDataSource(
             name="DS3",
             hash="DS3",

@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 
 def view(job: JobDB) -> Job:
     return Job(
-        id=job.job_id,
+        id=job.id,
         artifact_id=job.artifact_id,
         component_id=job.component_id,
         status=job.status,
@@ -78,7 +78,7 @@ class JobRepository(Repository):
         # TODO: what happen if we submit again the same artifact?
 
         job = JobDB(
-            job_id=str(uuid4()),
+            id=str(uuid4()),
             artifact_id=artifact_id,
             component_id=component_id,
             status=JobStatus.SCHEDULED.name,
@@ -119,7 +119,7 @@ class JobRepository(Repository):
         try:
             res = await self.session.scalars(
                 select(JobDB).where(
-                    JobDB.job_id == job.id,
+                    JobDB.id == job.id,
                     JobDB.status == JobStatus.SCHEDULED.name,
                 )
             )
@@ -149,7 +149,7 @@ class JobRepository(Repository):
         artifact_id = job.artifact_id
         component_id = job.component_id
         try:
-            res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.id))
+            res = await self.session.scalars(select(JobDB).where(JobDB.id == job.id))
             job_db: JobDB = res.one()
 
             job_db.celery_id = celery_id
@@ -192,7 +192,7 @@ class JobRepository(Repository):
         try:
             res = await self.session.scalars(
                 select(JobDB).where(
-                    JobDB.job_id == job_id,
+                    JobDB.id == job_id,
                     JobDB.status == JobStatus.RUNNING.name,
                 )
             )
@@ -205,7 +205,7 @@ class JobRepository(Repository):
             await self.session.refresh(job)
 
             LOGGER.info(
-                f"component_id={job.component_id}: completed execution of job_id={job.job_id} artifact_id={job.artifact_id}"
+                f"component_id={job.component_id}: completed execution of job_id={job.id} artifact_id={job.artifact_id}"
             )
 
             return view(job)
@@ -243,7 +243,7 @@ class JobRepository(Repository):
         try:
             res = await self.session.scalars(
                 select(JobDB).where(
-                    JobDB.job_id == job_id,
+                    JobDB.id == job_id,
                     JobDB.status == JobStatus.RUNNING.name,
                 )
             )
@@ -256,7 +256,7 @@ class JobRepository(Repository):
             await self.session.refresh(job)
 
             LOGGER.warn(
-                f"component_id={job.component_id}: failed execution of job_id={job.job_id} artifact_id={job.artifact_id} component_id={component_id}"
+                f"component_id={job.component_id}: failed execution of job_id={job.id} artifact_id={job.artifact_id} component_id={component_id}"
             )
 
             return view(job)
@@ -282,7 +282,7 @@ class JobRepository(Repository):
             Job:
                 The handler of the job.
         """
-        res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job_id))
+        res = await self.session.scalars(select(JobDB).where(JobDB.id == job_id))
         return view(res.one())
 
     async def get(self, job: Job) -> Job:
@@ -300,7 +300,7 @@ class JobRepository(Repository):
             Job:
                 Updated handler of the job.
         """
-        res = await self.session.scalars(select(JobDB).where(JobDB.job_id == job.id))
+        res = await self.session.scalars(select(JobDB).where(JobDB.id == job.id))
         return view(res.one())
 
     async def list_jobs_by_component_id(self, component_id: str) -> list[Job]:

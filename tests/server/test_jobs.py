@@ -20,14 +20,14 @@ async def test_jobs_next(session: AsyncSession):
 
     session.add(
         Artifact(
-            artifact_id=artifact_id_1,
+            id=artifact_id_1,
             path=".",
             status="",
         )
     )
     session.add(
         Artifact(
-            artifact_id=artifact_id_2,
+            id=artifact_id_2,
             path=".",
             status="",
         )
@@ -35,7 +35,7 @@ async def test_jobs_next(session: AsyncSession):
 
     session.add(
         Component(
-            component_id=client_id_1,
+            id=client_id_1,
             version="test",
             public_key="1",
             machine_system="1",
@@ -47,7 +47,7 @@ async def test_jobs_next(session: AsyncSession):
     )
     session.add(
         Component(
-            component_id=client_id_2,
+            id=client_id_2,
             version="test",
             public_key="2",
             machine_system="2",

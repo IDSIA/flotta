@@ -260,7 +260,7 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         # add fake client app
         app_id = str(uuid.uuid4())
         client_app = Application(
-            app_id=app_id,
+            id=app_id,
             path=path,
             name=filename,
             version=version_app,
@@ -270,7 +270,7 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         session.add(client_app)
         await session.commit()
 
-        res = await session.execute(select(Application).where(Application.app_id == app_id))
+        res = await session.execute(select(Application).where(Application.id == app_id))
         client_app: Application | None = res.scalar_one_or_none()
 
         assert client_app is not None

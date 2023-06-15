@@ -17,7 +17,7 @@ import os
 
 def view(artifact: ArtifactDB) -> ServerArtifact:
     return ServerArtifact(
-        id=artifact.artifact_id,
+        id=artifact.id,
         creation_time=artifact.creation_time,
         path=artifact.path,
         status=artifact.status,
@@ -63,7 +63,7 @@ class ArtifactRepository(Repository):
             artifact.id = str(uuid4())
         else:
             existing = await self.session.scalar(
-                select(func.count()).select_from(ArtifactDB).where(ArtifactDB.artifact_id == artifact.id)
+                select(func.count()).select_from(ArtifactDB).where(ArtifactDB.id == artifact.id)
             )
 
             if existing:
@@ -77,7 +77,7 @@ class ArtifactRepository(Repository):
         path = await self.store(artifact)
 
         db_artifact = ArtifactDB(
-            artifact_id=artifact.id,
+            id=artifact.id,
             path=path,
             status=status,
             is_model=artifact.is_model(),
@@ -182,7 +182,7 @@ class ArtifactRepository(Repository):
             ServerArtifact:
                 A server handler for the requested artifact.
         """
-        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact_id).limit(1))
 
         return view(res.one())
 
@@ -203,7 +203,7 @@ class ArtifactRepository(Repository):
             str:
                 The requested path.
         """
-        res = await self.session.scalars(select(ArtifactDB.path).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+        res = await self.session.scalars(select(ArtifactDB.path).where(ArtifactDB.id == artifact_id).limit(1))
 
         path = res.one()
 
@@ -239,12 +239,12 @@ class ArtifactRepository(Repository):
             ArtifactStatus:
                 The current status of the artifact.
         """
-        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact_id).limit(1))
 
         artifact = res.one()
 
         return ArtifactStatus(
-            id=artifact.artifact_id,
+            id=artifact.id,
             status=artifact.status,
             iteration=artifact.iteration,
         )
@@ -267,7 +267,7 @@ class ArtifactRepository(Repository):
             NoResultFound:
                 If the artifact_id does not exists in the database.
         """
-        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id))
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact_id))
 
         artifact: ArtifactDB = res.one()
         if new_status is not None:

@@ -9,7 +9,7 @@ from datetime import datetime
 class BaseProject(BaseModel):
     """This comes from the database."""
 
-    project_id: str
+    id: str
     token: str
     name: str
 
@@ -31,7 +31,7 @@ class Project(BaseProject):
         return self.data.extract()
 
     def __str__(self) -> str:
-        return f"""Project:         {self.project_id}
+        return f"""Project:         {self.id}
   Name:          {self.name}
   Token:         {self.token}
   Created:       {self.creation_time}

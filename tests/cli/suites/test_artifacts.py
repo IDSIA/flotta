@@ -14,14 +14,14 @@ async def test_artifacts_ls(session: AsyncSession):
 
     session.add(
         ArtifactDB(
-            artifact_id=artifact_id_1,
+            id=artifact_id_1,
             path=".",
             status="",
         )
     )
     session.add(
         ArtifactDB(
-            artifact_id=artifact_id_2,
+            id=artifact_id_2,
             path=".",
             status="",
         )
@@ -41,14 +41,14 @@ async def test_artifacts_description(session: AsyncSession):
 
     session.add(
         ArtifactDB(
-            artifact_id=artifact_id_1,
+            id=artifact_id_1,
             path=".",
             status="",
         )
     )
     session.add(
         ArtifactDB(
-            artifact_id=artifact_id_2,
+            id=artifact_id_2,
             path=".",
             status="",
         )

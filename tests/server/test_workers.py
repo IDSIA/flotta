@@ -53,7 +53,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         artifact = Artifact(
             id=None,
-            project_id=project.project_id,
+            project_id=project.id,
             transform=project.data.extract(),
             model=Model(name="model", strategy=""),
             plan=TrainAll("label").build(),
@@ -78,7 +78,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         assert status.status is not None
         assert JobStatus[status.status] == JobStatus.SCHEDULED
 
-        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.id).limit(1))
+        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact.id).limit(1))
         art_db: ArtifactDB = res.one()
 
         assert art_db is not None
@@ -98,8 +98,8 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         jm: JobManagementService = JobManagementService(session)
         jr: JobRepository = JobRepository(session)
 
-        await jm.client_task_start(job.job_id, args.client_id)
-        await jm.client_result_create(job.job_id, args.client_id)
+        await jm.client_task_start(job.id, args.client_id)
+        await jm.client_result_create(job.id, args.client_id)
         await jr.schedule_job(artifact.id, worker_id)
 
         await jm.ar.update_status(artifact.id, ArtifactJobStatus.AGGREGATING)
@@ -118,7 +118,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         # check status of artifact
         res = await session.scalars(
             select(ArtifactDB).where(
-                ArtifactDB.artifact_id == artifact.id,
+                ArtifactDB.id == artifact.id,
             )
         )
         art_db = res.one()
@@ -139,7 +139,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         # simulate worker behavior
         res = server.get(
-            f"/worker/task/{job_worker.job_id}",
+            f"/worker/task/{job_worker.id}",
             headers=exchange.headers(),
         )
 
@@ -147,7 +147,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         wt: WorkerTask = WorkerTask(**res.json())
 
-        assert wt.job_id == job_worker.job_id
+        assert wt.job_id == job_worker.id
 
         assert artifact.id == wt.artifact.id
 
@@ -169,7 +169,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
             pickle.dump(model, f)
 
         res = server.post(
-            f"/worker/result/{job_worker.job_id}",
+            f"/worker/result/{job_worker.id}",
             headers=exchange.headers(),
             files={"file": open(model_path, "rb")},
         )
@@ -181,7 +181,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert len(results) == 1
 
-        result_id = results[0].result_id
+        result_id = results[0].id
 
         # test worker get model
         res = server.get(

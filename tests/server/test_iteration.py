@@ -53,7 +53,7 @@ async def test_iteration(session: AsyncSession):
 
     # artifact creation
     artifact = Artifact(
-        project_id=project.project_id,
+        project_id=project.id,
         transform=project.extract(),
         model=Model(name="model", strategy=""),
         plan=IterativePlan(

@@ -63,7 +63,7 @@ def datasource1() -> DataSource:
         name=DS1_NAME,
         n_records=1000,
         n_features=len(features),
-        client_id="client1",
+        component_id="client1",
         features=features,
         tokens=[""],
     )
@@ -79,7 +79,7 @@ def datasource2() -> DataSource:
         name=DS2_NAME,
         n_records=1000,
         n_features=len(features),
-        client_id="client1",
+        component_id="client1",
         features=features,
         tokens=[""],
     )

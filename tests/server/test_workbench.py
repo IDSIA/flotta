@@ -175,7 +175,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         artifact = Artifact(
             id=None,
-            project_id=project.project_id,
+            project_id=project.id,
             transform=datasource.extract(),
             model=Model(name="model", strategy=""),
             plan=None,

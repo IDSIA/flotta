@@ -42,7 +42,7 @@ async def describe_artifact(artifact_id: str | None) -> ServerArtifact | None:
         artifact_repository: ArtifactRepository = ArtifactRepository(session)
 
         try:
-            artifact: ServerArtifact = await artifact_repository.get_artifact(artifact_id=artifact_id)
+            artifact: ServerArtifact = await artifact_repository.get_artifact(artifact_id)
             show_one(artifact)
             return artifact
 

@@ -11,8 +11,8 @@ import os
 
 def view(result: ResultDB) -> Result:
     return Result(
+        id=result.id,
         job_id=result.job_id,
-        id=result.result_id,
         artifact_id=result.artifact_id,
         client_id=result.component_id,
         path=result.path,
@@ -106,7 +106,7 @@ class ResultRepository(Repository):
         out_path = os.path.join(self.storage_directory(artifact_id, iteration), filename)
 
         result_db = ResultDB(
-            result_id=result_id,
+            id=result_id,
             path=out_path,
             job_id=job_id,
             artifact_id=artifact_id,
@@ -141,7 +141,7 @@ class ResultRepository(Repository):
         """
         res = await self.session.scalars(
             select(ResultDB).where(
-                ResultDB.result_id == result_id,
+                ResultDB.id == result_id,
             )
         )
 
@@ -164,7 +164,7 @@ class ResultRepository(Repository):
         """
         res = await self.session.scalars(
             select(ResultDB).where(
-                ResultDB.result_id == result_id,
+                ResultDB.id == result_id,
                 ResultDB.is_model,
             )
         )
@@ -187,7 +187,7 @@ class ResultRepository(Repository):
         """
         res = await self.session.scalars(
             select(ResultDB).where(
-                ResultDB.result_id == result_id,
+                ResultDB.id == result_id,
                 ResultDB.is_estimation,
             )
         )
