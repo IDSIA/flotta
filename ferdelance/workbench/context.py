@@ -203,7 +203,7 @@ class Context:
             if time() > start_time + max_time:
                 raise ValueError("Timeout exceeded")
 
-        if art_status.id is None:
+        if not art_status.id:
             raise ValueError("Invalid artifact status")
 
         estimate = self.get_result(artifact)
@@ -260,7 +260,7 @@ class Context:
         :returns:
             An ArtifactStatus object with the status of the artifact on the server.
         """
-        if artifact.id is None:
+        if not artifact.id:
             raise ValueError("submit first the artifact to the server")
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
@@ -310,7 +310,7 @@ class Context:
         :raises HTTPError:
             If the return code of the response is not a 2xx type.
         """
-        if artifact.id is None:
+        if not artifact.id:
             raise ValueError("submit first the artifact to the server")
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
@@ -341,7 +341,7 @@ class Context:
         :raises HTTPError:
             If the return code of the response is not a 2xx type.
         """
-        if artifact.id is None:
+        if not artifact.id:
             raise ValueError("submit first the artifact to the server")
 
         if artifact.model is None:

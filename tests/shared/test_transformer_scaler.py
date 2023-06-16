@@ -1,5 +1,6 @@
 from ferdelance.schemas.queries import QueryFeature, QueryTransformer
 from ferdelance.schemas.transformers import (
+    Transformer,
     FederatedMinMaxScaler,
     FederatedStandardScaler,
     save,
@@ -126,7 +127,7 @@ def test_mms_save_and_reload():
 
     save(fmms, TF_PATH)
 
-    loaded: FederatedMinMaxScaler = run(TF_PATH)
+    loaded: Transformer = run(TF_PATH)
 
     assert isinstance(loaded, FederatedMinMaxScaler)
     assert fmms.name == loaded.name
@@ -156,7 +157,7 @@ def test_ssc_save_and_reload():
 
     save(fssc, TF_PATH)
 
-    loaded: FederatedStandardScaler = run(TF_PATH)
+    loaded: Transformer = run(TF_PATH)
 
     assert isinstance(loaded, FederatedStandardScaler)
     assert fssc.name == loaded.name

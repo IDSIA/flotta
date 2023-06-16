@@ -52,8 +52,8 @@ class FerdelanceClient:
         # create required directories
         os.makedirs(self.config.workdir, exist_ok=True)
         os.chmod(self.config.workdir, 0o700)
-        os.makedirs(self.config.path_artifacts_folder(), exist_ok=True)
-        os.chmod(self.config.path_artifacts_folder(), 0o700)
+        os.makedirs(self.config.data.path_artifacts_folder(), exist_ok=True)
+        os.chmod(self.config.data.path_artifacts_folder(), 0o700)
 
         exc = Exchange()
 

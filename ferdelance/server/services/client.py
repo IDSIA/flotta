@@ -101,7 +101,7 @@ class ClientService:
     async def check(self, resultd: Result) -> bool:
         return await self.jm.check_for_aggregation(resultd)
 
-    async def start_aggregation(self, result: Result, start_function: Callable[[str, str, list[str], str], str]) -> Job:
+    async def start_aggregation(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
         return await self.jm.start_aggregation(result, start_function)
 
     async def metrics(self, metrics: Metrics) -> None:

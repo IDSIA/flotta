@@ -1,5 +1,7 @@
 from typing import Callable
 
+from ferdelance.client.config import DataConfig
+from ferdelance.client.services.actions.execute import ExecuteAction, ExecutionResult
 from ferdelance.database.data import TYPE_WORKER, TYPE_USER
 from ferdelance.database.repositories import (
     ArtifactRepository,
@@ -27,29 +29,49 @@ from tests.utils import create_project
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import aiofiles.os
+import asyncio
+import shutil
+
 
 class ServerlessClient:
-    def __init__(self, session: AsyncSession, i: int) -> None:
+    def __init__(self, session: AsyncSession, index: int, data: DataConfig | Metadata | None = None) -> None:
         self.session: AsyncSession = session
-        self.i: int = i
+        self.index: int = index
+
+        self.action: ExecuteAction | None = None
+        self.md: Metadata | None = None
+
+        if isinstance(data, DataConfig):
+            self.action = ExecuteAction(data)
+            self.md = data.metadata()
+
+        if isinstance(data, Metadata):
+            self.md = data
 
         self.cr: ComponentRepository = ComponentRepository(session)
+
         self.client: Client = None  # type: ignore
         self.node_service: NodeService = None  # type: ignore
         self.token: Token = None  # type: ignore
 
     async def setup(self):
         self.client, self.token = await self.cr.create_client(
-            f"client-{self.i}",
+            f"client-{self.index}",
             "1",
-            f"key-{self.i}",
-            f"sys-{self.i}",
-            f"mac-{self.i}",
-            f"node-{self.i}",
-            f"ip-{self.i}",
+            f"key-{self.index}",
+            f"sys-{self.index}",
+            f"mac-{self.index}",
+            f"node-{self.index}",
+            f"ip-{self.index}",
         )
         self.node_service = NodeService(self.session, self.client)
         self.client_service = ClientService(self.session, self.client)
+
+    def metadata(self) -> Metadata:
+        if self.md is None:
+            raise ValueError("This client ha been created without metadata")
+        return self.md
 
     async def next_action(self) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         return await self.client_service.update({})
@@ -57,15 +79,33 @@ class ServerlessClient:
     async def get_client_task(self, next_action: UpdateExecute) -> ClientTask:
         return await self.client_service.get_task(next_action)
 
-    async def post_client_results(self, task: ClientTask) -> Result:
-        return await self.client_service.result(task.job_id)
+    async def post_client_results(self, task: ClientTask, in_result: ExecutionResult | None = None) -> Result:
+        result = await self.client_service.result(task.job_id)
 
-    # TODO: these two methods should go under a "ServerService"
-    async def check_aggregation(self, result: Result) -> bool:
-        return await self.client_service.check(result)
+        if in_result is not None:
+            async with aiofiles.open(in_result.path, "rb") as src:
+                async with aiofiles.open(result.path, "wb") as dst:
+                    while (chunk := await src.read()) != b"":
+                        await dst.write(chunk)
 
-    async def aggregate(self, result: Result, start_function: Callable[[str, str, list[str], str], str]) -> Job:
-        return await self.client_service.start_aggregation(result, start_function)
+        return result
+
+    async def execute(self, task: ClientTask) -> ExecutionResult:
+        if self.action is None:
+            raise ValueError("Action executor not available without local data configuration.")
+        return self.action.execute(task)
+
+    async def next_get_execute_post(self) -> Result:
+        next_action = await self.next_action()
+
+        if not isinstance(next_action, UpdateExecute):
+            raise ValueError("next_action is not an execution action!")
+
+        task = await self.get_client_task(next_action)
+        res = await self.execute(task)
+        result = await self.post_client_results(task, res)
+
+        return result
 
 
 class ServerlessExecution:
@@ -89,16 +129,16 @@ class ServerlessExecution:
         self.worker_service = WorkerService(self.session, worker_component)
         self.workbench_service = WorkbenchService(self.session, user_component)
 
-    async def add_client(self, index: int, metadata: Metadata) -> ServerlessClient:
-        sc = ServerlessClient(self.session, index)
+    async def add_client(self, index: int, data: DataConfig | Metadata) -> ServerlessClient:
+        sc = ServerlessClient(self.session, index, data)
         await sc.setup()
-        await sc.node_service.metadata(metadata)
+        await sc.node_service.metadata(sc.metadata())
 
         self.clients[sc.client.id] = sc
 
         return sc
 
-    async def create_project(self, project_token: str):
+    async def create_project(self, project_token: str) -> None:
         await create_project(self.session, project_token)
 
     async def get_project(self, project_token: str) -> Project:
@@ -110,6 +150,12 @@ class ServerlessExecution:
         assert status.id is not None
 
         return status.id
+
+    async def check_aggregation(self, result: Result) -> bool:
+        return await self.clients[result.client_id].client_service.check(result)
+
+    async def aggregate(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
+        return await self.clients[result.client_id].client_service.start_aggregation(result, start_function)
 
     async def get_worker_task(self, job: Job) -> WorkerTask:
         return await self.worker_service.get_task(job.id)

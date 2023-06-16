@@ -9,7 +9,7 @@ from pydantic import BaseModel
 class ArtifactStatus(BaseModel):
     """Details on the artifact status."""
 
-    id: str | None
+    id: str
     status: str | None
     results: str | None = None
     iteration: int = 0
@@ -18,7 +18,7 @@ class ArtifactStatus(BaseModel):
 class Artifact(BaseModel):
     """Artifact created in the workbench."""
 
-    id: str | None = None
+    id: str = ""
     project_id: str
     transform: Query
     plan: Plan | None = None

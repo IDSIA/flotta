@@ -52,7 +52,6 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         project = await pr.get_by_token(TEST_PROJECT_TOKEN)
 
         artifact = Artifact(
-            id=None,
             project_id=project.id,
             transform=project.data.extract(),
             model=Model(name="model", strategy=""),

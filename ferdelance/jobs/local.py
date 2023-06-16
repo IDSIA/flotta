@@ -19,9 +19,9 @@ class JobManagementLocalService(JobManagementService):
 
         self.aggregation_queue: Queue = extra.aggregation_queue
 
-    def _start_aggregation(self, token: str, job_id: str, result_ids: list[str], artifact_id: str) -> str:
+    def _start_aggregation(self, token: str, job_id: str, artifact_id: str) -> str:
         LOGGER.info(f"standalone: starting local aggregation for artifact_id={artifact_id}")
 
-        self.aggregation_queue.put((token, job_id, result_ids))
+        self.aggregation_queue.put((token, job_id))
 
         return f"local-{str(uuid4())}"

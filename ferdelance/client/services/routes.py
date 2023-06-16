@@ -84,7 +84,7 @@ class RouteService:
     def send_metadata(self) -> None:
         LOGGER.info("sending metadata to remote")
 
-        metadata: Metadata = Metadata(datasources=[ds.metadata() for _, ds in self.config.datasources.items()])
+        metadata: Metadata = self.config.data.metadata()
 
         res = post(
             f"{self.config.server}/node/metadata",

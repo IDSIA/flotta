@@ -162,24 +162,24 @@ class JobManagementService(Repository):
 
             await self.jr.start_execution(job)
 
+            results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id, artifact_db.iteration)
+
             return WorkerTask(
                 artifact=artifact,
                 job_id=job_id,
+                result_ids=[r.id for r in results],
             )
 
         except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
             raise TaskDoesNotExists()
 
-    def _start_aggregation(self, token: str, job_id: str, result_ids: list[str], artifact_id: str) -> str:
-        LOGGER.info(
-            f"artifact_id={artifact_id}: started aggregation task with job_id={job_id} and {len(result_ids)} result(s)"
-        )
+    def _start_aggregation(self, token: str, job_id: str, artifact_id: str) -> str:
+        LOGGER.info(f"artifact_id={artifact_id}: started aggregation task with job_id={job_id}")
         task: AsyncResult = aggregation.apply_async(
             args=[
                 token,
                 job_id,
-                result_ids,
             ],
         )
         task_id = str(task.task_id)
@@ -257,7 +257,7 @@ class JobManagementService(Repository):
             LOGGER.exception(e)
             raise e
 
-    async def start_aggregation(self, result: Result, start_function: Callable[[str, str, list[str], str], str]) -> Job:
+    async def start_aggregation(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
         artifact_id = result.artifact_id
 
         try:
@@ -280,10 +280,7 @@ class JobManagementService(Repository):
                 iteration=artifact.iteration,
             )
 
-            results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id)
-            result_ids: list[str] = [m.id for m in results]
-
-            task_id: str = start_function(token, job.id, result_ids, artifact_id)
+            task_id: str = start_function(token, job.id, artifact_id)
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
             await self.jr.set_celery_id(job, task_id)
@@ -366,8 +363,10 @@ class JobManagementService(Repository):
         except NoResultFound:
             raise ValueError(f"job_id={job_id} not found")
 
-    async def aggregation_completed(self, job_id: str) -> None:
+    async def aggregation_completed(self, job_id: str, worker_id: str) -> None:
         LOGGER.info(f"job_id={job_id}: aggregation completed")
+
+        await self.jr.mark_completed(job_id, worker_id)
 
         job = await self.jr.get_by_id(job_id)
         artifact_id = job.artifact_id

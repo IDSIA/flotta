@@ -18,12 +18,10 @@ import time
 LOGGER = logging.getLogger(__name__)
 
 
-def start_function(token: str, job_id: str, result_ids: list[str], artifact_id: str) -> str:
+def start_function(token: str, job_id: str, artifact_id: str) -> str:
     """Pseudo function to simulate the start of an aggregation job."""
 
-    LOGGER.info(
-        f"artifact_id={artifact_id}: new aggregation job_id={job_id} with results_ids={result_ids} and token={token}"
-    )
+    LOGGER.info(f"artifact_id={artifact_id}: new aggregation job_id={job_id} with token={token}")
 
     return f"task-worker-{time.time()}"
 
@@ -88,11 +86,11 @@ async def test_iteration(session: AsyncSession):
     result = await client.post_client_results(task)
 
     # server
-    can_aggregate = await client.check_aggregation(result)
+    can_aggregate = await server.check_aggregation(result)
 
     assert can_aggregate
 
-    job = await client.aggregate(result, start_function)
+    job = await server.aggregate(result, start_function)
 
     await assert_count_it(server, artifact_id, 0, 2)  # train1 agg1
 
@@ -122,11 +120,11 @@ async def test_iteration(session: AsyncSession):
     result = await client.post_client_results(task)
 
     # server
-    can_aggregate = await client.check_aggregation(result)
+    can_aggregate = await server.check_aggregation(result)
 
     assert can_aggregate
 
-    job = await client.aggregate(result, start_function)
+    job = await server.aggregate(result, start_function)
 
     await assert_count_it(server, artifact_id, 1, 4)  # train1 agg1 train2 agg2
 

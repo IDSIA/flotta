@@ -22,7 +22,7 @@ async def list_artifacts() -> list[ServerArtifact]:
         return artifacts
 
 
-async def describe_artifact(artifact_id: str | None) -> ServerArtifact | None:
+async def describe_artifact(artifact_id: str) -> ServerArtifact | None:
     """Print and return a single Artifact object
 
     Args:
@@ -34,7 +34,7 @@ async def describe_artifact(artifact_id: str | None) -> ServerArtifact | None:
     Returns:
         Artifact: The Artifact object
     """
-    if artifact_id is None:
+    if not artifact_id:
         raise ValueError("Provide an Artifact ID")
 
     db = DataBase()

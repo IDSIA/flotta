@@ -4,7 +4,7 @@ from ferdelance.database.data import TYPE_WORKER
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import ErrorArtifact
+from ferdelance.schemas.errors import WorkerAggregationJobError
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.server.security import check_token
 from ferdelance.server.services import WorkerService
@@ -101,11 +101,11 @@ async def post_result(
 
 @worker_router.post("/worker/error/")
 async def post_error(
-    error: ErrorArtifact,
+    error: WorkerAggregationJobError,
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):
-    LOGGER.warn(f"worker_id={worker.id}: artifact_id={error.artifact_id} in error={error.message}")
+    LOGGER.warn(f"worker_id={worker.id}: job_id={error.job_id} in error={error.message}")
 
     ws: WorkerService = WorkerService(session, worker)
 
@@ -118,7 +118,7 @@ async def post_error(
 
     except Exception as e:
         LOGGER.exception(e)
-        await ws.error(error.artifact_id, f"could not save result to disk, exception: {e}")
+        await ws.error(error.job_id, f"could not save result to disk, exception: {e}")
         raise HTTPException(500)
 
 

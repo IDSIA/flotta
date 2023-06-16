@@ -59,7 +59,7 @@ class ArtifactRepository(Repository):
                 An handler for the server representation of the artifact.
         """
 
-        if artifact.id is None:
+        if not artifact.id:
             artifact.id = str(uuid4())
         else:
             existing = await self.session.scalar(
@@ -124,8 +124,9 @@ class ArtifactRepository(Repository):
             str:
                 The path where the data have been saved to.
         """
-        if artifact.id is None:
+        if not artifact.id:
             raise ValueError("Artifact not initialized")
+
         path = await self.storage_location(artifact.id)
 
         async with aiofiles.open(path, "w") as f:

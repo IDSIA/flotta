@@ -174,7 +174,6 @@ async def test_workflow_submit(session: AsyncSession):
         assert "int" in dtypes
 
         artifact = Artifact(
-            id=None,
             project_id=project.id,
             transform=datasource.extract(),
             model=Model(name="model", strategy=""),

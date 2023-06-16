@@ -1,10 +1,12 @@
+from typing import Any
+
+from ferdelance.client.config import DataConfig, DataSourceConfig
 from ferdelance.database import AsyncSession
-from ferdelance.client.datasources import DataSourceFile
-from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.updates import UpdateExecute, UpdateNothing
+from ferdelance.schemas.updates import UpdateNothing
 
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import (
+    GenericModel,
     FederatedRandomForestClassifier,
     StrategyRandomForestClassifier,
     ParametersRandomForestClassifier,
@@ -15,7 +17,13 @@ from tests.serverless import ServerlessExecution
 from tests.utils import TEST_PROJECT_TOKEN
 
 import os
+import pickle
 import pytest
+
+
+def aggregation_job(token: str, job_id: str, artifact_id: str) -> str:
+    print(f"artifact_id={artifact_id}: aggregation start for job_id={job_id}")
+    return ""
 
 
 @pytest.mark.asyncio
@@ -26,16 +34,38 @@ async def test_aggregation(session: AsyncSession):
     assert os.path.exists(DATA_PATH_1)
     assert os.path.exists(DATA_PATH_2)
 
-    ds1 = DataSourceFile("california1", "csv", DATA_PATH_1, [TEST_PROJECT_TOKEN])
-    ds2 = DataSourceFile("california2", "csv", DATA_PATH_1, [TEST_PROJECT_TOKEN])
+    data1 = DataConfig(
+        "./workdir",
+        [
+            DataSourceConfig(
+                name="california1",
+                kind="file",
+                type="csv",
+                path=DATA_PATH_1,
+                token=[TEST_PROJECT_TOKEN],
+            )
+        ],
+    )
+    data2 = DataConfig(
+        "./workdir",
+        [
+            DataSourceConfig(
+                name="california2",
+                kind="file",
+                type="csv",
+                path=DATA_PATH_2,
+                token=[TEST_PROJECT_TOKEN],
+            )
+        ],
+    )
 
     server = ServerlessExecution(session)
     await server.setup()
 
     await server.create_project(TEST_PROJECT_TOKEN)
 
-    client1 = await server.add_client(1, Metadata(datasources=[ds1.metadata()]))
-    client2 = await server.add_client(2, Metadata(datasources=[ds2.metadata()]))
+    client1 = await server.add_client(1, data1)
+    client2 = await server.add_client(2, data2)
 
     clients = [c.id for c in await server.cr.list_clients()]
 
@@ -60,27 +90,51 @@ async def test_aggregation(session: AsyncSession):
     await server.submit(artifact)
 
     # client 1
-    next_action = await client1.next_action()
+    result1 = await client1.next_get_execute_post()
 
-    assert isinstance(next_action, UpdateExecute)
-
-    task = await client1.get_client_task(next_action)
-
-    result = await client1.post_client_results(task)
-    can_aggregate = await client1.check_aggregation(result)
+    can_aggregate = await server.check_aggregation(result1)
 
     assert not can_aggregate
 
     # client 2
-    next_action = await client2.next_action()
+    result2 = await client2.next_get_execute_post()
 
-    assert isinstance(next_action, UpdateExecute)
-
-    task = await client2.get_client_task(next_action)
-    result = await client2.post_client_results(task)
-    can_aggregate = await client2.check_aggregation(result)
+    can_aggregate = await server.check_aggregation(result2)
 
     assert can_aggregate
+
+    # aggregate
+
+    job_id = await server.aggregate(result2, aggregation_job)
+
+    # worker
+    worker_task = await server.get_worker_task(job_id)
+
+    artifact = worker_task.artifact
+
+    assert artifact.is_model()
+
+    base: Any = None
+
+    agg: GenericModel = artifact.get_model()
+    strategy: str = artifact.get_strategy()
+
+    for result_id in worker_task.result_ids:
+        result = await server.worker_service.get_result(result_id)
+
+        with open(result.path, "rb") as f:
+            partial: GenericModel = pickle.load(f)
+
+        if base is None:
+            base = partial
+        else:
+            base = agg.aggregate(strategy, base, partial)
+
+    await server.post_worker_result(job_id)
+
+    jobs = await server.jr.list_jobs_by_artifact_id(artifact.id)
+
+    assert len(jobs) == 3
 
     # check
     next_action = await client1.next_action()

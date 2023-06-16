@@ -4,7 +4,7 @@ from ferdelance.jobs import job_manager, JobManagementService
 from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import ErrorArtifact
+from ferdelance.schemas.errors import WorkerAggregationJobError
 from ferdelance.schemas.worker import WorkerTask
 
 from sqlalchemy.exc import NoResultFound
@@ -58,13 +58,13 @@ class WorkerService:
 
     async def completed(self, job_id: str) -> None:
         """Aggregation completed."""
-        await self.jms.aggregation_completed(job_id)
+        await self.jms.aggregation_completed(job_id, self.component.id)
 
-    async def failed(self, error: ErrorArtifact) -> Result:
+    async def failed(self, error: WorkerAggregationJobError) -> Result:
         """Aggregation failed, and worker did an error."""
-        result = await self.jms.worker_error(error.artifact_id, self.component.id)
+        result = await self.jms.worker_error(error.job_id, self.component.id)
 
-        await self.error(error.artifact_id, error.message)
+        await self.error(error.job_id, error.message)
 
         return result
 
