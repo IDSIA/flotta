@@ -169,7 +169,7 @@ class AggregationTask(Task):
     bind=True,
     base=AggregationTask,
 )
-def aggregation(self: AggregationTask, token: str, job_id: str, result_ids: list[str]) -> None:
+def aggregation(self: AggregationTask, token: str, job_id: str) -> None:
     task_id: str = str(self.request.id)
     try:
         logging.info(f"worker: beginning aggregation task={task_id}")

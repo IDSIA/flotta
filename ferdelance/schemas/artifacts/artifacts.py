@@ -1,4 +1,4 @@
-from ferdelance.schemas.queries.queries import Query
+from ferdelance.schemas.queries import Query
 from ferdelance.schemas.models import Model, GenericModel, rebuild_model
 from ferdelance.schemas.plans import Plan, GenericPlan, rebuild_plan
 from ferdelance.schemas.estimators import Estimator, GenericEstimator, rebuild_estimator

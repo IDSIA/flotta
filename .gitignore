@@ -31,3 +31,4 @@ logs/
 *.model
 data/
 *sqlite.db
+*.bin

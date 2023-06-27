@@ -1,4 +1,4 @@
-from ferdelance.schemas.estimators import MeanEstimator
+from ferdelance.schemas.queries import Query, QueryEstimate
 from ferdelance.workbench.context import Context
 
 import os
@@ -16,12 +16,12 @@ if __name__ == "__main__":
         print("Server host not found")
         sys.exit(-1)
 
-    ctx = Context(server)
+    ctx: Context = Context(server)
 
     project = ctx.project(project_id)
 
-    q = project.extract()
-    e_mean = q.add_estimator(MeanEstimator(q["HouseAge"]))
+    q: Query = project.extract()
+    e_mean: QueryEstimate = q.mean(q["HouseAge"])
 
     mean = ctx.execute(project, e_mean)
 
