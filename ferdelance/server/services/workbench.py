@@ -7,11 +7,7 @@ from ferdelance.database.repositories import (
     ProjectRepository,
     ResultRepository,
 )
-from ferdelance.jobs import job_manager, JobManagementService
-from ferdelance.schemas.artifacts import (
-    ArtifactStatus,
-    Artifact,
-)
+from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.components import Component, Token
 from ferdelance.schemas.database import Result
@@ -21,6 +17,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchDataSourceIdList,
     WorkbenchJoinData,
 )
+from ferdelance.server.services import JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 
@@ -124,17 +121,8 @@ class WorkbenchService:
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        """
-        :raise:
-            ValueError if the artifact already exists.
-        """
-        jms: JobManagementService = job_manager(self.session)
-
-        status = await jms.submit_artifact(artifact)
-
-        LOGGER.info(f"user_id={self.component.id}: submitted artifact got artifact_id={status.id}")
-
-        return status
+        jms: JobManagementService = JobManagementService(self.session)
+        return await jms.submit_artifact(artifact)
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """
@@ -154,13 +142,13 @@ class WorkbenchService:
         :raise:
             ValueError if the requested artifact cannot be found.
         """
-        jms: JobManagementService = job_manager(self.session)
+        LOGGER.info(f"user_id={self.component.id}: dowloading artifact with artifact_id={artifact_id}")
 
-        art = await jms.get_artifact(artifact_id)
+        ar: ArtifactRepository = ArtifactRepository(self.session)
 
-        LOGGER.info(f"user_id={self.component.id}: downloaded artifact with artifact_id={artifact_id}")
+        artifact: Artifact = await ar.load(artifact_id)
 
-        return art
+        return artifact
 
     async def get_result(self, artifact_id: str) -> Result:
         """

@@ -1,7 +1,6 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import WorkerAggregationJobError
@@ -36,27 +35,8 @@ async def check_access(component: Component = Depends(check_token)) -> Component
         raise HTTPException(403)
 
 
-@worker_router.post("/worker/artifact", response_model=ArtifactStatus)
-async def worker_post_artifact(
-    artifact: Artifact, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
-):
-    LOGGER.info(f"worker_id={worker.id}: sent new artifact")
-
-    ws: WorkerService = WorkerService(session, worker)
-
-    try:
-        status = await ws.submit_artifact(artifact)
-
-        return status
-
-    except ValueError as e:
-        LOGGER.error("Artifact already exists")
-        LOGGER.exception(e)
-        raise HTTPException(403)
-
-
 @worker_router.get("/worker/task/{job_id}", response_model=WorkerTask)
-async def worker_get_task(
+async def get_task(
     job_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
     LOGGER.info(f"worker_id={worker.id}: requested job_id={job_id}")
@@ -94,8 +74,8 @@ async def post_result(
         await ws.completed(job_id)
 
     except Exception as e:
+        LOGGER.error(f"worker_id={worker.id}: could not save result to disk for job_id={job_id}")
         LOGGER.exception(e)
-        await ws.error(job_id, f"could not save result to disk, exception: {e}")
         raise HTTPException(500)
 
 
@@ -110,15 +90,15 @@ async def post_error(
     ws: WorkerService = WorkerService(session, worker)
 
     try:
-        result = await ws.failed(error)
+        result = await ws.aggregation_failed(error)
 
         async with aiofiles.open(result.path, "w") as f:
             content = json.dumps(error.dict())
             await f.write(content)
 
     except Exception as e:
+        LOGGER.error(f"worker_id={worker.id}: could not save result to disk for job_id={error.job_id}")
         LOGGER.exception(e)
-        await ws.error(error.job_id, f"could not save result to disk, exception: {e}")
         raise HTTPException(500)
 
 

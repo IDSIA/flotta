@@ -5,7 +5,7 @@ from ferdelance.database.tables import (
 )
 from ferdelance.database.repositories import ProjectRepository, JobRepository
 from ferdelance.server.api import api
-from ferdelance.jobs import JobManagementService
+from ferdelance.server.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainAll
@@ -29,12 +29,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_worker_artifact_not_found(session: AsyncSession, exchange: Exchange):
+async def test_worker_task_not_found(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
         await setup_worker(session, exchange)
 
         res = server.get(
-            f"/worker/artifact/{uuid.uuid4()}",
+            f"/worker/task/{uuid.uuid4()}",
             headers=exchange.headers(),
         )
 
@@ -58,16 +58,10 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
             plan=TrainAll("label").build(),
         )
 
-        # test artifact submit from worker
-        res = server.post(
-            "/worker/artifact",
-            headers=exchange.headers(),
-            json=artifact.dict(),
-        )
+        # fake submit of artifact
+        jms: JobManagementService = JobManagementService(session)
 
-        assert res.status_code == 200
-
-        status: ArtifactStatus = ArtifactStatus(**res.json())
+        status = await jms.submit_artifact(artifact)
 
         LOGGER.info(f"artifact_id: {status.id}")
 
@@ -98,7 +92,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         jr: JobRepository = JobRepository(session)
 
         await jm.client_task_start(job.id, args.client_id)
-        await jm.client_result_create(job.id, args.client_id)
+        await jm.create_result(job.id, args.client_id)
         await jr.schedule_job(artifact.id, worker_id)
 
         await jm.ar.update_status(artifact.id, ArtifactJobStatus.AGGREGATING)
@@ -217,7 +211,7 @@ async def test_worker_access(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 403
 
         res = server.get(
-            "/worker/artifact/none",
+            "/worker/task/none",
             headers=exchange.headers(),
         )
 

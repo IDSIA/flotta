@@ -1,11 +1,17 @@
 from typing import Any, Callable
 
-from ferdelance.database import AsyncSession
-from ferdelance.database.repositories import ComponentRepository
-from ferdelance.jobs import job_manager, JobManagementService
+from ferdelance.database.repositories import (
+    ArtifactRepository,
+    ComponentRepository,
+    DataSourceRepository,
+    JobRepository,
+    ResultRepository,
+    AsyncSession,
+)
+from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.components import Application, Component
-from ferdelance.schemas.database import Result
+from ferdelance.schemas.database import Result, ServerArtifact
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.updates import (
@@ -15,9 +21,15 @@ from ferdelance.schemas.updates import (
     UpdateNothing,
     UpdateToken,
 )
-from ferdelance.server.services import ActionService
+from ferdelance.server.services import ActionService, JobManagementService
+from ferdelance.shared.status import ArtifactJobStatus
 
+from sqlalchemy.exc import NoResultFound
+
+import aiofiles
+import json
 import logging
+import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +38,7 @@ class ClientService:
     def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
         self.component: Component = component
-        self.jm: JobManagementService = JobManagementService(session)
+        self.jms: JobManagementService = JobManagementService(self.session)
 
     async def update(self, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         cr: ComponentRepository = ComponentRepository(self.session)
@@ -63,20 +75,69 @@ class ClientService:
         return new_app
 
     async def get_task(self, payload: UpdateExecute) -> ClientTask:
+        ar: ArtifactRepository = ArtifactRepository(self.session)
         cr: ComponentRepository = ComponentRepository(self.session)
+        dsr: DataSourceRepository = DataSourceRepository(self.session)
+        jr: JobRepository = JobRepository(self.session)
 
         await cr.create_event(self.component.id, "schedule task")
 
         job_id = payload.job_id
 
-        content = await self.jm.client_task_start(job_id, self.component.id)
+        try:
+            job = await jr.get_by_id(job_id)
+            artifact_id = job.artifact_id
 
-        return content
+            artifact_db: ServerArtifact = await ar.get_artifact(artifact_id)
 
-    async def result(self, job_id: str):
-        result_db = await self.jm.client_result_create(job_id, self.component.id)
+            artifact_path = artifact_db.path
 
-        return result_db
+            if not os.path.exists(artifact_path):
+                LOGGER.warning(
+                    f"client_id={self.component.id}: artifact_id={artifact_id} does not exist with path={artifact_path}"
+                )
+                raise ValueError("ArtifactDoesNotExists")
+
+            if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
+                await ar.update_status(artifact_id, ArtifactJobStatus.TRAINING)
+            elif ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.TRAINING:
+                pass  # already in correct state
+            else:
+                LOGGER.error(
+                    f"client_id={self.component.id}: task job_id={job_id} for artifact_id={artifact_id} is in an unexpected state={artifact_db.status}"
+                )
+                raise ValueError(f"Wrong status for job_id={job_id}")
+
+            async with aiofiles.open(artifact_path, "r") as f:
+                data = await f.read()
+                artifact = Artifact(**json.loads(data))
+
+            hashes = await dsr.list_hash_by_client_and_project(self.component.id, artifact.project_id)
+
+            if len(hashes) == 0:
+                LOGGER.warning(
+                    f"client_id={self.component.id}: task with job_id={job_id} has no datasources with artifact_id={artifact_id}"
+                )
+                raise ValueError("TaskDoesNotExists")
+
+            # TODO: for complex training, filter based on artifact.load field
+
+            await jr.start_execution(job)
+
+            return ClientTask(artifact=artifact, job_id=job.id, datasource_hashes=hashes)
+
+        except NoResultFound as _:
+            LOGGER.warning(f"client_id={self.component.id}: task with job_id={job_id} does not exists")
+            raise ValueError("TaskDoesNotExists")
+
+    async def result(self, job_id: str) -> Result:
+        LOGGER.info(f"client_id={self.component.id}: creating results for job_id={job_id}")
+
+        try:
+            return await self.jms.create_result(job_id, self.component.id)
+
+        except NoResultFound as _:
+            raise ValueError(f"client_id={self.component.id}: job_id={job_id} not found")
 
     async def check_and_start(self, result: Result) -> None:
         """This function is a check used to determine if starting the aggregation
@@ -93,17 +154,27 @@ class ClientService:
                 If the artifact referenced by argument result does not exists.
         """
 
-        aggregate = await self.check(result)
+        aggregate = await self.jms.check_for_aggregation(result)
 
         if aggregate:
-            await self.start_aggregation(result, self.jm._start_aggregation)
+            await self.jms.start_aggregation(result)
 
-    async def check(self, resultd: Result) -> bool:
-        return await self.jm.check_for_aggregation(resultd)
+    async def check(self, result: Result) -> bool:
+        return await self.jms.check_for_aggregation(result)
 
     async def start_aggregation(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
-        return await self.jm.start_aggregation(result, start_function)
+        return await self.jms._start_aggregation(result, start_function)
 
     async def metrics(self, metrics: Metrics) -> None:
-        jm: JobManagementService = job_manager(self.session)
-        await jm.save_metrics(metrics)
+        ar: ArtifactRepository = ArtifactRepository(self.session)
+
+        artifact = await ar.get_artifact(metrics.artifact_id)
+
+        if artifact is None:
+            raise ValueError(f"artifact_id={metrics.artifact_id} assigned to metrics not found")
+
+        path = await ar.storage_location(artifact.id, f"metrics_{metrics.source}.json")
+
+        async with aiofiles.open(path, "w") as f:
+            content = json.dumps(metrics.dict())
+            await f.write(content)

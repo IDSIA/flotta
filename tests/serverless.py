@@ -30,8 +30,6 @@ from tests.utils import create_project
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import aiofiles.os
-import asyncio
-import shutil
 
 
 class ServerlessClient:
@@ -162,3 +160,10 @@ class ServerlessExecution:
 
     async def post_worker_result(self, job: Job):
         return await self.worker_service.completed(job.id)
+
+
+class ServerlessWorker:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    # TODO:

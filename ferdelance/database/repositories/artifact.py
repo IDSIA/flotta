@@ -280,3 +280,7 @@ class ArtifactRepository(Repository):
         await self.session.refresh(artifact)
 
         return view(artifact)
+
+    async def mark_error(self, artifact_id: str, iteration: int = -1) -> ServerArtifact:
+        status = await self.update_status(artifact_id, ArtifactJobStatus.ERROR, iteration)
+        return status
