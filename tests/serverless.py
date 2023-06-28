@@ -78,7 +78,7 @@ class ServerlessClient:
         return await self.client_service.get_task(next_action)
 
     async def post_client_results(self, task: ClientTask, in_result: ExecutionResult | None = None) -> Result:
-        result = await self.client_service.result(task.job_id)
+        result = await self.client_service.task_completed(task.job_id)
 
         if in_result is not None:
             async with aiofiles.open(in_result.path, "rb") as src:
@@ -159,7 +159,9 @@ class ServerlessExecution:
         return await self.worker_service.get_task(job.id)
 
     async def post_worker_result(self, job: Job):
-        return await self.worker_service.completed(job.id)
+        result = await self.worker_service.aggregation_completed(job.id)
+        await self.worker_service.check_next_iteration(job.id)
+        return result
 
 
 class ServerlessWorker:

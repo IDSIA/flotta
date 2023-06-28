@@ -3,10 +3,10 @@ from ferdelance.database.tables import (
     Job as JobDB,
     Result as ResultDB,
 )
-from ferdelance.database.repositories import ProjectRepository, JobRepository
+from ferdelance.database.repositories import ProjectRepository
 from ferdelance.server.api import api
 from ferdelance.server.services import JobManagementService
-from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
+from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainAll
 from ferdelance.schemas.worker import WorkerTask
@@ -89,13 +89,15 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         # simulate client work
         jm: JobManagementService = JobManagementService(session)
-        jr: JobRepository = JobRepository(session)
 
         await jm.client_task_start(job.id, args.client_id)
-        await jm.create_result(job.id, args.client_id)
-        await jr.schedule_job(artifact.id, worker_id)
+        result = await jm.create_result(job.id, args.client_id)
+        await jm.client_task_completed(job.id, args.client_id)
 
-        await jm.ar.update_status(artifact.id, ArtifactJobStatus.AGGREGATING)
+        def ignore(a: str, b: str, c: str) -> str:
+            return ""
+
+        await jm._start_aggregation(result, ignore)
 
         # check status of job completed by the client
         res = await session.scalars(
