@@ -3,12 +3,10 @@ from typing import Any
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.repositories import AsyncSession
-from ferdelance.schemas.updates import DownloadApp, UpdateExecute
-from ferdelance.schemas.components import (
-    Component,
-    Application,
-)
+from ferdelance.schemas.components import Component, Application
+from ferdelance.schemas.errors import ClientTaskError
 from ferdelance.schemas.models import Metrics
+from ferdelance.schemas.updates import DownloadApp, UpdateExecute
 from ferdelance.server.services import SecurityService, ClientService
 from ferdelance.server.security import check_token
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
@@ -23,6 +21,8 @@ from fastapi.responses import Response
 
 from sqlalchemy.exc import NoResultFound
 
+import aiofiles
+import json
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -136,9 +136,6 @@ async def client_get_task(
         raise HTTPException(404, "Task does not exists")
 
 
-# TODO: add endpoint for failed job executions
-
-
 @client_router.post("/result/{job_id}")
 async def client_post_result(
     request: Request,
@@ -154,9 +151,39 @@ async def client_post_result(
     await ss.setup(component.public_key)
 
     try:
-        result = await cs.result(job_id)
+        result = await cs.task_completed(job_id)
 
         await ss.stream_decrypt_file(request, result.path)
+
+        await cs.check_and_start(result)
+
+        return {}
+    except Exception as e:
+        LOGGER.exception(e)
+
+
+@client_router.post("/error/{job_id}")
+async def client_post_error(
+    request: Request,
+    job_id: str,
+    session: AsyncSession = Depends(get_session),
+    component: Component = Depends(check_access),
+):
+    LOGGER.info(f"client_id={component.id}: complete work on job_id={job_id}")
+
+    ss: SecurityService = SecurityService(session)
+    cs: ClientService = ClientService(session, component)
+
+    await ss.setup(component.public_key)
+
+    try:
+        data = await ss.read_request(request)
+        error = ClientTaskError(**data)
+        result = await cs.task_failed(error)
+
+        async with aiofiles.open(result.path, "w") as out_file:
+            content = json.dumps(error.dict())
+            await out_file.write(content)
 
         await cs.check_and_start(result)
 

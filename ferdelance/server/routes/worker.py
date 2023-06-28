@@ -65,13 +65,13 @@ async def post_result(
     ws: WorkerService = WorkerService(session, worker)
 
     try:
-        result: Result = await ws.result(job_id)
+        result: Result = await ws.aggregation_completed(job_id)
 
         async with aiofiles.open(result.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
-        await ws.completed(job_id)
+        await ws.check_next_iteration(job_id)
 
     except Exception as e:
         LOGGER.error(f"worker_id={worker.id}: could not save result to disk for job_id={job_id}")
@@ -92,9 +92,9 @@ async def post_error(
     try:
         result = await ws.aggregation_failed(error)
 
-        async with aiofiles.open(result.path, "w") as f:
+        async with aiofiles.open(result.path, "w") as out_file:
             content = json.dumps(error.dict())
-            await f.write(content)
+            await out_file.write(content)
 
     except Exception as e:
         LOGGER.error(f"worker_id={worker.id}: could not save result to disk for job_id={error.job_id}")

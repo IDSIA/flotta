@@ -17,7 +17,7 @@ from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.database import ServerArtifact, Result
-from ferdelance.schemas.errors import WorkerAggregationJobError
+from ferdelance.schemas.errors import WorkerAggregationJobError, ClientTaskError
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.schemas.jobs import Job
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
@@ -166,13 +166,13 @@ class JobManagementService(Repository):
 
             if context.has_failed():
                 LOGGER.error(
-                    f"artifact_id={result.artifact_id}: cannot aggregate: {context.job_failed} jobs have error"
+                    f"artifact_id={result.artifact_id}: aggregation impossile: {context.job_failed} jobs have error"
                 )
                 return False
 
             if not context.completed():
                 LOGGER.info(
-                    f"artifact_id={result.artifact_id}: cannot aggregate: {context.job_completed} / {context.job_total} completed job(s)"
+                    f"artifact_id={result.artifact_id}: aggregation impossile: {context.job_completed} / {context.job_total} completed job(s)"
                 )
                 return False
 
@@ -227,7 +227,7 @@ class JobManagementService(Repository):
             return job
 
         except ValueError as e:
-            LOGGER.error(f"artifact_id={artifact_id}: cannot aggregate: no worker available")
+            LOGGER.error(f"artifact_id={artifact_id}: aggregation impossile: no worker available")
             raise e
 
         except IntegrityError as e:
@@ -270,7 +270,7 @@ class JobManagementService(Repository):
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
             raise TaskDoesNotExists()
 
-    async def create_result(self, job_id: str, producer_id: str) -> Result:
+    async def create_result(self, job_id: str, producer_id: str, is_error: bool = False) -> Result:
         LOGGER.info(f"component_id={producer_id}: creating results for job_id={job_id}")
 
         job = await self.jr.get_by_id(job_id)
@@ -281,8 +281,6 @@ class JobManagementService(Repository):
 
         artifact: Artifact = await self.ar.load(artifact_id)
 
-        await self.jr.mark_completed(job_id, producer_id)
-
         result = await self.rr.create_result(
             job_id=job_id,
             artifact_id=artifact_id,
@@ -290,15 +288,28 @@ class JobManagementService(Repository):
             iteration=job.iteration,
             is_estimation=artifact.is_estimation(),
             is_model=artifact.is_model(),
+            is_error=is_error,
         )
 
         return result
+
+    async def client_task_completed(self, job_id: str, client_id: str) -> None:
+        LOGGER.info(f"job_id={job_id}: task completed")
+
+        await self.jr.mark_completed(job_id, client_id)
+
+    async def client_task_failed(self, error: ClientTaskError, client_id: str) -> None:
+        LOGGER.info(f"job_id={error.job_id}: task completed")
+
+        await self.jr.mark_error(error.job_id, client_id)
 
     async def aggregation_completed(self, job_id: str, worker_id: str) -> None:
         LOGGER.info(f"job_id={job_id}: aggregation completed")
 
         await self.jr.mark_completed(job_id, worker_id)
 
+    async def check_for_iteration(self, job_id: str) -> None:
+        # check for next iteration
         job = await self.jr.get_by_id(job_id)
         artifact_id = job.artifact_id
 
@@ -313,20 +324,23 @@ class JobManagementService(Repository):
         await plan.post_aggregation_hook(context)
 
         if context.schedule_next_iteration:
+            # schedule next iteration
             LOGGER.info(f"artifact_id={artifact_id}: scheduling next iteration #{context.next_iteration}")
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.SCHEDULED, context.next_iteration)
             await self.schedule_tasks_for_clients(artifact, context.next_iteration)
 
         else:
+            # mark artifact as completed
             LOGGER.info(f"artifact_id={artifact_id}: artifact completed ")
             await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, context.next_iteration)
 
-    async def aggregation_error(self, error: WorkerAggregationJobError, worker_id: str) -> None:
+    async def aggregation_failed(self, error: WorkerAggregationJobError, worker_id: str) -> None:
         LOGGER.warning(f"job_id={error.job_id}: aggregation failed with error: {error.message}{error.stack_trace}")
 
-        job = await self.jr.get_by_id(error.job_id)
-        artifact_id = job.artifact_id
-
-        await self.ar.update_status(artifact_id, ArtifactJobStatus.ERROR)
         await self.jr.mark_error(error.job_id, worker_id)
+
+        job = await self.jr.get_by_id(error.job_id)
+
+        # mark artifact as error
+        await self.ar.update_status(job.artifact_id, ArtifactJobStatus.ERROR)

@@ -12,6 +12,7 @@ from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.components import Application, Component
 from ferdelance.schemas.database import Result, ServerArtifact
+from ferdelance.schemas.errors import ClientTaskError
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.updates import (
@@ -130,14 +131,27 @@ class ClientService:
             LOGGER.warning(f"client_id={self.component.id}: task with job_id={job_id} does not exists")
             raise ValueError("TaskDoesNotExists")
 
-    async def result(self, job_id: str) -> Result:
+    async def task_completed(self, job_id: str) -> Result:
         LOGGER.info(f"client_id={self.component.id}: creating results for job_id={job_id}")
 
         try:
+            await self.jms.client_task_completed(job_id, self.component.id)
+
             return await self.jms.create_result(job_id, self.component.id)
 
         except NoResultFound as _:
             raise ValueError(f"client_id={self.component.id}: job_id={job_id} not found")
+
+    async def task_failed(self, error: ClientTaskError) -> Result:
+        LOGGER.info(f"client_id={self.component.id}: creating results for job_id={error.job_id}")
+
+        try:
+            await self.jms.client_task_failed(error, self.component.id)
+
+            return await self.jms.create_result(error.job_id, self.component.id)
+
+        except NoResultFound as _:
+            raise ValueError(f"client_id={self.component.id}: job_id={error.job_id} not found")
 
     async def check_and_start(self, result: Result) -> None:
         """This function is a check used to determine if starting the aggregation
@@ -154,7 +168,7 @@ class ClientService:
                 If the artifact referenced by argument result does not exists.
         """
 
-        aggregate = await self.jms.check_for_aggregation(result)
+        aggregate = await self.check(result)
 
         if aggregate:
             await self.jms.start_aggregation(result)
@@ -163,6 +177,8 @@ class ClientService:
         return await self.jms.check_for_aggregation(result)
 
     async def start_aggregation(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
+        """Utility method to pass a specific start_function, used for testing
+        and debugging."""
         return await self.jms._start_aggregation(result, start_function)
 
     async def metrics(self, metrics: Metrics) -> None:

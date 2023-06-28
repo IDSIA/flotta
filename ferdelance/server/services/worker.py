@@ -81,16 +81,21 @@ class WorkerService:
 
         return result
 
-    async def completed(self, job_id: str) -> None:
+    async def aggregation_completed(self, job_id: str) -> Result:
         """Aggregation completed."""
         LOGGER.info(f"job_id={job_id}: aggregation completed")
 
         await self.jms.aggregation_completed(job_id, self.component.id)
 
+        return await self.jms.create_result(job_id, self.component.id)
+
+    async def check_next_iteration(self, job_id: str) -> None:
+        await self.jms.check_for_iteration(job_id)
+
     async def aggregation_failed(self, error: WorkerAggregationJobError) -> Result:
         """Aggregation failed, and worker did an error."""
         LOGGER.info(f"job_id={error.job_id}: aggregation failed")
 
-        await self.jms.aggregation_error(error, self.component.id)
+        await self.jms.aggregation_failed(error, self.component.id)
 
-        return await self.jms.create_result(error.job_id, self.component.id)
+        return await self.jms.create_result(error.job_id, self.component.id, True)
