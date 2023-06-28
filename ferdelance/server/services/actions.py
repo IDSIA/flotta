@@ -37,7 +37,7 @@ class ActionService(Repository):
         :return:
             True if no valid token is found, otherwise False.
         """
-        return await self.cr.has_invalid_token(client.client_id)
+        return await self.cr.has_invalid_token(client.id)
 
     async def _action_update_token(self, client: Client) -> UpdateToken:
         """Generates a new valid token.
@@ -60,11 +60,11 @@ class ActionService(Repository):
         try:
             app: Application = await self.cr.get_newest_app()
 
-            LOGGER.debug(f"client_id={client.client_id}: version={client.version} newest_version={app.version}")
+            LOGGER.debug(f"client_id={client.id}: version={client.version} newest_version={app.version}")
 
             return client.version != app.version
 
-        except NoResultFound:
+        except NoResultFound as e:
             return False
 
     async def _action_update_client_app(self) -> UpdateClientApp:
@@ -84,7 +84,7 @@ class ActionService(Repository):
         )
 
     async def _check_scheduled_job(self, client: Client) -> Job:
-        return await self.jr.next_job_for_component(client.client_id)
+        return await self.jr.next_job_for_component(client.id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateExecute:
         if job.is_model:
@@ -92,10 +92,10 @@ class ActionService(Repository):
         elif job.is_estimation:
             action = Action.EXECUTE_ESTIMATE
         else:
-            LOGGER.error(f"Invalid action type for job_id={job.job_id}")
+            LOGGER.error(f"Invalid action type for job_id={job.id}")
             raise ValueError()
 
-        return UpdateExecute(action=action.name, job_id=job.job_id)
+        return UpdateExecute(action=action.name, job_id=job.id)
 
     async def _action_nothing(self) -> UpdateNothing:
         """Do nothing and waits for the next update request."""
@@ -115,7 +115,13 @@ class ActionService(Repository):
 
             task = await self._check_scheduled_job(client)
             return await self._action_schedule_job(task)
-        except Exception:
+
+        except NoResultFound as e:
+            # no tasks to do
             pass
+
+        except Exception as e:
+            # real exception
+            LOGGER.warn(e)
 
         return await self._action_nothing()

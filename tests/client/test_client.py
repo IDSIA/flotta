@@ -11,7 +11,7 @@ from ferdelance.schemas.components import (
     Token,
 )
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.client import ClientJoinRequest
+from ferdelance.schemas.node import JoinRequest
 from ferdelance.schemas.updates import (
     DownloadApp,
     UpdateClientApp,
@@ -108,7 +108,7 @@ async def test_client_already_exists(session: AsyncSession, exchange: Exchange):
         assert client_db.machine_mac_address is not None
         assert client_db.machine_node is not None
 
-        data = ClientJoinRequest(
+        data = JoinRequest(
             name="testing_client",
             system=client_db.machine_system,
             mac_address=client_db.machine_mac_address,
@@ -118,7 +118,7 @@ async def test_client_already_exists(session: AsyncSession, exchange: Exchange):
         )
 
         response = client.post(
-            "/client/join",
+            "/node/join",
             json=data.dict(),
         )
 
@@ -157,7 +157,7 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
 
         cr: ComponentRepository = ComponentRepository(session)
 
-        response_leave = client.post("/client/leave", headers=exchange.headers())
+        response_leave = client.post("/node/leave", headers=exchange.headers())
 
         LOGGER.info(f"response_leave={response_leave}")
 
@@ -260,7 +260,7 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         # add fake client app
         app_id = str(uuid.uuid4())
         client_app = Application(
-            app_id=app_id,
+            id=app_id,
             path=path,
             name=filename,
             version=version_app,
@@ -270,7 +270,7 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         session.add(client_app)
         await session.commit()
 
-        res = await session.execute(select(Application).where(Application.app_id == app_id))
+        res = await session.execute(select(Application).where(Application.id == app_id))
         client_app: Application | None = res.scalar_one_or_none()
 
         assert client_app is not None

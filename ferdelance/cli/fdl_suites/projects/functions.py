@@ -25,7 +25,6 @@ async def create_project(name: str) -> str:
 
 
 async def describe_project(project_id: str | None = None, token: str | None = None) -> ProjectView | None:
-
     if project_id is not None and token is not None or project_id is None and token is None:
         raise ValueError("Specify either the project_id or the token of the project")
 
@@ -34,9 +33,8 @@ async def describe_project(project_id: str | None = None, token: str | None = No
         project_repository: ProjectRepository = ProjectRepository(session)
 
         try:
-
             if project_id is not None:
-                project: ProjectView = await project_repository.get_by_id(project_id=project_id)
+                project: ProjectView = await project_repository.get_by_id(project_id)
             elif token is not None:
                 project: ProjectView = await project_repository.get_by_token(token=token)
             else:

@@ -21,9 +21,7 @@ async def list_datasources(client_id: str | None = None) -> list[DataSource]:
         if client_id is None:
             datasources: list[DataSource] = await datasource_repository.list_datasources()
         else:
-            datasources: list[DataSource] = await datasource_repository.list_datasources_by_client_id(
-                client_id=client_id
-            )
+            datasources: list[DataSource] = await datasource_repository.list_datasources_by_client_id(client_id)
 
         show_many(datasources)
         return datasources
@@ -48,7 +46,7 @@ async def describe_datasource(datasource_id: str | None) -> DataSource | None:
     async with db.async_session() as session:
         datasource_repository: DataSourceRepository = DataSourceRepository(session)
         try:
-            datasource: DataSource = await datasource_repository.get_datasource_by_id(datasource_id=datasource_id)
+            datasource: DataSource = await datasource_repository.get_datasource_by_id(datasource_id)
             show_one(datasource)
             return datasource
         except NoResultFound as e:

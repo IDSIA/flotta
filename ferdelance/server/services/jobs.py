@@ -17,15 +17,15 @@ from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.database import ServerArtifact, Result
-from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.models import Metrics
+from ferdelance.schemas.errors import WorkerAggregationJobError, ClientTaskError
 from ferdelance.schemas.worker import WorkerTask
+from ferdelance.schemas.jobs import Job
 from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
-from ferdelance.worker.tasks.aggregation import aggregation
+
+from ferdelance.server.jobs_backend import get_aggregation_backend
 
 from sqlalchemy.exc import NoResultFound, IntegrityError
-from celery.result import AsyncResult
 
 import aiofiles
 import json
@@ -64,40 +64,38 @@ class JobManagementService(Repository):
                 If there was an error in creating the handlers on the database or on disk.
 
         Returns:
-            ArtifactStatus: _description_
+            ArtifactStatus:
+                Handler to manage artifact.
         """
         try:
-            # TODO: maybe split artifact for each client on submit?
-
             # TODO: manage for estimates
 
             artifact_db: ServerArtifact = await self.ar.create_artifact(artifact)
 
-            await self._schedule_tasks_for_clients(artifact_db.artifact_id, artifact, 0)
+            artifact.id = artifact_db.id
+
+            await self.schedule_tasks_for_clients(artifact, 0)
 
             return artifact_db.get_status()
         except ValueError as e:
             raise e
 
-    async def _schedule_tasks_for_clients(self, artifact_id: str, artifact: Artifact, iteration: int) -> None:
+    async def schedule_tasks_for_clients(self, artifact: Artifact, iteration: int) -> None:
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
 
-        LOGGER.info(f"artifact_id={artifact_id}: scheduling {len(datasources_ids)} job(s) for iteration #{iteration}")
+        LOGGER.info(f"artifact_id={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration #{artifact}")
 
         for datasource_id in datasources_ids:
             client: Client = await self.dsr.get_client_by_datasource_id(datasource_id)
 
             await self.jr.schedule_job(
-                artifact_id,
-                client.client_id,
+                artifact.id,
+                client.id,
                 is_model=artifact.is_model(),
                 is_estimation=artifact.is_estimation(),
                 iteration=iteration,
             )
-
-    async def get_artifact(self, artifact_id: str) -> Artifact:
-        return await self.ar.load(artifact_id)
 
     async def client_task_start(self, job_id: str, client_id: str) -> ClientTask:
         try:
@@ -140,77 +138,11 @@ class JobManagementService(Repository):
 
             await self.jr.start_execution(job)
 
-            return ClientTask(artifact=artifact, job_id=job.job_id, datasource_hashes=hashes)
+            return ClientTask(artifact=artifact, job_id=job.id, datasource_hashes=hashes)
 
         except NoResultFound as _:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
             raise TaskDoesNotExists()
-
-    async def worker_task_start(self, job_id: str, client_id: str) -> WorkerTask:
-        try:
-            job = await self.jr.get_by_id(job_id)
-            artifact_id = job.artifact_id
-
-            artifact_db: ServerArtifact = await self.ar.get_artifact(artifact_id)
-
-            if ArtifactJobStatus[artifact_db.status] != ArtifactJobStatus.AGGREGATING:
-                raise ValueError(f"Wrong status for job_id={job_id}")
-
-            async with aiofiles.open(artifact_db.path, "r") as f:
-                data = await f.read()
-                artifact = Artifact(**json.loads(data))
-
-            await self.jr.start_execution(job)
-
-            return WorkerTask(
-                artifact=artifact,
-                job_id=job_id,
-            )
-
-        except NoResultFound:
-            LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
-            raise TaskDoesNotExists()
-
-    def _start_aggregation(self, token: str, job_id: str, result_ids: list[str], artifact_id: str) -> str:
-        LOGGER.info(
-            f"artifact_id={artifact_id}: started aggregation task with job_id={job_id} and {len(result_ids)} result(s)"
-        )
-        task: AsyncResult = aggregation.apply_async(
-            args=[
-                token,
-                job_id,
-                result_ids,
-            ],
-        )
-        task_id = str(task.task_id)
-        LOGGER.info(
-            f"artifact_id={artifact_id}: scheduled task with job_id={job_id} celery_id={task_id} status={task.status}"
-        )
-        return task_id
-
-    async def client_result_create(self, job_id: str, client_id: str) -> Result:
-        LOGGER.info(f"client_id={client_id}: creating results for job_id={job_id}")
-
-        job = await self.jr.get_by_id(job_id)
-        artifact_id = job.artifact_id
-
-        # simple check
-        await self.ar.get_artifact(artifact_id)
-
-        artifact: Artifact = await self.get_artifact(artifact_id)
-
-        await self.jr.mark_completed(job_id, client_id)
-
-        result = await self.rr.create_result(
-            job_id=job_id,
-            artifact_id=artifact_id,
-            producer_id=client_id,
-            iteration=job.iteration,
-            is_estimation=artifact.is_estimation(),
-            is_model=artifact.is_model(),
-        )
-
-        return result
 
     async def check_for_aggregation(self, result: Result) -> bool:
         artifact_id = result.artifact_id
@@ -219,7 +151,7 @@ class JobManagementService(Repository):
             job = await self.jr.get_by_id(result.job_id)
             it = job.iteration
 
-            artifact: Artifact = await self.get_artifact(artifact_id)
+            artifact: Artifact = await self.ar.load(artifact_id)
             context = AggregationContext(
                 artifact_id=artifact_id,
                 current_iteration=it,
@@ -230,17 +162,18 @@ class JobManagementService(Repository):
             context.job_completed = await self.jr.count_jobs_by_artifact_status(artifact_id, JobStatus.COMPLETED, it)
             context.job_failed = await self.jr.count_jobs_by_artifact_status(artifact_id, JobStatus.ERROR, it)
 
-            await artifact.get_plan().pre_aggregation_hook(context)
+            if artifact.has_plan():
+                await artifact.get_plan().pre_aggregation_hook(context)
 
             if context.has_failed():
                 LOGGER.error(
-                    f"artifact_id={result.artifact_id}: cannot aggregate: {context.job_failed} jobs have error"
+                    f"artifact_id={result.artifact_id}: aggregation impossile: {context.job_failed} jobs have error"
                 )
                 return False
 
             if not context.completed():
                 LOGGER.info(
-                    f"artifact_id={result.artifact_id}: cannot aggregate: {context.job_completed} / {context.job_total} completed job(s)"
+                    f"artifact_id={result.artifact_id}: aggregation impossile: {context.job_completed} / {context.job_total} completed job(s)"
                 )
                 return False
 
@@ -257,7 +190,12 @@ class JobManagementService(Repository):
             LOGGER.exception(e)
             raise e
 
-    async def start_aggregation(self, result: Result, start_function: Callable[[str, str, list[str], str], str]) -> Job:
+    async def start_aggregation(self, result: Result) -> Job:
+        backend = get_aggregation_backend()
+        job = await self._start_aggregation(result, backend.start_aggregation)
+        return job
+
+    async def _start_aggregation(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
         artifact_id = result.artifact_id
 
         try:
@@ -280,20 +218,17 @@ class JobManagementService(Repository):
                 iteration=artifact.iteration,
             )
 
-            results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id)
-            result_ids: list[str] = [m.result_id for m in results]
-
-            task_id: str = start_function(token, job.job_id, result_ids, artifact_id)
+            task_id: str = start_function(token, job.id, artifact_id)
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
             await self.jr.set_celery_id(job, task_id)
 
-            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job_id={job.job_id}")
+            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job_id={job.id}")
 
             return job
 
         except ValueError as e:
-            LOGGER.error(f"artifact_id={artifact_id}: cannot aggregate: no worker available")
+            LOGGER.error(f"artifact_id={artifact_id}: aggregation impossile: no worker available")
             raise e
 
         except IntegrityError as e:
@@ -308,106 +243,108 @@ class JobManagementService(Repository):
             LOGGER.exception(e)
             raise e
 
-    async def worker_result_create(self, job_id: str, worker_id: str) -> Result:
+    async def worker_task_start(self, job_id: str, client_id: str) -> WorkerTask:
         try:
-            LOGGER.info(f"worker_id={worker_id}: creating aggregated result for job_id={job_id}")
-
             job = await self.jr.get_by_id(job_id)
             artifact_id = job.artifact_id
 
-            # simple check
-            await self.ar.get_artifact(artifact_id)
+            artifact_db: ServerArtifact = await self.ar.get_artifact(artifact_id)
 
-            artifact: Artifact = await self.get_artifact(artifact_id)
+            if ArtifactJobStatus[artifact_db.status] != ArtifactJobStatus.AGGREGATING:
+                raise ValueError(f"Wrong status for job_id={job_id}")
 
-            await self.jr.mark_completed(job_id, worker_id)
+            async with aiofiles.open(artifact_db.path, "r") as f:
+                data = await f.read()
+                artifact = Artifact(**json.loads(data))
 
-            result = await self.rr.create_result(
+            await self.jr.start_execution(job)
+
+            results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id, artifact_db.iteration)
+
+            return WorkerTask(
+                artifact=artifact,
                 job_id=job_id,
-                artifact_id=artifact_id,
-                producer_id=worker_id,
-                iteration=job.iteration,
-                is_estimation=artifact.is_estimation(),
-                is_model=artifact.is_model(),
-                is_aggregation=True,
+                result_ids=[r.id for r in results],
             )
 
-            return result
-
         except NoResultFound:
-            raise ValueError(f"job_id={job_id} not found")
+            LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
+            raise TaskDoesNotExists()
 
-    async def worker_error(self, job_id: str, worker_id: str) -> Result:
-        try:
-            LOGGER.warning(f"worker_id={worker_id}: creating aggregated result for job_id={job_id}")
-            job = await self.jr.get_by_id(job_id)
-            artifact_id = job.artifact_id
-
-            # simple check
-            await self.ar.get_artifact(artifact_id)
-
-            artifact: Artifact = await self.get_artifact(artifact_id)
-
-            await self.jr.mark_error(job_id, worker_id)
-
-            result = await self.rr.create_result(
-                job_id=job_id,
-                artifact_id=artifact_id,
-                producer_id=worker_id,
-                iteration=job.iteration,
-                is_estimation=artifact.is_estimation(),
-                is_model=artifact.is_model(),
-                is_aggregation=True,
-                is_error=True,
-            )
-
-            return result
-
-        except NoResultFound:
-            raise ValueError(f"job_id={job_id} not found")
-
-    async def aggregation_completed(self, job_id: str) -> None:
-        LOGGER.info(f"job_id={job_id}: aggregation completed")
+    async def create_result(
+        self, job_id: str, producer_id: str, is_aggregation: bool, is_error: bool = False
+    ) -> Result:
+        LOGGER.info(f"component_id={producer_id}: creating results for job_id={job_id}")
 
         job = await self.jr.get_by_id(job_id)
         artifact_id = job.artifact_id
 
-        artifact: Artifact = await self.get_artifact(artifact_id)
+        # simple check
+        await self.ar.get_artifact(artifact_id)
+
+        artifact: Artifact = await self.ar.load(artifact_id)
+
+        result = await self.rr.create_result(
+            job_id=job_id,
+            artifact_id=artifact_id,
+            producer_id=producer_id,
+            iteration=job.iteration,
+            is_estimation=artifact.is_estimation(),
+            is_model=artifact.is_model(),
+            is_aggregation=is_aggregation,
+            is_error=is_error,
+        )
+
+        return result
+
+    async def client_task_completed(self, job_id: str, client_id: str) -> None:
+        LOGGER.info(f"job_id={job_id}: task completed")
+
+        await self.jr.mark_completed(job_id, client_id)
+
+    async def client_task_failed(self, error: ClientTaskError, client_id: str) -> None:
+        LOGGER.info(f"job_id={error.job_id}: task completed")
+
+        await self.jr.mark_error(error.job_id, client_id)
+
+    async def aggregation_completed(self, job_id: str, worker_id: str) -> None:
+        LOGGER.info(f"job_id={job_id}: aggregation completed")
+
+        await self.jr.mark_completed(job_id, worker_id)
+
+    async def check_for_iteration(self, job_id: str) -> None:
+        # check for next iteration
+        job = await self.jr.get_by_id(job_id)
+        artifact_id = job.artifact_id
+
+        artifact: Artifact = await self.ar.load(artifact_id)
         context = AggregationContext(
             artifact_id=artifact_id,
             current_iteration=job.iteration,
             next_iteration=job.iteration + 1,
         )
 
-        plan = artifact.get_plan()
-        await plan.post_aggregation_hook(context)
+        if artifact.has_plan():
+            await artifact.get_plan().post_aggregation_hook(context)
 
         if context.schedule_next_iteration:
+            # schedule next iteration
             LOGGER.info(f"artifact_id={artifact_id}: scheduling next iteration #{context.next_iteration}")
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.SCHEDULED, context.next_iteration)
-            await self._schedule_tasks_for_clients(artifact_id, artifact, context.next_iteration)
+            await self.schedule_tasks_for_clients(artifact, context.next_iteration)
 
         else:
+            # mark artifact as completed
             LOGGER.info(f"artifact_id={artifact_id}: artifact completed ")
             await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, context.next_iteration)
 
-    async def aggregation_error(self, job_id: str, error: str) -> None:
-        LOGGER.warning(f"job_id={job_id}: aggregation completed with error: {error}")
+    async def aggregation_failed(self, error: WorkerAggregationJobError, worker_id: str) -> None:
+        LOGGER.warning(f"job_id={error.job_id}: aggregation failed with error: {error.message}{error.stack_trace}")
 
-        job = await self.jr.get_by_id(job_id)
-        artifact_id = job.artifact_id
+        await self.jr.mark_error(error.job_id, worker_id)
 
-        await self.ar.update_status(artifact_id, ArtifactJobStatus.ERROR)
+        job = await self.jr.get_by_id(error.job_id)
 
-    async def save_metrics(self, metrics: Metrics):
-        artifact = await self.ar.get_artifact(metrics.artifact_id)
-
-        if artifact is None:
-            raise ValueError(f"artifact_id={metrics.artifact_id} assigned to metrics not found")
-
-        path = await self.ar.storage_location(artifact.artifact_id, f"metrics_{metrics.source}.json")
-
-        async with aiofiles.open(path, "w") as f:
-            content = json.dumps(metrics.dict())
-            await f.write(content)
+        # mark artifact as error
+        await self.ar.update_status(job.artifact_id, ArtifactJobStatus.ERROR)

@@ -1,11 +1,11 @@
-from ferdelance.client.config import Config
+from ferdelance.client.config import DataConfig
 from ferdelance.client.services.actions.action import Action
-from ferdelance.client.services.routes import RouteService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.estimators import apply_estimator
 from ferdelance.schemas.transformers import apply_transformer
-from ferdelance.schemas.updates import UpdateExecute
+
+from dataclasses import dataclass
 
 import pandas as pd
 
@@ -16,28 +16,34 @@ import os
 LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
+class ExecutionResult:
+    job_id: str
+    path: str
+    metrics: list
+    is_model: bool = False
+    is_estimate: bool = False
+
+
 class ExecuteAction(Action):
-    def __init__(self, config: Config, update_execute: UpdateExecute) -> None:
-        self.config = config
-        self.routes_service: RouteService = RouteService(config)
-        self.update_execute = update_execute
+    def __init__(self, data: DataConfig) -> None:
+        self.data = data
 
     def validate_input(self) -> None:
         pass
 
-    def execute(self) -> None:
-        task: ClientTask = self.routes_service.get_task(self.update_execute)
+    def execute(self, task: ClientTask) -> ExecutionResult:
         job_id = task.job_id
         artifact: Artifact = task.artifact
-        artifact_id = artifact.artifact_id
+        artifact_id = artifact.id
 
-        if artifact_id is None:
+        if not artifact_id:
             raise ValueError("Invalid Artifact")
 
         LOGGER.info(f"artifact_id={artifact_id}: received new task with job_id={job_id}")
 
         # TODO: this should include iteration!
-        working_folder = os.path.join(self.config.path_artifacts_folder(), f"{artifact_id}", f"{job_id}")
+        working_folder = os.path.join(self.data.path_artifacts_folder(), f"{artifact_id}", f"{job_id}")
 
         os.makedirs(working_folder, exist_ok=True)
 
@@ -56,7 +62,7 @@ class ExecuteAction(Action):
             # EXTRACT data from datasource
             LOGGER.info(f"artifact_id={artifact_id}: execute extraction from datasource_hash={ds_hash}")
 
-            ds = self.config.datasources.get(ds_hash, None)
+            ds = self.data.datasources.get(ds_hash, None)
             if not ds:
                 raise ValueError()
 
@@ -91,7 +97,12 @@ class ExecuteAction(Action):
 
             path_estimator = apply_estimator(artifact.estimator, df_dataset, working_folder, artifact_id)
 
-            self.routes_service.post_result(job_id, path_estimator)
+            return ExecutionResult(
+                job_id=job_id,
+                path=path_estimator,
+                metrics=[],
+                is_estimate=True,
+            )
 
         elif artifact.model is not None and artifact.plan is not None:
             LOGGER.info(f"artifact_id={artifact_id}: executing model training")
@@ -104,12 +115,12 @@ class ExecuteAction(Action):
 
             metrics = plan.run(df_dataset, local_model, working_folder, artifact_id)
 
-            for m in metrics:
-                m.job_id = job_id
-                self.routes_service.post_metrics(m)
-
             if plan.path_model is not None:
-                self.routes_service.post_result(job_id, plan.path_model)
+                return ExecutionResult(
+                    job_id=job_id,
+                    path=plan.path_model,
+                    metrics=metrics,
+                    is_model=True,
+                )
 
-        else:
-            raise ValueError("Invalid artifact operations")
+        raise ValueError("Invalid artifact operations")

@@ -13,7 +13,7 @@ import pytest
 
 async def populate_test_db(session: AsyncSession):
     c1: Component = Component(
-        component_id="C1",
+        id="C1",
         version="test",
         public_key="1",
         machine_system="1",
@@ -23,7 +23,7 @@ async def populate_test_db(session: AsyncSession):
         type_name=TYPE_CLIENT,
     )
     c2: Component = Component(
-        component_id="C2",
+        id="C2",
         version="test",
         public_key="2",
         machine_system="2",
@@ -44,10 +44,10 @@ async def populate_test_db(session: AsyncSession):
     await pr.create_project("test")
 
     ds1 = await dsr.create_or_update_datasource(
-        c1.component_id,
+        c1.id,
         MetaDataSource(
             name="DS1",
-            datasource_hash="DS1",
+            hash="DS1",
             n_records=420,
             n_features=420,
             tokens=[""],
@@ -55,10 +55,10 @@ async def populate_test_db(session: AsyncSession):
         ),
     )
     ds2 = await dsr.create_or_update_datasource(
-        c1.component_id,
+        c1.id,
         MetaDataSource(
             name="DS2",
-            datasource_hash="DS2",
+            hash="DS2",
             n_records=420,
             n_features=420,
             tokens=[""],
@@ -66,10 +66,10 @@ async def populate_test_db(session: AsyncSession):
         ),
     )
     ds3 = await dsr.create_or_update_datasource(
-        c2.component_id,
+        c2.id,
         MetaDataSource(
             name="DS3",
-            datasource_hash="DS3",
+            hash="DS3",
             n_records=69,
             n_features=69,
             tokens=[""],
@@ -77,12 +77,11 @@ async def populate_test_db(session: AsyncSession):
         ),
     )
 
-    return ds1.datasource_id, ds2.datasource_id, ds3.datasource_id
+    return ds1.id, ds2.id, ds3.id
 
 
 @pytest.mark.asyncio
 async def test_datasources_ls(session: AsyncSession):
-
     res: list[DataSourceView] = await list_datasources()
 
     assert len(res) == 0
@@ -100,7 +99,6 @@ async def test_datasources_ls(session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_artifacts_description(session: AsyncSession):
-
     ds1, _, _ = await populate_test_db(session)
 
     res: DataSourceView | None = await describe_datasource(datasource_id=ds1)

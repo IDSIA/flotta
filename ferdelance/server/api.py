@@ -1,7 +1,12 @@
+from ferdelance.config import conf
 from ferdelance.database import DataBase, Base
-from ferdelance.server.routes.client import client_router
-from ferdelance.server.routes.workbench import workbench_router
-from ferdelance.server.routes.worker import worker_router
+from ferdelance.server.routes import (
+    client_router,
+    node_router,
+    server_router,
+    workbench_router,
+    worker_router,
+)
 from ferdelance.server.startup import ServerStartup
 
 from fastapi import FastAPI, Request, status
@@ -14,11 +19,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 def init_api() -> FastAPI:
+    """Initializes the API by adding the routers. If the env variable `DISTRIBUTED` is set, then the server will work
+    in distributed mode and the API for client node will be disabled. Otherwise, the API for servers will be disabled
+    allowing new clients to connect.
+    """
     api = FastAPI()
 
-    api.include_router(client_router)
+    api.include_router(node_router)
     api.include_router(workbench_router)
     api.include_router(worker_router)
+
+    if conf.DISTRIBUTED:
+        api.include_router(server_router)
+    else:
+        api.include_router(client_router)
 
     return api
 
@@ -32,7 +46,6 @@ async def populate_database() -> None:
     LOGGER.info("server startup procedure started")
 
     try:
-
         inst = DataBase()
 
         async with inst.engine.begin() as conn:

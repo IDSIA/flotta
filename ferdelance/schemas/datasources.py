@@ -67,14 +67,12 @@ class AggregatedFeature(Feature):
 
     @staticmethod
     def aggregate(features: list[Feature]) -> AggregatedFeature:
-
         name = features[0].name
         dtype = features[0].dtype
 
         df = pd.DataFrame([f.dict() for f in features])
 
         if dtype == DataType.NUMERIC.name:
-
             return AggregatedFeature(
                 name=name,
                 dtype=dtype,
@@ -110,10 +108,10 @@ class DataSource(BaseDataSource):
     # TODO: should we remove this in favor of AggregatedDataSource?
     # TODO: this need to keep track of everything through a query node
 
-    client_id: str
+    component_id: str
 
-    datasource_id: str
-    datasource_hash: str
+    id: str
+    hash: str
 
     features: list[Feature] = list()
     _features_by_name: dict[str, Feature] = dict()
@@ -128,15 +126,15 @@ class DataSource(BaseDataSource):
         if not isinstance(other, DataSource):
             return False
 
-        return self.datasource_id == other.datasource_id
+        return self.id == other.id
 
     def __hash__(self) -> int:
-        return hash(self.datasource_id)
+        return hash(self.id)
 
     def info(self) -> str:
         lines: list[str] = list()
 
-        lines.append(f"{self.datasource_id} {self.name} ({self.n_features}x{self.n_records})")
+        lines.append(f"{self.id} {self.name} ({self.n_features}x{self.n_records})")
 
         for df in self.features:
             mean = 0.0 if df.v_mean is None else df.v_mean
@@ -148,7 +146,6 @@ class DataSource(BaseDataSource):
         return {f.name: f.qf() for f in self.features}
 
     def __getitem__(self, key: str | QueryFeature) -> Feature:
-
         # TODO: add support for list of keys in / list of features out
 
         if isinstance(key, str):
@@ -164,7 +161,7 @@ class DataSource(BaseDataSource):
         raise ValueError(f'Feature "{str(key)}" not found in this datasource')
 
     def __str__(self) -> str:
-        return super().__str__() + f"client_id={self.client_id} features=[{self.features}]"
+        return super().__str__() + f"client_id={self.component_id} features=[{self.features}]"
 
     def extract(self) -> Query:
         """Proceeds on extracting all the features and creating a transformation
@@ -185,8 +182,7 @@ class DataSource(BaseDataSource):
 
 
 class AggregatedDataSource(BaseDataSource):
-
-    datasource_hash: str
+    hash: str
 
     # list of initial features
     features: list[AggregatedFeature] = list()
@@ -210,8 +206,8 @@ class AggregatedDataSource(BaseDataSource):
 
         for ds in datasources:
             n_records += ds.n_records
-            clients.add(ds.client_id)
-            hashes.update(ds.datasource_hash.encode("utf8"))
+            clients.add(ds.component_id)
+            hashes.update(ds.hash.encode("utf8"))
 
             for f in ds.features:
                 if f.dtype is None:
@@ -229,7 +225,7 @@ class AggregatedDataSource(BaseDataSource):
             n_clients=len(clients),
             n_datasources=len(datasources),
             features=[AggregatedFeature.aggregate(f) for _, f in features.items()],
-            datasource_hash=hashes.hexdigest(),
+            hash=hashes.hexdigest(),
         )
 
     def info(self) -> str:
@@ -273,7 +269,7 @@ class AggregatedDataSource(BaseDataSource):
         if not isinstance(other, AggregatedDataSource):
             return False
 
-        return self.datasource_hash == other.datasource_hash
+        return self.hash == other.hash
 
     def __str__(self) -> str:
-        return super().__str__() + f"datasource_hash={self.datasource_hash} features=[{self.features}]"
+        return super().__str__() + f"datasource_hash={self.hash} features=[{self.features}]"

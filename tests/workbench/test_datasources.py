@@ -4,15 +4,14 @@ from ferdelance.schemas.artifacts.dtypes import DataType
 import json
 
 
-def test_aggregation():
-
+def test_datasources():
     ds_name = "ds1"
     ds_id = "ds1"
 
     ds1 = DataSource(
-        client_id="client1",
-        datasource_id=ds_id,
-        datasource_hash=ds_name,
+        component_id="client1",
+        id=ds_id,
+        hash=ds_name,
         name=ds_name,
         n_records=10,
         n_features=2,
@@ -26,9 +25,9 @@ def test_aggregation():
     ds_id = "ds2"
 
     ds2 = DataSource(
-        client_id="client1",
-        datasource_id=ds_id,
-        datasource_hash=ds_name,
+        component_id="client1",
+        id=ds_id,
+        hash=ds_name,
         name=ds_name,
         n_records=15,
         n_features=2,
@@ -42,9 +41,9 @@ def test_aggregation():
     ds_id = "ds3"
 
     ds3 = DataSource(
-        client_id="client2",
-        datasource_id=ds_id,
-        datasource_hash=ds_name,
+        component_id="client2",
+        id=ds_id,
+        hash=ds_name,
         name=ds_name,
         n_records=15,
         n_features=2,

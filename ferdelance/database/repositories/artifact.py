@@ -17,7 +17,7 @@ import os
 
 def view(artifact: ArtifactDB) -> ServerArtifact:
     return ServerArtifact(
-        artifact_id=artifact.artifact_id,
+        id=artifact.id,
         creation_time=artifact.creation_time,
         path=artifact.path,
         status=artifact.status,
@@ -59,25 +59,25 @@ class ArtifactRepository(Repository):
                 An handler for the server representation of the artifact.
         """
 
-        if artifact.artifact_id is None:
-            artifact.artifact_id = str(uuid4())
+        if not artifact.id:
+            artifact.id = str(uuid4())
         else:
             existing = await self.session.scalar(
-                select(func.count()).select_from(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id)
+                select(func.count()).select_from(ArtifactDB).where(ArtifactDB.id == artifact.id)
             )
 
             if existing:
                 raise ValueError("artifact already exists!")
 
         if artifact.is_model() and artifact.is_estimation():
-            raise ValueError(f"invalid artifact_id={artifact.artifact_id} with both model and estimation")
+            raise ValueError(f"invalid artifact_id={artifact.id} with both model and estimation")
 
         status = ArtifactJobStatus.SCHEDULED.name
 
         path = await self.store(artifact)
 
         db_artifact = ArtifactDB(
-            artifact_id=artifact.artifact_id,
+            id=artifact.id,
             path=path,
             status=status,
             is_model=artifact.is_model(),
@@ -124,9 +124,10 @@ class ArtifactRepository(Repository):
             str:
                 The path where the data have been saved to.
         """
-        if artifact.artifact_id is None:
+        if not artifact.id:
             raise ValueError("Artifact not initialized")
-        path = await self.storage_location(artifact.artifact_id)
+
+        path = await self.storage_location(artifact.id)
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(artifact.dict())
@@ -182,7 +183,7 @@ class ArtifactRepository(Repository):
             ServerArtifact:
                 A server handler for the requested artifact.
         """
-        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact_id).limit(1))
 
         return view(res.one())
 
@@ -203,7 +204,7 @@ class ArtifactRepository(Repository):
             str:
                 The requested path.
         """
-        res = await self.session.scalars(select(ArtifactDB.path).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+        res = await self.session.scalars(select(ArtifactDB.path).where(ArtifactDB.id == artifact_id).limit(1))
 
         path = res.one()
 
@@ -239,12 +240,12 @@ class ArtifactRepository(Repository):
             ArtifactStatus:
                 The current status of the artifact.
         """
-        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id).limit(1))
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact_id).limit(1))
 
         artifact = res.one()
 
         return ArtifactStatus(
-            artifact_id=artifact.artifact_id,
+            id=artifact.id,
             status=artifact.status,
             iteration=artifact.iteration,
         )
@@ -267,7 +268,7 @@ class ArtifactRepository(Repository):
             NoResultFound:
                 If the artifact_id does not exists in the database.
         """
-        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact_id))
+        res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact_id))
 
         artifact: ArtifactDB = res.one()
         if new_status is not None:
@@ -279,3 +280,7 @@ class ArtifactRepository(Repository):
         await self.session.refresh(artifact)
 
         return view(artifact)
+
+    async def mark_error(self, artifact_id: str, iteration: int = -1) -> ServerArtifact:
+        status = await self.update_status(artifact_id, ArtifactJobStatus.ERROR, iteration)
+        return status

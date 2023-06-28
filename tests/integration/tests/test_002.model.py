@@ -4,8 +4,8 @@ from ferdelance.schemas.models import (
     StrategyRandomForestClassifier,
     ParametersRandomForestClassifier,
 )
-from ferdelance.workbench.context import Context
 from ferdelance.schemas.plans import TrainTestSplit
+from ferdelance.workbench.context import Context
 
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 
@@ -34,25 +34,24 @@ def evaluate(model: FederatedRandomForestClassifier, x, y):
 
 
 if __name__ == "__main__":
+    project_id: str = os.environ.get("PROJECT_ID", "")
+    server: str = os.environ.get("SERVER", "")
 
-    project_id: str | None = os.environ.get("PROJECT_ID", None)
-    server: str | None = os.environ.get("SERVER")
-
-    if project_id is None:
+    if not project_id:
         print("Project id not found")
         sys.exit(-1)
 
-    if server is None:
+    if not server:
         print("Server host not found")
         sys.exit(-1)
 
     ctx = Context(server)
 
-    project = ctx.load(project_id)
+    project = ctx.project(project_id)
 
     clients = ctx.clients(project)
 
-    client_id_1, client_id_2 = [c.client_id for c in clients]
+    client_id_1, client_id_2 = [c.id for c in clients]
 
     q = project.extract()
 
@@ -60,13 +59,14 @@ if __name__ == "__main__":
 
     q = q.add_model(
         FederatedRandomForestClassifier(
-            strategy=StrategyRandomForestClassifier.MERGE, parameters=ParametersRandomForestClassifier(n_estimators=10)
+            strategy=StrategyRandomForestClassifier.MERGE,
+            parameters=ParametersRandomForestClassifier(n_estimators=10),
         )
     )
 
     a: Artifact = ctx.submit(project, q)
 
-    print("Artifact id:", a.artifact_id)
+    print("Artifact id:", a.id)
 
     last_state = ""
 

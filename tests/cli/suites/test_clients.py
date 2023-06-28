@@ -8,9 +8,8 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_list_clients(session: AsyncSession):
-
     c1: Component = Component(
-        component_id="C1",
+        id="C1",
         version="test",
         public_key="1",
         machine_system="1",
@@ -21,7 +20,7 @@ async def test_list_clients(session: AsyncSession):
     )
 
     c2: Component = Component(
-        component_id="C2",
+        id="C2",
         version="test",
         public_key="2",
         machine_system="2",
@@ -45,7 +44,7 @@ async def test_list_clients(session: AsyncSession):
 @pytest.mark.asyncio
 async def test_describe_client(session: AsyncSession):
     c1: Component = Component(
-        component_id="C1",
+        id="C1",
         version="test",
         public_key="1",
         machine_system="1",
@@ -58,11 +57,11 @@ async def test_describe_client(session: AsyncSession):
 
     await session.commit()
 
-    res: ClientView | None = await describe_client(client_id=c1.component_id)
+    res: ClientView | None = await describe_client(client_id=c1.id)
 
     assert res is not None
     assert isinstance(res, ClientView)
-    assert res.client_id == "C1"
+    assert res.id == "C1"
     assert res.version == "test"
 
     res = await describe_client(client_id="do not exist")

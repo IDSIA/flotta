@@ -1,14 +1,21 @@
 from ferdelance.database import AsyncSession
-from ferdelance.database.repositories import ResultRepository
-from ferdelance.jobs import job_manager, JobManagementService
-from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
+from ferdelance.database.repositories import (
+    ResultRepository,
+    JobRepository,
+    ArtifactRepository,
+)
+from ferdelance.server.services import JobManagementService
+from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import ErrorArtifact
+from ferdelance.schemas.database import Result, ServerArtifact
+from ferdelance.schemas.errors import WorkerAggregationJobError
 from ferdelance.schemas.worker import WorkerTask
+from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy.exc import NoResultFound
 
+import aiofiles
+import json
 import logging
 import os
 
@@ -16,31 +23,49 @@ LOGGER = logging.getLogger(__name__)
 
 
 class WorkerService:
-    def __init__(self, session: AsyncSession, component_id: str) -> None:
+    def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
-        self.component_id: str = component_id
-        self.jms: JobManagementService = job_manager(self.session)
-
-    async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        """
-        :raise:
-            ValueError if the artifact already exists.
-        """
-        status = await self.jms.submit_artifact(artifact)
-
-        LOGGER.info(f"worker_id={self.component_id}: submitted artifact got artifact_id={status.artifact_id}")
-
-        return status
+        self.component: Component = component
+        self.jms: JobManagementService = JobManagementService(self.session)
 
     async def get_task(self, job_id: str) -> WorkerTask:
-        task: WorkerTask = await self.jms.worker_task_start(job_id, self.component_id)
+        jr: JobRepository = JobRepository(self.session)
+        ar: ArtifactRepository = ArtifactRepository(self.session)
+        rr: ResultRepository = ResultRepository(self.session)
 
-        return task
+        try:
+            job = await jr.get_by_id(job_id)
+            artifact_id = job.artifact_id
+
+            artifact_db: ServerArtifact = await ar.get_artifact(artifact_id)
+
+            if ArtifactJobStatus[artifact_db.status] != ArtifactJobStatus.AGGREGATING:
+                raise ValueError(f"Wrong status for job_id={job_id}")
+
+            async with aiofiles.open(artifact_db.path, "r") as f:
+                data = await f.read()
+                artifact = Artifact(**json.loads(data))
+
+            await jr.start_execution(job)
+
+            results: list[Result] = await rr.list_results_by_artifact_id(artifact_id, artifact_db.iteration)
+
+            return WorkerTask(
+                artifact=artifact,
+                job_id=job_id,
+                result_ids=[r.id for r in results],
+            )
+
+        except NoResultFound as _:
+            raise ValueError(f"worker_id={self.component.id}: task with job_id={job_id} does not exists")
 
     async def result(self, job_id: str) -> Result:
-        result = await self.jms.client_result_create(job_id, self.component_id)
+        LOGGER.info(f"worker_id={self.component.id}: creating aggregated result for job_id={job_id}")
+        try:
+            return await self.jms.create_result(job_id, self.component.id, True)
 
-        return result
+        except NoResultFound as _:
+            raise ValueError(f"worker_id={self.component.id}: task with job_id={job_id} does not exists")
 
     async def get_result(self, result_id: str) -> Result:
         """
@@ -56,18 +81,21 @@ class WorkerService:
 
         return result
 
-    async def completed(self, job_id: str) -> None:
+    async def aggregation_completed(self, job_id: str) -> Result:
         """Aggregation completed."""
-        await self.jms.aggregation_completed(job_id)
+        LOGGER.info(f"job_id={job_id}: aggregation completed")
 
-    async def failed(self, error: ErrorArtifact) -> Result:
+        await self.jms.aggregation_completed(job_id, self.component.id)
+
+        return await self.jms.create_result(job_id, self.component.id, True)
+
+    async def check_next_iteration(self, job_id: str) -> None:
+        await self.jms.check_for_iteration(job_id)
+
+    async def aggregation_failed(self, error: WorkerAggregationJobError) -> Result:
         """Aggregation failed, and worker did an error."""
-        result = await self.jms.worker_error(error.artifact_id, self.component_id)
+        LOGGER.info(f"job_id={error.job_id}: aggregation failed")
 
-        await self.error(error.artifact_id, error.message)
+        await self.jms.aggregation_failed(error, self.component.id)
 
-        return result
-
-    async def error(self, job_id: str, msg: str) -> None:
-        """Worker did an error."""
-        await self.jms.aggregation_error(job_id, msg)
+        return await self.jms.create_result(error.job_id, self.component.id, True, True)

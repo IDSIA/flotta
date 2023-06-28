@@ -11,8 +11,8 @@ import os
 
 def view(result: ResultDB) -> Result:
     return Result(
+        id=result.id,
         job_id=result.job_id,
-        result_id=result.result_id,
         artifact_id=result.artifact_id,
         client_id=result.component_id,
         path=result.path,
@@ -106,7 +106,7 @@ class ResultRepository(Repository):
         out_path = os.path.join(self.storage_directory(artifact_id, iteration), filename)
 
         result_db = ResultDB(
-            result_id=result_id,
+            id=result_id,
             path=out_path,
             job_id=job_id,
             artifact_id=artifact_id,
@@ -141,7 +141,7 @@ class ResultRepository(Repository):
         """
         res = await self.session.scalars(
             select(ResultDB).where(
-                ResultDB.result_id == result_id,
+                ResultDB.id == result_id,
             )
         )
 
@@ -164,7 +164,7 @@ class ResultRepository(Repository):
         """
         res = await self.session.scalars(
             select(ResultDB).where(
-                ResultDB.result_id == result_id,
+                ResultDB.id == result_id,
                 ResultDB.is_model,
             )
         )
@@ -187,13 +187,13 @@ class ResultRepository(Repository):
         """
         res = await self.session.scalars(
             select(ResultDB).where(
-                ResultDB.result_id == result_id,
+                ResultDB.id == result_id,
                 ResultDB.is_estimation,
             )
         )
         return view(res.one())
 
-    async def list_results_by_artifact_id(self, artifact_id: str) -> list[Result]:
+    async def list_results_by_artifact_id(self, artifact_id: str, iteration: int) -> list[Result]:
         """Get a list of results associated with the given artifact_id. This
         returns all kind of results, models and estimations, aggregated or not.
 
@@ -206,7 +206,12 @@ class ResultRepository(Repository):
                 A list of all the results associated with the given artifact_id.
                 Note that his list can also be empty.
         """
-        res = await self.session.scalars(select(ResultDB).where(ResultDB.artifact_id == artifact_id))
+        res = await self.session.scalars(
+            select(ResultDB).where(
+                ResultDB.artifact_id == artifact_id,
+                ResultDB.iteration == iteration,
+            )
+        )
         result_list = [view(m) for m in res.all()]
         return result_list
 

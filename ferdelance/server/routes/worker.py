@@ -1,10 +1,9 @@
 from ferdelance.config import conf
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
-from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import ErrorArtifact
+from ferdelance.schemas.errors import WorkerAggregationJobError
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.server.security import check_token
 from ferdelance.server.services import WorkerService
@@ -32,36 +31,17 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
         return component
     except NoResultFound:
-        LOGGER.warning(f"worker_id={component.component_id} not found")
-        raise HTTPException(403)
-
-
-@worker_router.post("/worker/artifact", response_model=ArtifactStatus)
-async def worker_post_artifact(
-    artifact: Artifact, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
-):
-    LOGGER.info(f"worker_id={worker.component_id}: sent new artifact")
-
-    ws: WorkerService = WorkerService(session, worker.component_id)
-
-    try:
-        status = await ws.submit_artifact(artifact)
-
-        return status
-
-    except ValueError as e:
-        LOGGER.error("Artifact already exists")
-        LOGGER.exception(e)
+        LOGGER.warning(f"worker_id={component.id} not found")
         raise HTTPException(403)
 
 
 @worker_router.get("/worker/task/{job_id}", response_model=WorkerTask)
-async def worker_get_task(
+async def get_task(
     job_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
-    LOGGER.info(f"worker_id={worker.component_id}: requested job_id={job_id}")
+    LOGGER.info(f"worker_id={worker.id}: requested job_id={job_id}")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
         task = await ws.get_task(job_id)
@@ -80,45 +60,45 @@ async def post_result(
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):
-    LOGGER.info(f"worker_id={worker.component_id}: send result for job_id={job_id}")
+    LOGGER.info(f"worker_id={worker.id}: send result for job_id={job_id}")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
-        result: Result = await ws.result(job_id)
+        result: Result = await ws.aggregation_completed(job_id)
 
         async with aiofiles.open(result.path, "wb") as out_file:
             while content := await file.read(conf.FILE_CHUNK_SIZE):
                 await out_file.write(content)
 
-        await ws.completed(job_id)
+        await ws.check_next_iteration(job_id)
 
     except Exception as e:
+        LOGGER.error(f"worker_id={worker.id}: could not save result to disk for job_id={job_id}")
         LOGGER.exception(e)
-        await ws.error(job_id, f"could not save result to disk, exception: {e}")
         raise HTTPException(500)
 
 
 @worker_router.post("/worker/error/")
 async def post_error(
-    error: ErrorArtifact,
+    error: WorkerAggregationJobError,
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):
-    LOGGER.warn(f"worker_id={worker.component_id}: artifact_id={error.artifact_id} in error={error.message}")
+    LOGGER.warn(f"worker_id={worker.id}: job_id={error.job_id} in error={error.message}")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
-        result = await ws.failed(error)
+        result = await ws.aggregation_failed(error)
 
-        async with aiofiles.open(result.path, "w") as f:
+        async with aiofiles.open(result.path, "w") as out_file:
             content = json.dumps(error.dict())
-            await f.write(content)
+            await out_file.write(content)
 
     except Exception as e:
+        LOGGER.error(f"worker_id={worker.id}: could not save result to disk for job_id={error.job_id}")
         LOGGER.exception(e)
-        await ws.error(error.artifact_id, f"could not save result to disk, exception: {e}")
         raise HTTPException(500)
 
 
@@ -126,9 +106,9 @@ async def post_error(
 async def get_result(
     result_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
-    LOGGER.info(f"worker_id={worker.component_id}: request result_id={result_id}")
+    LOGGER.info(f"worker_id={worker.id}: request result_id={result_id}")
 
-    ws: WorkerService = WorkerService(session, worker.component_id)
+    ws: WorkerService = WorkerService(session, worker)
 
     try:
         result = await ws.get_result(result_id)

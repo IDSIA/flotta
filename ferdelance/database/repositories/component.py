@@ -26,7 +26,7 @@ LOGGER = logging.getLogger(__name__)
 
 def viewComponent(component: ComponentDB) -> Component:
     return Component(
-        component_id=component.component_id,
+        id=component.id,
         public_key=component.public_key,
         active=component.active,
         left=component.left,
@@ -43,7 +43,7 @@ def viewClient(component: ComponentDB) -> Client:
     assert component.ip_address is not None
 
     return Client(
-        client_id=component.component_id,
+        id=component.id,
         public_key=component.public_key,
         active=component.active,
         left=component.left,
@@ -59,7 +59,7 @@ def viewClient(component: ComponentDB) -> Client:
 
 def viewToken(token: TokenDB) -> Token:
     return Token(
-        token_id=token.token_id,
+        id=token.id,
         component_id=token.component_id,
         token=token.token,
         creation_time=token.creation_time,
@@ -71,14 +71,23 @@ def viewToken(token: TokenDB) -> Token:
 def viewEvent(event: EventDB) -> Event:
     return Event(
         component_id=event.component_id,
-        event_id=event.event_id,
-        event_time=event.event_time,
+        id=event.id,
+        time=event.time,
         event=event.event,
     )
 
 
 def viewApplication(app: ApplicationDB) -> Application:
-    return Application(**app.__dict__)
+    return Application(
+        id=app.id,
+        creation_time=app.creation_time,
+        version=app.version,
+        active=app.active,
+        path=app.path,
+        name=app.name,
+        description=app.description,
+        checksum=app.checksum,
+    )
 
 
 class ComponentRepository(Repository):
@@ -164,7 +173,7 @@ class ComponentRepository(Repository):
         )
 
         res = await self.session.scalars(
-            select(ComponentDB.component_id)
+            select(ComponentDB.id)
             .where(
                 (ComponentDB.machine_mac_address == machine_mac_address)
                 | (ComponentDB.machine_node == machine_node)
@@ -187,7 +196,7 @@ class ComponentRepository(Repository):
         self.session.add(token)
 
         component = ComponentDB(
-            component_id=token.component_id,
+            id=token.component_id,
             version=version,
             public_key=public_key,
             machine_system=machine_system,
@@ -232,9 +241,7 @@ class ComponentRepository(Repository):
 
         LOGGER.info(f"creating new component type={type_name}")
 
-        res = await self.session.scalars(
-            select(ComponentDB.component_id).where(ComponentDB.public_key == public_key).limit(1)
-        )
+        res = await self.session.scalars(select(ComponentDB.id).where(ComponentDB.public_key == public_key).limit(1))
         existing_user_id: str | None = res.one_or_none()
 
         if existing_user_id is not None:
@@ -245,7 +252,7 @@ class ComponentRepository(Repository):
         self.session.add(token)
 
         component = ComponentDB(
-            component_id=token.component_id,
+            id=token.component_id,
             public_key=public_key,
             type_name=type_name,
             name="",
@@ -294,7 +301,7 @@ class ComponentRepository(Repository):
             LOGGER.warning("cannot update a version with an empty string")
             return
 
-        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.component_id == client_id))
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.id == client_id))
 
         client: ComponentDB = res.one()
         client.version = version
@@ -320,7 +327,7 @@ class ComponentRepository(Repository):
         """
         await self.invalidate_tokens(client_id)
 
-        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.component_id == client_id))
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.id == client_id))
         client: ComponentDB = res.one()
         client.active = False
         client.left = True
@@ -344,7 +351,7 @@ class ComponentRepository(Repository):
             Component:
                 The component associated with the given component_id.
         """
-        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.component_id == component_id))
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.id == component_id))
         o: ComponentDB = res.one()
         return viewComponent(o)
 
@@ -365,7 +372,7 @@ class ComponentRepository(Repository):
                 The client associated with the given client_id.
         """
         res = await self.session.scalars(
-            select(ComponentDB).where(ComponentDB.component_id == component_id, ComponentDB.type_name == TYPE_CLIENT)
+            select(ComponentDB).where(ComponentDB.id == component_id, ComponentDB.type_name == TYPE_CLIENT)
         )
         return viewClient(res.one())
 
@@ -406,9 +413,7 @@ class ComponentRepository(Repository):
                 The component associated with the given token.
         """
         res = await self.session.scalars(
-            select(ComponentDB)
-            .join(TokenDB, ComponentDB.component_id == TokenDB.token_id)
-            .where(TokenDB.token == token)
+            select(ComponentDB).join(TokenDB, ComponentDB.id == TokenDB.id).where(TokenDB.token == token)
         )
 
         component: ComponentDB = res.one()
@@ -449,7 +454,7 @@ class ComponentRepository(Repository):
         """
         res = await self.session.scalars(
             select(ComponentDB).where(
-                ComponentDB.component_id.in_(client_ids),
+                ComponentDB.id.in_(client_ids),
                 ComponentDB.type_name == TYPE_CLIENT,
             )
         )
@@ -482,7 +487,7 @@ class ComponentRepository(Repository):
             client.machine_system,
             client.machine_mac_address,
             client.machine_node,
-            client.client_id,
+            client.id,
         )
         return viewToken(token)
 
@@ -551,7 +556,7 @@ class ComponentRepository(Repository):
 
         res = await self.session.scalars(
             select(TokenDB)
-            .join(ComponentDB, ComponentDB.component_id == TokenDB.component_id)
+            .join(ComponentDB, ComponentDB.id == TokenDB.component_id)
             .where(ComponentDB.type_name == TYPE_WORKER)
             .limit(1)
         )
@@ -559,6 +564,21 @@ class ComponentRepository(Repository):
         client_token: TokenDB = res.one()
 
         return str(client_token.token)
+
+    async def get_worker(self) -> Component:
+        """Return the tokens used by the internal server's workers. This should
+        be an unique token for all workers.
+
+        Returns:
+            str:
+                The token used by the internal workers.
+        """
+
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_WORKER).limit(1))
+
+        component: ComponentDB = res.one()
+
+        return viewComponent(component)
 
     async def create_event(self, component_id: str, event: str) -> Event:
         """Create an entry in the event log. This is just a simple log.

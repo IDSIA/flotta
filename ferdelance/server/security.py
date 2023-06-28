@@ -2,7 +2,7 @@ from ferdelance.config import conf
 from ferdelance.database import AsyncSession, get_session
 from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
 from ferdelance.database.repositories import ComponentRepository, KeyValueStore
-from ferdelance.schemas.components import Client, Component, Token
+from ferdelance.schemas.components import Component, Token
 from ferdelance.shared.exchange import Exchange
 
 from fastapi import Depends, HTTPException
