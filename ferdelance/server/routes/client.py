@@ -60,7 +60,7 @@ async def client_update(
     - new client app package
     - nothing (keep alive)
     """
-    LOGGER.info(f"client_id={component.id}: update request")
+    LOGGER.debug(f"client_id={component.id}: update request")
 
     ss: SecurityService = SecurityService(session)
     cs: ClientService = ClientService(session, component)

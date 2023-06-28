@@ -4,7 +4,7 @@ from ferdelance.schemas.artifacts.dtypes import DataType
 import json
 
 
-def test_aggregation():
+def test_datasources():
     ds_name = "ds1"
     ds_id = "ds1"
 

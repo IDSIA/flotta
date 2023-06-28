@@ -4,8 +4,8 @@ from ferdelance.schemas.models import (
     StrategyRandomForestClassifier,
     ParametersRandomForestClassifier,
 )
-from ferdelance.workbench.context import Context
 from ferdelance.schemas.plans import TrainTestSplit
+from ferdelance.workbench.context import Context
 
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 
