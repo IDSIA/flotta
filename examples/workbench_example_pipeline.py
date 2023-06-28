@@ -18,7 +18,7 @@ from ferdelance.schemas.transformers import (
 # %% create the context
 ctx = Context("http://ferdelance.artemis.idsia.ch")
 
-p: Project = ctx.load("")
+p: Project = ctx.project("")
 
 # %% ask the context for available metadata
 data_sources: list[DataSource] = ctx.datasources(p)

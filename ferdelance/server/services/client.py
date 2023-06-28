@@ -1,24 +1,19 @@
 from typing import Any, Callable
 
-from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
+    ArtifactRepository,
     ComponentRepository,
     DataSourceRepository,
-    ProjectRepository,
+    JobRepository,
+    ResultRepository,
+    AsyncSession,
 )
-from ferdelance.jobs import job_manager, JobManagementService
-from ferdelance.schemas.client import (
-    ClientJoinRequest,
-    ClientJoinData,
-    ClientTask,
-)
-from ferdelance.schemas.components import (
-    Client,
-    Application,
-)
-from ferdelance.schemas.database import Result
+from ferdelance.schemas.artifacts import Artifact
+from ferdelance.schemas.client import ClientTask
+from ferdelance.schemas.components import Application, Component
+from ferdelance.schemas.database import Result, ServerArtifact
+from ferdelance.schemas.errors import ClientTaskError
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.updates import (
     DownloadApp,
@@ -27,145 +22,136 @@ from ferdelance.schemas.updates import (
     UpdateNothing,
     UpdateToken,
 )
-from ferdelance.server.services import ActionService
+from ferdelance.server.services import ActionService, JobManagementService
+from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy.exc import NoResultFound
 
+import aiofiles
+import json
 import logging
+import os
 
 LOGGER = logging.getLogger(__name__)
 
 
-class ClientConnectService:
-    def __init__(self, session: AsyncSession) -> None:
-        self.session: AsyncSession = session
-
-    async def connect(
-        self, client_public_key: str, data: ClientJoinRequest, ip_address: str
-    ) -> tuple[ClientJoinData, Client]:
-        """
-        :raise:
-            NoResultFound if the access parameters (token) is not valid.
-
-            SLQAlchemyError if there are issues with the creation of a new user in the database.
-
-            ValueError if the given client data are incomplete or wrong.
-
-        :return:
-            A WorkbenchJoinData object that can be returned to the connected workbench.
-        """
-        cr: ComponentRepository = ComponentRepository(self.session)
-
-        try:
-            await cr.get_by_key(client_public_key)
-
-            raise ValueError("Invalid client data")
-
-        except NoResultFound as e:
-            LOGGER.info("joining new client")
-            # create new client
-            client, token = await cr.create_client(
-                name=data.name,
-                version=data.version,
-                public_key=client_public_key,
-                machine_system=data.system,
-                machine_mac_address=data.mac_address,
-                machine_node=data.node,
-                ip_address=ip_address,
-            )
-
-            LOGGER.info(f"client_id={client.client_id}: created new client")
-
-            await cr.create_event(client.client_id, "creation")
-
-        LOGGER.info(f"client_id={client.client_id}: created new client")
-
-        return (
-            ClientJoinData(
-                id=client.client_id,
-                token=token.token,
-                public_key="",
-            ),
-            client,
-        )
-
-
 class ClientService:
-    def __init__(self, session: AsyncSession, component_id: str) -> None:
+    def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
-        self.component_id: str = component_id
-        self.jm: JobManagementService = JobManagementService(session)
-
-    async def leave(self) -> None:
-        """
-        :raise:
-            NoResultFound when there is no project with the given token.
-        """
-        cr: ComponentRepository = ComponentRepository(self.session)
-        await cr.client_leave(self.component_id)
-        await cr.create_event(self.component_id, "left")
+        self.component: Component = component
+        self.jms: JobManagementService = JobManagementService(self.session)
 
     async def update(self, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         cr: ComponentRepository = ComponentRepository(self.session)
         acs: ActionService = ActionService(self.session)
 
-        await cr.create_event(self.component_id, "update")
-        client = await cr.get_client_by_id(self.component_id)
+        await cr.create_event(self.component.id, "update")
+        client = await cr.get_client_by_id(self.component.id)
 
         next_action = await acs.next(client, payload)
 
-        LOGGER.debug(f"client_id={self.component_id}: update action={next_action.action}")
+        LOGGER.debug(f"client_id={self.component.id}: update action={next_action.action}")
 
-        await cr.create_event(self.component_id, f"action:{next_action.action}")
+        await cr.create_event(self.component.id, f"action:{next_action.action}")
 
         return next_action
 
     async def update_files(self, payload: DownloadApp) -> Application:
         cr: ComponentRepository = ComponentRepository(self.session)
 
-        await cr.create_event(self.component_id, "update files")
+        await cr.create_event(self.component.id, "update files")
 
         new_app: Application = await cr.get_newest_app()
 
         if new_app.version != payload.version:
             LOGGER.warning(
-                f"client_id={self.component_id} requested app version={payload.version} while latest version={new_app.version}"
+                f"client_id={self.component.id} requested app version={payload.version} while latest version={new_app.version}"
             )
             raise ValueError("Old versions are not permitted")
 
-        await cr.update_client(self.component_id, version=payload.version)
+        await cr.update_client(self.component.id, version=payload.version)
 
-        LOGGER.info(f"client_id={self.component_id}: requested new client version={payload.version}")
+        LOGGER.info(f"client_id={self.component.id}: requested new client version={payload.version}")
 
         return new_app
 
-    async def update_metadata(self, metadata: Metadata) -> Metadata:
+    async def get_task(self, payload: UpdateExecute) -> ClientTask:
+        ar: ArtifactRepository = ArtifactRepository(self.session)
         cr: ComponentRepository = ComponentRepository(self.session)
         dsr: DataSourceRepository = DataSourceRepository(self.session)
-        pr: ProjectRepository = ProjectRepository(self.session)
+        jr: JobRepository = JobRepository(self.session)
 
-        await cr.create_event(self.component_id, "update metadata")
-
-        await dsr.create_or_update_from_metadata(self.component_id, metadata)  # this will also update existing metadata
-        await pr.add_datasources_from_metadata(metadata)
-
-        return metadata
-
-    async def get_task(self, payload: UpdateExecute) -> ClientTask:
-        cr: ComponentRepository = ComponentRepository(self.session)
-
-        await cr.create_event(self.component_id, "schedule task")
+        await cr.create_event(self.component.id, "schedule task")
 
         job_id = payload.job_id
 
-        content = await self.jm.client_task_start(job_id, self.component_id)
+        try:
+            job = await jr.get_by_id(job_id)
+            artifact_id = job.artifact_id
 
-        return content
+            artifact_db: ServerArtifact = await ar.get_artifact(artifact_id)
 
-    async def result(self, job_id: str):
-        result_db = await self.jm.client_result_create(job_id, self.component_id)
+            artifact_path = artifact_db.path
 
-        return result_db
+            if not os.path.exists(artifact_path):
+                LOGGER.warning(
+                    f"client_id={self.component.id}: artifact_id={artifact_id} does not exist with path={artifact_path}"
+                )
+                raise ValueError("ArtifactDoesNotExists")
+
+            if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
+                await ar.update_status(artifact_id, ArtifactJobStatus.TRAINING)
+            elif ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.TRAINING:
+                pass  # already in correct state
+            else:
+                LOGGER.error(
+                    f"client_id={self.component.id}: task job_id={job_id} for artifact_id={artifact_id} is in an unexpected state={artifact_db.status}"
+                )
+                raise ValueError(f"Wrong status for job_id={job_id}")
+
+            async with aiofiles.open(artifact_path, "r") as f:
+                data = await f.read()
+                artifact = Artifact(**json.loads(data))
+
+            hashes = await dsr.list_hash_by_client_and_project(self.component.id, artifact.project_id)
+
+            if len(hashes) == 0:
+                LOGGER.warning(
+                    f"client_id={self.component.id}: task with job_id={job_id} has no datasources with artifact_id={artifact_id}"
+                )
+                raise ValueError("TaskDoesNotExists")
+
+            # TODO: for complex training, filter based on artifact.load field
+
+            await jr.start_execution(job)
+
+            return ClientTask(artifact=artifact, job_id=job.id, datasource_hashes=hashes)
+
+        except NoResultFound as _:
+            LOGGER.warning(f"client_id={self.component.id}: task with job_id={job_id} does not exists")
+            raise ValueError("TaskDoesNotExists")
+
+    async def task_completed(self, job_id: str) -> Result:
+        LOGGER.info(f"client_id={self.component.id}: creating results for job_id={job_id}")
+
+        try:
+            await self.jms.client_task_completed(job_id, self.component.id)
+
+            return await self.jms.create_result(job_id, self.component.id, False)
+
+        except NoResultFound as _:
+            raise ValueError(f"client_id={self.component.id}: job_id={job_id} not found")
+
+    async def task_failed(self, error: ClientTaskError) -> Result:
+        LOGGER.info(f"client_id={self.component.id}: creating results for job_id={error.job_id}")
+
+        try:
+            await self.jms.client_task_failed(error, self.component.id)
+
+            return await self.jms.create_result(error.job_id, self.component.id, False)
+
+        except NoResultFound as _:
+            raise ValueError(f"client_id={self.component.id}: job_id={error.job_id} not found")
 
     async def check_and_start(self, result: Result) -> None:
         """This function is a check used to determine if starting the aggregation
@@ -185,14 +171,26 @@ class ClientService:
         aggregate = await self.check(result)
 
         if aggregate:
-            await self.start_aggregation(result, self.jm._start_aggregation)
+            await self.jms.start_aggregation(result)
 
-    async def check(self, resultd: Result) -> bool:
-        return await self.jm.check_for_aggregation(resultd)
+    async def check(self, result: Result) -> bool:
+        return await self.jms.check_for_aggregation(result)
 
-    async def start_aggregation(self, result: Result, start_function: Callable[[str, str, list[str], str], str]) -> Job:
-        return await self.jm.start_aggregation(result, start_function)
+    async def start_aggregation(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
+        """Utility method to pass a specific start_function, used for testing
+        and debugging."""
+        return await self.jms._start_aggregation(result, start_function)
 
     async def metrics(self, metrics: Metrics) -> None:
-        jm: JobManagementService = job_manager(self.session)
-        await jm.save_metrics(metrics)
+        ar: ArtifactRepository = ArtifactRepository(self.session)
+
+        artifact = await ar.get_artifact(metrics.artifact_id)
+
+        if artifact is None:
+            raise ValueError(f"artifact_id={metrics.artifact_id} assigned to metrics not found")
+
+        path = await ar.storage_location(artifact.id, f"metrics_{metrics.source}.json")
+
+        async with aiofiles.open(path, "w") as f:
+            content = json.dumps(metrics.dict())
+            await f.write(content)

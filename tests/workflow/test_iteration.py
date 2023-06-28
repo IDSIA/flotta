@@ -4,7 +4,7 @@ from ferdelance.schemas.plans import TrainTestSplit, IterativePlan
 from ferdelance.schemas.updates import UpdateExecute
 from ferdelance.workbench.interface import Artifact
 
-from tests.utils import TEST_PROJECT_TOKEN
+from tests.utils import TEST_PROJECT_TOKEN, get_metadata
 from tests.serverless import ServerlessExecution
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,12 +18,10 @@ import time
 LOGGER = logging.getLogger(__name__)
 
 
-def start_function(token: str, job_id: str, result_ids: list[str], artifact_id: str) -> str:
+def start_function(token: str, job_id: str, artifact_id: str) -> str:
     """Pseudo function to simulate the start of an aggregation job."""
 
-    LOGGER.info(
-        f"artifact_id={artifact_id}: new aggregation job_id={job_id} with results_ids={result_ids} and token={token}"
-    )
+    LOGGER.info(f"artifact_id={artifact_id}: new aggregation job_id={job_id} with token={token}")
 
     return f"task-worker-{time.time()}"
 
@@ -44,16 +42,19 @@ async def assert_count_it(sse: ServerlessExecution, artifact_id: str, exp_iterat
 
 @pytest.mark.asyncio
 async def test_iteration(session: AsyncSession):
-    sse = ServerlessExecution(session)
+    server = ServerlessExecution(session)
 
-    await sse.setup(TEST_PROJECT_TOKEN)
+    await server.setup()
+    await server.create_project(TEST_PROJECT_TOKEN)
 
-    project = await sse.get_project(TEST_PROJECT_TOKEN)
+    client = await server.add_client(1, get_metadata())
+
+    project = await server.get_project(TEST_PROJECT_TOKEN)
     label: str = project.data.features[0].name
 
     # artifact creation
     artifact = Artifact(
-        project_id=project.project_id,
+        project_id=project.id,
         transform=project.extract(),
         model=Model(name="model", strategy=""),
         plan=IterativePlan(
@@ -65,79 +66,79 @@ async def test_iteration(session: AsyncSession):
         ).build(),
     )
 
-    artifact_id = await sse.submit(artifact)
+    artifact_id = await server.submit(artifact)
 
-    await assert_count_it(sse, artifact_id, 0, 1)  # train1
+    await assert_count_it(server, artifact_id, 0, 1)  # train1
 
     # ----------------
     # FIRST ITERATION
     # ----------------
 
     # client
-    next_action = await sse.next_action()
+    next_action = await client.next_action()
 
     assert isinstance(next_action, UpdateExecute)
 
-    task = await sse.get_client_task(next_action)
+    task = await client.get_client_task(next_action)
 
     """...simulate client work..."""
 
-    result = await sse.post_client_results(task)
+    result = await client.post_client_results(task)
 
     # server
-    can_aggregate = await sse.check_aggregation(result)
+    can_aggregate = await server.check_aggregation(result)
 
     assert can_aggregate
 
-    job = await sse.aggregate(result, start_function)
+    job = await server.aggregate(result, start_function)
 
-    await assert_count_it(sse, artifact_id, 0, 2)  # train1 agg1
+    await assert_count_it(server, artifact_id, 0, 2)  # train1 agg1
 
     # worker
 
-    await sse.get_worker_task(job)
+    await server.get_worker_task(job)
 
     """...simulate worker aggregation..."""
 
-    await sse.post_worker_result(job)
+    await server.post_worker_result(job)
 
     # ----------------
     # SECOND ITERATION
     # ----------------
 
-    await assert_count_it(sse, artifact_id, 1, 3)  # train1 agg1 train2
+    await assert_count_it(server, artifact_id, 1, 3)  # train1 agg1 train2
 
     # client
-    next_action = await sse.next_action()
+    next_action = await client.next_action()
 
     assert isinstance(next_action, UpdateExecute)
 
-    task = await sse.get_client_task(next_action)
+    task = await client.get_client_task(next_action)
 
     """...simulate client work..."""
 
-    result = await sse.post_client_results(task)
+    result = await client.post_client_results(task)
 
     # server
-    can_aggregate = await sse.check_aggregation(result)
+    can_aggregate = await server.check_aggregation(result)
 
     assert can_aggregate
 
-    job = await sse.aggregate(result, start_function)
+    job = await server.aggregate(result, start_function)
 
-    await assert_count_it(sse, artifact_id, 1, 4)  # train1 agg1 train2 agg2
+    await assert_count_it(server, artifact_id, 1, 4)  # train1 agg1 train2 agg2
 
     # worker
 
-    await sse.get_worker_task(job)
+    await server.get_worker_task(job)
 
     """...simulate worker aggregation..."""
 
-    await sse.post_worker_result(job)
+    await server.post_worker_result(job)
 
-    await assert_count_it(sse, artifact_id, 2, 4)  # train1 agg1 train2 agg2
+    await assert_count_it(server, artifact_id, 2, 4)  # train1 agg1 train2 agg2
 
-    assert 1 == len(await sse.ar.list_artifacts())
+    assert 1 == len(await server.ar.list_artifacts())
 
     # cleanup
     shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))

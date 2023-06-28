@@ -3,10 +3,10 @@ from ferdelance.database.tables import (
     Job as JobDB,
     Result as ResultDB,
 )
-from ferdelance.database.repositories import ProjectRepository, JobRepository
+from ferdelance.database.repositories import ProjectRepository
 from ferdelance.server.api import api
-from ferdelance.jobs import JobManagementService
-from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
+from ferdelance.server.services import JobManagementService
+from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainAll
 from ferdelance.schemas.worker import WorkerTask
@@ -29,12 +29,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_worker_artifact_not_found(session: AsyncSession, exchange: Exchange):
+async def test_worker_task_not_found(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
         await setup_worker(session, exchange)
 
         res = server.get(
-            f"/worker/artifact/{uuid.uuid4()}",
+            f"/worker/task/{uuid.uuid4()}",
             headers=exchange.headers(),
         )
 
@@ -52,33 +52,26 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         project = await pr.get_by_token(TEST_PROJECT_TOKEN)
 
         artifact = Artifact(
-            artifact_id=None,
-            project_id=project.project_id,
+            project_id=project.id,
             transform=project.data.extract(),
             model=Model(name="model", strategy=""),
             plan=TrainAll("label").build(),
         )
 
-        # test artifact submit from worker
-        res = server.post(
-            "/worker/artifact",
-            headers=exchange.headers(),
-            json=artifact.dict(),
-        )
+        # fake submit of artifact
+        jms: JobManagementService = JobManagementService(session)
 
-        assert res.status_code == 200
+        status = await jms.submit_artifact(artifact)
 
-        status: ArtifactStatus = ArtifactStatus(**res.json())
+        LOGGER.info(f"artifact_id: {status.id}")
 
-        LOGGER.info(f"artifact_id: {status.artifact_id}")
-
-        artifact.artifact_id = status.artifact_id
-        assert artifact.artifact_id is not None
+        artifact.id = status.id
+        assert artifact.id is not None
 
         assert status.status is not None
         assert JobStatus[status.status] == JobStatus.SCHEDULED
 
-        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.artifact_id == artifact.artifact_id).limit(1))
+        res = await session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact.id).limit(1))
         art_db: ArtifactDB = res.one()
 
         assert art_db is not None
@@ -86,7 +79,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         res = await session.scalars(
             select(JobDB).where(
-                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.artifact_id == artifact.id,
                 JobDB.component_id == args.client_id,
             )
         )
@@ -96,18 +89,20 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         # simulate client work
         jm: JobManagementService = JobManagementService(session)
-        jr: JobRepository = JobRepository(session)
 
-        await jm.client_task_start(job.job_id, args.client_id)
-        await jm.client_result_create(job.job_id, args.client_id)
-        await jr.schedule_job(artifact.artifact_id, worker_id)
+        await jm.client_task_start(job.id, args.client_id)
+        result = await jm.create_result(job.id, args.client_id)
+        await jm.client_task_completed(job.id, args.client_id)
 
-        await jm.ar.update_status(artifact.artifact_id, ArtifactJobStatus.AGGREGATING)
+        def ignore(a: str, b: str, c: str) -> str:
+            return ""
+
+        await jm._start_aggregation(result, ignore)
 
         # check status of job completed by the client
         res = await session.scalars(
             select(JobDB).where(
-                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.artifact_id == artifact.id,
                 JobDB.component_id == args.client_id,
             )
         )
@@ -118,7 +113,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         # check status of artifact
         res = await session.scalars(
             select(ArtifactDB).where(
-                ArtifactDB.artifact_id == artifact.artifact_id,
+                ArtifactDB.id == artifact.id,
             )
         )
         art_db = res.one()
@@ -128,7 +123,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         # get job scheduled for worker
         res = await session.scalars(
             select(JobDB).where(
-                JobDB.artifact_id == artifact.artifact_id,
+                JobDB.artifact_id == artifact.id,
                 JobDB.component_id == worker_id,
                 JobDB.status == JobStatus.SCHEDULED.name,
             )
@@ -139,7 +134,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         # simulate worker behavior
         res = server.get(
-            f"/worker/task/{job_worker.job_id}",
+            f"/worker/task/{job_worker.id}",
             headers=exchange.headers(),
         )
 
@@ -147,9 +142,9 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         wt: WorkerTask = WorkerTask(**res.json())
 
-        assert wt.job_id == job_worker.job_id
+        assert wt.job_id == job_worker.id
 
-        assert artifact.artifact_id == wt.artifact.artifact_id
+        assert artifact.id == wt.artifact.id
 
         assert artifact.model is not None
         assert wt.artifact.model is not None
@@ -169,7 +164,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
             pickle.dump(model, f)
 
         res = server.post(
-            f"/worker/result/{job_worker.job_id}",
+            f"/worker/result/{job_worker.id}",
             headers=exchange.headers(),
             files={"file": open(model_path, "rb")},
         )
@@ -181,7 +176,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert len(results) == 1
 
-        result_id = results[0].result_id
+        result_id = results[0].id
 
         # test worker get model
         res = server.get(
@@ -218,7 +213,7 @@ async def test_worker_access(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 403
 
         res = server.get(
-            "/worker/artifact/none",
+            "/worker/task/none",
             headers=exchange.headers(),
         )
 

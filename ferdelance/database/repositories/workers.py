@@ -24,7 +24,7 @@ class WorkerRepository(Repository):
         res = await self.session.scalars(
             select(Token)
             .select_from(Token)
-            .join(Component, Component.component_id == Token.component_id)
+            .join(Component, Component.id == Token.component_id)
             .where(Component.type_name == TYPE_WORKER)
             .limit(1)
         )

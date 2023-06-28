@@ -70,7 +70,7 @@ class Query(BaseModel):
         if isinstance(feature, str):
             feature = self[feature]
 
-        return self.add_estimator(MeanEstimator())
+        return self.add_estimator(MeanEstimator(feature))
 
     def add_estimator(self, estimator: GenericEstimator) -> QueryEstimate:
         return QueryEstimate(
@@ -173,7 +173,6 @@ class Query(BaseModel):
         return self
 
     def __getitem__(self, key: str | QueryFeature) -> QueryFeature:
-
         if isinstance(key, QueryFeature):
             key = key.name
 

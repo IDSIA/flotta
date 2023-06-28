@@ -30,7 +30,7 @@ ctx = Context("http://localhost:1456")
 # %% load a project given a token
 project_token = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
 
-project: Project = ctx.load(project_token)
+project: Project = ctx.project(project_token)
 
 # %% What is this project?
 

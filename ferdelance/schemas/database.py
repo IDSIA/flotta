@@ -7,7 +7,7 @@ from pydantic import BaseModel
 class ServerArtifact(BaseModel):
     """Artifact stored in the database."""
 
-    artifact_id: str
+    id: str
     path: str
     status: str
     creation_time: datetime
@@ -18,7 +18,7 @@ class ServerArtifact(BaseModel):
 
     def get_status(self) -> ArtifactStatus:
         return ArtifactStatus(
-            artifact_id=self.artifact_id,
+            id=self.id,
             status=self.status,
         )
 
@@ -26,8 +26,8 @@ class ServerArtifact(BaseModel):
 class Result(BaseModel):
     """Model, estimation, or aggregation data stored in the database."""
 
+    id: str
     job_id: str
-    result_id: str
     artifact_id: str
     client_id: str
     creation_time: datetime | None

@@ -23,11 +23,11 @@ class LocalWorker(Process):
                     self.task_queue.task_done()
                     break
 
-                token, artifact_id, results_ids = next_job
+                token, job_id = next_job
 
                 a = AggregationTask()
-                a.setup(artifact_id, token)
-                a.aggregate(results_ids)
+                a.setup(token)
+                a.aggregate(job_id)
 
                 self.task_queue.task_done()
 

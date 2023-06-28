@@ -1,5 +1,5 @@
 from ferdelance.config import conf
-from ferdelance.database.repositories import ComponentRepository
+from ferdelance.database.repositories import ComponentRepository, ResultRepository, JobRepository, ArtifactRepository
 from ferdelance.server.api import api
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
@@ -8,6 +8,7 @@ from ferdelance.workbench.interface import (
     ArtifactStatus,
 )
 from ferdelance.schemas.models import Model
+from ferdelance.schemas.queries import Query
 from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
@@ -174,8 +175,7 @@ async def test_workflow_submit(session: AsyncSession):
         assert "int" in dtypes
 
         artifact = Artifact(
-            artifact_id=None,
-            project_id=project.project_id,
+            project_id=project.id,
             transform=datasource.extract(),
             model=Model(name="model", strategy=""),
             plan=None,
@@ -191,7 +191,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         status = ArtifactStatus(**wb_exc.get_payload(res.content))
 
-        artifact_id = status.artifact_id
+        artifact_id = status.id
 
         assert status.status is not None
         assert artifact_id is not None
@@ -224,11 +224,55 @@ async def test_workflow_submit(session: AsyncSession):
 
         downloaded_artifact = Artifact(**wb_exc.get_payload(res.content))
 
-        assert downloaded_artifact.artifact_id is not None
+        assert downloaded_artifact.id is not None
         assert len(downloaded_artifact.transform.stages) == 1
         assert len(downloaded_artifact.transform.stages[0].features) == 2
 
         shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
+
+
+@pytest.mark.asyncio
+async def test_get_results(session: AsyncSession):
+    with TestClient(api) as server:
+        args = await connect(server, session)
+        wb_exc = args.wb_exc
+
+        cr: ComponentRepository = ComponentRepository(session)
+        ar: ArtifactRepository = ArtifactRepository(session)
+        jr: JobRepository = JobRepository(session)
+        rr: ResultRepository = ResultRepository(session)
+
+        artifact = await ar.create_artifact(Artifact(project_id=TEST_PROJECT_TOKEN, transform=Query()))
+        await ar.update_status(artifact.id, ArtifactJobStatus.COMPLETED)
+
+        worker = await cr.get_worker()
+        job = await jr.schedule_job(artifact.id, worker.id, is_aggregation=True, iteration=artifact.iteration)
+        await jr.start_execution(job)
+        await jr.mark_completed(job.id, worker.id)
+
+        content = '{"message": "results!"}'
+        result = await rr.create_result(job.id, artifact.id, worker.id, artifact.iteration, is_aggregation=True)
+        os.makedirs(os.path.dirname(result.path), exist_ok=True)
+        with open(result.path, "w") as f:
+            f.write(content)
+
+        wba = WorkbenchArtifact(artifact_id=result.artifact_id)
+
+        res = server.request(
+            "GET",
+            f"/workbench/result",
+            headers=wb_exc.headers(),
+            content=wb_exc.create_payload(wba.dict()),
+        )
+
+        res.raise_for_status()
+
+        assert res.status_code == 200
+
+        data = wb_exc.get_payload(res.content)
+
+        assert "message" in data
+        assert data["message"] == "results!"
 
 
 @pytest.mark.asyncio

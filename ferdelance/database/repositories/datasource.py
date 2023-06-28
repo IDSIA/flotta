@@ -1,9 +1,9 @@
+from ferdelance.config import conf
 from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.component import viewClient, ComponentDB, Client
 from ferdelance.schemas.metadata import Metadata, MetaDataSource
 from ferdelance.schemas.datasources import DataSource, Feature
-from ferdelance.config import conf
 
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
@@ -22,15 +22,15 @@ LOGGER = logging.getLogger(__name__)
 
 def view(datasource: DataSourceDB, features: list[Feature]) -> DataSource:
     return DataSource(
-        datasource_id=datasource.datasource_id,
-        datasource_hash=datasource.datasource_hash,
+        id=datasource.id,
+        hash=datasource.hash,
         name=datasource.name,
         creation_time=datasource.creation_time,
         update_time=datasource.update_time,
         removed=datasource.removed,
         n_records=datasource.n_records,
         n_features=datasource.n_features,
-        client_id=datasource.component_id,
+        component_id=datasource.component_id,
         features=features,
     )
 
@@ -97,7 +97,7 @@ class DataSourceRepository(Repository):
         res = await self.session.execute(
             select(DataSourceDB).where(
                 DataSourceDB.component_id == client_id,
-                DataSourceDB.datasource_hash == meta_ds.datasource_hash,
+                DataSourceDB.hash == meta_ds.hash,
             )
         )
 
@@ -108,14 +108,14 @@ class DataSourceRepository(Repository):
             # create a new data source for this client
             LOGGER.info(f"client_id={client_id}: creating new data source={meta_ds.name}")
 
-            meta_ds.datasource_id = str(uuid4())
+            meta_ds.id = str(uuid4())
 
-            ds = DataSource(**meta_ds.dict(), client_id=client_id)
+            ds = DataSource(**meta_ds.dict(), component_id=client_id)
             path = await self.store(ds)
 
             ds_db = DataSourceDB(
-                datasource_id=ds.datasource_id,
-                datasource_hash=ds.datasource_hash,
+                id=ds.id,
+                hash=ds.hash,
                 name=ds.name,
                 path=path,
                 n_records=ds.n_records,
@@ -135,25 +135,25 @@ class DataSourceRepository(Repository):
                 ds_db.n_features = None
                 ds_db.update_time = dt_now
 
-                await self.remove(ds_db.datasource_id)
+                await self.remove(ds_db.id)
 
             else:
                 # update data source info
                 LOGGER.info(f"client_id={client_id}: updating data source={ds_db.name}")
 
-                meta_ds.datasource_id = ds_db.datasource_id
+                meta_ds.id = ds_db.id
                 ds_db.n_records = meta_ds.n_records
                 ds_db.n_features = meta_ds.n_features
                 ds_db.update_time = dt_now
 
-                ds = DataSource(**meta_ds.dict(), client_id=client_id)
+                ds = DataSource(**meta_ds.dict(), component_id=client_id)
                 path = await self.store(ds)
 
         if commit:
             await self.session.commit()
             await self.session.refresh(ds_db)
 
-        stored_ds = await self.load(ds_db.datasource_id)
+        stored_ds = await self.load(ds_db.id)
 
         return view(ds_db, stored_ds.features)
 
@@ -187,7 +187,7 @@ class DataSourceRepository(Repository):
             str:
                 The path where the data have been saved to.
         """
-        path = await self.storage_location(datasource.datasource_id)
+        path = await self.storage_location(datasource.id)
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(datasource.dict())
@@ -261,7 +261,7 @@ class DataSourceRepository(Repository):
             str:
                 The path where the datasource is stored on disk.
         """
-        res = await self.session.scalars(select(DataSourceDB.path).where(DataSourceDB.datasource_id == datasource_id))
+        res = await self.session.scalars(select(DataSourceDB.path).where(DataSourceDB.id == datasource_id))
         return res.one()
 
     async def list_datasources(self) -> list[DataSource]:
@@ -306,10 +306,10 @@ class DataSourceRepository(Repository):
                 A list of hashes. Note that this can be an empty list().
         """
         res = await self.session.scalars(
-            select(DataSourceDB.datasource_hash)
+            select(DataSourceDB.hash)
             .join(project_datasource)
             .join(ProjectDB)
-            .where(DataSourceDB.component_id == client_id, ProjectDB.project_id == project_id)
+            .where(DataSourceDB.component_id == client_id, ProjectDB.id == project_id)
         )
 
         return list(res.all())
@@ -333,7 +333,7 @@ class DataSourceRepository(Repository):
         """
         res = await self.session.scalars(
             select(DataSourceDB).where(
-                DataSourceDB.datasource_id == datasource_id,
+                DataSourceDB.id == datasource_id,
                 DataSourceDB.removed == False,
             )
         )
@@ -358,9 +358,9 @@ class DataSourceRepository(Repository):
         """
         res = await self.session.scalars(
             select(ComponentDB)
-            .join(DataSourceDB, ComponentDB.component_id == DataSourceDB.component_id)
+            .join(DataSourceDB, ComponentDB.id == DataSourceDB.component_id)
             .where(
-                DataSourceDB.datasource_id == datasource_id,
+                DataSourceDB.id == datasource_id,
                 DataSourceDB.removed == False,
             )
         )

@@ -54,7 +54,7 @@ services:
       - ferdelance
     command: redis-server
 
-  # Ferdelane Worker - Server internal worker
+  # Ferdelance Worker - Server internal worker
   worker:
     image: idsia.ferdelance.server
     container_name: worker

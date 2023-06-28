@@ -42,7 +42,6 @@ class QueryFeature(BaseModel):
 
     def __lt__(self, other) -> QueryFilter:
         if self._dtype_numeric():
-
             if is_numeric(other):
                 return self._filter(Operations.NUM_LESS_THAN, other)
 

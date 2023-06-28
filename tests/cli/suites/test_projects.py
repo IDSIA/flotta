@@ -11,13 +11,13 @@ import pytest
 @pytest.mark.asyncio
 async def test_projects_list(session: AsyncSession):
     p1: ProjectDB = ProjectDB(
-        project_id="P1",
+        id="P1",
         name="P1",
         token="P1",
     )
 
     p2: ProjectDB = ProjectDB(
-        project_id="P2",
+        id="P2",
         name="P2",
         token="P2",
     )
@@ -38,7 +38,6 @@ async def test_projects_list(session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_project_create(session: AsyncSession):
-
     project_token: str = await create_project(name="P1")
 
     res = await session.execute(select(ProjectDB))
@@ -51,13 +50,13 @@ async def test_project_create(session: AsyncSession):
 @pytest.mark.asyncio
 async def test_project_describe(session: AsyncSession):
     p1: ProjectDB = ProjectDB(
-        project_id="P1",
+        id="P1",
         name="P1",
         token="P1",
     )
 
     p2: ProjectDB = ProjectDB(
-        project_id="P2",
+        id="P2",
         name="P2",
         token="P2",
     )

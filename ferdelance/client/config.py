@@ -1,7 +1,8 @@
 from ferdelance import __version__
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
 from ferdelance.client.exceptions import ConfigError
-from ferdelance.schemas.client import ArgumentsConfig
+from ferdelance.schemas.client import ArgumentsConfig, DataSourceConfig
+from ferdelance.schemas.metadata import Metadata
 
 from getmac import get_mac_address
 
@@ -13,6 +14,44 @@ import yaml
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+class DataConfig:
+    def __init__(self, workdir: str, datasources: list[DataSourceConfig]) -> None:
+        self.workdir: str = workdir
+
+        """Hash -> DataSource"""
+        self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
+
+        for ds in datasources:
+            if ds.token is None:
+                tokens = list()
+            elif isinstance(ds.token, str):
+                tokens = [ds.token]
+            else:
+                tokens = ds.token
+
+            if ds.kind == "db":
+                if ds.conn is None:
+                    LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
+                    continue
+                datasource = DataSourceDB(ds.name, ds.type, ds.conn, tokens)
+                self.datasources[datasource.hash] = datasource
+
+            if ds.kind == "file":
+                if ds.path is None:
+                    LOGGER.error(f"Missing path for datasource with name={ds.conn}")
+                    continue
+                datasource = DataSourceFile(ds.name, ds.type, ds.path, tokens)
+                self.datasources[datasource.hash] = datasource
+
+    def path_artifacts_folder(self) -> str:
+        path = os.path.join(self.workdir, "artifacts")
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def metadata(self) -> Metadata:
+        return Metadata(datasources=[ds.metadata() for _, ds in self.datasources.items()])
 
 
 class Config:
@@ -36,32 +75,9 @@ class Config:
         self.client_token: str | None = None
         self.server_public_key: str | None = None
 
-        """Hash -> DataSource"""
-        self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
+        self.data = DataConfig(self.workdir, args.datasources)
 
-        for ds in args.datasources:
-            if ds.token is None:
-                tokens = list()
-            elif isinstance(ds.token, str):
-                tokens = [ds.token]
-            else:
-                tokens = ds.token
-
-            if ds.kind == "db":
-                if ds.conn is None:
-                    LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
-                    continue
-                datasource = DataSourceDB(ds.name, ds.type, ds.conn, tokens)
-                self.datasources[datasource.datasource_hash] = datasource
-
-            if ds.kind == "file":
-                if ds.path is None:
-                    LOGGER.error(f"Missing path for datasource with name={ds.conn}")
-                    continue
-                datasource = DataSourceFile(ds.name, ds.type, ds.path, tokens)
-                self.datasources[datasource.datasource_hash] = datasource
-
-        if not self.datasources:
+        if not self.data.datasources:
             LOGGER.error("No valid datasource available!")
             raise ConfigError()
 
@@ -87,11 +103,6 @@ class Config:
         if self.private_key_location is None:
             self.private_key_location = os.path.join(self.workdir, "private_key.pem")
         return self.private_key_location
-
-    def path_artifacts_folder(self) -> str:
-        path = os.path.join(self.workdir, "artifacts")
-        os.makedirs(path, exist_ok=True)
-        return path
 
     def read_props(self):
         with open(self.path_properties(), "r") as f:

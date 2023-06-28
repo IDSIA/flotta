@@ -24,7 +24,7 @@ LOGGER = logging.getLogger(__name__)
 
 def simpleView(project: ProjectDB) -> BaseProject:
     return BaseProject(
-        project_id=project.project_id,
+        id=project.id,
         token=project.token,
         name=project.name,
         creation_time=project.creation_time,
@@ -35,7 +35,7 @@ def simpleView(project: ProjectDB) -> BaseProject:
 
 def view(project: ProjectDB, data: AggregatedDataSource) -> Project:
     return Project(
-        project_id=project.project_id,
+        id=project.id,
         name=project.name,
         creation_time=project.creation_time,
         token=project.token,
@@ -94,7 +94,7 @@ class ProjectRepository(Repository):
             raise ValueError("A project with the given token already exists")
 
         project = ProjectDB(
-            project_id=str(uuid.uuid4()),
+            id=str(uuid.uuid4()),
             name=name,
             token=token,
         )
@@ -116,28 +116,22 @@ class ProjectRepository(Repository):
                 Metadata object received from a client.
         """
         for mdds in metadata.datasources:
-            res = await self.session.scalars(
-                select(DataSourceDB).where(DataSourceDB.datasource_id == mdds.datasource_id)
-            )
+            res = await self.session.scalars(select(DataSourceDB).where(DataSourceDB.id == mdds.id))
             ds: DataSourceDB = res.one()
 
             if not mdds.tokens:
                 continue
 
-            res = await self.session.scalars(select(ProjectDB.project_id).filter(ProjectDB.token.in_(mdds.tokens)))
+            res = await self.session.scalars(select(ProjectDB.id).filter(ProjectDB.token.in_(mdds.tokens)))
             project_ids: list[str] = list(res.all())
 
             if not project_ids:
-                LOGGER.warn(
-                    f"No project id found for datasource_id={mdds.datasource_id} and datasource_hash={mdds.datasource_hash}"
-                )
+                LOGGER.warn(f"No project id found for datasource_id={mdds.id} and datasource_hash={mdds.hash}")
                 continue
 
             for project_id in project_ids:
                 res = await self.session.scalars(
-                    select(ProjectDB)
-                    .where(ProjectDB.project_id == project_id)
-                    .options(selectinload(ProjectDB.datasources))
+                    select(ProjectDB).where(ProjectDB.id == project_id).options(selectinload(ProjectDB.datasources))
                 )
                 p: ProjectDB = res.one()
 
@@ -177,11 +171,11 @@ class ProjectRepository(Repository):
         """
 
         res = await self.session.scalars(
-            select(ProjectDB).where(ProjectDB.project_id == project_id).options(selectinload(ProjectDB.datasources))
+            select(ProjectDB).where(ProjectDB.id == project_id).options(selectinload(ProjectDB.datasources))
         )
         p = res.one()
 
-        dss: list[DataSource] = [await self.dsr.load(ds.datasource_id) for ds in p.datasources]
+        dss: list[DataSource] = [await self.dsr.load(ds.id) for ds in p.datasources]
 
         data = AggregatedDataSource.aggregate(dss)
 
@@ -207,7 +201,7 @@ class ProjectRepository(Repository):
         )
         p = res.one()
 
-        dss: list[DataSource] = [await self.dsr.load(ds.datasource_id) for ds in p.datasources]
+        dss: list[DataSource] = [await self.dsr.load(ds.id) for ds in p.datasources]
 
         data = AggregatedDataSource.aggregate(dss)
 
@@ -261,4 +255,4 @@ class ProjectRepository(Repository):
 
         p = res.one()
 
-        return [ds.datasource_id for ds in p.datasources]
+        return [ds.id for ds in p.datasources]

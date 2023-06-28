@@ -4,7 +4,7 @@ from ferdelance.config import conf
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import GenericModel
 from ferdelance.schemas.estimators import GenericEstimator
-from ferdelance.schemas.errors import ErrorArtifact
+from ferdelance.schemas.errors import WorkerAggregationJobError
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.worker.celery import worker
 
@@ -17,55 +17,28 @@ import requests
 import traceback
 
 
-class AggregationTask(Task):
-    abstract = True
-
-    def __init__(self) -> None:
-        super().__init__()
-
-        self.token: str = ""
-        self.server: str = ""
-        self.job_id: str = ""
-        self.artifact_id: str = ""
-
-    def __call__(self, *args, **kwargs):
-        return self.run(*args, **kwargs)
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        logging.critical(f"{task_id} failed: exc={exc!r}")
-        logging.critical(f"{task_id} failed: args={args!r}")
-        logging.critical(f"{task_id} failed: kwargs={kwargs!r}")
-        logging.critical(f"{task_id} failed: extra_info={einfo!r}")
-
-    def setup(self, job_id: str, token: str) -> None:
+class AggregationRouter:
+    def __init__(self, token: str) -> None:
         self.server = conf.server_url()
         self.token = token
-        self.job_id = job_id
 
     def headers(self):
         return {"Authorization": f"Bearer {self.token}"}
 
-    def get_task(self) -> Artifact:
-        logging.info(f"job_id={self.job_id}: fetching task data")
+    def get_task(self, job_id: str) -> WorkerTask:
+        logging.info(f"job_id={job_id}: fetching task data")
 
         res = requests.get(
-            f"{self.server}/worker/task/{self.job_id}",
+            f"{self.server}/worker/task/{job_id}",
             headers=self.headers(),
         )
 
         res.raise_for_status()
 
-        task = WorkerTask(**res.json())
+        return WorkerTask(**res.json())
 
-        if task.artifact.artifact_id is None:
-            raise ValueError("worker: artifact_id not found")
-
-        self.artifact_id = task.artifact.artifact_id
-
-        return task.artifact
-
-    def get_partial(self, result_id: str) -> Any:
-        logging.info(f"job_id={self.job_id}: requesting partial result_id={result_id}")
+    def get_result(self, artifact_id: str, result_id: str) -> Any:
+        logging.info(f"artifact_id={artifact_id}: requesting partial result_id={result_id}")
 
         res = requests.get(
             f"{self.server}/worker/result/{result_id}",
@@ -76,11 +49,11 @@ class AggregationTask(Task):
 
         return pickle.loads(res.content)
 
-    def post_result(self, base: Any) -> None:
-        logging.info(f"job_id={self.job_id}: posting aggregated result")
+    def post_result(self, artifact_id: str, job_id: str, base: Any) -> None:
+        logging.info(f"artifact_id={artifact_id}: posting aggregated result for job_id={job_id}")
 
         res = requests.post(
-            f"{self.server}/worker/result/{self.job_id}",
+            f"{self.server}/worker/result/{job_id}",
             headers=self.headers(),
             files={
                 "file": pickle.dumps(base),
@@ -89,8 +62,8 @@ class AggregationTask(Task):
 
         res.raise_for_status()
 
-    def post_error(self, error: ErrorArtifact) -> None:
-        logging.info(f"job_id={self.job_id}: posting error")
+    def post_error(self, job_id: str, error: WorkerAggregationJobError) -> None:
+        logging.info(f"job_id={job_id}: posting error")
 
         res = requests.post(
             f"{self.server}/worker/error/",
@@ -100,20 +73,49 @@ class AggregationTask(Task):
 
         res.raise_for_status()
 
+
+class AggregationTask(Task):
+    abstract = True
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.router: AggregationRouter = None  # type: ignore
+
+    def __call__(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        logging.critical(f"{task_id} failed: exc={exc!r}")
+        logging.critical(f"{task_id} failed: args={args!r}")
+        logging.critical(f"{task_id} failed: kwargs={kwargs!r}")
+        logging.critical(f"{task_id} failed: extra_info={einfo!r}")
+
+    def setup(self, token: str) -> None:
+        self.router = AggregationRouter(token)
+
+    def get_task(self, job_id: str) -> WorkerTask:
+        task = self.router.get_task(job_id)
+
+        if not task.artifact.id:
+            raise ValueError("worker: artifact_id not found")
+
+        return task
+
     def aggregate_estimator(self, artifact: Artifact, result_ids: list[str]) -> GenericEstimator:
         agg = artifact.get_estimator()
 
         base: Any = None
 
         for result_id in result_ids:
-            partial: GenericEstimator = self.get_partial(result_id)
+            partial: GenericEstimator = self.router.get_result(artifact.id, result_id)
 
             if base is None:
                 base = partial
             else:
                 base = agg.aggregate(base, partial)
 
-        logging.info(f"artifact_id={self.job_id}: aggregated {len(result_ids)} estimator(s)")
+        logging.info(f"artifact_id={artifact.id}: aggregated {len(result_ids)} estimator(s)")
 
         return base
 
@@ -124,24 +126,27 @@ class AggregationTask(Task):
         base: Any = None
 
         for result_id in result_ids:
-            partial: GenericModel = self.get_partial(result_id)
+            partial: GenericModel = self.router.get_result(artifact.id, result_id)
 
             if base is None:
                 base = partial
             else:
                 base = agg.aggregate(strategy, base, partial)
 
-        logging.info(f"artifact_id={self.job_id}: aggregated {len(result_ids)} model(s)")
+        logging.info(f"artifact_id={artifact.id}: aggregated {len(result_ids)} model(s)")
 
         return base
 
-    def aggregate(self, result_ids: list[str]):
+    def aggregate(self, job_id: str):
         try:
             server = conf.server_url()
 
             logging.debug(f"using server {server}")
 
-            artifact: Artifact = self.get_task()
+            task: WorkerTask = self.get_task(job_id)
+
+            artifact: Artifact = task.artifact
+            result_ids: list[str] = task.result_ids
 
             if artifact.is_estimation():
                 base = self.aggregate_estimator(artifact, result_ids)
@@ -150,12 +155,12 @@ class AggregationTask(Task):
                 base = self.aggregate_model(artifact, result_ids)
 
             else:
-                raise ValueError(f"Unsupported artifact_id={self.job_id}")
+                raise ValueError(f"Unsupported artifact_id={job_id}")
 
-            self.post_result(base)
+            self.router.post_result(artifact.id, job_id, base)
 
         except requests.HTTPError as e:
-            logging.error(f"artifact_id={self.job_id}: {e}")
+            logging.error(f"artifact_id={job_id}: {e}")
             logging.exception(e)
 
 
@@ -164,23 +169,22 @@ class AggregationTask(Task):
     bind=True,
     base=AggregationTask,
 )
-def aggregation(self: AggregationTask, token: str, job_id: str, result_ids: list[str]) -> None:
+def aggregation(self: AggregationTask, token: str, job_id: str) -> None:
     task_id: str = str(self.request.id)
     try:
         logging.info(f"worker: beginning aggregation task={task_id}")
 
-        self.setup(job_id, token)
-        self.aggregate(result_ids)
+        self.setup(token)
+        self.aggregate(job_id)
 
     except Exception as e:
-        logging.error(f"task_id={task_id}: job_id={self.job_id} artifact_id={self.artifact_id}: {e}")
+        logging.error(f"task_id={task_id}: job_id={job_id}: {e}")
         logging.exception(e)
 
-        error = ErrorArtifact(
-            artifact_id=self.artifact_id,
-            job_id=self.job_id,
+        error = WorkerAggregationJobError(
+            job_id=job_id,
             message=str(e),
             stack_trace="".join(traceback.TracebackException.from_exception(e).format()),
         )
 
-        self.post_error(error)
+        self.router.post_error(job_id, error)

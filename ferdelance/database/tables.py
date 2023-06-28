@@ -29,7 +29,7 @@ class Component(Base):
 
     __tablename__ = "components"
 
-    component_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
 
     name: Mapped[str] = mapped_column(nullable=True)
@@ -63,13 +63,13 @@ class Token(Base):
 
     __tablename__ = "tokens"
 
-    token_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     expiration_time: Mapped[float] = mapped_column(nullable=True)
     token: Mapped[str] = mapped_column(nullable=False, index=True, unique=True)
     valid: Mapped[bool] = mapped_column(default=True)
 
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
     component = relationship("Component")
 
 
@@ -78,11 +78,11 @@ class Event(Base):
 
     __tablename__ = "events"
 
-    event_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    event_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     event: Mapped[str] = mapped_column(nullable=False)
 
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
     component = relationship("Component")
 
 
@@ -91,7 +91,7 @@ class Application(Base):
 
     __tablename__ = "applications"
 
-    app_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     version: Mapped[str] = mapped_column(String)
     active: Mapped[bool] = mapped_column(default=False)
@@ -110,7 +110,7 @@ class Artifact(Base):
 
     __tablename__ = "artifacts"
 
-    artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     path: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String)
@@ -132,9 +132,9 @@ class Job(Base):
 
     __tablename__ = "jobs"
 
-    job_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
 
-    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))
+    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
     artifact = relationship("Artifact")
 
     # True if the job trains a new model
@@ -150,7 +150,7 @@ class Job(Base):
     celery_id: Mapped[str | None] = mapped_column(default=None)
 
     # Id of the component executing the job
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
     component = relationship("Component")
 
     # Last known status of the job
@@ -171,7 +171,7 @@ class Result(Base):
 
     __tablename__ = "results"
 
-    result_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     path: Mapped[str] = mapped_column(String)
 
@@ -183,22 +183,22 @@ class Result(Base):
 
     iteration: Mapped[int] = mapped_column(default=0)
 
-    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.job_id"))
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
     job = relationship("Job")
 
     # TODO: one model per artifact or one artifact can have multiple models?
-    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.artifact_id"))
+    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
     artifact = relationship("Artifact")
 
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
     component = relationship("Component")
 
 
 project_datasource = Table(
     "project_datasource",
     Base.metadata,
-    Column("project_id", ForeignKey("projects.project_id")),
-    Column("datasource_id", ForeignKey("datasources.datasource_id")),
+    Column("project_id", ForeignKey("projects.id")),
+    Column("datasource_id", ForeignKey("datasources.id")),
 )
 
 
@@ -207,7 +207,7 @@ class Project(Base):
 
     __tablename__ = "projects"
 
-    project_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String)
 
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
@@ -225,8 +225,8 @@ class DataSource(Base):
 
     __tablename__ = "datasources"
 
-    datasource_id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
-    datasource_hash: Mapped[str] = mapped_column(String(64))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    hash: Mapped[str] = mapped_column(String(64))
 
     name: Mapped[str] = mapped_column(String)
     path: Mapped[str] = mapped_column(String)
@@ -238,7 +238,7 @@ class DataSource(Base):
     n_records: Mapped[int | None] = mapped_column(Integer, nullable=True)
     n_features: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.component_id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
     component = relationship("Component")
 
     projects: Mapped[list[Project]] = relationship(secondary=project_datasource, back_populates="datasources")
