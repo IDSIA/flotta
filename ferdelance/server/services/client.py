@@ -137,7 +137,7 @@ class ClientService:
         try:
             await self.jms.client_task_completed(job_id, self.component.id)
 
-            return await self.jms.create_result(job_id, self.component.id)
+            return await self.jms.create_result(job_id, self.component.id, False)
 
         except NoResultFound as _:
             raise ValueError(f"client_id={self.component.id}: job_id={job_id} not found")
@@ -148,7 +148,7 @@ class ClientService:
         try:
             await self.jms.client_task_failed(error, self.component.id)
 
-            return await self.jms.create_result(error.job_id, self.component.id)
+            return await self.jms.create_result(error.job_id, self.component.id, False)
 
         except NoResultFound as _:
             raise ValueError(f"client_id={self.component.id}: job_id={error.job_id} not found")

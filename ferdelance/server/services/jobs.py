@@ -162,7 +162,8 @@ class JobManagementService(Repository):
             context.job_completed = await self.jr.count_jobs_by_artifact_status(artifact_id, JobStatus.COMPLETED, it)
             context.job_failed = await self.jr.count_jobs_by_artifact_status(artifact_id, JobStatus.ERROR, it)
 
-            await artifact.get_plan().pre_aggregation_hook(context)
+            if artifact.has_plan():
+                await artifact.get_plan().pre_aggregation_hook(context)
 
             if context.has_failed():
                 LOGGER.error(
@@ -270,7 +271,9 @@ class JobManagementService(Repository):
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
             raise TaskDoesNotExists()
 
-    async def create_result(self, job_id: str, producer_id: str, is_error: bool = False) -> Result:
+    async def create_result(
+        self, job_id: str, producer_id: str, is_aggregation: bool, is_error: bool = False
+    ) -> Result:
         LOGGER.info(f"component_id={producer_id}: creating results for job_id={job_id}")
 
         job = await self.jr.get_by_id(job_id)
@@ -288,6 +291,7 @@ class JobManagementService(Repository):
             iteration=job.iteration,
             is_estimation=artifact.is_estimation(),
             is_model=artifact.is_model(),
+            is_aggregation=is_aggregation,
             is_error=is_error,
         )
 
@@ -320,8 +324,8 @@ class JobManagementService(Repository):
             next_iteration=job.iteration + 1,
         )
 
-        plan = artifact.get_plan()
-        await plan.post_aggregation_hook(context)
+        if artifact.has_plan():
+            await artifact.get_plan().post_aggregation_hook(context)
 
         if context.schedule_next_iteration:
             # schedule next iteration

@@ -228,7 +228,6 @@ async def wb_get_result(
     session: AsyncSession = Depends(get_session),
     component: Component = Depends(check_access),
 ):
-    LOGGER.info(f"user_id={component.id}: requested aggregate model")
     ss: SecurityService = SecurityService(session)
     ws: WorkbenchService = WorkbenchService(session, component)
 
@@ -236,6 +235,8 @@ async def wb_get_result(
 
     data = await ss.read_request(request)
     wba = WorkbenchArtifact(**data)
+
+    LOGGER.info(f"user_id={component.id}: requested result with artifact_id={wba.artifact_id}")
 
     try:
         result = await ws.get_result(wba.artifact_id)

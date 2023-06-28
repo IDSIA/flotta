@@ -31,6 +31,9 @@ class Artifact(BaseModel):
     def is_model(self):
         return self.model is not None
 
+    def has_plan(self) -> bool:
+        return self.plan is not None
+
     def get_plan(self) -> GenericPlan:
         if self.plan is None:
             raise ValueError(f"No plan available with artifact_id={self.id}")
