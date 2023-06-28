@@ -565,6 +565,21 @@ class ComponentRepository(Repository):
 
         return str(client_token.token)
 
+    async def get_worker(self) -> Component:
+        """Return the tokens used by the internal server's workers. This should
+        be an unique token for all workers.
+
+        Returns:
+            str:
+                The token used by the internal workers.
+        """
+
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_WORKER).limit(1))
+
+        component: ComponentDB = res.one()
+
+        return viewComponent(component)
+
     async def create_event(self, component_id: str, event: str) -> Event:
         """Create an entry in the event log. This is just a simple log.
 
