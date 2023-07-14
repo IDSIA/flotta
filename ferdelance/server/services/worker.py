@@ -8,7 +8,7 @@ from ferdelance.server.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result, ServerArtifact
-from ferdelance.schemas.errors import WorkerAggregationJobError
+from ferdelance.schemas.errors import WorkerJobError
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.shared.status import ArtifactJobStatus
 
@@ -56,15 +56,7 @@ class WorkerService:
                 result_ids=[r.id for r in results],
             )
 
-        except NoResultFound as _:
-            raise ValueError(f"worker_id={self.component.id}: task with job_id={job_id} does not exists")
-
-    async def result(self, job_id: str) -> Result:
-        LOGGER.info(f"worker_id={self.component.id}: creating aggregated result for job_id={job_id}")
-        try:
-            return await self.jms.create_result(job_id, self.component.id, True)
-
-        except NoResultFound as _:
+        except NoResultFound:
             raise ValueError(f"worker_id={self.component.id}: task with job_id={job_id} does not exists")
 
     async def get_result(self, result_id: str) -> Result:
@@ -87,15 +79,15 @@ class WorkerService:
 
         await self.jms.aggregation_completed(job_id, self.component.id)
 
-        return await self.jms.create_result(job_id, self.component.id, True)
+        return await self.jms.create_result(job_id, self.component.id, is_aggregation=True)
 
     async def check_next_iteration(self, job_id: str) -> None:
         await self.jms.check_for_iteration(job_id)
 
-    async def aggregation_failed(self, error: WorkerAggregationJobError) -> Result:
+    async def aggregation_failed(self, error: WorkerJobError) -> Result:
         """Aggregation failed, and worker did an error."""
         LOGGER.info(f"job_id={error.job_id}: aggregation failed")
 
         await self.jms.aggregation_failed(error, self.component.id)
 
-        return await self.jms.create_result(error.job_id, self.component.id, True, True)
+        return await self.jms.create_result(error.job_id, self.component.id, is_aggregation=True, is_error=True)

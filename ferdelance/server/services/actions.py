@@ -1,12 +1,10 @@
 from typing import Any
 
 from ferdelance.database.repositories import (
-    Repository,
     AsyncSession,
     ComponentRepository,
     JobRepository,
 )
-from ferdelance.database.repositories import ComponentRepository
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.components import Client, Token, Application
 from ferdelance.schemas.jobs import Job
@@ -24,9 +22,9 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class ActionService(Repository):
+class ActionService:
     def __init__(self, session: AsyncSession) -> None:
-        super().__init__(session)
+        self.session: AsyncSession = session
 
         self.jr: JobRepository = JobRepository(session)
         self.cr: ComponentRepository = ComponentRepository(session)
@@ -45,9 +43,8 @@ class ActionService(Repository):
         :return:
             The 'update_token' action and a string with the new token.
         """
-        cr: ComponentRepository = ComponentRepository(self.session)
 
-        token: Token = await cr.update_client_token(client)
+        token: Token = await self.cr.update_client_token(client)
 
         return UpdateToken(action=Action.UPDATE_TOKEN.name, token=token.token)
 
@@ -64,7 +61,7 @@ class ActionService(Repository):
 
             return client.version != app.version
 
-        except NoResultFound as e:
+        except NoResultFound:
             return False
 
     async def _action_update_client_app(self) -> UpdateClientApp:
@@ -116,7 +113,7 @@ class ActionService(Repository):
             task = await self._check_scheduled_job(client)
             return await self._action_schedule_job(task)
 
-        except NoResultFound as e:
+        except NoResultFound:
             # no tasks to do
             pass
 

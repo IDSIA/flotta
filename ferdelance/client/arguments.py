@@ -32,7 +32,7 @@ def setup_config_from_arguments() -> Config:
     parser.add_argument(
         "-c",
         "--config",
-        help=f"""
+        help="""
         Set a configuration file in YAML format to use
         Note that command line arguments take the precedence of arguments declared with a config file.
         """,
@@ -42,7 +42,7 @@ def setup_config_from_arguments() -> Config:
 
     parser.add_argument(
         "--leave",
-        help=f"""
+        help="""
         Request to disconnect this client from the server.
         This command will also remove the given working directory and all its content.
         (default: False)

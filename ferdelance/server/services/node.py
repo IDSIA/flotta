@@ -40,7 +40,7 @@ class NodeService:
 
             raise ValueError("Invalid client data")
 
-        except NoResultFound as e:
+        except NoResultFound:
             LOGGER.info("joining new client")
             # create new client
             client, token = await cr.create_client(

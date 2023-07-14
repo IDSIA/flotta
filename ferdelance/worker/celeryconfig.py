@@ -1,5 +1,3 @@
-from kombu import Exchange, Queue
-
 import os
 
 result_expires = 3600

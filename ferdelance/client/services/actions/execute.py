@@ -27,10 +27,7 @@ class ExecutionResult:
 
 class ExecuteAction(Action):
     def __init__(self, data: DataConfig) -> None:
-        self.data = data
-
-    def validate_input(self) -> None:
-        pass
+        self.data: DataConfig = data
 
     def execute(self, task: ClientTask) -> ExecutionResult:
         job_id = task.job_id
@@ -47,7 +44,7 @@ class ExecuteAction(Action):
 
         os.makedirs(working_folder, exist_ok=True)
 
-        path_artifact = os.path.join(working_folder, f"descriptor.json")
+        path_artifact = os.path.join(working_folder, "descriptor.json")
 
         with open(path_artifact, "w") as f:
             json.dump(artifact.dict(), f)
@@ -85,7 +82,7 @@ class ExecuteAction(Action):
 
         LOGGER.info(f"artifact_id={artifact_id}:dataset shape: {df_dataset.shape}")
 
-        path_datasource = os.path.join(working_folder, f"dataset.csv.gz")
+        path_datasource = os.path.join(working_folder, "dataset.csv.gz")
 
         df_dataset.to_csv(path_datasource, compression="gzip")
 

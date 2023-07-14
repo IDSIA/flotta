@@ -9,7 +9,6 @@ from ferdelance.database.repositories import (
     ComponentRepository,
     ProjectRepository,
     Repository,
-    AsyncSession,
 )
 
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
@@ -17,10 +16,10 @@ from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.database import ServerArtifact, Result
-from ferdelance.schemas.errors import WorkerAggregationJobError, ClientTaskError
+from ferdelance.schemas.errors import WorkerJobError, ClientTaskError
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.schemas.jobs import Job
-from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
+from ferdelance.server.exceptions import ArtifactDoesNotExists
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
 from ferdelance.server.jobs_backend import get_aggregation_backend
@@ -132,7 +131,7 @@ class JobManagementService(Repository):
                 LOGGER.warning(
                     f"client_id={client_id}: task with job_id={job_id} has no datasources with artifact_id={artifact_id}"
                 )
-                raise TaskDoesNotExists()
+                raise ValueError("TaskDoesNotExists")
 
             # TODO: for complex training, filter based on artifact.load field
 
@@ -142,7 +141,7 @@ class JobManagementService(Repository):
 
         except NoResultFound as _:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
-            raise TaskDoesNotExists()
+            raise ValueError("TaskDoesNotExists")
 
     async def check_for_aggregation(self, result: Result) -> bool:
         artifact_id = result.artifact_id
@@ -269,33 +268,36 @@ class JobManagementService(Repository):
 
         except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
-            raise TaskDoesNotExists()
+            raise ValueError("TaskDoesNotExists")
 
     async def create_result(
-        self, job_id: str, producer_id: str, is_aggregation: bool, is_error: bool = False
+        self, job_id: str, producer_id: str, is_aggregation: bool = False, is_error: bool = False
     ) -> Result:
         LOGGER.info(f"component_id={producer_id}: creating results for job_id={job_id}")
+        try:
+            job = await self.jr.get_by_id(job_id)
+            artifact_id = job.artifact_id
 
-        job = await self.jr.get_by_id(job_id)
-        artifact_id = job.artifact_id
+            # simple check
+            await self.ar.get_artifact(artifact_id)
 
-        # simple check
-        await self.ar.get_artifact(artifact_id)
+            artifact: Artifact = await self.ar.load(artifact_id)
 
-        artifact: Artifact = await self.ar.load(artifact_id)
+            result = await self.rr.create_result(
+                job_id=job_id,
+                artifact_id=artifact_id,
+                producer_id=producer_id,
+                iteration=job.iteration,
+                is_estimation=artifact.is_estimation(),
+                is_model=artifact.is_model(),
+                is_aggregation=is_aggregation,
+                is_error=is_error,
+            )
 
-        result = await self.rr.create_result(
-            job_id=job_id,
-            artifact_id=artifact_id,
-            producer_id=producer_id,
-            iteration=job.iteration,
-            is_estimation=artifact.is_estimation(),
-            is_model=artifact.is_model(),
-            is_aggregation=is_aggregation,
-            is_error=is_error,
-        )
+            return result
 
-        return result
+        except NoResultFound:
+            raise ValueError(f"component_id={producer_id}: job_id={job_id} does not exists")
 
     async def client_task_completed(self, job_id: str, client_id: str) -> None:
         LOGGER.info(f"job_id={job_id}: task completed")
@@ -339,7 +341,7 @@ class JobManagementService(Repository):
             LOGGER.info(f"artifact_id={artifact_id}: artifact completed ")
             await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, context.next_iteration)
 
-    async def aggregation_failed(self, error: WorkerAggregationJobError, worker_id: str) -> None:
+    async def aggregation_failed(self, error: WorkerJobError, worker_id: str) -> None:
         LOGGER.warning(f"job_id={error.job_id}: aggregation failed with error: {error.message}{error.stack_trace}")
 
         await self.jr.mark_error(error.job_id, worker_id)

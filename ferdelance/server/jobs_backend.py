@@ -12,6 +12,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class RemoteBackend:
+    """This backend is used to schedule tasks for celery."""
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -31,6 +33,8 @@ class RemoteBackend:
 
 
 class LocalBackend(RemoteBackend):
+    """This backend is used to schedule tasks on a local queue."""
+
     def __init__(self) -> None:
         if extra.aggregation_queue is None:
             raise ValueError("Could not run without a queue")

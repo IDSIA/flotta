@@ -13,12 +13,6 @@ class UpdateTokenAction(Action):
         self.config = config
         self.data = data
 
-    def validate_input(self):
-        if not isinstance(self.config, Config):
-            raise ValueError(f"config parameter must be of type Config")
-        if not isinstance(self.data, UpdateToken):
-            raise ValueError(f"data parameter must be of type UpdateToken")
-
     def execute(self) -> None:
         LOGGER.info("updating client token with a new one")
         self.config.set_token(self.data.token)

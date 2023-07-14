@@ -102,9 +102,11 @@ async def client_update_files(
 
         return ss.encrypt_file(new_app.path)
     except ValueError as e:
+        LOGGER.exception(e)
         raise HTTPException(400, "Old versions are not permitted")
 
-    except NoResultFound as _:
+    except NoResultFound as e:
+        LOGGER.exception(e)
         raise HTTPException(404, "no newest version found")
 
 
@@ -129,10 +131,12 @@ async def client_get_task(
 
         return ss.create_response(content.dict())
 
-    except ArtifactDoesNotExists as _:
+    except ArtifactDoesNotExists as e:
+        LOGGER.exception(e)
         raise HTTPException(404, "Artifact does not exists")
 
-    except TaskDoesNotExists as _:
+    except TaskDoesNotExists as e:
+        LOGGER.exception(e)
         raise HTTPException(404, "Task does not exists")
 
 

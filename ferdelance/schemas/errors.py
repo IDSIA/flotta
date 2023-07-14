@@ -7,7 +7,7 @@ class ClientTaskError(BaseModel):
     stack_trace: str = ""
 
 
-class WorkerAggregationJobError(BaseModel):
+class WorkerJobError(BaseModel):
     job_id: str = ""
     message: str = ""
     stack_trace: str = ""

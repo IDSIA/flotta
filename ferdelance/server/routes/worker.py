@@ -3,7 +3,7 @@ from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import WorkerAggregationJobError
+from ferdelance.schemas.errors import WorkerJobError
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.server.security import check_token
 from ferdelance.server.services import WorkerService
@@ -20,7 +20,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-worker_router = APIRouter()
+worker_router = APIRouter(prefix="/worker")
 
 
 async def check_access(component: Component = Depends(check_token)) -> Component:
@@ -35,8 +35,13 @@ async def check_access(component: Component = Depends(check_token)) -> Component
         raise HTTPException(403)
 
 
-@worker_router.get("/worker/task/{job_id}", response_model=WorkerTask)
-async def get_task(
+@worker_router.get("/")
+async def worker_home():
+    return "Worker 🔨"
+
+
+@worker_router.get("/task/{job_id}", response_model=WorkerTask)
+async def worker_get_task(
     job_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
     LOGGER.info(f"worker_id={worker.id}: requested job_id={job_id}")
@@ -53,8 +58,8 @@ async def get_task(
         raise HTTPException(404)
 
 
-@worker_router.post("/worker/result/{job_id}")
-async def post_result(
+@worker_router.post("/result/{job_id}")
+async def worker_post_result(
     file: UploadFile,
     job_id: str,
     session: AsyncSession = Depends(get_session),
@@ -79,9 +84,9 @@ async def post_result(
         raise HTTPException(500)
 
 
-@worker_router.post("/worker/error/")
-async def post_error(
-    error: WorkerAggregationJobError,
+@worker_router.post("/error")
+async def worker_post_error(
+    error: WorkerJobError,
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):
@@ -102,8 +107,8 @@ async def post_error(
         raise HTTPException(500)
 
 
-@worker_router.get("/worker/result/{result_id}", response_class=FileResponse)
-async def get_result(
+@worker_router.get("/result/{result_id}", response_class=FileResponse)
+async def worker_get_result(
     result_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
     LOGGER.info(f"worker_id={worker.id}: request result_id={result_id}")
@@ -115,5 +120,6 @@ async def get_result(
 
         return FileResponse(result.path)
 
-    except NoResultFound:
+    except NoResultFound as e:
+        LOGGER.exception(e)
         raise HTTPException(404)

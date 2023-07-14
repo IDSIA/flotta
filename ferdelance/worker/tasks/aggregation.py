@@ -4,7 +4,7 @@ from ferdelance.config import conf
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import GenericModel
 from ferdelance.schemas.estimators import GenericEstimator
-from ferdelance.schemas.errors import WorkerAggregationJobError
+from ferdelance.schemas.errors import WorkerJobError
 from ferdelance.schemas.worker import WorkerTask
 from ferdelance.worker.celery import worker
 
@@ -49,20 +49,20 @@ class AggregationRouter:
 
         return pickle.loads(res.content)
 
-    def post_result(self, artifact_id: str, job_id: str, base: Any) -> None:
+    def post_result(self, artifact_id: str, job_id: str, content: Any) -> None:
         logging.info(f"artifact_id={artifact_id}: posting aggregated result for job_id={job_id}")
 
         res = requests.post(
             f"{self.server}/worker/result/{job_id}",
             headers=self.headers(),
             files={
-                "file": pickle.dumps(base),
+                "file": pickle.dumps(content),
             },
         )
 
         res.raise_for_status()
 
-    def post_error(self, job_id: str, error: WorkerAggregationJobError) -> None:
+    def post_error(self, job_id: str, error: WorkerJobError) -> None:
         logging.info(f"job_id={job_id}: posting error")
 
         res = requests.post(
@@ -139,9 +139,7 @@ class AggregationTask(Task):
 
     def aggregate(self, job_id: str):
         try:
-            server = conf.server_url()
-
-            logging.debug(f"using server {server}")
+            logging.debug(f"using server {conf.server_url()}")
 
             task: WorkerTask = self.get_task(job_id)
 
@@ -162,6 +160,7 @@ class AggregationTask(Task):
         except requests.HTTPError as e:
             logging.error(f"artifact_id={job_id}: {e}")
             logging.exception(e)
+            raise e
 
 
 @worker.task(
@@ -181,7 +180,7 @@ def aggregation(self: AggregationTask, token: str, job_id: str) -> None:
         logging.error(f"task_id={task_id}: job_id={job_id}: {e}")
         logging.exception(e)
 
-        error = WorkerAggregationJobError(
+        error = WorkerJobError(
             job_id=job_id,
             message=str(e),
             stack_trace="".join(traceback.TracebackException.from_exception(e).format()),

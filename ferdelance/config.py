@@ -94,7 +94,7 @@ LOGGING_CONFIG = {
             "class": "logging.handlers.RotatingFileHandler",
             "formatter": "standard",
             "filename": "ferdelance.log",
-            "maxBytes": 100000,
+            "maxBytes": 1024 * 1024 * 1024,  # 1GB
             "backupCount": 5,
         },
         "file_uvicorn_access": {
@@ -102,7 +102,7 @@ LOGGING_CONFIG = {
             "class": "logging.handlers.RotatingFileHandler",
             "formatter": "standard",
             "filename": "ferdelance_access.log",
-            "maxBytes": 100000,
+            "maxBytes": 1024 * 1024 * 1024,  # 1GB
             "backupCount": 5,
         },
     },

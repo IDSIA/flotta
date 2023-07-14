@@ -40,7 +40,7 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
 async def check_distributed(component: Component = Depends(check_access)) -> Component:
     if not conf.DISTRIBUTED:
-        LOGGER.warning(f"requested access to distributed endpoint while in centralized mode")
+        LOGGER.warning("requested access to distributed endpoint while in centralized mode")
         raise HTTPException(403, "Node is not in distributed mode.")
 
     return component
@@ -109,7 +109,8 @@ async def node_metadata(
 ):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
-    - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
+    - summary (source, data type, min value, max value, standard deviation, ...) of features available
+      for each data source
     """
     LOGGER.info(f"client_id={component.id}: update metadata request")
 
