@@ -49,6 +49,11 @@ class Configuration(BaseModel):
 
     PROJECT_DEFAULT_TOKEN: str = os.environ.get("PROJECT_DEFAULT_TOKEN", "")
 
+    # used by client or standalone
+    N_TRAIN_WORKER: int = int(os.environ.get("N_TRAIN_WORKER", "1"))
+    N_ESTIMATE_WORKER: int = int(os.environ.get("N_ESTIMATE_WORKER", "1"))
+    N_AGGREGATE_WORKER: int = int(os.environ.get("N_AGGREGATE_WORKER", "1"))
+
     def storage_dir_datasources(self, datasource_hash: str) -> str:
         return os.path.join(conf.STORAGE_DATASOURCES, datasource_hash)
 

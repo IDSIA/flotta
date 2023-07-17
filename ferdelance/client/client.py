@@ -1,14 +1,14 @@
 from ferdelance import __version__
+from ferdelance.extra import extra
 from ferdelance.client.config import Config, ConfigError
 from ferdelance.client.exceptions import RelaunchClient, ErrorClient
 from ferdelance.client.services.actions import ActionService
 from ferdelance.client.services.routes import RouteService
-from ferdelance.client.worker import ClientWorker
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.node import JoinData, JoinRequest
 from ferdelance.shared.exchange import Exchange
 
-from multiprocessing import Queue
+from ferdelance.jobs_backend import get_jobs_backend
 
 from time import sleep
 
@@ -29,12 +29,6 @@ class FerdelanceClient:
 
         self.setup_completed: bool = False
         self.stop: bool = False
-
-        self.trainers: list[ClientWorker] = []
-        self.estimators: list[ClientWorker] = []
-
-        self.train_queue: Queue = Queue()
-        self.estimate_queue: Queue = Queue()
 
     def check_server(self):
         routes_service = RouteService(self.config)
@@ -137,8 +131,7 @@ class FerdelanceClient:
         LOGGER.info("gracefully stopping application")
         self.stop = True
 
-        self.train_queue.put(None)
-        self.estimate_queue.put(None)
+        get_jobs_backend().stop_backend()
 
     def run(self) -> int:
         """Main loop where the client contact the server for updates.
@@ -160,25 +153,7 @@ class FerdelanceClient:
 
             routes_service.send_metadata()
 
-            action_service = ActionService(self.config, self.train_queue, self.estimate_queue)
-
-            for i in range(self.config.resource_n_train_thread):
-                w = ClientWorker(
-                    self.config,
-                    f"trainer-{i}",
-                    self.train_queue,
-                )
-                w.start()
-                self.trainers.append(w)
-
-            for i in range(self.config.resource_n_estimate_thread):
-                w = ClientWorker(
-                    self.config,
-                    f"estimator-{i}",
-                    self.estimate_queue,
-                )
-                w.start()
-                self.estimators.append(w)
+            action_service = ActionService(self.config)
 
             while self.status != Action.CLIENT_EXIT and not self.stop:
                 try:
@@ -232,9 +207,9 @@ class FerdelanceClient:
             raise ErrorClient()
 
         finally:
-            for w in self.trainers:
+            for w in extra.training_workers:
                 w.join()
-            for w in self.estimators:
+            for w in extra.estimation_workers:
                 w.join()
 
         if self.stop:

@@ -4,7 +4,7 @@ from ferdelance.client.services.routes import RouteService
 from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.updates import UpdateExecute
 
-from multiprocessing import Process, Queue
+from multiprocessing import Process, JoinableQueue
 
 import logging
 
@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ClientWorker(Process):
-    def __init__(self, config: Config, idx: str, queue: Queue) -> None:
+    def __init__(self, config: Config, idx: str, queue: JoinableQueue) -> None:
         super().__init__()
 
         LOGGER.info(f"creating client-worker_idx={idx}")
@@ -20,7 +20,7 @@ class ClientWorker(Process):
         self.routes_service: RouteService = RouteService(config)
         self.action = ExecuteAction(config.data)
 
-        self.queue: Queue = queue
+        self.queue: JoinableQueue = queue
         self.idx: str = idx
         self.stop: bool = False
 

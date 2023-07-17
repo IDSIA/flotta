@@ -1,6 +1,6 @@
 from ferdelance.worker.tasks.aggregation import AggregationTask
 
-from multiprocessing import Process, Queue
+from multiprocessing import Process, JoinableQueue
 
 import logging
 
@@ -8,9 +8,9 @@ LOGGER = logging.getLogger(__name__)
 
 
 class LocalWorker(Process):
-    def __init__(self, task_queue: Queue):
+    def __init__(self, task_queue: JoinableQueue):
         super().__init__()
-        self.task_queue: Queue = task_queue
+        self.task_queue: JoinableQueue = task_queue
         self.stop = False
 
         # TODO: connect/join/register on server

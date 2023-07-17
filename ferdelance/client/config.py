@@ -1,4 +1,5 @@
 from ferdelance import __version__
+from ferdelance.config import conf
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
 from ferdelance.client.exceptions import ConfigError
 from ferdelance.schemas.client import ArgumentsConfig, DataSourceConfig
@@ -62,8 +63,8 @@ class Config:
         self.workdir: str = args.workdir
         self.private_key_location: str | None = args.private_key_location
 
-        self.resource_n_train_thread: int = args.resources.n_train_thread
-        self.resource_n_estimate_thread: int = args.resources.n_estimate_thread
+        conf.N_TRAIN_WORKER = args.resources.n_train_thread
+        conf.N_ESTIMATE_WORKER = args.resources.n_estimate_thread
 
         self.leave: bool = False
 

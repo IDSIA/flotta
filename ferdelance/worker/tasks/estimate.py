@@ -32,9 +32,20 @@ class ExecutionRouter:
 
     def get_task(self, job_id: str):
         res = requests.get(f"{self.server}/worker")
+        logging.info("requesting new client task")
+
+        res = requests.get(
+            f"{self.server}/client/task",
+            headers=self.headers(),
+            data=self.exc.create_payload(task.dict()),
+        )
+
+        res.raise_for_status()
+
+        return ClientTask(**self.exc.get_payload(res.content))
 
 
-class ExecutionTask(Task):
+class EstimationTask(Task):
     abstract = True
 
     def __init__(self) -> None:
@@ -71,9 +82,9 @@ class ExecutionTask(Task):
 @worker.task(
     ignore_result=True,
     bind=True,
-    base=ExecutionTask,
+    base=EstimationTask,
 )
-def execute(self: ExecutionTask, token: str, job_id: str) -> None:
+def estimate(self: EstimationTask, token: str, job_id: str) -> None:
     task_id: str = str(self.request.id)
     try:
         logging.info(f"worker: beginning execution task={task_id}")

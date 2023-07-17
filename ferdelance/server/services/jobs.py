@@ -22,7 +22,7 @@ from ferdelance.schemas.jobs import Job
 from ferdelance.server.exceptions import ArtifactDoesNotExists
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
-from ferdelance.server.jobs_backend import get_aggregation_backend
+from ferdelance.jobs_backend import get_jobs_backend
 
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
@@ -190,7 +190,7 @@ class JobManagementService(Repository):
             raise e
 
     async def start_aggregation(self, result: Result) -> Job:
-        backend = get_aggregation_backend()
+        backend = get_jobs_backend()
         job = await self._start_aggregation(result, backend.start_aggregation)
         return job
 

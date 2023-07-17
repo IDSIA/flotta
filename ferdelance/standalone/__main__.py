@@ -2,7 +2,7 @@ from ferdelance.config import conf
 from ferdelance.client.arguments import setup_config_from_arguments
 from ferdelance.server.api import api
 from ferdelance.standalone.processes import LocalClient, LocalServer, LocalWorker
-from ferdelance.standalone.extra import extra
+from ferdelance.extra import extra
 
 from multiprocessing import JoinableQueue
 
