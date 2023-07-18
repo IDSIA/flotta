@@ -1,48 +1,16 @@
-from ferdelance.config import conf
-from ferdelance.client.services.actions import ActionService
-from ferdelance.schemas.errors import WorkerJobError
+from typing import Any
+
+from ferdelance.jobs_backend import TaskArguments
+from ferdelance.schemas.errors import ClientTaskError
 from ferdelance.worker.celery import worker
 
 from celery import Task
 
-import json
 import logging
 import requests
 import traceback
 
-
-class ExecutionRouter:
-    def __init__(self, token: str) -> None:
-        self.server = conf.server_url()
-        self.token = token
-
-    def headers(self):
-        return {"Authorization": f"Bearer {self.token}"}
-
-    def post_error(self, job_id: str, error: WorkerJobError) -> None:
-        logging.info(f"job_id={job_id}: posting error")
-
-        res = requests.post(
-            f"{self.server}/worker/error/",
-            headers=self.headers(),
-            data=json.dumps(error.dict()),
-        )
-
-        res.raise_for_status()
-
-    def get_task(self, job_id: str):
-        res = requests.get(f"{self.server}/worker")
-        logging.info("requesting new client task")
-
-        res = requests.get(
-            f"{self.server}/client/task",
-            headers=self.headers(),
-            data=self.exc.create_payload(task.dict()),
-        )
-
-        res.raise_for_status()
-
-        return ClientTask(**self.exc.get_payload(res.content))
+from ferdelance.worker.jobs.job import JobService
 
 
 class TrainingTask(Task):
@@ -50,8 +18,9 @@ class TrainingTask(Task):
 
     def __init__(self) -> None:
         super().__init__()
-
-        self.router: ExecutionRouter = None  # type: ignore
+        self.job_service: JobService
+        self.artifact_id: str
+        self.job_id: str
 
     def __call__(self, *args, **kwargs):
         return self.run(*args, **kwargs)
@@ -62,19 +31,17 @@ class TrainingTask(Task):
         logging.critical(f"{task_id} failed: kwargs={kwargs!r}")
         logging.critical(f"{task_id} failed: extra_info={einfo!r}")
 
-    def setup(self, token: str) -> None:
-        self.router = ExecutionRouter(token)
+    def setup(self, args: TaskArguments) -> None:
+        self.job_service = JobService(args)
+        self.artifact_id = args.artifact_id
+        self.job_id = args.job_id
 
-    def execute(self, job_id: str):
+    def execute(self):
         try:
-            logging.debug(f"using server {conf.server_url()}")
-
-            action_service = ActionService(self.config, self.train_queue, self.estimate_queue)
-
-            # TODO
+            self.job_service.run_training()
 
         except requests.HTTPError as e:
-            logging.error(f"artifact_id={job_id}: {e}")
+            logging.error(f"artifact_id={self.job_id}: {e}")
             logging.exception(e)
             raise e
 
@@ -84,22 +51,24 @@ class TrainingTask(Task):
     bind=True,
     base=TrainingTask,
 )
-def training(self: TrainingTask, token: str, job_id: str) -> None:
+def training(self: TrainingTask, raw_args: dict[str, Any]) -> None:
     task_id: str = str(self.request.id)
     try:
         logging.info(f"worker: beginning execution task={task_id}")
 
-        self.setup(token)
-        self.execute(job_id)
+        args = TaskArguments(**raw_args)
+
+        self.setup(args)
+        self.execute()
 
     except Exception as e:
-        logging.error(f"task_id={task_id}: job_id={job_id}: {e}")
+        logging.error(f"task_id={task_id}: job_id={self.job_id}: {e}")
         logging.exception(e)
 
-        error = WorkerJobError(
-            job_id=job_id,
+        error = ClientTaskError(
+            job_id=self.job_id,
             message=str(e),
             stack_trace="".join(traceback.TracebackException.from_exception(e).format()),
         )
 
-        self.router.post_error(job_id, error)
+        self.job_service.routes_service.post_error(self.job_id, self.artifact_id, error)

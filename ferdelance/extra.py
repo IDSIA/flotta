@@ -1,4 +1,4 @@
-from ferdelance.worker.processes import ClientWorker
+from ferdelance.worker.processes import LocalWorker
 
 from multiprocessing import JoinableQueue
 
@@ -9,9 +9,9 @@ class ExtraConfig:
         self.estimation_queue: JoinableQueue | None = None
         self.training_queue: JoinableQueue | None = None
 
-        self.aggregation_workers: list[ClientWorker] = []
-        self.estimation_workers: list[ClientWorker] = []
-        self.training_workers: list[ClientWorker] = []
+        self.aggregation_workers: list[LocalWorker] = []
+        self.estimation_workers: list[LocalWorker] = []
+        self.training_workers: list[LocalWorker] = []
 
 
 extra: ExtraConfig = ExtraConfig()

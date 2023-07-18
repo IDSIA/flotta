@@ -1,8 +1,8 @@
 from ferdelance import __version__
 from ferdelance.extra import extra
 from ferdelance.client.config import Config, ConfigError
-from ferdelance.client.exceptions import RelaunchClient, ErrorClient
-from ferdelance.client.services.actions import ActionService
+from ferdelance.client.exceptions import RelaunchClient, ErrorClient, UpdateClient
+from ferdelance.client.services.scheduling import ScheduleActionService
 from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.node import JoinData, JoinRequest
@@ -153,7 +153,7 @@ class FerdelanceClient:
 
             routes_service.send_metadata()
 
-            action_service = ActionService(self.config)
+            scheduler = ScheduleActionService(self.config)
 
             while self.status != Action.CLIENT_EXIT and not self.stop:
                 try:
@@ -163,12 +163,13 @@ class FerdelanceClient:
 
                     LOGGER.debug(f"update: action={action}")
 
-                    # work loop
-                    self.status = action_service.perform_action(action, data)
+                    self.status = scheduler.schedule(action, data)
 
                     if self.status == Action.CLIENT_UPDATE:
-                        LOGGER.info("update application and dependencies")
-                        return 1
+                        raise UpdateClient()
+
+                except UpdateClient as e:
+                    raise e
 
                 except ValueError as e:
                     # TODO: discriminate between bad and acceptable exceptions
@@ -192,6 +193,10 @@ class FerdelanceClient:
 
                 self.beat()
 
+        except UpdateClient:
+            LOGGER.info("update application and dependencies")
+            return 1
+
         except ConfigError as e:
             LOGGER.error("could not complete setup")
             LOGGER.exception(e)
@@ -210,6 +215,8 @@ class FerdelanceClient:
             for w in extra.training_workers:
                 w.join()
             for w in extra.estimation_workers:
+                w.join()
+            for w in extra.aggregation_workers:
                 w.join()
 
         if self.stop:

@@ -1,7 +1,7 @@
 from typing import Callable
 
 from ferdelance.client.config import DataConfig
-from ferdelance.client.services.actions.execute import ExecuteAction, ExecutionResult
+from ferdelance.client.services.execute import ExecuteAction, ExecutionResult
 from ferdelance.database.data import TYPE_WORKER, TYPE_USER
 from ferdelance.database.repositories import (
     ArtifactRepository,

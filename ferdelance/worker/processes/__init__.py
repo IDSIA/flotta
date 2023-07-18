@@ -1,8 +1,5 @@
-from ferdelance.client.services.actions.execute import ExecuteAction, ExecutionResult
-from ferdelance.client.config import Config
-from ferdelance.client.services.routes import RouteService
-from ferdelance.schemas.client import ClientTask
-from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.worker.jobs import JobService
+from ferdelance.jobs_backend import TaskArguments
 
 from multiprocessing import Process, JoinableQueue
 
@@ -11,14 +8,11 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class ClientWorker(Process):
-    def __init__(self, config: Config, idx: str, queue: JoinableQueue) -> None:
+class LocalWorker(Process):
+    def __init__(self, idx: str, queue: JoinableQueue) -> None:
         super().__init__()
 
         LOGGER.info(f"creating client-worker_idx={idx}")
-
-        self.routes_service: RouteService = RouteService(config)
-        self.action = ExecuteAction(config.data)
 
         self.queue: JoinableQueue = queue
         self.idx: str = idx
@@ -27,27 +21,17 @@ class ClientWorker(Process):
     def run(self) -> None:
         try:
             while not self.stop:
-                data: dict | None = self.queue.get()
+                raw_args: dict | None = self.queue.get()
 
-                if data is None:
+                if raw_args is None:
                     self.stop = True
                     LOGGER.info(f"stopping worker {self.idx}")
                     continue
 
-                update_execute: UpdateExecute = UpdateExecute(**data)
-                task: ClientTask = self.routes_service.get_task(update_execute)
+                args: TaskArguments = TaskArguments(**raw_args)
 
-                res: ExecutionResult = self.action.execute(task)
-
-                if res.is_estimate:
-                    self.routes_service.post_result(res.job_id, res.path)
-
-                if res.is_model:
-                    for m in res.metrics:
-                        m.job_id = res.job_id
-                        self.routes_service.post_metrics(m)
-
-                    self.routes_service.post_result(res.job_id, res.path)
+                js: JobService = JobService(args)
+                js.run()
 
         except KeyboardInterrupt:
             LOGGER.info(f"{self.idx}: Caught KeyboardInterrupt! Stopping operations")

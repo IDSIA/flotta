@@ -33,7 +33,6 @@ import logging
 import os
 import pytest
 import shutil
-import logging
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         res = server.request(
             "GET",
-            f"/workbench/project",
+            "/workbench/project",
             headers=wb_exc.headers(),
             content=wb_exc.create_payload(wpt.dict()),
         )
@@ -104,7 +103,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         res = server.request(
             "GET",
-            f"/workbench/artifact/status",
+            "/workbench/artifact/status",
             content=wb_exc.create_payload(wba.dict()),
             headers=wb_exc.headers(),
         )
@@ -120,7 +119,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         res = server.request(
             "GET",
-            f"/workbench/artifact",
+            "/workbench/artifact",
             content=wb_exc.create_payload(wba.dict()),
             headers=wb_exc.headers(),
         )

@@ -63,8 +63,9 @@ class Config:
         self.workdir: str = args.workdir
         self.private_key_location: str | None = args.private_key_location
 
-        conf.N_TRAIN_WORKER = args.resources.n_train_thread
-        conf.N_ESTIMATE_WORKER = args.resources.n_estimate_thread
+        conf.N_TRAIN_WORKER = max(args.resources.n_train_thread, conf.N_TRAIN_WORKER, 1)
+        conf.N_ESTIMATE_WORKER = max(args.resources.n_estimate_thread, conf.N_ESTIMATE_WORKER, 1)
+        conf.N_AGGREGATE_WORKER = 0  # no aggregation for client
 
         self.leave: bool = False
 
@@ -75,6 +76,8 @@ class Config:
         self.client_id: str | None = None
         self.client_token: str | None = None
         self.server_public_key: str | None = None
+
+        self.datasources: list[DataSourceConfig] = args.datasources
 
         self.data = DataConfig(self.workdir, args.datasources)
 

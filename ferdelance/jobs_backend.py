@@ -1,3 +1,4 @@
+from typing import Any
 from abc import ABC, abstractclassmethod
 
 from ferdelance.config import conf
@@ -5,7 +6,9 @@ from ferdelance.extra import extra
 from ferdelance.worker.tasks.aggregation import aggregation
 from ferdelance.worker.tasks.training import training
 from ferdelance.worker.tasks.estimate import estimate
-from ferdelance.worker.processes import ClientWorker
+from ferdelance.worker.processes import LocalWorker
+
+from pydantic import BaseModel
 
 from celery.result import AsyncResult
 from multiprocessing import JoinableQueue
@@ -16,20 +19,31 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
+class TaskArguments(BaseModel):
+    private_key_location: str
+    server_url: str
+    server_public_key: str
+    token: str
+    workdir: str
+    datasources: list[dict[str, Any]]
+    job_id: str
+    artifact_id: str
+
+
 class Backend(ABC):
     def __init__(self) -> None:
         super().__init__()
 
     @abstractclassmethod
-    def start_aggregation(self, token: str, job_id: str, artifact_id: str) -> str:
+    def start_aggregation(self, args: TaskArguments) -> str:
         raise NotImplementedError()
 
     @abstractclassmethod
-    def start_training(self, token: str, job_id: str, artifact_id: str) -> str:
+    def start_training(self, args: TaskArguments) -> str:
         raise NotImplementedError()
 
     @abstractclassmethod
-    def start_estimation(self, token: str, job_id: str, artifact_id: str) -> str:
+    def start_estimation(self, args: TaskArguments) -> str:
         raise NotImplementedError()
 
     @abstractclassmethod
@@ -43,45 +57,30 @@ class RemoteBackend(Backend):
     def __init__(self) -> None:
         super().__init__()
 
-    def start_aggregation(self, token: str, job_id: str, artifact_id: str) -> str:
-        LOGGER.info(f"artifact_id={artifact_id}: started aggregation task with job_id={job_id}")
-        task: AsyncResult = aggregation.apply_async(
-            args=[
-                token,
-                job_id,
-            ],
-        )
+    def start_aggregation(self, args: TaskArguments) -> str:
+        LOGGER.info(f"artifact_id={args.artifact_id}: started aggregation task with job_id={args.job_id}")
+        task: AsyncResult = aggregation.apply_async(args=[args.dict()])
         task_id = str(task.task_id)
         LOGGER.info(
-            f"artifact_id={artifact_id}: scheduled task with job_id={job_id} celery_id={task_id} status={task.status}"
+            f"artifact_id={args.artifact_id}: scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
         )
         return task_id
 
-    def start_training(self, token: str, job_id: str, artifact_id: str) -> str:
-        LOGGER.info(f"artifact_id={artifact_id}: started training task with job_id={job_id}")
-        task: AsyncResult = training.apply_async(
-            args=[
-                token,
-                job_id,
-            ],
-        )
+    def start_training(self, args: TaskArguments) -> str:
+        LOGGER.info(f"artifact_id={args.artifact_id}: started training task with job_id={args.job_id}")
+        task: AsyncResult = training.apply_async(args=[args.dict()])
         task_id = str(task.task_id)
         LOGGER.info(
-            f"artifact_id={artifact_id}: scheduled task with job_id={job_id} celery_id={task_id} status={task.status}"
+            f"artifact_id={args.artifact_id}: scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
         )
         return task_id
 
-    def start_estimation(self, token: str, job_id: str, artifact_id: str) -> str:
-        LOGGER.info(f"artifact_id={artifact_id}: started training task with job_id={job_id}")
-        task: AsyncResult = estimate.apply_async(
-            args=[
-                token,
-                job_id,
-            ],
-        )
+    def start_estimation(self, args: TaskArguments) -> str:
+        LOGGER.info(f"artifact_id={args.artifact_id}: started training task with job_id={args.job_id}")
+        task: AsyncResult = estimate.apply_async(args=[args.dict()])
         task_id = str(task.task_id)
         LOGGER.info(
-            f"artifact_id={artifact_id}: scheduled task with job_id={job_id} celery_id={task_id} status={task.status}"
+            f"artifact_id={args.artifact_id}: scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
         )
         return task_id
 
@@ -91,62 +90,67 @@ class RemoteBackend(Backend):
 
 
 class LocalBackend(RemoteBackend):
-    """This backend is used to schedule tasks on a local queue."""
+    """This backend is used to schedule tasks on local queues."""
 
     def __init__(self) -> None:
         self.training_queue: JoinableQueue | None = extra.training_queue
         self.estimation_queue: JoinableQueue | None = extra.estimation_queue
         self.aggregation_queue: JoinableQueue | None = extra.aggregation_queue
 
-        # TODO: start extra.aggregation_workers
+        if not extra.aggregation_workers and self.aggregation_queue is not None:
+            for i in range(conf.N_AGGREGATE_WORKER):
+                w = LocalWorker(
+                    f"trainer-{i}",
+                    self.aggregation_queue,
+                )
+                w.start()
+                extra.aggregation_workers.append(w)
 
-        if not extra.training_workers:
+        if not extra.training_workers and self.training_queue is not None:
             for i in range(conf.N_TRAIN_WORKER):
-                w = ClientWorker(
-                    self.config,
+                w = LocalWorker(
                     f"trainer-{i}",
                     self.training_queue,
                 )
                 w.start()
                 extra.training_workers.append(w)
 
-        if not extra.estimation_workers:
+        if not extra.estimation_workers and self.estimation_queue is not None:
             for i in range(conf.N_ESTIMATE_WORKER):
-                w = ClientWorker(
-                    self.config,
+                w = LocalWorker(
                     f"estimator-{i}",
                     self.estimation_queue,
                 )
                 w.start()
                 extra.estimation_workers.append(w)
 
-    def start_aggregation(self, token: str, job_id: str, artifact_id: str) -> str:
-        LOGGER.info(f"LOCAL: starting local aggregation for artifact_id={artifact_id}")
+    def start_aggregation(self, args: TaskArguments) -> str:
+        LOGGER.info(f"LOCAL: starting local aggregation for artifact_id={args.artifact_id}")
 
         if self.aggregation_queue is None:
             raise ValueError("LOCAL: Could not start aggregation without a queue!")
 
-        self.aggregation_queue.put((token, job_id))
+        self.aggregation_queue.put(args.dict())
 
         return f"local-{str(uuid4())}"
 
-    def start_training(self, token: str, job_id: str, artifact_id: str) -> str:
-        LOGGER.info(f"LOCAL: start training with job_id={job_id} for artifact_id={artifact_id}")
+    def start_training(self, args: TaskArguments) -> str:
+        LOGGER.info(f"LOCAL: start training with job_id={args.job_id} for artifact_id={args.artifact_id}")
 
         if self.training_queue is None:
             raise ValueError("LOCAL: Could not start training without a queue!")
 
-        self.training_queue.put((token, job_id))
+        self.training_queue.put(args.dict())
 
         return f"local-{str(uuid4())}"
 
-    def start_estimation(self, token: str, job_id: str, artifact_id: str) -> str:
-        LOGGER.info(f"LOCAL: start estimate with job_id={job_id} for artifact_id={artifact_id}")
+    def start_estimation(self, args: TaskArguments) -> str:
+        LOGGER.info(f"LOCAL: start estimate with job_id={args.job_id} for artifact_id={args.artifact_id}")
 
         if self.estimation_queue is None:
             raise ValueError("LOCAL: Could not start estimation without a queue!")
 
-        self.estimation_queue.put((token, job_id))
+        self.estimation_queue.put(args.dict())
 
         return f"local-{str(uuid4())}"
 
