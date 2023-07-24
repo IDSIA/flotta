@@ -5,10 +5,9 @@ from ferdelance.database.repositories import (
     ComponentRepository,
     AsyncSession,
 )
-from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.components import Application, Component
 from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import ClientTaskError
+from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.updates import (
@@ -18,6 +17,7 @@ from ferdelance.schemas.updates import (
     UpdateNothing,
     UpdateToken,
 )
+from ferdelance.schemas.worker import TaskArguments, TaskExecutionParameters
 from ferdelance.server.services import ActionService, JobManagementService
 
 from sqlalchemy.exc import NoResultFound
@@ -59,7 +59,8 @@ class ClientService:
 
         if new_app.version != payload.version:
             LOGGER.warning(
-                f"client_id={self.component.id} requested app version={payload.version} while latest version={new_app.version}"
+                f"client_id={self.component.id} "
+                f"requested app version={payload.version} while latest version={new_app.version}"
             )
             raise ValueError("Old versions are not permitted")
 
@@ -69,7 +70,7 @@ class ClientService:
 
         return new_app
 
-    async def get_task(self, payload: UpdateExecute) -> ClientTask:
+    async def get_task(self, payload: UpdateExecute) -> TaskExecutionParameters:
         cr: ComponentRepository = ComponentRepository(self.session)
 
         await cr.create_event(self.component.id, "schedule task")
@@ -92,7 +93,7 @@ class ClientService:
         except NoResultFound:
             raise ValueError(f"client_id={self.component.id}: job_id={job_id} not found")
 
-    async def task_failed(self, error: ClientTaskError) -> Result:
+    async def task_failed(self, error: TaskError) -> Result:
         LOGGER.info(f"client_id={self.component.id}: creating results for job_id={error.job_id}")
 
         try:
@@ -126,7 +127,7 @@ class ClientService:
     async def check(self, result: Result) -> bool:
         return await self.jms.check_for_aggregation(result)
 
-    async def start_aggregation(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
+    async def start_aggregation(self, result: Result, start_function: Callable[[TaskArguments], str]) -> Job:
         """Utility method to pass a specific start_function, used for testing
         and debugging."""
         return await self.jms._start_aggregation(result, start_function)

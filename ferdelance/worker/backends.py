@@ -1,14 +1,14 @@
-from typing import Any
 from abc import ABC, abstractclassmethod
 
 from ferdelance.config import conf
 from ferdelance.extra import extra
+from ferdelance.schemas.worker import TaskArguments
+from ferdelance.worker.jobs.services import TrainingJobService, EstimationJobService, AggregatingJobService
+from ferdelance.worker.processes import GenericProcess
 from ferdelance.worker.tasks.aggregation import aggregation
 from ferdelance.worker.tasks.training import training
 from ferdelance.worker.tasks.estimate import estimate
-from ferdelance.worker.processes import LocalWorker
 
-from pydantic import BaseModel
 
 from celery.result import AsyncResult
 from multiprocessing import JoinableQueue
@@ -17,17 +17,6 @@ from uuid import uuid4
 import logging
 
 LOGGER = logging.getLogger(__name__)
-
-
-class TaskArguments(BaseModel):
-    private_key_location: str
-    server_url: str
-    server_public_key: str
-    token: str
-    workdir: str
-    datasources: list[dict[str, Any]]
-    job_id: str
-    artifact_id: str
 
 
 class Backend(ABC):
@@ -62,7 +51,8 @@ class RemoteBackend(Backend):
         task: AsyncResult = aggregation.apply_async(args=[args.dict()])
         task_id = str(task.task_id)
         LOGGER.info(
-            f"artifact_id={args.artifact_id}: scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
+            f"artifact_id={args.artifact_id}: "
+            f"scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
         )
         return task_id
 
@@ -71,7 +61,8 @@ class RemoteBackend(Backend):
         task: AsyncResult = training.apply_async(args=[args.dict()])
         task_id = str(task.task_id)
         LOGGER.info(
-            f"artifact_id={args.artifact_id}: scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
+            f"artifact_id={args.artifact_id}: "
+            f"scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
         )
         return task_id
 
@@ -80,7 +71,8 @@ class RemoteBackend(Backend):
         task: AsyncResult = estimate.apply_async(args=[args.dict()])
         task_id = str(task.task_id)
         LOGGER.info(
-            f"artifact_id={args.artifact_id}: scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
+            f"artifact_id={args.artifact_id}: "
+            f"scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
         )
         return task_id
 
@@ -99,27 +91,30 @@ class LocalBackend(RemoteBackend):
 
         if not extra.aggregation_workers and self.aggregation_queue is not None:
             for i in range(conf.N_AGGREGATE_WORKER):
-                w = LocalWorker(
+                w = GenericProcess(
                     f"trainer-{i}",
                     self.aggregation_queue,
+                    AggregatingJobService(),
                 )
                 w.start()
                 extra.aggregation_workers.append(w)
 
         if not extra.training_workers and self.training_queue is not None:
             for i in range(conf.N_TRAIN_WORKER):
-                w = LocalWorker(
+                w = GenericProcess(
                     f"trainer-{i}",
                     self.training_queue,
+                    TrainingJobService(),
                 )
                 w.start()
                 extra.training_workers.append(w)
 
         if not extra.estimation_workers and self.estimation_queue is not None:
             for i in range(conf.N_ESTIMATE_WORKER):
-                w = LocalWorker(
+                w = GenericProcess(
                     f"estimator-{i}",
                     self.estimation_queue,
+                    EstimationJobService(),
                 )
                 w.start()
                 extra.estimation_workers.append(w)

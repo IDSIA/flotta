@@ -8,8 +8,8 @@ from ferdelance.server.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result, ServerArtifact
-from ferdelance.schemas.errors import WorkerJobError
-from ferdelance.schemas.worker import WorkerTask
+from ferdelance.schemas.errors import TaskError
+from ferdelance.schemas.worker import TaskAggregationParameters
 from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy.exc import NoResultFound
@@ -28,7 +28,7 @@ class WorkerService:
         self.component: Component = component
         self.jms: JobManagementService = JobManagementService(self.session)
 
-    async def get_task(self, job_id: str) -> WorkerTask:
+    async def get_task(self, job_id: str) -> TaskAggregationParameters:
         jr: JobRepository = JobRepository(self.session)
         ar: ArtifactRepository = ArtifactRepository(self.session)
         rr: ResultRepository = ResultRepository(self.session)
@@ -50,7 +50,7 @@ class WorkerService:
 
             results: list[Result] = await rr.list_results_by_artifact_id(artifact_id, artifact_db.iteration)
 
-            return WorkerTask(
+            return TaskAggregationParameters(
                 artifact=artifact,
                 job_id=job_id,
                 result_ids=[r.id for r in results],
@@ -84,7 +84,7 @@ class WorkerService:
     async def check_next_iteration(self, job_id: str) -> None:
         await self.jms.check_for_iteration(job_id)
 
-    async def aggregation_failed(self, error: WorkerJobError) -> Result:
+    async def aggregation_failed(self, error: TaskError) -> Result:
         """Aggregation failed, and worker did an error."""
         LOGGER.info(f"job_id={error.job_id}: aggregation failed")
 

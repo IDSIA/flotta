@@ -12,17 +12,15 @@ from ferdelance.database.repositories import (
 )
 
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
-from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.database import ServerArtifact, Result
-from ferdelance.schemas.errors import WorkerJobError, ClientTaskError
-from ferdelance.schemas.worker import WorkerTask
+from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
+from ferdelance.schemas.worker import TaskExecutionParameters, TaskAggregationParameters, TaskArguments
 from ferdelance.server.exceptions import ArtifactDoesNotExists
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
-
-from ferdelance.jobs_backend import get_jobs_backend
+from ferdelance.worker.backends import get_jobs_backend
 
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
@@ -96,7 +94,7 @@ class JobManagementService(Repository):
                 iteration=iteration,
             )
 
-    async def client_task_start(self, job_id: str, client_id: str) -> ClientTask:
+    async def client_task_start(self, job_id: str, client_id: str) -> TaskExecutionParameters:
         try:
             job = await self.jr.get_by_id(job_id)
             artifact_id = job.artifact_id
@@ -117,7 +115,8 @@ class JobManagementService(Repository):
                 pass  # already in correct state
             else:
                 LOGGER.error(
-                    f"client_id={client_id}: task job_id={job_id} for artifact_id={artifact_id} is in an unexpected state={artifact_db.status}"
+                    f"client_id={client_id}: "
+                    f"task job_id={job_id} for artifact_id={artifact_id} is in an unexpected state={artifact_db.status}"
                 )
                 raise ValueError(f"Wrong status for job_id={job_id}")
 
@@ -129,7 +128,8 @@ class JobManagementService(Repository):
 
             if len(hashes) == 0:
                 LOGGER.warning(
-                    f"client_id={client_id}: task with job_id={job_id} has no datasources with artifact_id={artifact_id}"
+                    f"client_id={client_id}: "
+                    f"task with job_id={job_id} has no datasources with artifact_id={artifact_id}"
                 )
                 raise ValueError("TaskDoesNotExists")
 
@@ -137,9 +137,9 @@ class JobManagementService(Repository):
 
             await self.jr.start_execution(job)
 
-            return ClientTask(artifact=artifact, job_id=job.id, datasource_hashes=hashes)
+            return TaskExecutionParameters(artifact=artifact, job_id=job.id, datasource_hashes=hashes)
 
-        except NoResultFound as _:
+        except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
             raise ValueError("TaskDoesNotExists")
 
@@ -166,18 +166,19 @@ class JobManagementService(Repository):
 
             if context.has_failed():
                 LOGGER.error(
-                    f"artifact_id={result.artifact_id}: aggregation impossile: {context.job_failed} jobs have error"
+                    f"artifact_id={result.artifact_id}: " f"aggregation impossile: {context.job_failed} jobs have error"
                 )
                 return False
 
             if not context.completed():
                 LOGGER.info(
-                    f"artifact_id={result.artifact_id}: aggregation impossile: {context.job_completed} / {context.job_total} completed job(s)"
+                    f"artifact_id={result.artifact_id}: "
+                    f"aggregation impossile: {context.job_completed} / {context.job_total} completed job(s)"
                 )
                 return False
 
             LOGGER.info(
-                f"artifact_id={result.artifact_id}: all {context.job_total} job(s) completed, starting aggregation"
+                f"artifact_id={result.artifact_id}: " f"all {context.job_total} job(s) completed, starting aggregation"
             )
 
             return True
@@ -194,7 +195,7 @@ class JobManagementService(Repository):
         job = await self._start_aggregation(result, backend.start_aggregation)
         return job
 
-    async def _start_aggregation(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
+    async def _start_aggregation(self, result: Result, start_function: Callable[[TaskArguments], str]) -> Job:
         artifact_id = result.artifact_id
 
         try:
@@ -217,7 +218,18 @@ class JobManagementService(Repository):
                 iteration=artifact.iteration,
             )
 
-            task_id: str = start_function(token, job.id, artifact_id)
+            args = TaskArguments(
+                private_key_location="",  # TODO: fix these?
+                server_url="",
+                server_public_key="",
+                token=token,
+                datasources=list(),
+                workdir=".",
+                job_id=job.id,
+                artifact_id=artifact_id,
+            )
+
+            task_id: str = start_function(args)
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
             await self.jr.set_celery_id(job, task_id)
@@ -235,14 +247,14 @@ class JobManagementService(Repository):
             await self.session.rollback()
             raise e
 
-        except NoResultFound as _:
+        except NoResultFound:
             raise ValueError(f"artifact_id={artifact_id} not found")
 
         except Exception as e:
             LOGGER.exception(e)
             raise e
 
-    async def worker_task_start(self, job_id: str, client_id: str) -> WorkerTask:
+    async def worker_task_start(self, job_id: str, client_id: str) -> TaskAggregationParameters:
         try:
             job = await self.jr.get_by_id(job_id)
             artifact_id = job.artifact_id
@@ -260,7 +272,7 @@ class JobManagementService(Repository):
 
             results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id, artifact_db.iteration)
 
-            return WorkerTask(
+            return TaskAggregationParameters(
                 artifact=artifact,
                 job_id=job_id,
                 result_ids=[r.id for r in results],
@@ -304,7 +316,7 @@ class JobManagementService(Repository):
 
         await self.jr.mark_completed(job_id, client_id)
 
-    async def client_task_failed(self, error: ClientTaskError, client_id: str) -> None:
+    async def client_task_failed(self, error: TaskError, client_id: str) -> None:
         LOGGER.info(f"job_id={error.job_id}: task completed")
 
         await self.jr.mark_error(error.job_id, client_id)
@@ -341,7 +353,7 @@ class JobManagementService(Repository):
             LOGGER.info(f"artifact_id={artifact_id}: artifact completed ")
             await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, context.next_iteration)
 
-    async def aggregation_failed(self, error: WorkerJobError, worker_id: str) -> None:
+    async def aggregation_failed(self, error: TaskError, worker_id: str) -> None:
         LOGGER.warning(f"job_id={error.job_id}: aggregation failed with error: {error.message}{error.stack_trace}")
 
         await self.jr.mark_error(error.job_id, worker_id)

@@ -260,7 +260,7 @@ async def test_get_results(session: AsyncSession):
 
         res = server.request(
             "GET",
-            f"/workbench/result",
+            "/workbench/result",
             headers=wb_exc.headers(),
             content=wb_exc.create_payload(wba.dict()),
         )

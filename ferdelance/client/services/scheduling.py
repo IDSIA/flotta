@@ -1,8 +1,10 @@
 from ferdelance.client.config import Config
 from ferdelance.client.services.routes import RouteService
+from ferdelance.exceptions import InvalidAction
 from ferdelance.schemas.updates import UpdateToken, UpdateClientApp, UpdateExecute
+from ferdelance.schemas.worker import TaskArguments
 from ferdelance.shared.actions import Action as ActionType
-from ferdelance.jobs_backend import get_jobs_backend, TaskArguments
+from ferdelance.worker.backends import get_jobs_backend
 
 import logging
 
@@ -85,6 +87,4 @@ class ScheduleActionService:
         if action == ActionType.DO_NOTHING:
             return self.do_nothing()
 
-        # TODO: this should be an error that invalidates a job
-        LOGGER.error(f"cannot complete action={action}")
-        return ActionType.DO_NOTHING
+        raise InvalidAction(f"cannot complete action={action}")

@@ -7,7 +7,6 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.updates import UpdateExecute
 from ferdelance.schemas.plans import TrainTestSplit
@@ -15,6 +14,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
+from ferdelance.schemas.worker import TaskExecutionParameters
 from ferdelance.shared.actions import Action
 from ferdelance.shared.status import ArtifactJobStatus
 
@@ -166,7 +166,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         content = cl_exc.get_payload(task_response.content)
 
-        task = ClientTask(**content)
+        task = TaskExecutionParameters(**content)
 
         assert TEST_DATASOURCE_HASH in task.datasource_hashes
 

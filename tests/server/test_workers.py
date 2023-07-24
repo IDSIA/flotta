@@ -9,7 +9,7 @@ from ferdelance.server.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainAll
-from ferdelance.schemas.worker import WorkerTask
+from ferdelance.schemas.worker import TaskAggregationParameters, TaskArguments
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
@@ -94,7 +94,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
         result = await jm.create_result(job.id, args.client_id)
         await jm.client_task_completed(job.id, args.client_id)
 
-        def ignore(a: str, b: str, c: str) -> str:
+        def ignore(task: TaskArguments) -> str:
             return ""
 
         await jm._start_aggregation(result, ignore)
@@ -140,7 +140,7 @@ async def test_worker_endpoints(session: AsyncSession, exchange: Exchange):
 
         assert res.status_code == 200
 
-        wt: WorkerTask = WorkerTask(**res.json())
+        wt: TaskAggregationParameters = TaskAggregationParameters(**res.json())
 
         assert wt.job_id == job_worker.id
 

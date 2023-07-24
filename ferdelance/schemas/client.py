@@ -1,5 +1,3 @@
-from ferdelance.schemas.artifacts import Artifact
-
 from pydantic import BaseModel, validator
 
 import os
@@ -21,12 +19,6 @@ class ClientUpdate(BaseModel):
 class ClientUpdateTaskCompleted(ClientUpdate):
     client_task_id: str
     # TODO: consider return errors to workbench
-
-
-class ClientTask(BaseModel):
-    artifact: Artifact
-    job_id: str
-    datasource_hashes: list[str]
 
 
 class DataSourceConfig(BaseModel):

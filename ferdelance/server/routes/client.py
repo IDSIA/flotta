@@ -4,7 +4,7 @@ from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.repositories import AsyncSession
 from ferdelance.schemas.components import Component, Application
-from ferdelance.schemas.errors import ClientTaskError
+from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.updates import DownloadApp, UpdateExecute
 from ferdelance.server.services import SecurityService, ClientService
@@ -182,7 +182,7 @@ async def client_post_error(
 
     try:
         data = await ss.read_request(request)
-        error = ClientTaskError(**data)
+        error = TaskError(**data)
         result = await cs.task_failed(error)
 
         async with aiofiles.open(result.path, "w") as out_file:

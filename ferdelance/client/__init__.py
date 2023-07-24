@@ -1,5 +1,5 @@
 __all__ = [
-    'FerdelanceClient',
+    "FerdelanceClient",
 ]
 
 from .client import FerdelanceClient

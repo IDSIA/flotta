@@ -3,8 +3,8 @@ from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_WORKER
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import WorkerJobError
-from ferdelance.schemas.worker import WorkerTask
+from ferdelance.schemas.errors import TaskError
+from ferdelance.schemas.worker import TaskAggregationParameters
 from ferdelance.server.security import check_token
 from ferdelance.server.services import WorkerService
 
@@ -40,7 +40,7 @@ async def worker_home():
     return "Worker 🔨"
 
 
-@worker_router.get("/task/{job_id}", response_model=WorkerTask)
+@worker_router.get("/task/{job_id}", response_model=TaskAggregationParameters)
 async def worker_get_task(
     job_id: str, session: AsyncSession = Depends(get_session), worker: Component = Depends(check_access)
 ):
@@ -86,7 +86,7 @@ async def worker_post_result(
 
 @worker_router.post("/error")
 async def worker_post_error(
-    error: WorkerJobError,
+    error: TaskError,
     session: AsyncSession = Depends(get_session),
     worker: Component = Depends(check_access),
 ):

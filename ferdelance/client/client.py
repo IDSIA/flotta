@@ -7,8 +7,7 @@ from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.node import JoinData, JoinRequest
 from ferdelance.shared.exchange import Exchange
-
-from ferdelance.jobs_backend import get_jobs_backend
+from ferdelance.worker.backends import get_jobs_backend
 
 from time import sleep
 

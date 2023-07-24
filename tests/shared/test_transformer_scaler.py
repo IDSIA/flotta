@@ -36,8 +36,8 @@ def test_ssc_build():
     assert len(qt.parameters) == 2
     assert "with_mean" in qt.parameters
     assert "with_std" in qt.parameters
-    assert qt.parameters["with_mean"] == False
-    assert qt.parameters["with_std"] == False
+    assert qt.parameters["with_mean"] is False
+    assert qt.parameters["with_std"] is False
 
 
 def test_mms_scaling_one_feature():

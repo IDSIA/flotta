@@ -1,10 +1,8 @@
 from ferdelance.client.config import DataConfig
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.estimators import apply_estimator
 from ferdelance.schemas.transformers import apply_transformer
-
-from ferdelance.worker.jobs.results import ExecutionResult
+from ferdelance.schemas.worker import TaskExecutionParameters, ExecutionResult
 
 import pandas as pd
 
@@ -38,7 +36,7 @@ def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:
 
 def apply_transform(
     artifact: Artifact,
-    task: ClientTask,
+    task: TaskExecutionParameters,
     data: DataConfig,
     working_folder: str,
 ) -> pd.DataFrame:
@@ -82,7 +80,7 @@ def apply_transform(
     return df_dataset
 
 
-def run_training(data: DataConfig, task: ClientTask) -> ExecutionResult:
+def run_training(data: DataConfig, task: TaskExecutionParameters) -> ExecutionResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
 
@@ -114,7 +112,7 @@ def run_training(data: DataConfig, task: ClientTask) -> ExecutionResult:
     )
 
 
-def run_estimate(data: DataConfig, task: ClientTask) -> ExecutionResult:
+def run_estimate(data: DataConfig, task: TaskExecutionParameters) -> ExecutionResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
     artifact.id = artifact.id

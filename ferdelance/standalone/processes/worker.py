@@ -1,3 +1,4 @@
+from ferdelance.schemas.worker import TaskArguments
 from ferdelance.worker.tasks.aggregation import AggregationTask
 
 from multiprocessing import Process, JoinableQueue
@@ -18,16 +19,16 @@ class LocalWorker(Process):
     def run(self) -> None:
         while not self.stop:
             try:
-                next_job = self.task_queue.get()
-                if next_job is None:
+                raw_args = self.task_queue.get()
+                if raw_args is None:
                     self.task_queue.task_done()
                     break
 
-                token, job_id = next_job
+                args: TaskArguments = TaskArguments(**raw_args)
 
                 a = AggregationTask()
-                a.setup(token)
-                a.aggregate(job_id)
+                a.setup(args)
+                a.aggregate()
 
                 self.task_queue.task_done()
 

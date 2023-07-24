@@ -139,10 +139,12 @@ class JobRepository(Repository):
 
         except NoResultFound:
             LOGGER.error(
-                f"job_id={job_id}: Could not start a job that does not exists in the SCHEDULED state with artifact_id={artifact_id} component_id={component_id}"
+                f"job_id={job_id}: Could not start a job that does not exists in the SCHEDULED state with "
+                f"artifact_id={artifact_id} component_id={component_id}"
             )
             raise ValueError(
-                f"Job in status SCHEDULED not found for job_id={job_id} artifact_id={artifact_id} component_id={component_id}"
+                f"Job in status SCHEDULED not found for job_id={job_id} "
+                f"artifact_id={artifact_id} component_id={component_id}"
             )
 
     async def set_celery_id(self, job: Job, celery_id: str) -> Job:
@@ -212,7 +214,8 @@ class JobRepository(Repository):
 
         except NoResultFound:
             LOGGER.error(
-                f"Could not terminate a job that does not exists or has not started yet with job_id={job_id} component_id={component_id}"
+                f"Could not terminate a job that does not exists or has not "
+                f"started yet with job_id={job_id} component_id={component_id}"
             )
             raise ValueError(f"Job in status RUNNING not found for job_id={job_id} component_id={component_id}")
 
@@ -256,7 +259,8 @@ class JobRepository(Repository):
             await self.session.refresh(job)
 
             LOGGER.warn(
-                f"component_id={job.component_id}: failed execution of job_id={job.id} artifact_id={job.artifact_id} component_id={component_id}"
+                f"component_id={job.component_id}: failed execution of job_id={job.id} "
+                f"artifact_id={job.artifact_id} component_id={component_id}"
             )
 
             return view(job)
