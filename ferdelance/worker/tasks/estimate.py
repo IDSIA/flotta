@@ -16,7 +16,7 @@ import traceback
     bind=True,
     base=GenericTask,
 )
-def estimate(self: GenericTask, raw_args: dict[str, Any]) -> None:
+def estimation(self: GenericTask, raw_args: dict[str, Any]) -> None:
     task_id: str = str(self.request.id)
     args = TaskArguments(**raw_args)
 

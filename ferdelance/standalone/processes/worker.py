@@ -1,5 +1,5 @@
 from ferdelance.schemas.worker import TaskArguments
-from ferdelance.worker.tasks.aggregation import AggregationTask
+from ferdelance.worker.tasks.aggregate import AggregationTask
 
 from multiprocessing import Process, JoinableQueue
 

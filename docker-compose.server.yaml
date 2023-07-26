@@ -9,7 +9,6 @@ volumes:
   ferdelance-server-data:
   ferdelance-db-data:
 
-
 services:
 
   # Python packages repository
@@ -37,10 +36,12 @@ services:
       - ferdelance-db-data:/var/lib/postgresql/data
     networks:
       - ferdelance
+    ports:
+      - 5432:5432
 
   # Task Broker - Where server communicates the tasks to the worker
   rabbitmq:
-    image: rabbitmq
+    image: rabbitmq:3.10.25
     container_name: rabbitmq
     networks:
       - ferdelance
@@ -48,7 +49,7 @@ services:
 
   # Result Storage - Where worker stores results
   redis:
-    image: redis
+    image: redis:7.0.12
     container_name: redis
     networks:
       - ferdelance
@@ -62,7 +63,7 @@ services:
       - WORKER_SERVER_HOST=server
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
-      - CELERY_QUEUE=${CELERY_QUEUE}
+      # - CELERY_QUEUE=${CELERY_QUEUE}
     networks:
       - ferdelance
     command: --target worker
@@ -83,7 +84,7 @@ services:
       - CELERY_BROKER_URL=pyamqp://rabbitmq/
       - CELERY_BACKEND_URL=redis://redis/
     volumes:
-      - ./storage:/ferdelance/storage
+      - ferdelance-server-data:/ferdelance/storage
     networks:
       - www
       - ferdelance

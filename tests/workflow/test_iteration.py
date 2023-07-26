@@ -2,6 +2,7 @@ from ferdelance.config import conf
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainTestSplit, IterativePlan
 from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.schemas.worker import TaskArguments
 from ferdelance.workbench.interface import Artifact
 
 from tests.utils import TEST_PROJECT_TOKEN, get_metadata
@@ -18,10 +19,10 @@ import time
 LOGGER = logging.getLogger(__name__)
 
 
-def start_function(token: str, job_id: str, artifact_id: str) -> str:
+def start_function(args: TaskArguments) -> str:
     """Pseudo function to simulate the start of an aggregation job."""
 
-    LOGGER.info(f"artifact_id={artifact_id}: new aggregation job_id={job_id} with token={token}")
+    LOGGER.info(f"artifact_id={args.artifact_id}: new aggregation job_id={args.job_id} with token={args.token}")
 
     return f"task-worker-{time.time()}"
 

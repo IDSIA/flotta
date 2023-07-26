@@ -33,14 +33,14 @@ services:
      - 15432:5432
 
   rabbitmq:
-    image: rabbitmq:3
+    image: rabbitmq:3.10.25
     container_name: rabbitmq
     networks:
       - ferdelance
     command: rabbitmq-server
 
   redis:
-    image: redis
+    image: redis:7.0.12
     container_name: redis
     networks:
       - ferdelance

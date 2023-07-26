@@ -1,4 +1,4 @@
-server: http://localhost:8080/
+server: http://ferdelance.artemis.idsia.ch/
 heartbeat: 2.0
 workdir: ./workdir
 private_key_location: ./private_key.pem

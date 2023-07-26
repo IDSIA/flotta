@@ -10,7 +10,6 @@ from ferdelance.database.repositories import (
     ProjectRepository,
     Repository,
 )
-
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Client
 from ferdelance.schemas.context import AggregationContext

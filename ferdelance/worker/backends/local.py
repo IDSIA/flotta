@@ -1,84 +1,16 @@
-from abc import ABC, abstractclassmethod
-
 from ferdelance.config import conf
 from ferdelance.extra import extra
 from ferdelance.schemas.worker import TaskArguments
 from ferdelance.worker.jobs.services import TrainingJobService, EstimationJobService, AggregatingJobService
 from ferdelance.worker.processes import GenericProcess
-from ferdelance.worker.tasks.aggregation import aggregation
-from ferdelance.worker.tasks.training import training
-from ferdelance.worker.tasks.estimate import estimate
+from .remote import RemoteBackend
 
-
-from celery.result import AsyncResult
 from multiprocessing import JoinableQueue
-from uuid import uuid4
 
 import logging
+from uuid import uuid4
 
 LOGGER = logging.getLogger(__name__)
-
-
-class Backend(ABC):
-    def __init__(self) -> None:
-        super().__init__()
-
-    @abstractclassmethod
-    def start_aggregation(self, args: TaskArguments) -> str:
-        raise NotImplementedError()
-
-    @abstractclassmethod
-    def start_training(self, args: TaskArguments) -> str:
-        raise NotImplementedError()
-
-    @abstractclassmethod
-    def start_estimation(self, args: TaskArguments) -> str:
-        raise NotImplementedError()
-
-    @abstractclassmethod
-    def stop_backend(self):
-        raise NotImplementedError()
-
-
-class RemoteBackend(Backend):
-    """This backend is used to schedule tasks for celery."""
-
-    def __init__(self) -> None:
-        super().__init__()
-
-    def start_aggregation(self, args: TaskArguments) -> str:
-        LOGGER.info(f"artifact_id={args.artifact_id}: started aggregation task with job_id={args.job_id}")
-        task: AsyncResult = aggregation.apply_async(args=[args.dict()])
-        task_id = str(task.task_id)
-        LOGGER.info(
-            f"artifact_id={args.artifact_id}: "
-            f"scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
-        )
-        return task_id
-
-    def start_training(self, args: TaskArguments) -> str:
-        LOGGER.info(f"artifact_id={args.artifact_id}: started training task with job_id={args.job_id}")
-        task: AsyncResult = training.apply_async(args=[args.dict()])
-        task_id = str(task.task_id)
-        LOGGER.info(
-            f"artifact_id={args.artifact_id}: "
-            f"scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
-        )
-        return task_id
-
-    def start_estimation(self, args: TaskArguments) -> str:
-        LOGGER.info(f"artifact_id={args.artifact_id}: started training task with job_id={args.job_id}")
-        task: AsyncResult = estimate.apply_async(args=[args.dict()])
-        task_id = str(task.task_id)
-        LOGGER.info(
-            f"artifact_id={args.artifact_id}: "
-            f"scheduled task with job_id={args.job_id} celery_id={task_id} status={task.status}"
-        )
-        return task_id
-
-    def stop_backend(self):
-        LOGGER.info("BACKEND: received stop order, nothing to do")
-        return
 
 
 class LocalBackend(RemoteBackend):
@@ -160,9 +92,3 @@ class LocalBackend(RemoteBackend):
 
         if self.estimation_queue is not None:
             self.estimation_queue.put(None)
-
-
-def get_jobs_backend() -> Backend:
-    if conf.STANDALONE:
-        return LocalBackend()
-    return RemoteBackend()

@@ -12,6 +12,7 @@ from ferdelance.schemas.models import (
     ParametersRandomForestClassifier,
 )
 from ferdelance.schemas.plans import TrainTestSplit
+from ferdelance.schemas.worker import TaskArguments
 
 from tests.serverless import ServerlessExecution
 from tests.utils import TEST_PROJECT_TOKEN
@@ -21,8 +22,8 @@ import pickle
 import pytest
 
 
-def aggregation_job(token: str, job_id: str, artifact_id: str) -> str:
-    print(f"artifact_id={artifact_id}: aggregation start for job_id={job_id}")
+def aggregation_job(args: TaskArguments) -> str:
+    print(f"artifact_id={args.artifact_id}: aggregation start for job_id={args.job_id}")
     return ""
 
 

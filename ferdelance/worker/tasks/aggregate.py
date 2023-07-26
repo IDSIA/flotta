@@ -28,6 +28,7 @@ def aggregation(self: GenericTask, raw_args: dict[str, Any]) -> None:
 
         self.job_service = AggregatingJobService()
         self.job_service.setup(args, MemoryRouteService(args))
+
         self.job_service.run()
 
     except Exception as e:
