@@ -1,8 +1,23 @@
 from ferdelance.config import conf
 from ferdelance.server.api import api
 
-import uvicorn
+from ray import serve
+
+import ray
+
+
+@serve.deployment(route_prefix="/")
+@serve.ingress(api)
+class FastAPIWrapper:
+    pass
 
 
 if __name__ == "__main__":
-    uvicorn.run(api, host=conf.SERVER_INTERFACE, port=conf.SERVER_PORT)
+    ray.init()
+
+    serve.run(
+        FastAPIWrapper.bind(),
+        host=conf.SERVER_INTERFACE,
+        port=conf.SERVER_PORT,
+        name="ferdelance_server",
+    )

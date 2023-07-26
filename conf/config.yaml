@@ -1,7 +1,42 @@
-server: http://ferdelance.artemis.idsia.ch/
-heartbeat: 2.0
-workdir: ./workdir
-private_key_location: ./private_key.pem
+server:
+  password: ""
+
+  protocol: http
+  interface: localhost # use 0.0.0.0 in prod, 127.0.0.1 in dev
+  port: 1456
+  # this will produce http://localhost:1456/
+
+  storage: ./storage # workdir for api
+
+  tokens:
+    client:
+      expiration: 90 day
+    user:
+      expiration: 30 days
+    project:
+      default: ""
+
+database:
+  user: ""
+  password: ""
+  schema: ferdelance
+
+  # in memory db (True)
+  memory: False
+
+  # sqlite (local/dev)
+  dialect: sqlite
+  host: ./sqlite
+
+  # postgres (prod)
+  # dialect: postresql
+  # port: 5432
+  # host: ""
+
+client:
+  heartbeat: 2.0
+  workdir: ./workdir
+  private_key_location: ./private_key.pem
 
 datasources:
   # - name: source1
