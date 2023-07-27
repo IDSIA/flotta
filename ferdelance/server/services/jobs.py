@@ -194,7 +194,7 @@ class JobManagementService(Repository):
         job = await self._start_aggregation(result, backend.start_aggregation)
         return job
 
-    async def _start_aggregation(self, result: Result, start_function: Callable[[TaskArguments], str]) -> Job:
+    async def _start_aggregation(self, result: Result, start_function: Callable[[TaskArguments], None]) -> Job:
         artifact_id = result.artifact_id
 
         try:
@@ -228,12 +228,9 @@ class JobManagementService(Repository):
                 artifact_id=artifact_id,
             )
 
-            task_id: str = start_function(args)
+            start_function(args)
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
-            await self.jr.set_celery_id(job, task_id)
-
-            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job_id={job.id}")
 
             return job
 

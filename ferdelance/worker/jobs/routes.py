@@ -4,11 +4,10 @@ from abc import ABC, abstractclassmethod
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models.metrics import Metrics
 from ferdelance.schemas.updates import UpdateExecute
-from ferdelance.schemas.worker import TaskArguments, TaskExecutionParameters, TaskAggregationParameters
+from ferdelance.schemas.worker import TaskExecutionParameters, TaskAggregationParameters
 from ferdelance.shared.exchange import Exchange
 
 import os
-import json
 import logging
 import pickle
 import requests
@@ -42,16 +41,22 @@ class RouteService(ABC):
         raise NotImplementedError()
 
 
-class LocalRouteService(RouteService):
+class EncryptRouteService(RouteService):
     """This router has direct access to local file system."""
 
-    def __init__(self, args: TaskArguments) -> None:
-        self.exc: Exchange = Exchange()
-        self.exc.load_key(args.private_key_location)
-        self.exc.set_remote_key(args.server_public_key)
-        self.exc.set_token(args.token)
+    def __init__(
+        self,
+        server_url: str,
+        token: str,
+        private_key_location: str,
+        server_public_key: str,
+    ) -> None:
+        self.server: str = server_url
 
-        self.server: str = args.server_url
+        self.exc: Exchange = Exchange()
+        self.exc.set_token(token)
+        self.exc.load_key(private_key_location)
+        self.exc.set_remote_key(server_public_key)
 
     def get_task_execution_params(self, artifact_id: str, job_id: str) -> TaskExecutionParameters:
         LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: requesting task execution parameters")
@@ -71,6 +76,32 @@ class LocalRouteService(RouteService):
         res.raise_for_status()
 
         return TaskExecutionParameters(**self.exc.get_payload(res.content))
+
+    def get_task_aggregation_params(self, artifact_id: str, job_id: str) -> TaskAggregationParameters:
+        logging.info(f"artifact_id={artifact_id} job_id={job_id}: fetching task data")
+
+        res = requests.get(
+            f"{self.server}/worker/task/{job_id}",
+            headers=self.exc.headers(),
+        )
+
+        res.raise_for_status()
+
+        return TaskAggregationParameters(**self.exc.get_payload(res.content))
+
+    def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
+        logging.info(f"artifact_id={artifact_id} job_id={job_id}: : requesting partial result_id={result_id}")
+
+        with requests.get(
+            f"{self.server}/worker/result/{result_id}",
+            headers=self.exc.headers(),
+            stream=True,
+        ) as res:
+            res.raise_for_status()
+
+            content, _ = self.exc.stream_response(res.iter_content())
+
+        return pickle.loads(content)
 
     def post_result(self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None):
         LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: posting result")
@@ -92,16 +123,12 @@ class LocalRouteService(RouteService):
             res.raise_for_status()
 
         elif content is not None:
+            data = pickle.dumps(content)
+
             res = requests.post(
                 f"{self.server}/worker/result/{job_id}",
                 headers=self.exc.headers(),
-                files={
-                    "file": self.exc.create_payload(
-                        {
-                            "data": pickle.dumps(content),
-                        }
-                    ),
-                },
+                data=self.exc.stream(data),
             )
 
             res.raise_for_status()
@@ -132,63 +159,6 @@ class LocalRouteService(RouteService):
             f"{self.server}/client/error/{job_id}",
             headers=self.exc.headers(),
             data=self.exc.create_payload(error.dict()),
-        )
-
-        res.raise_for_status()
-
-
-class MemoryRouteService(RouteService):
-    def __init__(self, args: TaskArguments) -> None:
-        self.server = args.server_url
-        self.token = args.token
-
-    def headers(self):
-        return {"Authorization": f"Bearer {self.token}"}
-
-    def get_task_aggregation_params(self, artifact_id: str, job_id: str) -> TaskAggregationParameters:
-        logging.info(f"artifact_id={artifact_id} job_id={job_id}: fetching task data")
-
-        res = requests.get(
-            f"{self.server}/worker/task/{job_id}",
-            headers=self.headers(),
-        )
-
-        res.raise_for_status()
-
-        return TaskAggregationParameters(**res.json())
-
-    def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
-        logging.info(f"artifact_id={artifact_id} job_id={job_id}: : requesting partial result_id={result_id}")
-
-        res = requests.get(
-            f"{self.server}/worker/result/{result_id}",
-            headers=self.headers(),
-        )
-
-        res.raise_for_status()
-
-        return pickle.loads(res.content)
-
-    def post_result(self, artifact_id: str, job_id: str, content: Any) -> None:
-        logging.info(f"artifact_id={artifact_id} job_id={job_id}: : posting aggregated result for job_id={job_id}")
-
-        res = requests.post(
-            f"{self.server}/worker/result/{job_id}",
-            headers=self.headers(),
-            files={
-                "file": pickle.dumps(content),
-            },
-        )
-
-        res.raise_for_status()
-
-    def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
-        logging.info(f"artifact_id={artifact_id} job_id={job_id}: : posting error")
-
-        res = requests.post(
-            f"{self.server}/worker/error/",
-            headers=self.headers(),
-            data=json.dumps(error.dict()),
         )
 
         res.raise_for_status()

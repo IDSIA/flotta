@@ -12,11 +12,11 @@ from ferdelance.schemas.worker import ExecutionResult
 from ferdelance.worker.jobs.execution import run_estimate, run_training
 from ferdelance.worker.jobs.routes import (
     RouteService,
-    TaskArguments,
     TaskExecutionParameters,
     TaskAggregationParameters,
 )
 
+import ray
 
 import logging
 
@@ -25,37 +25,45 @@ print("enter", __name__)
 LOGGER = logging.getLogger(__name__)
 
 
-class JobService(ABC):
-    def __init__(self) -> None:
-        self.routes_service: RouteService
-        self.artifact_id: str
-        self.job_id: str
-
-    def setup(self, args: TaskArguments, routes_service: RouteService) -> None:
+class GenericJob(ABC):
+    def __init__(self, artifact_id: str, job_id: str, routes_service: RouteService) -> None:
         self.routes_service: RouteService = routes_service
-        self.artifact_id: str = args.artifact_id
-        self.job_id: str = args.job_id
+        self.artifact_id: str = artifact_id
+        self.job_id: str = job_id
 
     @abstractclassmethod
     def run(self):
         raise NotImplementedError()
 
 
-class LocalJobService(JobService):
-    def __init__(self) -> None:
-        super().__init__()
+class LocalJob(GenericJob):
+    def __init__(
+        self,
+        artifact_id: str,
+        job_id: str,
+        routes_service: RouteService,
+        workdir: str,
+        datasources: list[dict[str, Any]],
+    ) -> None:
+        super().__init__(artifact_id, job_id, routes_service)
 
-        self.data: DataConfig
+        self.datasources: list[DataSourceConfig] = [DataSourceConfig(**d) for d in datasources]
 
-    def setup(self, args: TaskArguments, routes_service: RouteService) -> None:
-        super().setup(args, routes_service)
-
-        datasources: list[DataSourceConfig] = [DataSourceConfig(**d) for d in args.datasources]
-
-        self.data = DataConfig(args.workdir, datasources)
+        self.data = DataConfig(workdir, self.datasources)
 
 
-class TrainingJobService(LocalJobService):
+@ray.remote()
+class TrainingJob(LocalJob):
+    def __init__(
+        self,
+        artifact_id: str,
+        job_id: str,
+        routes_service: RouteService,
+        workdir: str,
+        datasources: list[dict[str, Any]],
+    ) -> None:
+        super().__init__(artifact_id, job_id, routes_service, workdir, datasources)
+
     def run(self):
         task: TaskExecutionParameters = self.routes_service.get_task_execution_params(
             artifact_id=self.artifact_id, job_id=self.job_id
@@ -85,7 +93,18 @@ class TrainingJobService(LocalJobService):
         return res
 
 
-class EstimationJobService(LocalJobService):
+@ray.remote()
+class EstimationJob(LocalJob):
+    def __init__(
+        self,
+        artifact_id: str,
+        job_id: str,
+        routes_service: RouteService,
+        workdir: str,
+        datasources: list[dict[str, Any]],
+    ) -> None:
+        super().__init__(artifact_id, job_id, routes_service, workdir, datasources)
+
     def run(self):
         task: TaskExecutionParameters = self.routes_service.get_task_execution_params(self.artifact_id, self.job_id)
 
@@ -109,7 +128,11 @@ class EstimationJobService(LocalJobService):
         return res
 
 
-class AggregatingJobService(JobService):
+@ray.remote()
+class AggregatingJob(GenericJob):
+    def __init__(self, artifact_id: str, job_id: str, routes_service: RouteService) -> None:
+        super().__init__(artifact_id, job_id, routes_service)
+
     def run(self):
         task: TaskAggregationParameters = self.routes_service.get_task_aggregation_params(self.artifact_id, self.job_id)
 

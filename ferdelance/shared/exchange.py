@@ -282,7 +282,7 @@ class Exchange:
 
         return json.loads(HybridDecrypter(self.private_key, encoding=encoding).decrypt(content))
 
-    def stream(self, content: str, encoding: str = "utf8") -> Iterator[bytes]:
+    def stream(self, content: str | bytes, encoding: str = "utf8") -> Iterator[bytes]:
         """Creates a stream from content in memory.
 
         :param content:

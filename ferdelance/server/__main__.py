@@ -6,7 +6,10 @@ from ray import serve
 import ray
 
 
-@serve.deployment(route_prefix="/")
+@serve.deployment(
+    route_prefix="/",
+    name="Ferdelance_api",
+)
 @serve.ingress(api)
 class FastAPIWrapper:
     pass
@@ -19,5 +22,5 @@ if __name__ == "__main__":
         FastAPIWrapper.bind(),
         host=conf.SERVER_INTERFACE,
         port=conf.SERVER_PORT,
-        name="ferdelance_server",
+        name="Ferdelance_server",
     )

@@ -22,7 +22,7 @@ from ferdelance.schemas.updates import (
 from ferdelance.schemas.worker import TaskArguments, TaskExecutionParameters, TaskAggregationParameters
 from ferdelance.server.services import ClientService, NodeService, WorkerService, WorkbenchService
 from ferdelance.server.startup import ServerStartup
-from ferdelance.worker.jobs.services import ExecutionResult, run_estimate, run_training
+from ferdelance.worker.jobs.actors import ExecutionResult, run_estimate, run_training
 
 from tests.utils import create_project
 

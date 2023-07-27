@@ -140,7 +140,7 @@ class HybridEncrypter:
 
         yield self.end()
 
-    def encrypt_to_stream(self, content: str, CHUNK_SIZE: int = 4096) -> Iterator[bytes]:
+    def encrypt_to_stream(self, content: str | bytes, CHUNK_SIZE: int = 4096) -> Iterator[bytes]:
         """Generator function that streams the given content.
 
         :param content:

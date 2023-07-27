@@ -118,5 +118,5 @@ async def check_token(
         return component
 
     except NoResultFound:
-        LOGGER.warning(f"valid token does not have client!")
+        LOGGER.warning("valid token does not have client!")
         raise HTTPException(403, "Permission denied")

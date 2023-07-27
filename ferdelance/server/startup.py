@@ -1,4 +1,3 @@
-from ferdelance import __version__
 from ferdelance.config import conf
 from ferdelance.database.const import PUBLIC_KEY
 from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER, TYPE_WORKER
