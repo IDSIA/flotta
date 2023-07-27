@@ -3,8 +3,7 @@ from abc import ABC, abstractclassmethod
 
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models.metrics import Metrics
-from ferdelance.schemas.updates import UpdateExecute
-from ferdelance.schemas.worker import TaskExecutionParameters, TaskAggregationParameters
+from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
 from ferdelance.shared.exchange import Exchange
 
 import os
@@ -17,11 +16,7 @@ LOGGER = logging.getLogger(__name__)
 
 class RouteService(ABC):
     @abstractclassmethod
-    def get_task_execution_params(self, artifact_id: str, job_id: str) -> TaskExecutionParameters:
-        raise NotImplementedError()
-
-    @abstractclassmethod
-    def get_task_aggregation_params(self, artifact_id: str, job_id: str) -> TaskAggregationParameters:
+    def get_task_params(self, artifact_id: str, job_id: str) -> TaskParameters:
         raise NotImplementedError()
 
     @abstractclassmethod
@@ -58,42 +53,29 @@ class EncryptRouteService(RouteService):
         self.exc.load_key(private_key_location)
         self.exc.set_remote_key(server_public_key)
 
-    def get_task_execution_params(self, artifact_id: str, job_id: str) -> TaskExecutionParameters:
+    def get_task_params(self, artifact_id: str, job_id: str) -> TaskParameters:
         LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: requesting task execution parameters")
 
-        task = UpdateExecute(
-            action="",
+        task = TaskParametersRequest(
             artifact_id=artifact_id,
             job_id=job_id,
         )
 
         res = requests.get(
-            f"{self.server}/client/task",
+            f"{self.server}/task/exec",
             headers=self.exc.headers(),
             data=self.exc.create_payload(task.dict()),
         )
 
         res.raise_for_status()
 
-        return TaskExecutionParameters(**self.exc.get_payload(res.content))
-
-    def get_task_aggregation_params(self, artifact_id: str, job_id: str) -> TaskAggregationParameters:
-        logging.info(f"artifact_id={artifact_id} job_id={job_id}: fetching task data")
-
-        res = requests.get(
-            f"{self.server}/worker/task/{job_id}",
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        return TaskAggregationParameters(**self.exc.get_payload(res.content))
+        return TaskParameters(**self.exc.get_payload(res.content))
 
     def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
-        logging.info(f"artifact_id={artifact_id} job_id={job_id}: : requesting partial result_id={result_id}")
+        logging.info(f"artifact_id={artifact_id} job_id={job_id}: requesting partial result_id={result_id}")
 
         with requests.get(
-            f"{self.server}/worker/result/{result_id}",
+            f"{self.server}/task/result/{result_id}",
             headers=self.exc.headers(),
             stream=True,
         ) as res:
@@ -112,7 +94,7 @@ class EncryptRouteService(RouteService):
             self.exc.encrypt_file_for_remote(path_in, path_out)
 
             res = requests.post(
-                f"{self.server}/client/result/{job_id}",
+                f"{self.server}/task/result/{job_id}",
                 headers=self.exc.headers(),
                 data=open(path_out, "rb"),
             )
@@ -126,7 +108,7 @@ class EncryptRouteService(RouteService):
             data = pickle.dumps(content)
 
             res = requests.post(
-                f"{self.server}/worker/result/{job_id}",
+                f"{self.server}/task/result/{job_id}",
                 headers=self.exc.headers(),
                 data=self.exc.stream(data),
             )
@@ -141,7 +123,7 @@ class EncryptRouteService(RouteService):
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
         LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: posting metrics")
         res = requests.post(
-            f"{self.server}/client/metrics",
+            f"{self.server}/task/metrics",
             headers=self.exc.headers(),
             data=self.exc.create_payload(metrics.dict()),
         )
@@ -156,7 +138,7 @@ class EncryptRouteService(RouteService):
     def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
         LOGGER.error(f"artifact_id={artifact_id} job_id={job_id}: error_message={error.message}")
         res = requests.post(
-            f"{self.server}/client/error/{job_id}",
+            f"{self.server}/task/error",
             headers=self.exc.headers(),
             data=self.exc.create_payload(error.dict()),
         )

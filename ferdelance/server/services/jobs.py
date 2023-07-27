@@ -16,7 +16,7 @@ from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.database import ServerArtifact, Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.worker import TaskExecutionParameters, TaskAggregationParameters, TaskArguments
+from ferdelance.schemas.tasks import TaskParameters, TaskArguments
 from ferdelance.server.exceptions import ArtifactDoesNotExists
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 from ferdelance.worker.backends import get_jobs_backend
@@ -93,7 +93,7 @@ class JobManagementService(Repository):
                 iteration=iteration,
             )
 
-    async def client_task_start(self, job_id: str, client_id: str) -> TaskExecutionParameters:
+    async def client_task_start(self, job_id: str, client_id: str) -> TaskParameters:
         try:
             job = await self.jr.get_by_id(job_id)
             artifact_id = job.artifact_id
@@ -136,7 +136,7 @@ class JobManagementService(Repository):
 
             await self.jr.start_execution(job)
 
-            return TaskExecutionParameters(artifact=artifact, job_id=job.id, datasource_hashes=hashes)
+            return TaskParameters(artifact=artifact, job_id=job.id, content_ids=hashes)
 
         except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
@@ -250,7 +250,7 @@ class JobManagementService(Repository):
             LOGGER.exception(e)
             raise e
 
-    async def worker_task_start(self, job_id: str, client_id: str) -> TaskAggregationParameters:
+    async def worker_task_start(self, job_id: str, client_id: str) -> TaskParameters:
         try:
             job = await self.jr.get_by_id(job_id)
             artifact_id = job.artifact_id
@@ -268,10 +268,10 @@ class JobManagementService(Repository):
 
             results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id, artifact_db.iteration)
 
-            return TaskAggregationParameters(
+            return TaskParameters(
                 artifact=artifact,
                 job_id=job_id,
-                result_ids=[r.id for r in results],
+                content_ids=[r.id for r in results],
             )
 
         except NoResultFound:

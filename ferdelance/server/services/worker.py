@@ -9,7 +9,7 @@ from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result, ServerArtifact
 from ferdelance.schemas.errors import TaskError
-from ferdelance.schemas.worker import TaskAggregationParameters
+from ferdelance.schemas.tasks import TaskParameters
 from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy.exc import NoResultFound
@@ -28,7 +28,7 @@ class WorkerService:
         self.component: Component = component
         self.jms: JobManagementService = JobManagementService(self.session)
 
-    async def get_task(self, job_id: str) -> TaskAggregationParameters:
+    async def get_task(self, job_id: str) -> TaskParameters:
         jr: JobRepository = JobRepository(self.session)
         ar: ArtifactRepository = ArtifactRepository(self.session)
         rr: ResultRepository = ResultRepository(self.session)
@@ -50,10 +50,10 @@ class WorkerService:
 
             results: list[Result] = await rr.list_results_by_artifact_id(artifact_id, artifact_db.iteration)
 
-            return TaskAggregationParameters(
+            return TaskParameters(
                 artifact=artifact,
                 job_id=job_id,
-                result_ids=[r.id for r in results],
+                content_ids=[r.id for r in results],
             )
 
         except NoResultFound:

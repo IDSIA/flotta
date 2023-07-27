@@ -2,7 +2,7 @@ from ferdelance.client.config import DataConfig
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.estimators import apply_estimator
 from ferdelance.schemas.transformers import apply_transformer
-from ferdelance.schemas.worker import TaskExecutionParameters, ExecutionResult
+from ferdelance.schemas.tasks import TaskParameters, ExecutionResult
 
 import pandas as pd
 
@@ -36,15 +36,17 @@ def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:
 
 def apply_transform(
     artifact: Artifact,
-    task: TaskExecutionParameters,
+    task: TaskParameters,
     data: DataConfig,
     working_folder: str,
 ) -> pd.DataFrame:
     dfs: list[pd.DataFrame] = []
 
-    LOGGER.debug(f"artifact.id={artifact.id}: number of transformation queries={len(task.datasource_hashes)}")
+    datasource_hashes: list[str] = task.content_ids
 
-    for ds_hash in task.datasource_hashes:
+    LOGGER.debug(f"artifact.id={artifact.id}: number of transformation queries={len(datasource_hashes)}")
+
+    for ds_hash in datasource_hashes:
         # EXTRACT data from datasource
         LOGGER.info(f"artifact.id={artifact.id}: execute extraction from datasource_hash={ds_hash}")
 
@@ -80,7 +82,7 @@ def apply_transform(
     return df_dataset
 
 
-def run_training(data: DataConfig, task: TaskExecutionParameters) -> ExecutionResult:
+def run_training(data: DataConfig, task: TaskParameters) -> ExecutionResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
 
@@ -112,7 +114,7 @@ def run_training(data: DataConfig, task: TaskExecutionParameters) -> ExecutionRe
     )
 
 
-def run_estimate(data: DataConfig, task: TaskExecutionParameters) -> ExecutionResult:
+def run_estimate(data: DataConfig, task: TaskParameters) -> ExecutionResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
     artifact.id = artifact.id

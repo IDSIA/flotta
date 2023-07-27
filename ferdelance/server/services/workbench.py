@@ -188,7 +188,8 @@ class WorkbenchService:
             raise ValueError(f"partial result_id={result.id} not found at path={result.path}")
 
         LOGGER.info(
-            f"user_id={self.component.id}: downloaded partial result for artifact_id={artifact_id} and builder_user_id={builder_user_id}"
+            f"user_id={self.component.id}: downloaded partial result for artifact_id={artifact_id} "
+            f"and builder_user_id={builder_user_id}"
         )
 
         return result

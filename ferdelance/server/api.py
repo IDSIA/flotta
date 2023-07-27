@@ -4,8 +4,8 @@ from ferdelance.server.routes import (
     client_router,
     node_router,
     server_router,
+    task_router,
     workbench_router,
-    worker_router,
 )
 from ferdelance.server.startup import ServerStartup
 
@@ -27,7 +27,7 @@ def init_api() -> FastAPI:
 
     api.include_router(node_router)
     api.include_router(workbench_router)
-    api.include_router(worker_router)
+    api.include_router(task_router)
 
     if conf.DISTRIBUTED:
         api.include_router(server_router)

@@ -1,5 +1,5 @@
 from ferdelance.config import conf
-from ferdelance.client import FerdelanceClient
+from ferdelance.client.client import FerdelanceClient
 from ferdelance.client.config import Config
 from ferdelance.client.exceptions import ClientExitStatus
 

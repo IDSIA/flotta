@@ -8,13 +8,9 @@ from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import GenericModel
 from ferdelance.schemas.estimators import GenericEstimator
-from ferdelance.schemas.worker import ExecutionResult
+from ferdelance.schemas.tasks import ExecutionResult
 from ferdelance.worker.jobs.execution import run_estimate, run_training
-from ferdelance.worker.jobs.routes import (
-    RouteService,
-    TaskExecutionParameters,
-    TaskAggregationParameters,
-)
+from ferdelance.worker.jobs.routes import RouteService, TaskParameters
 
 import ray
 
@@ -52,7 +48,7 @@ class LocalJob(GenericJob):
         self.data = DataConfig(workdir, self.datasources)
 
 
-@ray.remote()
+@ray.remote
 class TrainingJob(LocalJob):
     def __init__(
         self,
@@ -65,9 +61,7 @@ class TrainingJob(LocalJob):
         super().__init__(artifact_id, job_id, routes_service, workdir, datasources)
 
     def run(self):
-        task: TaskExecutionParameters = self.routes_service.get_task_execution_params(
-            artifact_id=self.artifact_id, job_id=self.job_id
-        )
+        task: TaskParameters = self.routes_service.get_task_params(artifact_id=self.artifact_id, job_id=self.job_id)
 
         if task.artifact.is_model():
             res = self.train(task)
@@ -88,12 +82,12 @@ class TrainingJob(LocalJob):
                 ),
             )
 
-    def train(self, task: TaskExecutionParameters) -> ExecutionResult:
+    def train(self, task: TaskParameters) -> ExecutionResult:
         res: ExecutionResult = run_training(self.data, task)
         return res
 
 
-@ray.remote()
+@ray.remote
 class EstimationJob(LocalJob):
     def __init__(
         self,
@@ -106,7 +100,7 @@ class EstimationJob(LocalJob):
         super().__init__(artifact_id, job_id, routes_service, workdir, datasources)
 
     def run(self):
-        task: TaskExecutionParameters = self.routes_service.get_task_execution_params(self.artifact_id, self.job_id)
+        task: TaskParameters = self.routes_service.get_task_params(self.artifact_id, self.job_id)
 
         if task.artifact.is_estimation():
             res = self.estimate(task)
@@ -123,18 +117,18 @@ class EstimationJob(LocalJob):
                 ),
             )
 
-    def estimate(self, task: TaskExecutionParameters) -> ExecutionResult:
+    def estimate(self, task: TaskParameters) -> ExecutionResult:
         res: ExecutionResult = run_estimate(self.data, task)
         return res
 
 
-@ray.remote()
+@ray.remote
 class AggregatingJob(GenericJob):
     def __init__(self, artifact_id: str, job_id: str, routes_service: RouteService) -> None:
         super().__init__(artifact_id, job_id, routes_service)
 
     def run(self):
-        task: TaskAggregationParameters = self.routes_service.get_task_aggregation_params(self.artifact_id, self.job_id)
+        task: TaskParameters = self.routes_service.get_task_params(self.artifact_id, self.job_id)
 
         content = self.aggregate(task)
 
@@ -175,9 +169,9 @@ class AggregatingJob(GenericJob):
 
         return base
 
-    def aggregate(self, task) -> Any:
+    def aggregate(self, task: TaskParameters) -> Any:
         artifact: Artifact = task.artifact
-        result_ids: list[str] = task.result_ids
+        result_ids: list[str] = task.content_ids
 
         if artifact.is_estimation():
             base = self.aggregate_estimator(artifact, result_ids)

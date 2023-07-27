@@ -1,4 +1,4 @@
-from ferdelance.schemas.worker import TaskArguments
+from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.worker.jobs import EstimationJob, AggregatingJob, TrainingJob
 
 from ray import ObjectRef
@@ -33,8 +33,8 @@ class Backend:
             args.artifact_id,
             args.job_id,
             EncryptRouteService(args.server_url, args.token, args.private_key_location, args.server_public_key),
-            None,
-            None,
+            args.workdir,
+            args.datasources,
         )
         task_handler = actor_handler.run.remote()
 
@@ -47,8 +47,8 @@ class Backend:
             args.artifact_id,
             args.job_id,
             EncryptRouteService(args.server_url, args.token, args.private_key_location, args.server_public_key),
-            None,
-            None,
+            args.workdir,
+            args.datasources,
         )
         task_handler = actor_handler.run.remote()
 

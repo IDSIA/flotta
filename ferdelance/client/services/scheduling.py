@@ -2,7 +2,7 @@ from ferdelance.client.config import Config
 from ferdelance.client.services.routes import RouteService
 from ferdelance.exceptions import InvalidAction
 from ferdelance.schemas.updates import UpdateToken, UpdateClientApp, UpdateExecute
-from ferdelance.schemas.worker import TaskArguments
+from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.shared.actions import Action as ActionType
 from ferdelance.worker.backends import get_jobs_backend
 

@@ -101,7 +101,7 @@ async def wb_get_project(
 
         return ss.create_response(project.dict())
 
-    except NoResultFound as _:
+    except NoResultFound:
         LOGGER.warning(f"user_id={component.id}: request project with invalid token={wpt.token}")
         raise HTTPException(404)
 
@@ -191,7 +191,7 @@ async def wb_get_artifact_status(
         status: ArtifactStatus = await ws.get_status_artifact(wba.artifact_id)
 
         return ss.create_response(status.dict())
-    except NoResultFound as _:
+    except NoResultFound:
         LOGGER.warning(f"artifact_id={wba.artifact_id} not found in database")
         raise HTTPException(404)
 
@@ -247,11 +247,11 @@ async def wb_get_result(
         LOGGER.warning(str(e))
         raise HTTPException(404)
 
-    except NoResultFound as _:
+    except NoResultFound:
         LOGGER.warning(f"no aggregated model found for artifact_id={wba.artifact_id}")
         raise HTTPException(404)
 
-    except MultipleResultsFound as _:
+    except MultipleResultsFound:
         # TODO: do we want to allow this?
         LOGGER.error(f"multiple aggregated models found for artifact_id={wba.artifact_id}")
         raise HTTPException(500)

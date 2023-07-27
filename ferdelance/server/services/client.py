@@ -17,7 +17,7 @@ from ferdelance.schemas.updates import (
     UpdateNothing,
     UpdateToken,
 )
-from ferdelance.schemas.worker import TaskArguments, TaskExecutionParameters
+from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.server.services import ActionService, JobManagementService
 
 from sqlalchemy.exc import NoResultFound
@@ -70,16 +70,16 @@ class ClientService:
 
         return new_app
 
-    async def get_task(self, payload: UpdateExecute) -> TaskExecutionParameters:
+    async def get_task(self, job_id: str) -> TaskParameters:
         cr: ComponentRepository = ComponentRepository(self.session)
 
         await cr.create_event(self.component.id, "schedule task")
 
         try:
-            return await self.jms.client_task_start(payload.job_id, self.component.id)
+            return await self.jms.client_task_start(job_id, self.component.id)
 
         except NoResultFound:
-            LOGGER.warning(f"client_id={self.component.id}: task with job_id={payload.job_id} does not exists")
+            LOGGER.warning(f"client_id={self.component.id}: task with job_id={job_id} does not exists")
             raise ValueError("TaskDoesNotExists")
 
     async def task_completed(self, job_id: str) -> Result:
@@ -127,7 +127,7 @@ class ClientService:
     async def check(self, result: Result) -> bool:
         return await self.jms.check_for_aggregation(result)
 
-    async def start_aggregation(self, result: Result, start_function: Callable[[TaskArguments], str]) -> Job:
+    async def start_aggregation(self, result: Result, start_function: Callable[[TaskArguments], None]) -> Job:
         """Utility method to pass a specific start_function, used for testing
         and debugging."""
         return await self.jms._start_aggregation(result, start_function)
