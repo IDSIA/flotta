@@ -19,6 +19,7 @@ from ferdelance.shared.status import ArtifactJobStatus
 
 from tests.utils import (
     connect,
+    setup_worker,
     TEST_PROJECT_TOKEN,
 )
 
@@ -237,7 +238,8 @@ async def test_get_results(session: AsyncSession):
         args = await connect(server, session)
         wb_exc = args.wb_exc
 
-        cr: ComponentRepository = ComponentRepository(session)
+        wk_id, _ = await setup_worker(session, server)
+
         ar: ArtifactRepository = ArtifactRepository(session)
         jr: JobRepository = JobRepository(session)
         rr: ResultRepository = ResultRepository(session)
@@ -245,13 +247,12 @@ async def test_get_results(session: AsyncSession):
         artifact = await ar.create_artifact(Artifact(project_id=TEST_PROJECT_TOKEN, transform=Query()))
         await ar.update_status(artifact.id, ArtifactJobStatus.COMPLETED)
 
-        worker = await cr.get_worker()
-        job = await jr.schedule_job(artifact.id, worker.id, is_aggregation=True, iteration=artifact.iteration)
+        job = await jr.schedule_job(artifact.id, wk_id, is_aggregation=True, iteration=artifact.iteration)
         await jr.start_execution(job)
-        await jr.mark_completed(job.id, worker.id)
+        await jr.mark_completed(job.id, wk_id)
 
         content = '{"message": "results!"}'
-        result = await rr.create_result(job.id, artifact.id, worker.id, artifact.iteration, is_aggregation=True)
+        result = await rr.create_result(job.id, artifact.id, wk_id, artifact.iteration, is_aggregation=True)
         os.makedirs(os.path.dirname(result.path), exist_ok=True)
         with open(result.path, "w") as f:
             f.write(content)
@@ -290,7 +291,7 @@ async def test_workbench_access(session):
         assert res.status_code == 403
 
         res = server.get(
-            "/worker/task/none",
+            "/task/result/none",
             headers=wb_exc.headers(),
         )
 

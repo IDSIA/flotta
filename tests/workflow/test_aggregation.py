@@ -12,7 +12,7 @@ from ferdelance.schemas.models import (
     ParametersRandomForestClassifier,
 )
 from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.schemas.worker import TaskArguments
+from ferdelance.schemas.tasks import TaskArguments
 
 from tests.serverless import ServerlessExecution
 from tests.utils import TEST_PROJECT_TOKEN
@@ -22,9 +22,8 @@ import pickle
 import pytest
 
 
-def aggregation_job(args: TaskArguments) -> str:
+def aggregation_job(args: TaskArguments) -> None:
     print(f"artifact_id={args.artifact_id}: aggregation start for job_id={args.job_id}")
-    return ""
 
 
 @pytest.mark.asyncio
@@ -120,7 +119,7 @@ async def test_aggregation(session: AsyncSession):
     agg: GenericModel = artifact.get_model()
     strategy: str = artifact.get_strategy()
 
-    for result_id in worker_task.result_ids:
+    for result_id in worker_task.content_ids:
         result = await server.worker_service.get_result(result_id)
 
         with open(result.path, "rb") as f:

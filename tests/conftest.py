@@ -48,7 +48,6 @@ def delete_dirs() -> None:
 
 @pytest_asyncio.fixture()
 async def session() -> AsyncGenerator[AsyncSession, None]:
-
     create_dirs()
 
     inst = DataBase()

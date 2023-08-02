@@ -1,7 +1,7 @@
 from typing import Callable
 
 from ferdelance.client.config import DataConfig
-from ferdelance.database.data import TYPE_WORKER, TYPE_USER
+from ferdelance.database.data import TYPE_USER
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -19,10 +19,10 @@ from ferdelance.schemas.updates import (
     UpdateNothing,
     UpdateToken,
 )
-from ferdelance.schemas.worker import TaskArguments, TaskExecutionParameters, TaskAggregationParameters
+from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.server.services import ClientService, NodeService, WorkerService, WorkbenchService
 from ferdelance.server.startup import ServerStartup
-from ferdelance.worker.jobs.actors import ExecutionResult, run_estimate, run_training
+from ferdelance.tasks.jobs.actors import ExecutionResult, run_estimate, run_training
 
 from tests.utils import create_project
 
@@ -73,12 +73,10 @@ class ServerlessClient:
     async def next_action(self) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         return await self.client_service.update({})
 
-    async def get_client_task(self, next_action: UpdateExecute) -> TaskExecutionParameters:
-        return await self.client_service.get_task(next_action)
+    async def get_client_task(self, job_id: str) -> TaskParameters:
+        return await self.client_service.get_task(job_id)
 
-    async def post_client_results(
-        self, task: TaskExecutionParameters, in_result: ExecutionResult | None = None
-    ) -> Result:
+    async def post_client_results(self, task: TaskParameters, in_result: ExecutionResult | None = None) -> Result:
         result = await self.client_service.task_completed(task.job_id)
 
         if in_result is not None:
@@ -89,7 +87,7 @@ class ServerlessClient:
 
         return result
 
-    async def execute(self, task: TaskExecutionParameters) -> ExecutionResult:
+    async def execute(self, task: TaskParameters) -> ExecutionResult:
         if self.data is None:
             raise ValueError("Cannot execute job without local data configuration.")
 
@@ -107,7 +105,7 @@ class ServerlessClient:
         if not isinstance(next_action, UpdateExecute):
             raise ValueError("next_action is not an execution action!")
 
-        task = await self.get_client_task(next_action)
+        task = await self.get_client_task(next_action.job_id)
         res = await self.execute(task)
         result = await self.post_client_results(task, res)
 
@@ -129,10 +127,10 @@ class ServerlessExecution:
     async def setup(self):
         await ServerStartup(self.session).startup()
 
-        worker_component, _ = await self.cr.create_component(TYPE_WORKER, "worker-1")
-        user_component, _ = await self.cr.create_component(TYPE_USER, "user-1")
+        self_component = await self.cr.get_self_component()
+        user_component, _ = await self.cr.create_component(TYPE_USER, "user-1-public_key", "user-1")
 
-        self.worker_service = WorkerService(self.session, worker_component)
+        self.worker_service = WorkerService(self.session, self_component)
         self.workbench_service = WorkbenchService(self.session, user_component)
 
     async def add_client(self, index: int, data: DataConfig | Metadata) -> ServerlessClient:
@@ -160,10 +158,10 @@ class ServerlessExecution:
     async def check_aggregation(self, result: Result) -> bool:
         return await self.clients[result.client_id].client_service.check(result)
 
-    async def aggregate(self, result: Result, start_function: Callable[[TaskArguments], str]) -> Job:
+    async def aggregate(self, result: Result, start_function: Callable[[TaskArguments], None]) -> Job:
         return await self.clients[result.client_id].client_service.start_aggregation(result, start_function)
 
-    async def get_worker_task(self, job: Job) -> TaskAggregationParameters:
+    async def get_worker_task(self, job: Job) -> TaskParameters:
         return await self.worker_service.get_task(job.id)
 
     async def post_worker_result(self, job: Job):

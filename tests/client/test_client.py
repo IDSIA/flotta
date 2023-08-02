@@ -363,11 +363,18 @@ async def test_client_access(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 200
 
         res = client.get(
-            "/worker/task/none",
+            "/task/",
             headers=exchange.headers(),
         )
 
-        assert res.status_code == 403
+        assert res.status_code == 200
+
+        res = client.get(
+            "/task/",
+            headers=exchange.headers(),
+        )
+
+        assert res.status_code == 200
 
         res = client.get(
             "/workbench/clients",

@@ -1,16 +1,19 @@
 from typing import Any
 
-from ferdelance.database.repositories import ProjectRepository, WorkerRepository
+from ferdelance.database.data import TYPE_SERVER
+from ferdelance.database.repositories import ProjectRepository, AsyncSession, ComponentRepository
 from ferdelance.schemas.client import ClientUpdate
 from ferdelance.schemas.node import JoinData, JoinRequest
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.workbench import WorkbenchJoinData, WorkbenchJoinRequest
+from ferdelance.server.services import SecurityService
 from ferdelance.shared.actions import Action
+from ferdelance.shared.decode import decode_from_transfer
 from ferdelance.shared.exchange import Exchange
 
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import NoResultFound
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
 import json
 import logging
@@ -61,16 +64,31 @@ def create_client(client: TestClient, exc: Exchange) -> str:
     return cjd.id
 
 
-async def setup_worker(session: AsyncSession, exchange: Exchange) -> str:
+async def setup_worker(session: AsyncSession, client: TestClient) -> tuple[str, Exchange]:
     try:
-        wr: WorkerRepository = WorkerRepository(session)
-        worker_token, worker_id = await wr.get_worker_token()
+        ss: SecurityService = SecurityService(session)
+        await ss.setup()
 
-        exchange.set_token(worker_token)
+        exc: Exchange = ss.exc
+        exc.set_remote_key(ss.get_server_public_key())
 
-        return worker_id
+        cr: ComponentRepository = ComponentRepository(session)
+        try:
+            worker = await cr.get_self_component()
 
-    except Exception:
+        except NoResultFound:
+            await cr.create_component(TYPE_SERVER, decode_from_transfer(exc.transfer_public_key()), "localhost")
+
+            worker = await cr.get_self_component()
+
+        worker_token = await cr.get_token_for_self()
+
+        exc.set_token(worker_token)
+
+        return worker.id, exc
+
+    except Exception as e:
+        LOGGER.exception(e)
         assert False
 
 

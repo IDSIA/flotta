@@ -14,7 +14,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
-from ferdelance.schemas.worker import TaskExecutionParameters
+from ferdelance.schemas.tasks import TaskParameters
 from ferdelance.shared.actions import Action
 from ferdelance.shared.status import ArtifactJobStatus
 
@@ -158,7 +158,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         task_response = server.request(
             method="GET",
-            url="/client/task",
+            url="/task/params",
             headers=cl_exc.headers(),
             content=cl_exc.create_payload(update_execute.dict()),
         )
@@ -166,9 +166,9 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         content = cl_exc.get_payload(task_response.content)
 
-        task = TaskExecutionParameters(**content)
+        task = TaskParameters(**content)
 
-        assert TEST_DATASOURCE_HASH in task.datasource_hashes
+        assert TEST_DATASOURCE_HASH in task.content_ids
 
         art = task.artifact
 
