@@ -9,8 +9,8 @@ from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import GenericModel
 from ferdelance.schemas.estimators import GenericEstimator
 from ferdelance.schemas.tasks import ExecutionResult
-from ferdelance.worker.jobs.execution import run_estimate, run_training
-from ferdelance.worker.jobs.routes import RouteService, TaskParameters
+from ferdelance.tasks.jobs.execution import run_estimate, run_training
+from ferdelance.tasks.jobs.routes import RouteService, TaskParameters
 
 import ray
 

@@ -201,6 +201,22 @@ class Exchange:
         data: str = bytes_from_public_key(self.public_key).decode(encoding)
         return encode_to_transfer(data, encoding)
 
+    def transfer_private_key(self, encoding: str = "utf8") -> str:
+        """Encode the stored private key for secure transfer as string.
+
+        :return:
+            An encoded private key in string format.
+        :param encoding:
+            Encoding to use in the string-byte conversion.
+        :raise:
+            ValueError if there is no private key available.
+        """
+        if self.private_key is None:
+            raise ValueError("public key not set")
+
+        data: str = bytes_from_private_key(self.private_key).decode(encoding)
+        return encode_to_transfer(data, encoding)
+
     def encrypt(self, content: str, encoding: str = "utf8") -> str:
         """Encrypt a text for the remote host using the stored remote public key.
 

@@ -224,7 +224,7 @@ class DataSourceRepository(Repository):
                 content = await f.read()
                 return DataSource(**json.loads(content))
 
-        except NoResultFound as _:
+        except NoResultFound:
             raise ValueError(f"datasource_id={datasource_id} not found")
 
     async def remove(self, datasource_id: str) -> None:
@@ -334,7 +334,7 @@ class DataSourceRepository(Repository):
         res = await self.session.scalars(
             select(DataSourceDB).where(
                 DataSourceDB.id == datasource_id,
-                DataSourceDB.removed == False,
+                DataSourceDB.removed == False,  # noqa: E712
             )
         )
         ds = res.one()
@@ -361,7 +361,7 @@ class DataSourceRepository(Repository):
             .join(DataSourceDB, ComponentDB.id == DataSourceDB.component_id)
             .where(
                 DataSourceDB.id == datasource_id,
-                DataSourceDB.removed == False,
+                DataSourceDB.removed == False,  # noqa: E712
             )
         )
         return viewClient(res.one())

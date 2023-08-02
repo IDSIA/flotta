@@ -1,11 +1,11 @@
 from ferdelance.schemas.tasks import TaskArguments
-from ferdelance.worker.jobs import EstimationJob, AggregatingJob, TrainingJob
+from ferdelance.tasks.jobs import EstimationJob, AggregatingJob, TrainingJob
 
 from ray import ObjectRef
 
 import logging
 
-from ferdelance.worker.jobs.routes import EncryptRouteService
+from ferdelance.tasks.jobs.routes import EncryptRouteService
 
 LOGGER = logging.getLogger(__name__)
 

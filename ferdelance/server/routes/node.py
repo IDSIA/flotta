@@ -3,7 +3,7 @@ from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_SERVER, TYPE_CLIENT
 from ferdelance.schemas.components import Component, dummy
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinRequest
+from ferdelance.schemas.node import JoinRequest, ServerPublicKey
 from ferdelance.server.security import check_token
 from ferdelance.server.services import SecurityService, NodeService
 from ferdelance.shared.decode import decode_from_transfer
@@ -49,6 +49,15 @@ async def check_distributed(component: Component = Depends(check_access)) -> Com
 @node_router.get("/")
 async def node_home():
     return "Node 🏙"
+
+
+@node_router.get("/key", response_model=ServerPublicKey)
+async def node_get_public_key(session: AsyncSession = Depends(get_session)):
+    ss: SecurityService = SecurityService(session)
+    await ss.setup()
+    pk: str = ss.get_server_public_key()
+
+    return ServerPublicKey(public_key=pk)
 
 
 @node_router.post("/join", response_class=Response)

@@ -4,7 +4,8 @@ from ferdelance.exceptions import InvalidAction
 from ferdelance.schemas.updates import UpdateToken, UpdateClientApp, UpdateExecute
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.shared.actions import Action as ActionType
-from ferdelance.worker.backends import get_jobs_backend
+from ferdelance.shared.exchange import Exchange
+from ferdelance.tasks.backends import get_jobs_backend
 
 import logging
 
@@ -36,9 +37,12 @@ class ScheduleActionService:
         assert self.config.server_public_key is not None
         assert self.config.client_token is not None
 
+        exc = Exchange()
+        exc.load_key(self.config.private_key_location)
+
         backend.start_training(
             TaskArguments(
-                private_key_location=self.config.private_key_location,
+                private_key=exc.transfer_private_key(),
                 server_url=self.config.server,
                 server_public_key=self.config.server_public_key,
                 token=self.config.client_token,
@@ -57,9 +61,12 @@ class ScheduleActionService:
         assert self.config.server_public_key is not None
         assert self.config.client_token is not None
 
+        exc = Exchange()
+        exc.load_key(self.config.private_key_location)
+
         backend.start_estimation(
             TaskArguments(
-                private_key_location=self.config.private_key_location,
+                private_key=exc.transfer_private_key(),
                 server_url=self.config.server,
                 server_public_key=self.config.server_public_key,
                 token=self.config.client_token,

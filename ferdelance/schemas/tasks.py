@@ -9,7 +9,7 @@ from ferdelance.schemas.models.metrics import Metrics
 class TaskArguments(BaseModel):
     """Used to launch a new task"""
 
-    private_key_location: str
+    private_key: str
     server_url: str
     server_public_key: str
     token: str

@@ -28,8 +28,8 @@ def build_settings_cipher() -> Fernet:
 
     assert server_main_password is not None
 
-    smp0 = server_main_password[:32].encode("utf-8")
-    smp1 = server_main_password[-32:].encode("utf-8")
+    smp0 = server_main_password[:32].encode("utf8")
+    smp1 = server_main_password[-32:].encode("utf8")
     smp2 = base64.b64encode(bytes(a ^ b for a, b in zip(smp0, smp1)))
 
     return Fernet(smp2)

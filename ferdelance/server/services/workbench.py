@@ -62,7 +62,7 @@ class WorkbenchConnectService:
 
         except NoResultFound:
             # creating new user
-            user, token = await cr.create_component(TYPE_USER, public_key=user_public_key)
+            user, token = await cr.create_component(TYPE_USER, user_public_key, f"workbench-{user_public_key[10:27]}")
 
             LOGGER.info(f"user_id={user.id}: created new user")
 

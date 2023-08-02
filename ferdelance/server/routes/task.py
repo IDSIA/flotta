@@ -1,5 +1,5 @@
 from ferdelance.database import get_session, AsyncSession
-from ferdelance.database.data import TYPE_CLIENT, TYPE_WORKER
+from ferdelance.database.data import TYPE_CLIENT, TYPE_SERVER
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import TaskError
@@ -26,7 +26,7 @@ task_router = APIRouter(prefix="/task")
 
 async def check_access(component: Component = Depends(check_token)) -> Component:
     try:
-        if component.type_name in (TYPE_CLIENT, TYPE_WORKER):
+        if component.type_name not in (TYPE_CLIENT, TYPE_SERVER):
             LOGGER.warning(f"client of type={component.type_name} cannot access this route")
             raise HTTPException(403)
 
@@ -61,7 +61,7 @@ async def get_task_params(
             cs: ClientService = ClientService(session, component)
             content: TaskParameters = await cs.get_task(payload.job_id)
 
-        elif component.type_name == TYPE_WORKER:
+        elif component.type_name == TYPE_SERVER:
             ws: WorkerService = WorkerService(session, component)
             content: TaskParameters = await ws.get_task(payload.job_id)
 
@@ -75,7 +75,7 @@ async def get_task_params(
         LOGGER.exception(e)
         raise HTTPException(404, "Artifact does not exists")
 
-    except TaskDoesNotExists as e:
+    except ValueError as e:  # TODO: this should be TaskDoesNotExists
         LOGGER.error(f"Task does not exists for job_id={payload.job_id}")
         LOGGER.exception(e)
         raise HTTPException(404, "Task does not exists")
@@ -102,10 +102,18 @@ async def get_result(
 
         return ss.encrypt_file(result.path)
 
-    except NoResultFound | ValueError as e:
-        LOGGER.error(f"Result does not exists for result_id={result_id}")
+    except HTTPException as e:
+        raise e
+
+    except NoResultFound as e:
+        LOGGER.error(f"component_id={component.id}: Result does not exists for result_id={result_id}")
         LOGGER.exception(e)
         raise HTTPException(404)
+
+    except Exception as e:
+        LOGGER.error(f"component_id={component.id}: {e}")
+        LOGGER.exception(e)
+        raise HTTPException(500)
 
 
 @task_router.post("/result/{job_id}")
@@ -130,7 +138,7 @@ async def post_result(
 
             await cs.check_and_start(result)
 
-        elif component.type_name == TYPE_WORKER:
+        elif component.type_name == TYPE_SERVER:
             ws: WorkerService = WorkerService(session, component)
             result: Result = await ws.aggregation_completed(job_id)
 
@@ -192,7 +200,7 @@ async def post_error(
 
             await cs.check_and_start(result)
 
-        elif component.type_name == TYPE_WORKER:
+        elif component.type_name == TYPE_SERVER:
             ws: WorkerService = WorkerService(session, component)
 
             result = await ws.aggregation_failed(error)

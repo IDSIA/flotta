@@ -1,5 +1,4 @@
 from ferdelance import __version__
-from ferdelance.extra import extra
 from ferdelance.client.config import Config, ConfigError
 from ferdelance.client.exceptions import RelaunchClient, ErrorClient, UpdateClient
 from ferdelance.client.services.scheduling import ScheduleActionService
@@ -7,7 +6,6 @@ from ferdelance.client.services.routes import RouteService
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.node import JoinData, JoinRequest
 from ferdelance.shared.exchange import Exchange
-from ferdelance.worker.backends import get_jobs_backend
 
 from time import sleep
 
@@ -130,8 +128,6 @@ class FerdelanceClient:
         LOGGER.info("gracefully stopping application")
         self.stop = True
 
-        get_jobs_backend().stop_backend()
-
     def run(self) -> int:
         """Main loop where the client contact the server for updates.
 
@@ -209,14 +205,6 @@ class FerdelanceClient:
             LOGGER.error("Unknown error")
             LOGGER.exception(e)
             raise ErrorClient()
-
-        finally:
-            for w in extra.training_workers:
-                w.join()
-            for w in extra.estimation_workers:
-                w.join()
-            for w in extra.aggregation_workers:
-                w.join()
 
         if self.stop:
             raise ErrorClient()

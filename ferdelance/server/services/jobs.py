@@ -1,13 +1,14 @@
 from typing import Callable
 
+from ferdelance.config import conf
 from ferdelance.database.repositories import (
     AsyncSession,
     ArtifactRepository,
+    ComponentRepository,
     DataSourceRepository,
     JobRepository,
-    ResultRepository,
-    ComponentRepository,
     ProjectRepository,
+    ResultRepository,
     Repository,
 )
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
@@ -18,8 +19,9 @@ from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.tasks import TaskParameters, TaskArguments
 from ferdelance.server.exceptions import ArtifactDoesNotExists
+from ferdelance.server.services import SecurityService
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
-from ferdelance.worker.backends import get_jobs_backend
+from ferdelance.tasks.backends import get_jobs_backend
 
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
@@ -39,6 +41,7 @@ class JobManagementService(Repository):
         self.cr: ComponentRepository = ComponentRepository(session)
         self.dsr: DataSourceRepository = DataSourceRepository(session)
         self.jr: JobRepository = JobRepository(session)
+        self.ss: SecurityService = SecurityService(session)
         self.pr: ProjectRepository = ProjectRepository(session)
         self.rr: ResultRepository = ResultRepository(session)
 
@@ -198,7 +201,7 @@ class JobManagementService(Repository):
         artifact_id = result.artifact_id
 
         try:
-            token = await self.cr.get_token_for_workers()
+            token = await self.cr.get_token_for_self()
 
             if token is None:
                 raise ValueError("No worker available")
@@ -217,10 +220,12 @@ class JobManagementService(Repository):
                 iteration=artifact.iteration,
             )
 
+            await self.ss.setup()
+
             args = TaskArguments(
-                private_key_location="",  # TODO: fix these?
-                server_url="",
-                server_public_key="",
+                private_key=self.ss.get_server_private_key(),
+                server_url=conf.server_url(),
+                server_public_key=self.ss.get_server_public_key(),
                 token=token,
                 datasources=list(),
                 workdir=".",
