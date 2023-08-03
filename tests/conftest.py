@@ -1,6 +1,6 @@
 from typing import AsyncGenerator
 
-from ferdelance.config import conf
+from ferdelance.config import get_config
 from ferdelance.database import Base, DataBase
 from ferdelance.database.data import COMPONENT_TYPES
 from ferdelance.database.tables import ComponentType
@@ -17,31 +17,31 @@ import shutil
 db_file = "./tests/test_sqlite.db"
 db_path = os.path.join("./", db_file)
 
-conf.DB_MEMORY = False
-conf.DB_DIALECT = "sqlite"
-conf.DB_HOST = db_file
+conf = get_config()
 
-conf.SERVER_MAIN_PASSWORD = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
+conf.database.memory = False
+conf.database.dialect = "sqlite"
+conf.database.host = db_file
 
-# this is for client
-os.environ["PATH_PRIVATE_KEY"] = os.environ.get("PATH_PRIVATE_KEY", str(os.path.join("tests", "private_key.pem")))
+conf.server.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
+conf.private_key_location = str(os.path.join("tests", "private_key.pem"))
 
 
 def create_dirs() -> None:
-    os.makedirs(conf.STORAGE_DATASOURCES, exist_ok=True)
-    os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
-    os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
-    os.makedirs(conf.STORAGE_RESULTS, exist_ok=True)
+    os.makedirs(conf.storage_datasources_dir(), exist_ok=True)
+    os.makedirs(conf.storage_artifact_dir(), exist_ok=True)
+    os.makedirs(conf.storage_clients_dir(), exist_ok=True)
+    os.makedirs(conf.storage_results_dir(), exist_ok=True)
 
     if os.path.exists(db_path):
         os.remove(db_path)
 
 
 def delete_dirs() -> None:
-    shutil.rmtree(conf.STORAGE_DATASOURCES)
-    shutil.rmtree(conf.STORAGE_ARTIFACTS)
-    shutil.rmtree(conf.STORAGE_CLIENTS)
-    shutil.rmtree(conf.STORAGE_RESULTS)
+    shutil.rmtree(conf.storage_datasources_dir())
+    shutil.rmtree(conf.storage_artifact_dir())
+    shutil.rmtree(conf.storage_clients_dir())
+    shutil.rmtree(conf.storage_results_dir())
 
     os.remove(db_path)
 

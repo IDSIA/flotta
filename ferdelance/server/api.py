@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import Configuration, get_config
 from ferdelance.database import DataBase, Base
 from ferdelance.server.routes import (
     client_router,
@@ -23,13 +23,15 @@ def init_api() -> FastAPI:
     in distributed mode and the API for client node will be disabled. Otherwise, the API for servers will be disabled
     allowing new clients to connect.
     """
-    api = FastAPI()
+    api: FastAPI = FastAPI()
+
+    conf: Configuration = get_config()
 
     api.include_router(node_router)
     api.include_router(workbench_router)
     api.include_router(task_router)
 
-    if conf.DISTRIBUTED:
+    if conf.mode == "distributed":
         api.include_router(server_router)
     else:
         api.include_router(client_router)

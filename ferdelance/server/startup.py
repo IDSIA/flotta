@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import get_config
 from ferdelance.database.const import PUBLIC_KEY
 from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER
 from ferdelance.database.repositories import (
@@ -28,15 +28,19 @@ class ServerStartup(Repository):
     async def init_directories(self) -> None:
         LOGGER.info("directory initialization")
 
-        await aiofiles.os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
-        await aiofiles.os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
-        await aiofiles.os.makedirs(conf.STORAGE_RESULTS, exist_ok=True)
+        conf = get_config()
+
+        await aiofiles.os.makedirs(conf.storage_artifact_dir(), exist_ok=True)
+        await aiofiles.os.makedirs(conf.storage_clients_dir(), exist_ok=True)
+        await aiofiles.os.makedirs(conf.storage_results_dir(), exist_ok=True)
 
         LOGGER.info("directory initialization completed")
 
     async def create_project(self) -> None:
+        conf = get_config()
+
         try:
-            await self.pr.create_project("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
+            await self.pr.create_project("Project Zero", conf.server.token_project_default)
 
         except ValueError:
             LOGGER.warning("Project zero already exists")

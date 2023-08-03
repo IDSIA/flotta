@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import get_config
 from ferdelance.database import AsyncSession, get_session
 from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
 from ferdelance.database.repositories import ComponentRepository, KeyValueStore
@@ -26,7 +26,7 @@ async def generate_keys(session: AsyncSession) -> Exchange:
         Current session to the database.
     """
 
-    SMP_VALUE = conf.SERVER_MAIN_PASSWORD
+    SMP_VALUE = get_config().server.main_password
 
     if SMP_VALUE is None:
         LOGGER.critical(f"Environment variable {MAIN_KEY} is missing.")

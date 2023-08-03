@@ -1,76 +1,136 @@
-from pydantic import BaseModel
+from typing import Literal
+from functools import lru_cache
+
+from pydantic import BaseModel, validator, BaseSettings
 from pytimeparse import parse
 
 from dotenv import load_dotenv
+from getmac import get_mac_address
 
 import os
+import platform
+import uuid
+import yaml
 
-cpu_count = os.cpu_count()
 
 load_dotenv()
 
 
-class Configuration(BaseModel):
-    STANDALONE: bool = "TRUE" == os.environ.get("STANDALONE", "False").upper()
-    STANDALONE_WORKERS: int = int(os.environ.get("STANDALONE_WORKERS", 1 if cpu_count is None else cpu_count - 1))
+class ServerConfiguration(BaseSettings):
+    main_password: str = ""
 
-    DISTRIBUTED: bool = "TRUE" == os.environ.get("DISTRIBUTED", "False").upper()
+    protocol: str = "http"
+    interface: str = "localhost"
+    port: int = 1456
 
-    SERVER_MAIN_PASSWORD: str | None = os.environ.get("SERVER_MAIN_PASSWORD", None)
-    SERVER_PROTOCOL: str = os.environ.get("SERVER_PROTOCOL", "http")
-    SERVER_INTERFACE: str = os.environ.get("SERVER_INTERFACE", "localhost")
-    SERVER_PORT: int = int(os.environ.get("SERVER_PORT", 1456))
+    token_client_expiration: int | float | str = "90 days"
+    token_user_expiration: int | float | str = "30 days"
+    token_project_default: str = ""
 
-    WORKER_SERVER_PROTOCOL: str = os.environ.get("WORKER_SERVER_PROTOCOL", SERVER_PROTOCOL)
-    WORKER_SERVER_HOST: str = os.environ.get("WORKER_SERVER_HOST", SERVER_INTERFACE)
-    WORKER_SERVER_PORT: int = int(os.environ.get("WORKER_SERVER_PORT", SERVER_PORT))
-
-    DB_USER: str | None = os.environ.get("DB_USER", None)
-    DB_PASS: str | None = os.environ.get("DB_PASS", None)
-
-    DB_DIALECT: str = os.environ.get("DB_DIALECT", "postgresql")
-    DB_PORT: int = int(os.environ.get("DB_PORT", "5432"))
-    DB_HOST: str | None = os.environ.get("DB_HOST", None)
-
-    DB_SCHEMA: str = os.environ.get("DB_SCHEMA", "ferdelance")
-
-    DB_MEMORY: bool = "TRUE" == os.environ.get("DB_MEMORY", "False").upper()
-
-    STORAGE_BASE_DIR: str = os.environ.get("STORAGE_BASE_DIR", os.path.join(".", "storage"))
-    STORAGE_DATASOURCES: str = str(os.path.join(STORAGE_BASE_DIR, "datasources"))
-    STORAGE_ARTIFACTS: str = str(os.path.join(STORAGE_BASE_DIR, "artifacts"))
-    STORAGE_CLIENTS: str = str(os.path.join(STORAGE_BASE_DIR, "clients"))
-    STORAGE_RESULTS: str = str(os.path.join(STORAGE_BASE_DIR, "results"))
-
-    FILE_CHUNK_SIZE: int = int(os.environ.get("FILE_CHUNK_SIZE", 4096))
-
-    CLIENT_TOKEN_EXPIRATION = os.environ.get("TOKEN_CLIENT_EXPIRATION", str(parse("90 day")))
-    USER_TOKEN_EXPIRATION = os.environ.get("TOKEN_USER_EXPIRATION", str(parse("30 day")))
-
-    PROJECT_DEFAULT_TOKEN: str = os.environ.get("PROJECT_DEFAULT_TOKEN", "")
-
-    # used by client or standalone
-    N_TRAIN_WORKER: int = int(os.environ.get("N_TRAIN_WORKER", "1"))
-    N_ESTIMATE_WORKER: int = int(os.environ.get("N_ESTIMATE_WORKER", "1"))
-    N_AGGREGATE_WORKER: int = int(os.environ.get("N_AGGREGATE_WORKER", "1"))
-
-    def storage_dir_datasources(self, datasource_hash: str) -> str:
-        return os.path.join(conf.STORAGE_DATASOURCES, datasource_hash)
-
-    def storage_dir_artifact(self, artifact_id: str) -> str:
-        return os.path.join(conf.STORAGE_ARTIFACTS, artifact_id)
-
-    def storage_dir_clients(self, client_id: str) -> str:
-        return os.path.join(conf.STORAGE_CLIENTS, client_id)
-
-    def storage_dir_results(self, result_id: str) -> str:
-        return os.path.join(conf.STORAGE_RESULTS, result_id)
+    @validator("token_client_expiration", "token_user_expiration", pre=True)
+    @classmethod
+    def validate_expiration_time(cls, v: str) -> int | float | None:
+        return parse(v)
 
     def server_url(self) -> str:
-        return f"{self.WORKER_SERVER_PROTOCOL}://{self.WORKER_SERVER_HOST.rstrip('/')}:{self.WORKER_SERVER_PORT}"
+        return f"{self.protocol}://{self.interface.rstrip('/')}:{self.port}"
+
+    class Config:
+        env_prefix = "ferdelance_server_"
 
 
-conf: Configuration = Configuration()
+class DatabaseConfiguration(BaseModel):
+    username: str | None = None
+    password: str | None = None
+
+    dialect: str = "postgresql"
+    port: int = 5432
+    host: str | None = None
+    scheme: str = "ferdelance"
+
+    memory: bool = False
+
+    class Config:
+        env_prefix = "ferdelance_db_"
+
+
+class ClientConfiguration(BaseModel):
+    heartbeat: float = 2.0
+
+    machine_system: str = platform.system()
+    machine_mac_address: str = get_mac_address() or ""
+    machine_node: str = str(uuid.getnode())
+
+    class Config:
+        env_prefix = "ferdelance_client_"
+
+
+class DataSourceConfiguration(BaseModel):
+    name: str
+    kind: str
+    type: str = ""
+    path: str = ""
+    conn: str = ""
+    token: list[str]
+
+
+class Configuration(BaseModel):
+    database: DatabaseConfiguration = DatabaseConfiguration()
+
+    server: ServerConfiguration = ServerConfiguration()
+    client: ClientConfiguration = ClientConfiguration()
+
+    datasources: list[DataSourceConfiguration] = list()
+
+    mode: Literal["client", "server", "standalone", "distributed"] = "standalone"
+
+    workdir: str = os.path.join(".", "storage")
+    private_key_location: str = os.path.join(".", "private_key.pem")
+
+    standalone: bool = False
+    distributed: bool = False
+
+    file_chunk_size: int = 4096
+
+    def storage_datasources_dir(self) -> str:
+        return os.path.join(self.workdir, "datasources")
+
+    def storage_datasources(self, datasource_hash: str) -> str:
+        return os.path.join(self.storage_datasources_dir(), datasource_hash)
+
+    def storage_artifact_dir(self) -> str:
+        return os.path.join(self.workdir, "artifacts")
+
+    def storage_artifact(self, artifact_id: str, iteration: int = 0) -> str:
+        return os.path.join(self.storage_artifact_dir(), artifact_id, str(iteration))
+
+    def storage_clients_dir(self) -> str:
+        return os.path.join(self.workdir, "clients")
+
+    def storage_clients(self, client_id: str) -> str:
+        return os.path.join(self.storage_clients_dir(), client_id)
+
+    def storage_results_dir(self) -> str:
+        return os.path.join(self.workdir, "results")
+
+    def storage_results(self, result_id: str) -> str:
+        return os.path.join(self.storage_results_dir(), result_id)
+
+    class Config:
+        env_prefix = "ferdelance_"
+
+
+@lru_cache
+def get_config():
+    configuration_file: str = os.environ.get("ferdelance_config_file", "")
+
+    if os.path.exists(configuration_file):
+        with open(configuration_file, "r") as f:
+            conf = yaml.safe_load(f)
+            return Configuration(**conf)
+
+    return Configuration()
+
 
 LOGGING_CONFIG = {
     "version": 1,

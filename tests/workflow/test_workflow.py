@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import get_config
 from ferdelance.database.tables import Job
 from ferdelance.server.api import api
 from ferdelance.workbench.interface import (
@@ -182,4 +182,4 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         # cleanup
 
-        shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
+        shutil.rmtree(os.path.join(get_config().storage_artifact(artifact_id)))
