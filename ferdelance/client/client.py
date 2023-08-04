@@ -1,4 +1,5 @@
 from ferdelance import __version__
+from ferdelance.config import Configuration
 from ferdelance.client.state import ClientState, ConfigError
 from ferdelance.client.exceptions import RelaunchClient, ErrorClient, UpdateClient
 from ferdelance.client.services.scheduling import ScheduleActionService
@@ -19,7 +20,8 @@ import requests
 LOGGER = logging.getLogger(__name__)
 
 
-def start_client(state: ClientState):
+def start_client(config: Configuration, leave: bool = False):
+    state = ClientState(config, leave)
     client = FerdelanceClient.remote(state)
     h = client.run.remote()
     return ray.get([h])

@@ -1,5 +1,4 @@
-from ferdelance.config import config_manager, Configuration
-from ferdelance.client.state import ClientState
+from .config import config_manager, Configuration
 
 from argparse import ArgumentParser
 
@@ -18,7 +17,7 @@ class CustomArguments(ArgumentParser):
         self.exit(0, f"{self.prog}: error: {message}\n")
 
 
-def setup_config_from_arguments() -> ClientState:
+def setup_config_from_arguments() -> tuple[Configuration, bool]:
     """Defines the available input parameters base on command line arguments.
 
     Can raise ConfigError.
@@ -55,4 +54,4 @@ def setup_config_from_arguments() -> ClientState:
 
     config: Configuration = config_manager.reload(config_path)
 
-    return ClientState(config, args.leave)
+    return config, args.leave
