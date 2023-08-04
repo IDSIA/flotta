@@ -1,8 +1,7 @@
 from ferdelance import __version__
-from ferdelance.config import conf
+from ferdelance.config import Configuration, DataSourceConfiguration
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
 from ferdelance.client.exceptions import ConfigError
-from ferdelance.schemas.client import ArgumentsConfig, DataSourceConfig
 from ferdelance.schemas.metadata import Metadata
 
 from getmac import get_mac_address
@@ -18,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class DataConfig:
-    def __init__(self, workdir: str, datasources: list[DataSourceConfig]) -> None:
+    def __init__(self, workdir: str, datasources: list[DataSourceConfiguration]) -> None:
         self.workdir: str = workdir
 
         """Hash -> DataSource"""
@@ -55,19 +54,17 @@ class DataConfig:
         return Metadata(datasources=[ds.metadata() for _, ds in self.datasources.items()])
 
 
-class Config:
-    def __init__(self, args: ArgumentsConfig) -> None:
-        self.name: str = args.name
-        self.server: str = args.server.rstrip("/")
-        self.heartbeat: float = args.heartbeat
-        self.workdir: str = args.workdir
-        self.private_key_location: str | None = args.private_key_location
+class ClientState:
+    def __init__(self, config: Configuration, leave: bool = False) -> None:
+        self.config: Configuration = config
 
-        conf.N_TRAIN_WORKER = max(args.resources.n_train_thread, conf.N_TRAIN_WORKER, 1)
-        conf.N_ESTIMATE_WORKER = max(args.resources.n_estimate_thread, conf.N_ESTIMATE_WORKER, 1)
-        conf.N_AGGREGATE_WORKER = 0  # no aggregation for client
+        self.name: str = config.client.name
+        self.server: str = config.server.url()
+        self.heartbeat: float = config.client.heartbeat
+        self.workdir: str = config.workdir
+        self.private_key_location: str = config.private_key_location
 
-        self.leave: bool = False
+        self.leave: bool = leave
 
         self.machine_system: str = platform.system()
         self.machine_mac_address: str = get_mac_address() or ""
@@ -77,9 +74,9 @@ class Config:
         self.client_token: str | None = None
         self.server_public_key: str | None = None
 
-        self.datasources: list[DataSourceConfig] = args.datasources
+        self.datasources: list[DataSourceConfiguration] = config.datasources
 
-        self.data = DataConfig(self.workdir, args.datasources)
+        self.data = DataConfig(self.workdir, config.datasources)
 
         if not self.data.datasources:
             LOGGER.error("No valid datasource available!")
@@ -112,7 +109,7 @@ class Config:
         with open(self.path_properties(), "r") as f:
             props_data = yaml.safe_load(f)
 
-            props = props_data["ferdelance"]["extra"]
+            props = props_data["client"]
 
             self.client_id = props["client_id"]
             self.client_token = props["client_token"]
@@ -123,13 +120,11 @@ class Config:
         with open(self.path_properties(), "w") as f:
             yaml.safe_dump(
                 {
-                    "ferdelance": {
-                        "extra": {
-                            "version": __version__,
-                            "client_id": self.client_id,
-                            "client_token": self.client_token,
-                            "server_public_key": self.server_public_key,
-                        },
+                    "client": {
+                        "version": __version__,
+                        "client_id": self.client_id,
+                        "client_token": self.client_token,
+                        "server_public_key": self.server_public_key,
                     },
                 },
                 f,

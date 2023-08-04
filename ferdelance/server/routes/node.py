@@ -1,4 +1,4 @@
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_SERVER, TYPE_CLIENT
 from ferdelance.schemas.components import Component, dummy
@@ -39,7 +39,7 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
 
 async def check_distributed(component: Component = Depends(check_access)) -> Component:
-    if get_config().mode != "distributed":
+    if config_manager.get().mode != "distributed":
         LOGGER.warning("requested access to distributed endpoint while in centralized mode")
         raise HTTPException(403, "Node is not in distributed mode.")
 

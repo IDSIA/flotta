@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.config import Configuration, DatabaseConfiguration, get_config
+from ferdelance.config import Configuration, DatabaseConfiguration, config_manager
 
 from typing import Any, AsyncGenerator
 
@@ -70,7 +70,7 @@ class DataBase:
             LOGGER.debug("Database singleton creation")
             cls.instance = super(DataBase, cls).__new__(cls)
 
-            conf: Configuration = get_config()
+            conf: Configuration = config_manager.get()
             cls.instance.database_url = db_connection_url(conf.database)
 
             if cls.instance.database_url is None:

@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database.repositories.core import Repository, AsyncSession
 from ferdelance.database.tables import Setting
 
@@ -15,7 +15,7 @@ KEY_USER_TOKEN_EXPIRATION = "TOKEN_USER_EXPIRATION"
 
 
 async def setup_settings(session: AsyncSession) -> None:
-    conf = get_config().server
+    conf = config_manager.get().server
     CLIENT_TOKEN_EXPIRATION = conf.token_client_expiration
     USER_TOKEN_EXPIRATION = conf.token_user_expiration
 
@@ -27,7 +27,7 @@ async def setup_settings(session: AsyncSession) -> None:
 
 
 def build_settings_cipher() -> Fernet:
-    conf = get_config().server
+    conf = config_manager.get().server
 
     server_main_password: str | None = conf.main_password
 

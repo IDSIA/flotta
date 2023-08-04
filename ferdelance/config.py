@@ -1,19 +1,42 @@
-from typing import Literal
-from functools import lru_cache
+from typing import Any, Literal
 
-from pydantic import BaseModel, validator, BaseSettings
+from pydantic import BaseModel, BaseSettings, validator, root_validator
 from pytimeparse import parse
 
 from dotenv import load_dotenv
 from getmac import get_mac_address
 
+import logging
 import os
 import platform
+import re
 import uuid
 import yaml
 
 
 load_dotenv()
+
+ENV_VAR_PATTERN = re.compile(r".*?\${(\w+)}.*?")
+
+LOGGER = logging.getLogger(__name__)
+
+
+def check_for_env_variables(value):
+    """Source: https://dev.to/mkaranasou/python-yaml-configuration-with-environment-variables-parsing-2ha6"""
+    if not isinstance(value, str):
+        return value
+
+    # find all env variables in line
+    match = ENV_VAR_PATTERN.findall(value)
+
+    # TODO: testing required
+
+    if match:
+        full_value = value
+        for g in match:
+            full_value = full_value.replace(f"${{{g}}}", os.environ.get(g, g))
+        return full_value
+    return value
 
 
 class ServerConfiguration(BaseSettings):
@@ -32,7 +55,12 @@ class ServerConfiguration(BaseSettings):
     def validate_expiration_time(cls, v: str) -> int | float | None:
         return parse(v)
 
-    def server_url(self) -> str:
+    @root_validator(pre=True)
+    @classmethod
+    def env_var_validate(cls, value):
+        return check_for_env_variables(value)
+
+    def url(self) -> str:
         return f"{self.protocol}://{self.interface.rstrip('/')}:{self.port}"
 
     class Config:
@@ -50,6 +78,11 @@ class DatabaseConfiguration(BaseModel):
 
     memory: bool = False
 
+    @root_validator(pre=True)
+    @classmethod
+    def env_var_validate(cls, value):
+        return check_for_env_variables(value)
+
     class Config:
         env_prefix = "ferdelance_db_"
 
@@ -57,9 +90,16 @@ class DatabaseConfiguration(BaseModel):
 class ClientConfiguration(BaseModel):
     heartbeat: float = 2.0
 
+    name: str = ""
+
     machine_system: str = platform.system()
     machine_mac_address: str = get_mac_address() or ""
     machine_node: str = str(uuid.getnode())
+
+    @root_validator(pre=True)
+    @classmethod
+    def env_var_validate(cls, value):
+        return check_for_env_variables(value)
 
     class Config:
         env_prefix = "ferdelance_client_"
@@ -67,11 +107,16 @@ class ClientConfiguration(BaseModel):
 
 class DataSourceConfiguration(BaseModel):
     name: str
+    token: list[str] | str | None
     kind: str
-    type: str = ""
-    path: str = ""
-    conn: str = ""
-    token: list[str]
+    type: str
+    conn: str | None = None
+    path: str | None = None
+
+    @root_validator(pre=True)
+    @classmethod
+    def env_var_validate(cls, value):
+        return check_for_env_variables(value)
 
 
 class Configuration(BaseModel):
@@ -91,6 +136,11 @@ class Configuration(BaseModel):
     distributed: bool = False
 
     file_chunk_size: int = 4096
+
+    @root_validator(pre=True)
+    @classmethod
+    def env_var_validate(cls, value):
+        return check_for_env_variables(value)
 
     def storage_datasources_dir(self) -> str:
         return os.path.join(self.workdir, "datasources")
@@ -120,16 +170,39 @@ class Configuration(BaseModel):
         env_prefix = "ferdelance_"
 
 
-@lru_cache
-def get_config():
-    configuration_file: str = os.environ.get("ferdelance_config_file", "")
+class ConfigManager:
+    def __init__(self) -> None:
+        self.config: Configuration = Configuration()
 
-    if os.path.exists(configuration_file):
-        with open(configuration_file, "r") as f:
-            conf = yaml.safe_load(f)
-            return Configuration(**conf)
+    def get(self) -> Configuration:
+        return self.config
 
-    return Configuration()
+    def reload(self, path: str | None = None) -> Configuration:
+        if path is None:
+            config_path: str = os.environ.get("ferdelance_config_file", "")
+        else:
+            config_path: str = path
+
+        if os.path.exists(config_path):
+            LOGGER.info(f"Using config file found at {config_path}")
+
+            with open(config_path, "r") as f:
+                try:
+                    yaml_data: dict[str, Any] = yaml.safe_load(f)
+
+                    self.config = Configuration(**yaml_data)
+
+                except yaml.YAMLError as e:
+                    LOGGER.error(f"could not read config file {config_path}")
+                    LOGGER.exception(e)
+                    self.config = Configuration()
+
+        LOGGER.error(f"Configuration file not found at {config_path}, using default values.")
+
+        return self.config
+
+
+config_manager = ConfigManager()
 
 
 LOGGING_CONFIG = {

@@ -1,4 +1,4 @@
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database.repositories import ComponentRepository, ResultRepository, JobRepository, ArtifactRepository
 from ferdelance.server.api import api
 from ferdelance.workbench.interface import (
@@ -229,7 +229,7 @@ async def test_workflow_submit(session: AsyncSession):
         assert len(downloaded_artifact.transform.stages) == 1
         assert len(downloaded_artifact.transform.stages[0].features) == 2
 
-        shutil.rmtree(get_config().storage_artifact(artifact_id))
+        shutil.rmtree(config_manager.get().storage_artifact(artifact_id))
 
 
 @pytest.mark.asyncio

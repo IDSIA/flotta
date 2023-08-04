@@ -4,6 +4,7 @@ from .generate import (
     bytes_from_private_key,
     bytes_from_public_key,
     private_key_from_bytes,
+    private_key_from_str,
     public_key_from_bytes,
     public_key_from_str,
     RSAPrivateKey,
@@ -126,6 +127,16 @@ class Exchange:
         with open(path, "wb") as f:
             pk_bytes: bytes = bytes_from_public_key(self.remote_key)
             f.write(pk_bytes)
+
+    def set_private_key(self, private_key: str, encoding: str = "utf8") -> None:
+        """Set the private key and the public key from a private key
+        in string format and encoded for transfer.
+
+        :param private_key:
+            Private key stored in memory and in string encoded for transfer format.
+        """
+        self.private_key = private_key_from_str(decode_from_transfer(private_key, encoding))
+        self.public_key = self.private_key.public_key()
 
     def set_key_bytes(self, private_key_bytes: bytes) -> None:
         """Set the private key and the public key from a private key

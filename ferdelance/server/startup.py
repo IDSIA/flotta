@@ -1,4 +1,4 @@
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database.const import PUBLIC_KEY
 from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER
 from ferdelance.database.repositories import (
@@ -28,7 +28,7 @@ class ServerStartup(Repository):
     async def init_directories(self) -> None:
         LOGGER.info("directory initialization")
 
-        conf = get_config()
+        conf = config_manager.get()
 
         await aiofiles.os.makedirs(conf.storage_artifact_dir(), exist_ok=True)
         await aiofiles.os.makedirs(conf.storage_clients_dir(), exist_ok=True)
@@ -37,7 +37,7 @@ class ServerStartup(Repository):
         LOGGER.info("directory initialization completed")
 
     async def create_project(self) -> None:
-        conf = get_config()
+        conf = config_manager.get()
 
         try:
             await self.pr.create_project("Project Zero", conf.server.token_project_default)

@@ -1,4 +1,4 @@
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainTestSplit, IterativePlan
 from ferdelance.schemas.updates import UpdateExecute
@@ -139,4 +139,4 @@ async def test_iteration(session: AsyncSession):
     assert 1 == len(await server.ar.list_artifacts())
 
     # cleanup
-    shutil.rmtree(os.path.join(get_config().storage_artifact(artifact_id)))
+    shutil.rmtree(os.path.join(config_manager.get().storage_artifact(artifact_id)))

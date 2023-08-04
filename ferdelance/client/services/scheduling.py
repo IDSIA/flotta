@@ -1,4 +1,4 @@
-from ferdelance.client.config import Config
+from ferdelance.client.state import ClientState
 from ferdelance.client.services.routes import RouteService
 from ferdelance.exceptions import InvalidAction
 from ferdelance.schemas.updates import UpdateToken, UpdateClientApp, UpdateExecute
@@ -13,8 +13,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ScheduleActionService:
-    def __init__(self, config: Config) -> None:
-        self.config: Config = config
+    def __init__(self, config: ClientState) -> None:
+        self.config: ClientState = config
         self.routes_service: RouteService = RouteService(config)
 
     def do_nothing(self) -> ActionType:

@@ -1,6 +1,6 @@
 from typing import Callable
 
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database.repositories import (
     AsyncSession,
     ArtifactRepository,
@@ -224,7 +224,7 @@ class JobManagementService(Repository):
 
             args = TaskArguments(
                 private_key=self.ss.get_server_private_key(),
-                server_url=get_config().server.server_url(),
+                server_url=config_manager.get().server.url(),
                 server_public_key=self.ss.get_server_public_key(),
                 token=token,
                 datasources=list(),

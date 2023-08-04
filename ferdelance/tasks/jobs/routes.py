@@ -1,5 +1,5 @@
 from typing import Any
-from abc import ABC, abstractclassmethod
+from abc import ABC, abstractmethod
 
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models.metrics import Metrics
@@ -15,23 +15,23 @@ LOGGER = logging.getLogger(__name__)
 
 
 class RouteService(ABC):
-    @abstractclassmethod
+    @abstractmethod
     def get_task_params(self, artifact_id: str, job_id: str) -> TaskParameters:
         raise NotImplementedError()
 
-    @abstractclassmethod
+    @abstractmethod
     def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
         raise NotImplementedError()
 
-    @abstractclassmethod
+    @abstractmethod
     def post_result(self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None):
         raise NotImplementedError()
 
-    @abstractclassmethod
+    @abstractmethod
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
         raise NotImplementedError()
 
-    @abstractclassmethod
+    @abstractmethod
     def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
         raise NotImplementedError()
 
@@ -43,14 +43,14 @@ class EncryptRouteService(RouteService):
         self,
         server_url: str,
         token: str,
-        private_key_location: str,
+        private_key: str,
         server_public_key: str,
     ) -> None:
         self.server: str = server_url
 
         self.exc: Exchange = Exchange()
+        self.exc.set_private_key(private_key)
         self.exc.set_token(token)
-        self.exc.load_key(private_key_location)
         self.exc.set_remote_key(server_public_key)
 
     def get_task_params(self, artifact_id: str, job_id: str) -> TaskParameters:

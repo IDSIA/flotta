@@ -1,4 +1,4 @@
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.database import ServerArtifact
@@ -109,7 +109,7 @@ class ArtifactRepository(Repository):
                 to or loaded from. Path is considered to be a JSON file.
         """
 
-        path = get_config().storage_artifact(artifact_id)
+        path = config_manager.get().storage_artifact(artifact_id)
         await aos.makedirs(path, exist_ok=True)
         return os.path.join(path, filename)
 

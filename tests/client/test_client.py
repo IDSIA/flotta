@@ -1,4 +1,4 @@
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.database.tables import (
     Application,
@@ -242,11 +242,11 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         assert client_version == "test"
 
         # create fake app (it's just a file)
-        os.makedirs(get_config().storage_clients_dir(), exist_ok=True)
+        os.makedirs(config_manager.get().storage_clients_dir(), exist_ok=True)
 
         version_app = "test_1.0"
         filename = "fake_client_app.json"
-        path = os.path.join(get_config().storage_clients_dir(), filename)
+        path = os.path.join(config_manager.get().storage_clients_dir(), filename)
 
         checksum = hashlib.sha256()
 

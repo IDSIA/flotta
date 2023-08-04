@@ -1,8 +1,6 @@
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.tasks.jobs import EstimationJob, AggregatingJob, TrainingJob
 
-from ray import ObjectRef
-
 import logging
 
 from ferdelance.tasks.jobs.routes import EncryptRouteService
@@ -17,10 +15,10 @@ class Backend:
     def start_aggregation(self, args: TaskArguments) -> None:
         LOGGER.info(f"artifact_id={args.artifact_id}: scheduling aggregation task with job_id={args.job_id}")
 
-        actor_handler: ObjectRef[AggregatingJob] = AggregatingJob.remote(
+        actor_handler = AggregatingJob.remote(
             args.artifact_id,
             args.job_id,
-            EncryptRouteService(args.server_url, args.token, args.private_key_location, args.server_public_key),
+            EncryptRouteService(args.server_url, args.token, args.private_key, args.server_public_key),
         )
         task_handler = actor_handler.run.remote()
 
@@ -29,10 +27,10 @@ class Backend:
     def start_training(self, args: TaskArguments) -> None:
         LOGGER.info(f"artifact_id={args.artifact_id}: scheduling training task with job_id={args.job_id}")
 
-        actor_handler: ObjectRef[TrainingJob] = TrainingJob.remote(
+        actor_handler = TrainingJob.remote(
             args.artifact_id,
             args.job_id,
-            EncryptRouteService(args.server_url, args.token, args.private_key_location, args.server_public_key),
+            EncryptRouteService(args.server_url, args.token, args.private_key, args.server_public_key),
             args.workdir,
             args.datasources,
         )
@@ -43,10 +41,10 @@ class Backend:
     def start_estimation(self, args: TaskArguments) -> None:
         LOGGER.info(f"artifact_id={args.artifact_id}: scheduling training task with job_id={args.job_id}")
 
-        actor_handler: ObjectRef[EstimationJob] = EstimationJob.remote(
+        actor_handler = EstimationJob.remote(
             args.artifact_id,
             args.job_id,
-            EncryptRouteService(args.server_url, args.token, args.private_key_location, args.server_public_key),
+            EncryptRouteService(args.server_url, args.token, args.private_key, args.server_public_key),
             args.workdir,
             args.datasources,
         )

@@ -1,4 +1,4 @@
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.component import viewClient, ComponentDB, Client
@@ -172,7 +172,7 @@ class DataSourceRepository(Repository):
                 A valid path to the directory where the datasource can be saved
                 to or loaded from. Path is considered to be a JSON file.
         """
-        path = get_config().storage_datasources(datasource_id)
+        path = config_manager.get().storage_datasources(datasource_id)
         await aos.makedirs(path, exist_ok=True)
         return os.path.join(path, "datasource.json")
 

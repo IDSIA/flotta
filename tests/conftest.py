@@ -1,6 +1,6 @@
 from typing import AsyncGenerator
 
-from ferdelance.config import get_config
+from ferdelance.config import config_manager
 from ferdelance.database import Base, DataBase
 from ferdelance.database.data import COMPONENT_TYPES
 from ferdelance.database.tables import ComponentType
@@ -17,7 +17,7 @@ import shutil
 db_file = "./tests/test_sqlite.db"
 db_path = os.path.join("./", db_file)
 
-conf = get_config()
+conf = config_manager.get()
 
 conf.database.memory = False
 conf.database.dialect = "sqlite"

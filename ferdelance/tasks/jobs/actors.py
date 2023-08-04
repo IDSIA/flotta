@@ -1,9 +1,9 @@
 from typing import Any
 
-from abc import ABC, abstractclassmethod
+from abc import ABC, abstractmethod
 
-from ferdelance.client.config import DataConfig
-from ferdelance.schemas.client import DataSourceConfig
+from ferdelance.config import DataSourceConfiguration
+from ferdelance.client.state import DataConfig
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import GenericModel
@@ -27,7 +27,7 @@ class GenericJob(ABC):
         self.artifact_id: str = artifact_id
         self.job_id: str = job_id
 
-    @abstractclassmethod
+    @abstractmethod
     def run(self):
         raise NotImplementedError()
 
@@ -43,7 +43,7 @@ class LocalJob(GenericJob):
     ) -> None:
         super().__init__(artifact_id, job_id, routes_service)
 
-        self.datasources: list[DataSourceConfig] = [DataSourceConfig(**d) for d in datasources]
+        self.datasources: list[DataSourceConfiguration] = [DataSourceConfiguration(**d) for d in datasources]
 
         self.data = DataConfig(workdir, self.datasources)
 

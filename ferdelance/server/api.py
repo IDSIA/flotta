@@ -1,4 +1,4 @@
-from ferdelance.config import Configuration, get_config
+from ferdelance.config import Configuration, config_manager
 from ferdelance.database import DataBase, Base
 from ferdelance.server.routes import (
     client_router,
@@ -25,7 +25,7 @@ def init_api() -> FastAPI:
     """
     api: FastAPI = FastAPI()
 
-    conf: Configuration = get_config()
+    conf: Configuration = config_manager.get()
 
     api.include_router(node_router)
     api.include_router(workbench_router)

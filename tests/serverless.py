@@ -1,6 +1,6 @@
 from typing import Callable
 
-from ferdelance.client.config import DataConfig
+from ferdelance.client.state import DataConfig
 from ferdelance.database.data import TYPE_USER
 from ferdelance.database.repositories import (
     ArtifactRepository,

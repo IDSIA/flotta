@@ -1,14 +1,11 @@
-from typing import Any
-from ferdelance.client.config import Config, ConfigError
-from ferdelance.client.exceptions import ErrorClient
-from ferdelance.schemas.client import ArgumentsConfig
+from ferdelance.config import config_manager, Configuration
+from ferdelance.client.state import ClientState
 
 from argparse import ArgumentParser
 
 import logging
 import os
 import sys
-import yaml
 
 LOCAL_CONFIG_FILE: str = os.path.join(".", "config.yaml")
 
@@ -21,7 +18,7 @@ class CustomArguments(ArgumentParser):
         self.exit(0, f"{self.prog}: error: {message}\n")
 
 
-def setup_config_from_arguments() -> Config:
+def setup_config_from_arguments() -> ClientState:
     """Defines the available input parameters base on command line arguments.
 
     Can raise ConfigError.
@@ -56,30 +53,6 @@ def setup_config_from_arguments() -> Config:
 
     config_path: str = args.config
 
-    if not os.path.exists(config_path):
-        LOGGER.error(f"Configuration file not found at {config_path}")
-        raise ConfigError()
+    config: Configuration = config_manager.reload(config_path)
 
-    LOGGER.info(f"Using local config file found at {config_path}")
-
-    # parse YAML config file
-    with open(config_path, "r") as f:
-        try:
-            yaml_data: dict[str, Any] = yaml.safe_load(f)
-
-            args_config: ArgumentsConfig = ArgumentsConfig(**yaml_data)
-
-            config: Config = Config(args_config)
-
-            # assign values from command line
-            if args.leave:
-                config.leave = args.leave
-
-            LOGGER.info("configuration completed")
-
-            return config
-
-        except yaml.YAMLError as e:
-            LOGGER.error(f"could not read config file {config_path}")
-            LOGGER.exception(e)
-            raise ErrorClient()
+    return ClientState(config, args.leave)

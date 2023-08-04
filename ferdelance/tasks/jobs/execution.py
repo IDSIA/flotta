@@ -1,4 +1,4 @@
-from ferdelance.client.config import DataConfig
+from ferdelance.client.state import DataConfig
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.estimators import apply_estimator
 from ferdelance.schemas.transformers import apply_transformer
