@@ -34,6 +34,8 @@ if __name__ == "__main__":
     )
     state.config.client.machine_node = str(1000000000000 + int(random.uniform(0, 1.0) * 1000000000))
 
+    state.config.dump()
+
     # def handler(signalname):
     #     def f(signal_received, frame):
     #         raise KeyboardInterrupt(f"{signalname}: stop received")
@@ -46,6 +48,10 @@ if __name__ == "__main__":
     ray.init()
 
     start_server(state.config)
-    start_client(state)
+    h = start_client(state)
+
+    ray.get(h)
+
+    ray.shutdown()
 
     LOGGER.info("standalone application terminated")

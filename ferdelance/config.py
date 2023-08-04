@@ -1,7 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, BaseSettings, validator, root_validator
-from pytimeparse import parse
+from pydantic import BaseModel, BaseSettings, root_validator
 
 from dotenv import load_dotenv
 from getmac import get_mac_address
@@ -46,14 +45,9 @@ class ServerConfiguration(BaseSettings):
     interface: str = "localhost"
     port: int = 1456
 
-    token_client_expiration: int | float | str = "90 days"
-    token_user_expiration: int | float | str = "30 days"
+    token_client_expiration: str = "90 days"
+    token_user_expiration: str = "30 days"
     token_project_default: str = ""
-
-    @validator("token_client_expiration", "token_user_expiration", pre=True)
-    @classmethod
-    def validate_expiration_time(cls, v: str) -> int | float | None:
-        return parse(v)
 
     @root_validator(pre=True)
     @classmethod
@@ -132,9 +126,6 @@ class Configuration(BaseModel):
     workdir: str = os.path.join(".", "storage")
     private_key_location: str = os.path.join(".", "private_key.pem")
 
-    standalone: bool = False
-    distributed: bool = False
-
     file_chunk_size: int = 4096
 
     @root_validator(pre=True)
@@ -166,6 +157,18 @@ class Configuration(BaseModel):
     def storage_results(self, result_id: str) -> str:
         return os.path.join(self.storage_results_dir(), result_id)
 
+    def storage_config(self) -> str:
+        return os.path.join(self.workdir, "config.yaml")
+
+    def dump(self) -> None:
+        with open(self.storage_config(), "w") as f:
+            try:
+                yaml.safe_dump(self.dict(), f)
+
+            except yaml.YAMLError as e:
+                LOGGER.error(f"could not dump config file to {self.storage_config()}")
+                LOGGER.exception(e)
+
     class Config:
         env_prefix = "ferdelance_"
 
@@ -174,10 +177,19 @@ class ConfigManager:
     def __init__(self) -> None:
         self.config: Configuration = Configuration()
 
+        if os.path.exists(self.config.storage_config()):
+            self.reload(self.config.storage_config())
+            LOGGER.info(f"Using configuration at {self.config.storage_config()}")
+
+        else:
+            LOGGER.info("Using default configuration.")
+
     def get(self) -> Configuration:
         return self.config
 
     def reload(self, path: str | None = None) -> Configuration:
+        LOGGER.info(f"Reloading configuration with path={path}")
+
         if path is None:
             config_path: str = os.environ.get("ferdelance_config_file", "")
         else:

@@ -4,6 +4,8 @@ from ferdelance.config import config_manager
 from ferdelance.database.repositories.core import Repository, AsyncSession
 from ferdelance.database.tables import Setting
 
+from pytimeparse import parse
+
 from cryptography.fernet import Fernet
 from sqlalchemy import select, update
 
@@ -16,8 +18,8 @@ KEY_USER_TOKEN_EXPIRATION = "TOKEN_USER_EXPIRATION"
 
 async def setup_settings(session: AsyncSession) -> None:
     conf = config_manager.get().server
-    CLIENT_TOKEN_EXPIRATION = conf.token_client_expiration
-    USER_TOKEN_EXPIRATION = conf.token_user_expiration
+    CLIENT_TOKEN_EXPIRATION = parse(conf.token_client_expiration)
+    USER_TOKEN_EXPIRATION = parse(conf.token_user_expiration)
 
     kvs = KeyValueStore(session)
     await kvs.put_any(KEY_CLIENT_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)

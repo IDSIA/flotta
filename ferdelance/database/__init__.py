@@ -10,7 +10,6 @@ from sqlalchemy.engine import URL
 
 import logging
 
-
 LOGGER = logging.getLogger(__name__)
 
 

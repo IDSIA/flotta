@@ -16,7 +16,6 @@ import ray
 
 import logging
 
-print("enter", __name__)
 
 LOGGER = logging.getLogger(__name__)
 
