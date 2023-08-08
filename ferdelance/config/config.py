@@ -198,7 +198,7 @@ class Configuration(BaseSettings):
 class ConfigManager:
     def __init__(self) -> None:
         # config path from cli parameters
-        config_path, _ = setup_config_from_arguments()
+        config_path, self._leave = setup_config_from_arguments()
 
         # config path from env variable
         env_path = os.environ.get("FERDELANCE_CONFIG_FILE", "")
@@ -236,6 +236,9 @@ class ConfigManager:
 
     def get(self) -> Configuration:
         return self.config
+
+    def leave(self) -> bool:
+        return self._leave
 
 
 config_manager = ConfigManager()

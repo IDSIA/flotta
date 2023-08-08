@@ -1,5 +1,5 @@
+from ferdelance.config import config_manager
 from ferdelance.client.client import start_client
-from ferdelance.config.arguments import setup_config_from_arguments
 from ferdelance.client.exceptions import ClientExitStatus
 
 import ray
@@ -28,7 +28,9 @@ if __name__ == "__main__":
     ray.init()
 
     try:
-        config, leave = setup_config_from_arguments()
+        config = config_manager.get()
+        leave = config_manager.leave()
+
         exit_code = start_client(config, leave)
 
     except ClientExitStatus as e:
