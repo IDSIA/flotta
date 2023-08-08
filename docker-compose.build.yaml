@@ -11,18 +11,10 @@ services:
       context: .
       dockerfile: docker/Dockerfile.pypirepo
 
-  # Ferdelance server
-  server:
-    container_name: server
-    image: idsia.ferdelance.server
+  # Ferdelance framework
+  ferdelance:
+    container_name: ferdelance
+    image: idsia.ferdelance
     build:
       context: .
-      dockerfile: docker/Dockerfile.server
-
-  # Ferdelance client
-  client:
-    container_name: server
-    image: idsia.ferdelance.client
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.client
+      dockerfile: docker/Dockerfile
