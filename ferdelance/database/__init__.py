@@ -9,11 +9,14 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.engine import URL
 
 import logging
+import os
 
 LOGGER = logging.getLogger(__name__)
 
 
 def db_connection_url(conf: DatabaseConfiguration, sync: bool = False) -> URL | str:
+    LOGGER.warning(os.environ.get("FERDELANCE_CONFIG_FILE"))
+
     driver: str = ""
 
     if conf.memory:

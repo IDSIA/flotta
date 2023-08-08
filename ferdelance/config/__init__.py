@@ -18,6 +18,6 @@ from .config import (
     DataSourceConfiguration,
     ConfigManager,
     config_manager,
-    LOGGING_CONFIG,
 )
 from .arguments import setup_config_from_arguments
+from .logging import LOGGING_CONFIG

@@ -15,7 +15,7 @@ logging.basicConfig(
     format="%(asctime)s %(name)8s %(levelname)6s %(message)s",
 )
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(f"{__package__}.{__name__}")
 
 
 if __name__ == "__main__":

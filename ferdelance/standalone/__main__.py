@@ -7,7 +7,7 @@ import ray
 import logging
 import random
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(f"{__package__}.{__name__}")
 
 
 if __name__ == "__main__":

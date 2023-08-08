@@ -1,12 +1,7 @@
-from .config import config_manager, Configuration
-
 from argparse import ArgumentParser
 
 import logging
-import os
 import sys
-
-LOCAL_CONFIG_FILE: str = os.path.join(".", "config.yaml")
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +12,7 @@ class CustomArguments(ArgumentParser):
         self.exit(0, f"{self.prog}: error: {message}\n")
 
 
-def setup_config_from_arguments() -> tuple[Configuration, bool]:
+def setup_config_from_arguments() -> tuple[str, bool]:
     """Defines the available input parameters base on command line arguments.
 
     Can raise ConfigError.
@@ -32,9 +27,11 @@ def setup_config_from_arguments() -> tuple[Configuration, bool]:
         Set a configuration file in YAML format to use
         Note that command line arguments take the precedence of arguments declared with a config file.
         """,
-        default=LOCAL_CONFIG_FILE,
+        default="",
         type=str,
     )
+
+    # TODO: add working directory as parameter
 
     parser.add_argument(
         "--leave",
@@ -48,10 +45,8 @@ def setup_config_from_arguments() -> tuple[Configuration, bool]:
     )
 
     # parse input arguments as a dict
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     config_path: str = args.config
 
-    config: Configuration = config_manager.reload(config_path)
-
-    return config, args.leave
+    return config_path, args.leave

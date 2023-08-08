@@ -2,7 +2,10 @@ workdir: ./storage
 private_key_location: ./storage/private_key.pem
 
 server:
-  main_password: ""
+  main_password: "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
+
+  # wait in seconds
+  healthcheck: 120
 
   protocol: http
   interface: localhost # use 0.0.0.0 in prod, 127.0.0.1 in dev
@@ -23,7 +26,7 @@ database:
 
   # sqlite (local/dev)
   dialect: sqlite
-  host: ./sqlite
+  host: ./storage/sqlite.db
 
   # postgres (prod)
   # dialect: postresql
