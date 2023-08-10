@@ -9,7 +9,6 @@ __all__ = [
     "ProjectRepository",
     "setup_settings",
     "KeyValueStore",
-    "WorkerRepository",
 ]
 
 from .core import AsyncSession, Repository
@@ -20,4 +19,3 @@ from .jobs import JobRepository
 from .result import ResultRepository
 from .projects import ProjectRepository
 from .settings import KeyValueStore, setup_settings
-from .workers import WorkerRepository

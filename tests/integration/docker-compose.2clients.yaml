@@ -32,85 +32,61 @@ services:
     ports:
      - 15432:5432
 
-  rabbitmq:
-    image: rabbitmq:3.10.25
-    container_name: rabbitmq
-    networks:
-      - ferdelance
-    command: rabbitmq-server
-
-  redis:
-    image: redis:7.0.12
-    container_name: redis
-    networks:
-      - ferdelance
-    command: redis-server
-
-  worker: 
-    image: idsia.ferdelance.server
-    container_name: worker
-    environment:
-      - WORKER_SERVER_HOST=server
-      - CELERY_BROKER_URL=amqp://rabbitmq/
-      - CELERY_BACKEND_URL=redis://redis/
-    networks:
-      - ferdelance
-    command: --target worker
-    depends_on:
-      - redis
-      - rabbitmq
-
   server: 
-    image: idsia.ferdelance.server
+    image: idsia.ferdelance
     container_name: server
     environment:
-      - DB_HOST=database
-      - DB_USER=${DATABASE_USER?Missing DATABASE_USER for server}
-      - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for server}
-      - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
-      - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
-      - PROJECT_DEFAULT_TOKEN=${PROJECT_ID}
-      - CELERY_BROKER_URL=amqp://rabbitmq/
-      - CELERY_BACKEND_URL=redis://redis/
+      - FERDELANCE_DATABASE_HOST=database
+      - FERDELANCE_DATABASE_PORT=5432
+      - FERDELANCE_DATABASE_USERNAME=${DATABASE_USER?Missing DATABASE_USER for server}
+      - FERDELANCE_DATABASE_PASSWORD=${DATABASE_PASS?Missing DATABASE_PASS for server}
+      - FERDELANCE_DATABASE_SCHEME=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
+      - FERDELANCE_SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
+      - FERDELANCE_SERVER_TOKEN_PROJECT_DEFAULT=${PROJECT_ID}
+      - FERDELANCE_SERVER_healthcheck=3600
     volumes:
       - server-data:/ferdelance/storage
+      - /dev/shm:/dev/shm
     networks:
       - ferdelance
     ports:
-     - 1456:1456
+      - 1456:1456
     command: --target server
     depends_on:
       - database
-      - worker
       - repository
 
   client1:
-    image: idsia.ferdelance.client
+    image: idsia.ferdelance
     container_name: client1
     environment:
-      - SERVER=http://server:1456
+      - FERDELANCE_SERVER_HOST=server
       - REPOSITORY_HOST=repository
     volumes: 
-      - client-1-data:/ferdelance/workdir
+      - client-1-data:/ferdelance/storage
       - ./conf/config.1.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
+      - /dev/shm:/dev/shm
     networks:
       - ferdelance
+    command: --target client -c /ferdelance/config.yaml
     depends_on:
       - server
 
   client2:
-    image: idsia.ferdelance.client
+    image: idsia.ferdelance
     container_name: client2
     environment:
-      - SERVER=http://server:1456
+      - FERDELANCE_SERVER_HOST=server
       - REPOSITORY_HOST=repository
     volumes: 
-      - client-2-data:/ferdelance/workdir
+      - client-2-data:/ferdelance/storage
       - ./conf/config.2.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
+      - /dev/shm:/dev/shm
     networks:
       - ferdelance
+    command: --target client -c /ferdelance/config.yaml
     depends_on:
       - server
 

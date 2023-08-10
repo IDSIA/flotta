@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.tokens import TokenRepository
 from ferdelance.database.repositories.datasource import DataSourceRepository
@@ -16,10 +17,9 @@ from ferdelance.schemas.project import (
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-import logging
 import uuid
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def simpleView(project: ProjectDB) -> BaseProject:

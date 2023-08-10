@@ -1,23 +1,23 @@
-from ferdelance.client.config import DataConfig
+from ferdelance.config import get_logger
+from ferdelance.client.state import DataConfig
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.estimators import apply_estimator
 from ferdelance.schemas.transformers import apply_transformer
-from ferdelance.schemas.worker import TaskExecutionParameters, ExecutionResult
+from ferdelance.schemas.tasks import TaskParameters, ExecutionResult
 
 import pandas as pd
 
 import json
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:
     if not artifact.id:
         raise ValueError("Invalid Artifact")
 
-    LOGGER.info(f"artifact.id={artifact.id}: received new task with job_id={job_id}")
+    LOGGER.info(f"artifact_id={artifact.id}: received new task with job_id={job_id}")
 
     # TODO: this should include iteration!
     working_folder = os.path.join(data.path_artifacts_folder(), f"{artifact.id}", f"{job_id}")
@@ -29,24 +29,26 @@ def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:
     with open(path_artifact, "w") as f:
         json.dump(artifact.dict(), f)
 
-    LOGGER.info(f"artifact.id={artifact.id}: saved to {path_artifact}")
+    LOGGER.info(f"artifact_id={artifact.id}: saved to {path_artifact}")
 
     return working_folder
 
 
 def apply_transform(
     artifact: Artifact,
-    task: TaskExecutionParameters,
+    task: TaskParameters,
     data: DataConfig,
     working_folder: str,
 ) -> pd.DataFrame:
     dfs: list[pd.DataFrame] = []
 
-    LOGGER.debug(f"artifact.id={artifact.id}: number of transformation queries={len(task.datasource_hashes)}")
+    datasource_hashes: list[str] = task.content_ids
 
-    for ds_hash in task.datasource_hashes:
+    LOGGER.debug(f"artifact_id={artifact.id}: number of transformation queries={len(datasource_hashes)}")
+
+    for ds_hash in datasource_hashes:
         # EXTRACT data from datasource
-        LOGGER.info(f"artifact.id={artifact.id}: execute extraction from datasource_hash={ds_hash}")
+        LOGGER.info(f"artifact_id={artifact.id}: execute extraction from datasource_hash={ds_hash}")
 
         ds = data.datasources.get(ds_hash, None)
         if not ds:
@@ -55,7 +57,7 @@ def apply_transform(
         datasource: pd.DataFrame = ds.get()  # TODO: implemented only for files
 
         # TRANSFORM using query
-        LOGGER.info(f"artifact.id={artifact.id}: execute transformation on datasource_hash={ds_hash}")
+        LOGGER.info(f"artifact_id={artifact.id}: execute transformation on datasource_hash={ds_hash}")
 
         df = datasource.copy()
 
@@ -69,18 +71,18 @@ def apply_transform(
 
     df_dataset = pd.concat(dfs)
 
-    LOGGER.info(f"artifact.id={artifact.id}:dataset shape: {df_dataset.shape}")
+    LOGGER.info(f"artifact_id={artifact.id}: dataset shape: {df_dataset.shape}")
 
     path_datasource = os.path.join(working_folder, "dataset.csv.gz")
 
     df_dataset.to_csv(path_datasource, compression="gzip")
 
-    LOGGER.info(f"artifact.id={artifact.id}: saved data to {path_datasource}")
+    LOGGER.info(f"artifact_id={artifact.id}: saved data to {path_datasource}")
 
     return df_dataset
 
 
-def run_training(data: DataConfig, task: TaskExecutionParameters) -> ExecutionResult:
+def run_training(data: DataConfig, task: TaskParameters) -> ExecutionResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
 
@@ -91,7 +93,7 @@ def run_training(data: DataConfig, task: TaskExecutionParameters) -> ExecutionRe
     if artifact.model is not None and artifact.plan is None:
         raise ValueError("Invalid artifact training")  # TODO: manage this!
 
-    LOGGER.info(f"artifact.id={artifact.id}: executing model training")
+    LOGGER.info(f"artifact_id={artifact.id}: executing model training")
 
     # model preparation
     local_model = artifact.get_model()
@@ -112,7 +114,7 @@ def run_training(data: DataConfig, task: TaskExecutionParameters) -> ExecutionRe
     )
 
 
-def run_estimate(data: DataConfig, task: TaskExecutionParameters) -> ExecutionResult:
+def run_estimate(data: DataConfig, task: TaskParameters) -> ExecutionResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
     artifact.id = artifact.id
@@ -124,7 +126,7 @@ def run_estimate(data: DataConfig, task: TaskExecutionParameters) -> ExecutionRe
     if artifact.estimator is None:
         raise ValueError("Artifact is not an estimation!")  # TODO: manage this!
 
-    LOGGER.info(f"artifact.id={artifact.id}: executing estimation")
+    LOGGER.info(f"artifact_id={artifact.id}: executing estimation")
 
     path_estimator = apply_estimator(artifact.estimator, df_dataset, working_folder, artifact.id)
 

@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.database.data import TYPE_USER
 from ferdelance.database.repositories import (
@@ -21,10 +22,9 @@ from ferdelance.server.services import JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class WorkbenchConnectService:
@@ -62,7 +62,7 @@ class WorkbenchConnectService:
 
         except NoResultFound:
             # creating new user
-            user, token = await cr.create_component(TYPE_USER, public_key=user_public_key)
+            user, token = await cr.create_component(TYPE_USER, user_public_key, f"workbench-{user_public_key[10:27]}")
 
             LOGGER.info(f"user_id={user.id}: created new user")
 
@@ -188,7 +188,8 @@ class WorkbenchService:
             raise ValueError(f"partial result_id={result.id} not found at path={result.path}")
 
         LOGGER.info(
-            f"user_id={self.component.id}: downloaded partial result for artifact_id={artifact_id} and builder_user_id={builder_user_id}"
+            f"user_id={self.component.id}: downloaded partial result for artifact_id={artifact_id} "
+            f"and builder_user_id={builder_user_id}"
         )
 
         return result

@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.tables import Job as JobDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.jobs import Job
@@ -9,9 +10,8 @@ from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from datetime import datetime
 from uuid import uuid4
 
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def view(job: JobDB) -> Job:
@@ -73,7 +73,9 @@ class JobRepository(Repository):
             Job:
                 An handler to the scheduled job.
         """
-        LOGGER.info(f"component_id={component_id}: scheduled new job for artifact_id={artifact_id}")
+        LOGGER.info(
+            f"component_id={component_id}: scheduling new job for artifact_id={artifact_id} iteration={iteration}"
+        )
 
         # TODO: what happen if we submit again the same artifact?
 
@@ -146,28 +148,6 @@ class JobRepository(Repository):
                 f"Job in status SCHEDULED not found for job_id={job_id} "
                 f"artifact_id={artifact_id} component_id={component_id}"
             )
-
-    async def set_celery_id(self, job: Job, celery_id: str) -> Job:
-        artifact_id = job.artifact_id
-        component_id = job.component_id
-        try:
-            res = await self.session.scalars(select(JobDB).where(JobDB.id == job.id))
-            job_db: JobDB = res.one()
-
-            job_db.celery_id = celery_id
-
-            await self.session.commit()
-            await self.session.refresh(job_db)
-
-            return view(job_db)
-
-        except NoResultFound:
-            LOGGER.error(f"Could not set task_id to a job with artifact_id={artifact_id} component_id={component_id}")
-            raise ValueError(f"Job not found for artifact_id={artifact_id} component_id={component_id}")
-
-        except MultipleResultsFound:
-            LOGGER.error(f"Multiple jobs have been started for artifact_id={artifact_id} component_id={component_id}")
-            raise ValueError(f"Multiple job found for artifact_id={artifact_id} component_id={component_id}")
 
     async def mark_completed(self, job_id: str, component_id: str) -> Job:
         """Changes the state of a job to JobStatus.COMPLETED. The job is identified

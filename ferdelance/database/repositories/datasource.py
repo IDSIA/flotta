@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.component import viewClient, ComponentDB, Client
@@ -14,10 +14,9 @@ from uuid import uuid4
 import aiofiles
 import aiofiles.os as aos
 import json
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def view(datasource: DataSourceDB, features: list[Feature]) -> DataSource:
@@ -172,7 +171,7 @@ class DataSourceRepository(Repository):
                 A valid path to the directory where the datasource can be saved
                 to or loaded from. Path is considered to be a JSON file.
         """
-        path = conf.storage_dir_datasources(datasource_id)
+        path = config_manager.get().storage_datasources(datasource_id)
         await aos.makedirs(path, exist_ok=True)
         return os.path.join(path, "datasource.json")
 
@@ -224,7 +223,7 @@ class DataSourceRepository(Repository):
                 content = await f.read()
                 return DataSource(**json.loads(content))
 
-        except NoResultFound as _:
+        except NoResultFound:
             raise ValueError(f"datasource_id={datasource_id} not found")
 
     async def remove(self, datasource_id: str) -> None:
@@ -334,7 +333,7 @@ class DataSourceRepository(Repository):
         res = await self.session.scalars(
             select(DataSourceDB).where(
                 DataSourceDB.id == datasource_id,
-                DataSourceDB.removed == False,
+                DataSourceDB.removed == False,  # noqa: E712
             )
         )
         ds = res.one()
@@ -361,7 +360,7 @@ class DataSourceRepository(Repository):
             .join(DataSourceDB, ComponentDB.id == DataSourceDB.component_id)
             .where(
                 DataSourceDB.id == datasource_id,
-                DataSourceDB.removed == False,
+                DataSourceDB.removed == False,  # noqa: E712
             )
         )
         return viewClient(res.one())

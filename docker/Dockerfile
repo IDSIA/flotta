@@ -17,7 +17,7 @@ RUN python -m pip install --upgrade pip
 COPY . /ferdelance
 
 RUN --mount=type=cache,target=/root/.cache \
-    pip install "/ferdelance[server]"
+    pip install "/ferdelance"
 
 # Installation stage ----------------------------------------------------------
 FROM python:3.10-slim-buster AS base
@@ -39,10 +39,10 @@ RUN mkdir -p \
     /ferdelance/storage/clients \ 
     /ferdelance/storage/results
 
-COPY --chown=ferdelance ./script/server.sh .
+COPY --chown=ferdelance ./script/init.sh .
 
-RUN chmod +x ./server.sh
+RUN chmod +x ./init.sh
 
 EXPOSE 1456
 
-ENTRYPOINT ["/bin/bash", "server.sh"]
+ENTRYPOINT ["/bin/bash", "init.sh"]

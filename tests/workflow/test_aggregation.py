@@ -1,6 +1,7 @@
 from typing import Any
 
-from ferdelance.client.config import DataConfig, DataSourceConfig
+from ferdelance.config import DataSourceConfiguration
+from ferdelance.client.state import DataConfig
 from ferdelance.database import AsyncSession
 from ferdelance.schemas.updates import UpdateNothing
 
@@ -12,7 +13,7 @@ from ferdelance.schemas.models import (
     ParametersRandomForestClassifier,
 )
 from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.schemas.worker import TaskArguments
+from ferdelance.schemas.tasks import TaskArguments
 
 from tests.serverless import ServerlessExecution
 from tests.utils import TEST_PROJECT_TOKEN
@@ -22,9 +23,8 @@ import pickle
 import pytest
 
 
-def aggregation_job(args: TaskArguments) -> str:
+def aggregation_job(args: TaskArguments) -> None:
     print(f"artifact_id={args.artifact_id}: aggregation start for job_id={args.job_id}")
-    return ""
 
 
 @pytest.mark.asyncio
@@ -36,9 +36,9 @@ async def test_aggregation(session: AsyncSession):
     assert os.path.exists(DATA_PATH_2)
 
     data1 = DataConfig(
-        "./workdir",
+        "./storage/data",
         [
-            DataSourceConfig(
+            DataSourceConfiguration(
                 name="california1",
                 kind="file",
                 type="csv",
@@ -48,9 +48,9 @@ async def test_aggregation(session: AsyncSession):
         ],
     )
     data2 = DataConfig(
-        "./workdir",
+        "./storage/data",
         [
-            DataSourceConfig(
+            DataSourceConfiguration(
                 name="california2",
                 kind="file",
                 type="csv",
@@ -120,7 +120,7 @@ async def test_aggregation(session: AsyncSession):
     agg: GenericModel = artifact.get_model()
     strategy: str = artifact.get_strategy()
 
-    for result_id in worker_task.result_ids:
+    for result_id in worker_task.content_ids:
         result = await server.worker_service.get_result(result_id)
 
         with open(result.path, "rb") as f:

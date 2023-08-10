@@ -1,13 +1,14 @@
 from typing import Callable
 
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.repositories import (
     AsyncSession,
     ArtifactRepository,
+    ComponentRepository,
     DataSourceRepository,
     JobRepository,
-    ResultRepository,
-    ComponentRepository,
     ProjectRepository,
+    ResultRepository,
     Repository,
 )
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
@@ -16,19 +17,19 @@ from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.database import ServerArtifact, Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.worker import TaskExecutionParameters, TaskAggregationParameters, TaskArguments
+from ferdelance.schemas.tasks import TaskParameters, TaskArguments
 from ferdelance.server.exceptions import ArtifactDoesNotExists
+from ferdelance.server.services import SecurityService
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
-from ferdelance.worker.backends import get_jobs_backend
+from ferdelance.tasks.backends import get_jobs_backend
 
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
 import aiofiles
 import json
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class JobManagementService(Repository):
@@ -39,6 +40,7 @@ class JobManagementService(Repository):
         self.cr: ComponentRepository = ComponentRepository(session)
         self.dsr: DataSourceRepository = DataSourceRepository(session)
         self.jr: JobRepository = JobRepository(session)
+        self.ss: SecurityService = SecurityService(session)
         self.pr: ProjectRepository = ProjectRepository(session)
         self.rr: ResultRepository = ResultRepository(session)
 
@@ -80,7 +82,7 @@ class JobManagementService(Repository):
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
 
-        LOGGER.info(f"artifact_id={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration #{artifact}")
+        LOGGER.info(f"artifact_id={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration #{iteration}")
 
         for datasource_id in datasources_ids:
             client: Client = await self.dsr.get_client_by_datasource_id(datasource_id)
@@ -93,7 +95,7 @@ class JobManagementService(Repository):
                 iteration=iteration,
             )
 
-    async def client_task_start(self, job_id: str, client_id: str) -> TaskExecutionParameters:
+    async def client_task_start(self, job_id: str, client_id: str) -> TaskParameters:
         try:
             job = await self.jr.get_by_id(job_id)
             artifact_id = job.artifact_id
@@ -136,7 +138,7 @@ class JobManagementService(Repository):
 
             await self.jr.start_execution(job)
 
-            return TaskExecutionParameters(artifact=artifact, job_id=job.id, datasource_hashes=hashes)
+            return TaskParameters(artifact=artifact, job_id=job.id, content_ids=hashes)
 
         except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
@@ -194,11 +196,11 @@ class JobManagementService(Repository):
         job = await self._start_aggregation(result, backend.start_aggregation)
         return job
 
-    async def _start_aggregation(self, result: Result, start_function: Callable[[TaskArguments], str]) -> Job:
+    async def _start_aggregation(self, result: Result, start_function: Callable[[TaskArguments], None]) -> Job:
         artifact_id = result.artifact_id
 
         try:
-            token = await self.cr.get_token_for_workers()
+            token = await self.cr.get_token_for_self()
 
             if token is None:
                 raise ValueError("No worker available")
@@ -217,10 +219,12 @@ class JobManagementService(Repository):
                 iteration=artifact.iteration,
             )
 
+            await self.ss.setup()
+
             args = TaskArguments(
-                private_key_location="",  # TODO: fix these?
-                server_url="",
-                server_public_key="",
+                private_key=self.ss.get_server_private_key(),
+                server_url=config_manager.get().server.url(),
+                server_public_key=self.ss.get_server_public_key(),
                 token=token,
                 datasources=list(),
                 workdir=".",
@@ -228,12 +232,9 @@ class JobManagementService(Repository):
                 artifact_id=artifact_id,
             )
 
-            task_id: str = start_function(args)
+            start_function(args)
 
             await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
-            await self.jr.set_celery_id(job, task_id)
-
-            LOGGER.info(f"artifact_id={artifact_id}: assigned celery_id={task_id} to job_id={job.id}")
 
             return job
 
@@ -253,7 +254,7 @@ class JobManagementService(Repository):
             LOGGER.exception(e)
             raise e
 
-    async def worker_task_start(self, job_id: str, client_id: str) -> TaskAggregationParameters:
+    async def worker_task_start(self, job_id: str, client_id: str) -> TaskParameters:
         try:
             job = await self.jr.get_by_id(job_id)
             artifact_id = job.artifact_id
@@ -271,10 +272,10 @@ class JobManagementService(Repository):
 
             results: list[Result] = await self.rr.list_results_by_artifact_id(artifact_id, artifact_db.iteration)
 
-            return TaskAggregationParameters(
+            return TaskParameters(
                 artifact=artifact,
                 job_id=job_id,
-                result_ids=[r.id for r in results],
+                content_ids=[r.id for r in results],
             )
 
         except NoResultFound:

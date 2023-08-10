@@ -1,8 +1,8 @@
-from ferdelance.config import conf
+from ferdelance.config import config_manager, get_logger
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainTestSplit, IterativePlan
 from ferdelance.schemas.updates import UpdateExecute
-from ferdelance.schemas.worker import TaskArguments
+from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.workbench.interface import Artifact
 
 from tests.utils import TEST_PROJECT_TOKEN, get_metadata
@@ -10,21 +10,17 @@ from tests.serverless import ServerlessExecution
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
 import os
 import pytest
 import shutil
-import time
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
-def start_function(args: TaskArguments) -> str:
+def start_function(args: TaskArguments) -> None:
     """Pseudo function to simulate the start of an aggregation job."""
 
     LOGGER.info(f"artifact_id={args.artifact_id}: new aggregation job_id={args.job_id} with token={args.token}")
-
-    return f"task-worker-{time.time()}"
 
 
 async def assert_count_it(sse: ServerlessExecution, artifact_id: str, exp_iteration: int, exp_jobs: int) -> None:
@@ -80,7 +76,7 @@ async def test_iteration(session: AsyncSession):
 
     assert isinstance(next_action, UpdateExecute)
 
-    task = await client.get_client_task(next_action)
+    task = await client.get_client_task(next_action.job_id)
 
     """...simulate client work..."""
 
@@ -114,7 +110,7 @@ async def test_iteration(session: AsyncSession):
 
     assert isinstance(next_action, UpdateExecute)
 
-    task = await client.get_client_task(next_action)
+    task = await client.get_client_task(next_action.job_id)
 
     """...simulate client work..."""
 
@@ -142,4 +138,4 @@ async def test_iteration(session: AsyncSession):
     assert 1 == len(await server.ar.list_artifacts())
 
     # cleanup
-    shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
+    shutil.rmtree(os.path.join(config_manager.get().storage_artifact(artifact_id)))

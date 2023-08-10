@@ -1,5 +1,6 @@
 from typing import Any
 
+from ferdelance.config import get_logger
 from ferdelance.database.repositories import (
     AsyncSession,
     ComponentRepository,
@@ -17,9 +18,7 @@ from ferdelance.schemas.updates import (
 
 from sqlalchemy.exc import NoResultFound
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class ActionService:

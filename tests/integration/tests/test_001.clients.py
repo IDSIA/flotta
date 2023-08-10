@@ -20,6 +20,8 @@ if __name__ == "__main__":
 
     project = ctx.project(project_id)
 
+    print(project)
+
     if project.n_clients != 2:
         print("Invalid number of clients, expected 2 found", project.n_clients)
         sys.exit(-1)

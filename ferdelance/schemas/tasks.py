@@ -7,7 +7,9 @@ from ferdelance.schemas.models.metrics import Metrics
 
 
 class TaskArguments(BaseModel):
-    private_key_location: str
+    """Used to launch a new task"""
+
+    private_key: str
     server_url: str
     server_public_key: str
     token: str
@@ -17,16 +19,19 @@ class TaskArguments(BaseModel):
     artifact_id: str
 
 
-class TaskExecutionParameters(BaseModel):
-    artifact: Artifact
+class TaskParametersRequest(BaseModel):
+    """Sent to a get_task_param request."""
+
+    artifact_id: str
     job_id: str
-    datasource_hashes: list[str]
 
 
-class TaskAggregationParameters(BaseModel):
+class TaskParameters(BaseModel):
+    """Returned to a get_task_params request."""
+
     artifact: Artifact
     job_id: str
-    result_ids: list[str]
+    content_ids: list[str]
 
 
 class ExecutionResult(BaseModel):

@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import config_manager
 from ferdelance.schemas.database import Result
 from ferdelance.database.tables import Result as ResultDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
@@ -44,7 +44,7 @@ class ResultRepository(Repository):
             str:
                 A valid path to the directory where a result can be saved to or loaded from.
         """
-        out_dir = os.path.join(conf.STORAGE_ARTIFACTS, artifact_id, str(iteration))
+        out_dir = config_manager.get().storage_artifact(artifact_id, iteration)
         os.makedirs(out_dir, exist_ok=True)
         return out_dir
 

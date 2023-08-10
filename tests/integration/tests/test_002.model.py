@@ -71,7 +71,7 @@ if __name__ == "__main__":
     last_state = ""
 
     start_time = time.time()
-    max_wait, wait_time = 15, 2  # equals to 30s
+    max_wait, wait_time = 60, 10
 
     while (status := ctx.status(a)).status != "COMPLETED":
         if status.status == last_state:

@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.database.tables import (
     Application,
@@ -35,12 +35,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import hashlib
 import json
-import logging
 import os
 import pytest
 import uuid
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio
@@ -242,11 +241,11 @@ async def test_client_update_app(session: AsyncSession, exchange: Exchange):
         assert client_version == "test"
 
         # create fake app (it's just a file)
-        os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
+        os.makedirs(config_manager.get().storage_clients_dir(), exist_ok=True)
 
         version_app = "test_1.0"
         filename = "fake_client_app.json"
-        path = os.path.join(conf.STORAGE_CLIENTS, filename)
+        path = os.path.join(config_manager.get().storage_clients_dir(), filename)
 
         checksum = hashlib.sha256()
 
@@ -363,11 +362,18 @@ async def test_client_access(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 200
 
         res = client.get(
-            "/worker/task/none",
+            "/task/",
             headers=exchange.headers(),
         )
 
-        assert res.status_code == 403
+        assert res.status_code == 200
+
+        res = client.get(
+            "/task/",
+            headers=exchange.headers(),
+        )
+
+        assert res.status_code == 200
 
         res = client.get(
             "/workbench/clients",

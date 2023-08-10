@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.repositories import Repository, AsyncSession
 from ferdelance.database.repositories.settings import KeyValueStore
 from ferdelance.shared.exchange import Exchange
@@ -9,9 +10,8 @@ from fastapi.responses import StreamingResponse, Response
 from typing import Any, Iterator
 
 import aiofiles
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 MAIN_KEY = "SERVER_MAIN_PASSWORD"
@@ -26,11 +26,13 @@ class SecurityService(Repository):
         self.kvs: KeyValueStore = KeyValueStore(db)
         self.exc: Exchange = Exchange()
 
-    async def setup(self, remote_key_str: str) -> None:
-        remote_key_bytes = remote_key_str.encode("utf8")
+    async def setup(self, remote_key_str: str | None = None) -> None:
         private_bytes: bytes = await self.kvs.get_bytes(PRIVATE_KEY)
         self.exc.set_key_bytes(private_bytes)
-        self.exc.set_remote_key_bytes(remote_key_bytes)
+
+        if remote_key_str is not None:
+            remote_key_bytes = remote_key_str.encode("utf8")
+            self.exc.set_remote_key_bytes(remote_key_bytes)
 
     def get_server_public_key(self) -> str:
         """
@@ -38,6 +40,13 @@ class SecurityService(Repository):
             The server public key in string format.
         """
         return self.exc.transfer_public_key()
+
+    def get_server_private_key(self) -> str:
+        """
+        :return:
+            The server private key in string format.
+        """
+        return self.exc.transfer_private_key()
 
     def encrypt(self, content: str) -> str:
         return self.exc.encrypt(content)

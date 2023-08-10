@@ -1,4 +1,5 @@
-from ferdelance.client.config import Config
+from ferdelance.config import get_logger
+from ferdelance.client.state import ClientState
 from ferdelance.client.exceptions import ErrorClient
 from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange
@@ -10,17 +11,16 @@ from requests import Session, get, post
 from requests.adapters import HTTPAdapter, Retry
 
 import json
-import logging
 import os
 import shutil
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class RouteService:
-    def __init__(self, config: Config) -> None:
-        self.config: Config = config
+    def __init__(self, config: ClientState) -> None:
+        self.config: ClientState = config
         self.exc: Exchange = Exchange()
 
         if self.config.private_key_location is not None:
