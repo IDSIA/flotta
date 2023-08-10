@@ -62,7 +62,7 @@ class EncryptRouteService(RouteService):
         )
 
         res = requests.get(
-            f"{self.server}/task/exec",
+            f"{self.server}/task/params",
             headers=self.exc.headers(),
             data=self.exc.create_payload(task.dict()),
         )
@@ -72,7 +72,7 @@ class EncryptRouteService(RouteService):
         return TaskParameters(**self.exc.get_payload(res.content))
 
     def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
-        LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: requesting partial result_id={result_id}")
+        LOGGER.info(f"artifact_id={artifact_id}: requesting partial result_id={result_id} for job_id={job_id}")
 
         with requests.get(
             f"{self.server}/task/result/{result_id}",
@@ -86,7 +86,7 @@ class EncryptRouteService(RouteService):
         return pickle.loads(content)
 
     def post_result(self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None):
-        LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: posting result")
+        LOGGER.info(f"artifact_id={artifact_id}: posting result for job_id={job_id}")
 
         if path_in is not None:
             path_out = f"{path_in}.enc"
@@ -121,7 +121,7 @@ class EncryptRouteService(RouteService):
         LOGGER.info(f"artifact_id={artifact_id}: result from source={path_in} for job_id={job_id} upload successful")
 
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
-        LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: posting metrics")
+        LOGGER.info(f"artifact_id={artifact_id}: posting metrics for job_id={job_id}")
         res = requests.post(
             f"{self.server}/task/metrics",
             headers=self.exc.headers(),
@@ -131,8 +131,8 @@ class EncryptRouteService(RouteService):
         res.raise_for_status()
 
         LOGGER.info(
-            f"job_id={metrics.job_id}: "
-            f"metrics for artifact_id={metrics.artifact_id} from source={metrics.source} upload successful"
+            f"artifact_id={metrics.artifact_id}: "
+            f"metrics for job_id={metrics.job_id} from source={metrics.source} upload successful"
         )
 
     def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:

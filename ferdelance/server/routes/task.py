@@ -216,6 +216,6 @@ async def post_error(
 
         return {}
     except Exception as e:
-        LOGGER.error(f"component_id={component.id}: could not save result to disk for job_id={error.job_id}")
+        LOGGER.error(f"component_id={component.id}: could not save error to disk for job_id={error.job_id}")
         LOGGER.exception(e)
         return HTTPException(500)

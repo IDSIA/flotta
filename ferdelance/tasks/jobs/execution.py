@@ -17,7 +17,7 @@ def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:
     if not artifact.id:
         raise ValueError("Invalid Artifact")
 
-    LOGGER.info(f"artifact.id={artifact.id}: received new task with job_id={job_id}")
+    LOGGER.info(f"artifact_id={artifact.id}: received new task with job_id={job_id}")
 
     # TODO: this should include iteration!
     working_folder = os.path.join(data.path_artifacts_folder(), f"{artifact.id}", f"{job_id}")
@@ -29,7 +29,7 @@ def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:
     with open(path_artifact, "w") as f:
         json.dump(artifact.dict(), f)
 
-    LOGGER.info(f"artifact.id={artifact.id}: saved to {path_artifact}")
+    LOGGER.info(f"artifact_id={artifact.id}: saved to {path_artifact}")
 
     return working_folder
 
@@ -44,11 +44,11 @@ def apply_transform(
 
     datasource_hashes: list[str] = task.content_ids
 
-    LOGGER.debug(f"artifact.id={artifact.id}: number of transformation queries={len(datasource_hashes)}")
+    LOGGER.debug(f"artifact_id={artifact.id}: number of transformation queries={len(datasource_hashes)}")
 
     for ds_hash in datasource_hashes:
         # EXTRACT data from datasource
-        LOGGER.info(f"artifact.id={artifact.id}: execute extraction from datasource_hash={ds_hash}")
+        LOGGER.info(f"artifact_id={artifact.id}: execute extraction from datasource_hash={ds_hash}")
 
         ds = data.datasources.get(ds_hash, None)
         if not ds:
@@ -57,7 +57,7 @@ def apply_transform(
         datasource: pd.DataFrame = ds.get()  # TODO: implemented only for files
 
         # TRANSFORM using query
-        LOGGER.info(f"artifact.id={artifact.id}: execute transformation on datasource_hash={ds_hash}")
+        LOGGER.info(f"artifact_id={artifact.id}: execute transformation on datasource_hash={ds_hash}")
 
         df = datasource.copy()
 
@@ -71,13 +71,13 @@ def apply_transform(
 
     df_dataset = pd.concat(dfs)
 
-    LOGGER.info(f"artifact.id={artifact.id}:dataset shape: {df_dataset.shape}")
+    LOGGER.info(f"artifact_id={artifact.id}: dataset shape: {df_dataset.shape}")
 
     path_datasource = os.path.join(working_folder, "dataset.csv.gz")
 
     df_dataset.to_csv(path_datasource, compression="gzip")
 
-    LOGGER.info(f"artifact.id={artifact.id}: saved data to {path_datasource}")
+    LOGGER.info(f"artifact_id={artifact.id}: saved data to {path_datasource}")
 
     return df_dataset
 
@@ -93,7 +93,7 @@ def run_training(data: DataConfig, task: TaskParameters) -> ExecutionResult:
     if artifact.model is not None and artifact.plan is None:
         raise ValueError("Invalid artifact training")  # TODO: manage this!
 
-    LOGGER.info(f"artifact.id={artifact.id}: executing model training")
+    LOGGER.info(f"artifact_id={artifact.id}: executing model training")
 
     # model preparation
     local_model = artifact.get_model()
@@ -126,7 +126,7 @@ def run_estimate(data: DataConfig, task: TaskParameters) -> ExecutionResult:
     if artifact.estimator is None:
         raise ValueError("Artifact is not an estimation!")  # TODO: manage this!
 
-    LOGGER.info(f"artifact.id={artifact.id}: executing estimation")
+    LOGGER.info(f"artifact_id={artifact.id}: executing estimation")
 
     path_estimator = apply_estimator(artifact.estimator, df_dataset, working_folder, artifact.id)
 

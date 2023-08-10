@@ -28,10 +28,13 @@ def init_api() -> FastAPI:
     api.include_router(node_router)
     api.include_router(workbench_router)
     api.include_router(task_router)
+    LOGGER.info("Added routers for /node /workbench /task")
 
     if conf.mode == "distributed":
+        LOGGER.info("Added router for /server")
         api.include_router(server_router)
     else:
+        LOGGER.info("Added router for /client")
         api.include_router(client_router)
 
     return api

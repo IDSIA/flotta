@@ -73,7 +73,9 @@ class JobRepository(Repository):
             Job:
                 An handler to the scheduled job.
         """
-        LOGGER.info(f"component_id={component_id}: scheduled new job for artifact_id={artifact_id}")
+        LOGGER.info(
+            f"component_id={component_id}: scheduling new job for artifact_id={artifact_id} iteration={iteration}"
+        )
 
         # TODO: what happen if we submit again the same artifact?
 

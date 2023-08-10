@@ -1,7 +1,6 @@
 from ferdelance.config import get_logger
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.tasks.jobs import EstimationJob, AggregatingJob, TrainingJob
-from ferdelance.tasks.jobs.routes import EncryptRouteService
 
 LOGGER = get_logger(__name__)
 
@@ -16,9 +15,12 @@ class Backend:
         actor_handler = AggregatingJob.remote(
             args.artifact_id,
             args.job_id,
-            EncryptRouteService(args.server_url, args.token, args.private_key, args.server_public_key),
+            args.server_url,
+            args.token,
+            args.private_key,
+            args.server_public_key,
         )
-        task_handler = actor_handler.run.remote()
+        task_handler = actor_handler.run.remote()  # type: ignore
 
         LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")
 
@@ -28,11 +30,14 @@ class Backend:
         actor_handler = TrainingJob.remote(
             args.artifact_id,
             args.job_id,
-            EncryptRouteService(args.server_url, args.token, args.private_key, args.server_public_key),
+            args.server_url,
+            args.token,
+            args.private_key,
+            args.server_public_key,
             args.workdir,
             args.datasources,
         )
-        task_handler = actor_handler.run.remote()
+        task_handler = actor_handler.run.remote()  # type: ignore
 
         LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")
 
@@ -42,10 +47,13 @@ class Backend:
         actor_handler = EstimationJob.remote(
             args.artifact_id,
             args.job_id,
-            EncryptRouteService(args.server_url, args.token, args.private_key, args.server_public_key),
+            args.server_url,
+            args.token,
+            args.private_key,
+            args.server_public_key,
             args.workdir,
             args.datasources,
         )
-        task_handler = actor_handler.run.remote()
+        task_handler = actor_handler.run.remote()  # type: ignore
 
         LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")

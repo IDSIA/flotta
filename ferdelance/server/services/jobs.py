@@ -82,7 +82,7 @@ class JobManagementService(Repository):
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
 
-        LOGGER.info(f"artifact_id={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration #{artifact}")
+        LOGGER.info(f"artifact_id={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration #{iteration}")
 
         for datasource_id in datasources_ids:
             client: Client = await self.dsr.get_client_by_datasource_id(datasource_id)

@@ -10,7 +10,7 @@ from ferdelance.schemas.models import GenericModel
 from ferdelance.schemas.estimators import GenericEstimator
 from ferdelance.schemas.tasks import ExecutionResult
 from ferdelance.tasks.jobs.execution import run_estimate, run_training
-from ferdelance.tasks.jobs.routes import RouteService, TaskParameters
+from ferdelance.tasks.jobs.routes import EncryptRouteService, RouteService, TaskParameters
 
 import ray
 
@@ -18,10 +18,21 @@ LOGGER = get_logger(__name__)
 
 
 class GenericJob(ABC):
-    def __init__(self, artifact_id: str, job_id: str, routes_service: RouteService) -> None:
-        self.routes_service: RouteService = routes_service
+    def __init__(
+        self,
+        artifact_id: str,
+        job_id: str,
+        server_url: str,
+        token: str,
+        private_key: str,
+        server_public_key: str,
+    ) -> None:
+        self.routes_service: RouteService = EncryptRouteService(server_url, token, private_key, server_public_key)
         self.artifact_id: str = artifact_id
         self.job_id: str = job_id
+
+    def __repr__(self) -> str:
+        return f"Job artifact_id={self.artifact_id} job_id={self.job_id}"
 
     @abstractmethod
     def run(self):
@@ -33,11 +44,14 @@ class LocalJob(GenericJob):
         self,
         artifact_id: str,
         job_id: str,
-        routes_service: RouteService,
+        server_url: str,
+        token: str,
+        private_key: str,
+        server_public_key: str,
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, routes_service)
+        super().__init__(artifact_id, job_id, server_url, token, private_key, server_public_key)
 
         self.datasources: list[DataSourceConfiguration] = [DataSourceConfiguration(**d) for d in datasources]
 
@@ -50,31 +64,43 @@ class TrainingJob(LocalJob):
         self,
         artifact_id: str,
         job_id: str,
-        routes_service: RouteService,
+        server_url: str,
+        token: str,
+        private_key: str,
+        server_public_key: str,
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, routes_service, workdir, datasources)
+        super().__init__(artifact_id, job_id, server_url, token, private_key, server_public_key, workdir, datasources)
+
+    def __repr__(self) -> str:
+        return f"Training{super().__repr__()}"
 
     def run(self):
         task: TaskParameters = self.routes_service.get_task_params(artifact_id=self.artifact_id, job_id=self.job_id)
 
-        if task.artifact.is_model():
-            res = self.train(task)
+        try:
+            if task.artifact.is_model():
+                res = self.train(task)
 
-            for m in res.metrics:
-                m.job_id = res.job_id
-                self.routes_service.post_metrics(self.artifact_id, self.job_id, m)
+                for m in res.metrics:
+                    m.job_id = res.job_id
+                    self.routes_service.post_metrics(self.artifact_id, self.job_id, m)
 
-            self.routes_service.post_result(res.job_id, res.path)
+                self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.path)
 
-        else:
+            else:
+                raise ValueError("Artifact is not a model!")
+
+        except Exception as e:
+            LOGGER.error(e)
+            LOGGER.exception(e)
             self.routes_service.post_error(
                 task.job_id,
                 task.artifact.id,
                 TaskError(
                     job_id=task.job_id,
-                    message="Malformed artifact",
+                    message=f"Malformed artifact: {e}",
                 ),
             )
 
@@ -89,11 +115,17 @@ class EstimationJob(LocalJob):
         self,
         artifact_id: str,
         job_id: str,
-        routes_service: RouteService,
+        server_url: str,
+        token: str,
+        private_key: str,
+        server_public_key: str,
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, routes_service, workdir, datasources)
+        super().__init__(artifact_id, job_id, server_url, token, private_key, server_public_key, workdir, datasources)
+
+    def __repr__(self) -> str:
+        return f"Estimation{super().__repr__()}"
 
     def run(self):
         task: TaskParameters = self.routes_service.get_task_params(self.artifact_id, self.job_id)
@@ -101,7 +133,7 @@ class EstimationJob(LocalJob):
         if task.artifact.is_estimation():
             res = self.estimate(task)
 
-            self.routes_service.post_result(res.job_id, res.path)
+            self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.path)
 
         else:
             self.routes_service.post_error(
@@ -120,15 +152,26 @@ class EstimationJob(LocalJob):
 
 @ray.remote
 class AggregatingJob(GenericJob):
-    def __init__(self, artifact_id: str, job_id: str, routes_service: RouteService) -> None:
-        super().__init__(artifact_id, job_id, routes_service)
+    def __init__(
+        self,
+        artifact_id: str,
+        job_id: str,
+        server_url: str,
+        token: str,
+        private_key: str,
+        server_public_key: str,
+    ) -> None:
+        super().__init__(artifact_id, job_id, server_url, token, private_key, server_public_key)
+
+    def __repr__(self) -> str:
+        return f"Aggregating{super().__repr__()}"
 
     def run(self):
         task: TaskParameters = self.routes_service.get_task_params(self.artifact_id, self.job_id)
 
         content = self.aggregate(task)
 
-        self.routes_service.post_result(self.artifact_id, self.job_id, content)
+        self.routes_service.post_result(self.artifact_id, self.job_id, content=content)
 
     def aggregate_estimator(self, artifact: Artifact, result_ids: list[str]) -> GenericEstimator:
         agg = artifact.get_estimator()

@@ -23,3 +23,7 @@ logs-client1:
 	docker compose -f docker-compose.2clients.yaml logs -f client1
 logs-client2:
 	docker compose -f docker-compose.2clients.yaml logs -f client2
+logs-clients:
+	docker compose -f docker-compose.2clients.yaml logs -f client1 client2
+logs-workbench:
+	docker compose -f docker-compose.2clients.yaml logs -f workbench
