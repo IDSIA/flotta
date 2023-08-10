@@ -1,4 +1,4 @@
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.tables import Job
 from ferdelance.server.api import api
 from ferdelance.workbench.interface import (
@@ -29,12 +29,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
 import os
 import pytest
 import shutil
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio

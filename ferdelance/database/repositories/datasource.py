@@ -1,4 +1,4 @@
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.component import viewClient, ComponentDB, Client
@@ -14,10 +14,9 @@ from uuid import uuid4
 import aiofiles
 import aiofiles.os as aos
 import json
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def view(datasource: DataSourceDB, features: list[Feature]) -> DataSource:

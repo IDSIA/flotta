@@ -1,6 +1,6 @@
 from typing import Callable
 
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.repositories import (
     AsyncSession,
     ArtifactRepository,
@@ -27,10 +27,9 @@ from sqlalchemy.exc import NoResultFound, IntegrityError
 
 import aiofiles
 import json
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class JobManagementService(Repository):

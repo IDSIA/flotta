@@ -1,4 +1,4 @@
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainTestSplit, IterativePlan
 from ferdelance.schemas.updates import UpdateExecute
@@ -10,12 +10,11 @@ from tests.serverless import ServerlessExecution
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
 import os
 import pytest
 import shutil
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def start_function(args: TaskArguments) -> None:

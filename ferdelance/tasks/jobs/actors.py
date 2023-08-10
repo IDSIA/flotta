@@ -2,7 +2,7 @@ from typing import Any
 
 from abc import ABC, abstractmethod
 
-from ferdelance.config import DataSourceConfiguration
+from ferdelance.config import DataSourceConfiguration, get_logger
 from ferdelance.client.state import DataConfig
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.artifacts import Artifact
@@ -14,10 +14,7 @@ from ferdelance.tasks.jobs.routes import RouteService, TaskParameters
 
 import ray
 
-import logging
-
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class GenericJob(ABC):
@@ -146,7 +143,7 @@ class AggregatingJob(GenericJob):
             else:
                 base = agg.aggregate(base, partial)
 
-        logging.info(f"artifact_id={artifact.id}: aggregated {len(result_ids)} estimator(s)")
+        LOGGER.info(f"artifact_id={artifact.id}: aggregated {len(result_ids)} estimator(s)")
 
         return base
 
@@ -164,7 +161,7 @@ class AggregatingJob(GenericJob):
             else:
                 base = agg.aggregate(strategy, base, partial)
 
-        logging.info(f"artifact_id={artifact.id}: aggregated {len(result_ids)} model(s)")
+        LOGGER.info(f"artifact_id={artifact.id}: aggregated {len(result_ids)} model(s)")
 
         return base
 

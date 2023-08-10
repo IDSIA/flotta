@@ -1,21 +1,13 @@
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 from ferdelance.client.client import start_client
 from ferdelance.client.exceptions import ClientExitStatus
 
 import ray
 
-import logging
 import os
 import sys
 
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
-
-logging.basicConfig(
-    level=LOG_LEVEL,
-    format="%(asctime)s %(name)8s %(levelname)6s %(message)s",
-)
-
-LOGGER = logging.getLogger(f"{__package__}.{__name__}")
+LOGGER = get_logger(f"{__package__}.{__name__}")
 
 
 if __name__ == "__main__":
@@ -25,12 +17,14 @@ if __name__ == "__main__":
     - 2 error (terminate)
     """
 
+    os.environ["FERDELANCE_MODE"] = "client"
+
+    config = config_manager.get()
+    leave = config_manager.leave()
+
     ray.init()
 
     try:
-        config = config_manager.get()
-        leave = config_manager.leave()
-
         exit_code = start_client(config, leave)
 
     except ClientExitStatus as e:

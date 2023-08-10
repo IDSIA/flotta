@@ -1,9 +1,6 @@
 from argparse import ArgumentParser
 
-import logging
 import sys
-
-LOGGER = logging.getLogger(__name__)
 
 
 class CustomArguments(ArgumentParser):
@@ -49,4 +46,4 @@ def setup_config_from_arguments() -> tuple[str, bool]:
 
     config_path: str = args.config
 
-    return config_path, args.leave
+    return config_path, args.leave or False

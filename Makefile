@@ -2,7 +2,7 @@ export DOCKER_BUILDKIT=1
 
 # folder cleanup
 clean:
-	rm -rf workdir/ storage/ sqlite.db tests/test_sqlite.db ferdelance*.log*
+	rm -rf workdir/ storage/ logs/ sqlite.db tests/test_sqlite.db ferdelance*.log*
 
 # launch client
 client:

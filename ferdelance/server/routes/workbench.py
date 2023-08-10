@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_USER
 from ferdelance.schemas.workbench import (
@@ -24,9 +25,7 @@ from fastapi.responses import FileResponse, Response
 
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 workbench_router = APIRouter(prefix="/workbench")

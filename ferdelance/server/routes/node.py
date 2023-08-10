@@ -1,4 +1,4 @@
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_SERVER, TYPE_CLIENT
 from ferdelance.schemas.components import Component, dummy
@@ -18,9 +18,7 @@ from fastapi.responses import Response
 
 from sqlalchemy.exc import SQLAlchemyError, NoResultFound
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 node_router = APIRouter(prefix="/node")

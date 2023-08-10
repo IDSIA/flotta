@@ -1,4 +1,4 @@
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.const import PUBLIC_KEY
 from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER
 from ferdelance.database.repositories import (
@@ -12,10 +12,8 @@ from ferdelance.database.repositories.settings import setup_settings
 from ferdelance.server import security
 
 import aiofiles.os
-import logging
 
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class ServerStartup(Repository):

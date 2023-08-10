@@ -1,16 +1,20 @@
-import json
-import logging
-from base64 import b64encode
 from collections.abc import Iterator
-from hashlib import sha256
 
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from ferdelance.config import get_logger
 
 from .commons import DEFAULT_SEPARATOR
 from .generate import SymmetricKey
 
-LOGGER = logging.getLogger(__name__)
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+
+
+from base64 import b64encode
+from hashlib import sha256
+
+import json
+
+LOGGER = get_logger(__name__)
 
 
 def encode_to_transfer(text: str, encoding: str = "utf8") -> str:

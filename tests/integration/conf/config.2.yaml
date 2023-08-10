@@ -1,14 +1,9 @@
-server:
-  protocol: http
-  interface: ${SERVER}
-  port: 1456
-
 client:
   heartbeat: 10.0
 
 datasources:
   - name: california2
     type: csv
-    path: "./data/california_housing.MedInc2.csv"
+    path: "/ferdelance/data/california_housing.MedInc2.csv"
     kind: file
     token: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94

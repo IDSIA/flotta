@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.database.data import TYPE_USER
 from ferdelance.database.repositories import (
@@ -21,10 +22,9 @@ from ferdelance.server.services import JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class WorkbenchConnectService:

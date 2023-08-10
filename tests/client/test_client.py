@@ -1,4 +1,4 @@
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.database.tables import (
     Application,
@@ -35,12 +35,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import hashlib
 import json
-import logging
 import os
 import pytest
 import uuid
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio

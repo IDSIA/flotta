@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
     ResultRepository,
@@ -16,10 +17,9 @@ from sqlalchemy.exc import NoResultFound
 
 import aiofiles
 import json
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class WorkerService:

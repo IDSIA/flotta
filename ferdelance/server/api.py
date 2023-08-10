@@ -1,4 +1,4 @@
-from ferdelance.config import Configuration, config_manager
+from ferdelance.config import Configuration, config_manager, get_logger
 from ferdelance.database import DataBase, Base
 from ferdelance.server.routes import (
     client_router,
@@ -13,9 +13,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def init_api() -> FastAPI:

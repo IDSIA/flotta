@@ -1,11 +1,9 @@
+from ferdelance.config import get_logger
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.tasks.jobs import EstimationJob, AggregatingJob, TrainingJob
-
-import logging
-
 from ferdelance.tasks.jobs.routes import EncryptRouteService
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class Backend:

@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
     Job as JobDB,
@@ -17,13 +18,12 @@ from tests.utils import setup_worker, connect, TEST_PROJECT_TOKEN
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-import logging
 import os
 import pickle
 import pytest
 import uuid
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio

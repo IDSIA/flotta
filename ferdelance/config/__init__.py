@@ -6,7 +6,7 @@ __all__ = [
     "DataSourceConfiguration",
     "ConfigManager",
     "config_manager",
-    "LOGGING_CONFIG",
+    "get_logger",
     "setup_config_from_arguments",
 ]
 
@@ -20,4 +20,4 @@ from .config import (
     config_manager,
 )
 from .arguments import setup_config_from_arguments
-from .logging import LOGGING_CONFIG
+from .logging import get_logger

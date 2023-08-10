@@ -1,12 +1,10 @@
-from ferdelance.config import Configuration
+from ferdelance.config import Configuration, get_logger
 from ferdelance.server.api import api
 
 from ray.serve.handle import RayServeSyncHandle
 from ray import serve
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 @serve.deployment(

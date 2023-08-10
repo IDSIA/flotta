@@ -1,5 +1,6 @@
 from typing import Any
 
+from ferdelance.config import get_logger
 from ferdelance.database.data import TYPE_SERVER
 from ferdelance.database.repositories import ProjectRepository, AsyncSession, ComponentRepository
 from ferdelance.schemas.client import ClientUpdate
@@ -16,11 +17,9 @@ from sqlalchemy.exc import NoResultFound
 from pydantic import BaseModel
 
 import json
-import logging
 import random
 
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def setup_exchange() -> Exchange:

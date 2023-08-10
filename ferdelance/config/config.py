@@ -3,13 +3,11 @@ from typing import Any, Literal
 from pydantic import BaseSettings, BaseModel, root_validator
 
 from .arguments import setup_config_from_arguments
-from .logging import LOGGING_CONFIG
+from .logging import get_logger
 
 from dotenv import load_dotenv
 from getmac import get_mac_address
 
-import logging.config
-import logging
 import os
 import platform
 import re
@@ -21,9 +19,7 @@ load_dotenv()
 
 ENV_VAR_PATTERN = re.compile(r".*?\${(\w+)}.*?")
 
-logging.config.dictConfig(LOGGING_CONFIG)
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def check_for_env_variables(value_in: dict[str, Any], prefix: str) -> dict[str, Any]:
@@ -67,6 +63,7 @@ class ServerConfiguration(BaseModel):
 
     protocol: str = "http"
     interface: str = "0.0.0.0"
+    host: str = "localhost"
     port: int = 1456
 
     token_client_expiration: str = "90 days"
@@ -81,6 +78,9 @@ class ServerConfiguration(BaseModel):
         return check_for_env_variables(values, "ferdelance_server")
 
     def url(self) -> str:
+        return f"{self.protocol}://{self.host.rstrip('/')}:{self.port}"
+
+    def url_deploy(self) -> str:
         return f"{self.protocol}://{self.interface.rstrip('/')}:{self.port}"
 
 
@@ -141,7 +141,7 @@ class Configuration(BaseSettings):
     mode: Literal["client", "server", "standalone", "distributed"] = "standalone"
 
     workdir: str = os.path.join(".", "storage")
-    private_key_location: str = os.path.join(".", "private_key.pem")
+    private_key_location: str = os.path.join(".", "storage", "private_key.pem")
 
     file_chunk_size: int = 4096
 
@@ -209,15 +209,13 @@ class ConfigManager:
 
         # default config path
         if not config_path:
-            LOGGER.info("No configuration file provided, using default parameters")
-            self.config: Configuration = Configuration()
-            self.config.dump()
+            LOGGER.info("No configuration file provided")
+            self._set_default_config()
             return
 
         if not os.path.exists(config_path):
-            LOGGER.warn(f"Configuration file not found at {config_path}, using default parameters")
-            self.config: Configuration = Configuration()
-            self.config.dump()
+            LOGGER.warn(f"Configuration file not found at {config_path}")
+            self._set_default_config()
             return
 
         LOGGER.info(f"Loading configuration from path={config_path}")
@@ -226,13 +224,17 @@ class ConfigManager:
             try:
                 yaml_data: dict[str, Any] = yaml.safe_load(f)
                 self.config = Configuration(**yaml_data)
+                self.config.dump()
 
             except yaml.YAMLError as e:
                 LOGGER.error(f"could not read config file {config_path}")
                 LOGGER.exception(e)
-                self.config: Configuration = Configuration()
+                self._set_default_config()
 
-            self.config.dump()
+    def _set_default_config(self) -> None:
+        LOGGER.warning("Using default configuration.")
+        self.config: Configuration = Configuration()
+        self.config.dump()
 
     def get(self) -> Configuration:
         return self.config

@@ -1,19 +1,21 @@
-from ferdelance.config.arguments import setup_config_from_arguments
+from ferdelance.config import get_logger, config_manager
 from ferdelance.client.client import start_client
 from ferdelance.server.deployment import start_server
 
 import ray
 
-import logging
+import os
 import random
 
-LOGGER = logging.getLogger(f"{__package__}.{__name__}")
+LOGGER = get_logger(f"{__package__}.{__name__}")
 
 
 if __name__ == "__main__":
     LOGGER.info("standalone application starting")
 
-    config, _ = setup_config_from_arguments()
+    os.environ["FERDELANCE_MODE"] = "standalone"
+
+    config = config_manager.get()
 
     config.mode = "standalone"
     config.server.main_password = (

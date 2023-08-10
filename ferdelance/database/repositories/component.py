@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.tables import (
     Application as ApplicationDB,
     Component as ComponentDB,
@@ -19,9 +20,8 @@ from ferdelance.schemas.components import (
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def viewComponent(component: ComponentDB) -> Component:

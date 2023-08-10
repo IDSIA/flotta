@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_CLIENT, TYPE_SERVER
 from ferdelance.schemas.components import Component
@@ -16,9 +17,8 @@ from sqlalchemy.exc import NoResultFound
 
 import aiofiles
 import json
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 task_router = APIRouter(prefix="/task")

@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.client.state import ClientState
 from ferdelance.client.services.routes import RouteService
 from ferdelance.exceptions import InvalidAction
@@ -7,9 +8,7 @@ from ferdelance.shared.actions import Action as ActionType
 from ferdelance.shared.exchange import Exchange
 from ferdelance.tasks.backends import get_jobs_backend
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class ScheduleActionService:

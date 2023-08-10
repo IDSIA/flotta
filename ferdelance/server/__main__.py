@@ -1,4 +1,4 @@
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, get_logger
 
 from ferdelance.server.deployment import start_server
 
@@ -7,12 +7,14 @@ import requests
 
 from time import sleep
 
-import logging
+import os
 
-LOGGER = logging.getLogger(f"{__package__}.{__name__}")
+LOGGER = get_logger(f"{__package__}.{__name__}")
 
 
 if __name__ == "__main__":
+    os.environ["FERDELANCE_MODE"] = "server"
+
     config = config_manager.get()
 
     ray.init()
@@ -23,7 +25,8 @@ if __name__ == "__main__":
     while True:
         sleep(config.server.healthcheck)
         try:
-            res = requests.get(f"{config.server.url()}/")
+            res = requests.get(f"{config.server.url_deploy()}/")
             res.raise_for_status()
-        except Exception:
-            ...
+        except Exception as e:
+            LOGGER.error(e)
+            LOGGER.exception(e)

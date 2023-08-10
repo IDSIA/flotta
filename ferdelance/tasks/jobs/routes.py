@@ -1,17 +1,17 @@
 from typing import Any
 from abc import ABC, abstractmethod
 
+from ferdelance.config import get_logger
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models.metrics import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
 from ferdelance.shared.exchange import Exchange
 
 import os
-import logging
 import pickle
 import requests
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class RouteService(ABC):
@@ -72,7 +72,7 @@ class EncryptRouteService(RouteService):
         return TaskParameters(**self.exc.get_payload(res.content))
 
     def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
-        logging.info(f"artifact_id={artifact_id} job_id={job_id}: requesting partial result_id={result_id}")
+        LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: requesting partial result_id={result_id}")
 
         with requests.get(
             f"{self.server}/task/result/{result_id}",

@@ -1,5 +1,6 @@
 from typing import Any
 
+from ferdelance.config import get_logger
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.repositories import AsyncSession
@@ -18,9 +19,7 @@ from fastapi.responses import Response
 
 from sqlalchemy.exc import NoResultFound
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 client_router = APIRouter(prefix="/client")

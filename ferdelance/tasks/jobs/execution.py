@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.client.state import DataConfig
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.estimators import apply_estimator
@@ -7,10 +8,9 @@ from ferdelance.schemas.tasks import TaskParameters, ExecutionResult
 import pandas as pd
 
 import json
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:

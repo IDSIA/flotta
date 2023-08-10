@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.config import Configuration, DatabaseConfiguration, config_manager
+from ferdelance.config import Configuration, DatabaseConfiguration, config_manager, get_logger
 
 from typing import Any, AsyncGenerator
 
@@ -8,10 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.engine import URL
 
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def db_connection_url(conf: DatabaseConfiguration, sync: bool = False) -> URL | str:

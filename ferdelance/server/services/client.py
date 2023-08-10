@@ -1,5 +1,6 @@
 from typing import Any, Callable
 
+from ferdelance.config import get_logger
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -24,9 +25,8 @@ from sqlalchemy.exc import NoResultFound
 
 import aiofiles
 import json
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class ClientService:

@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.repositories import Repository, AsyncSession
 from ferdelance.database.repositories.settings import KeyValueStore
 from ferdelance.shared.exchange import Exchange
@@ -9,9 +10,8 @@ from fastapi.responses import StreamingResponse, Response
 from typing import Any, Iterator
 
 import aiofiles
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 MAIN_KEY = "SERVER_MAIN_PASSWORD"

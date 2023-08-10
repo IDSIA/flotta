@@ -1,19 +1,15 @@
 from ferdelance import __version__
+from ferdelance.config import get_logger
 from ferdelance.config import Configuration, DataSourceConfiguration
 from ferdelance.client.datasources import DataSourceFile, DataSourceDB
 from ferdelance.client.exceptions import ConfigError
 from ferdelance.schemas.metadata import Metadata
 
-from getmac import get_mac_address
-
-import logging
 import os
-import platform
-import uuid
 import yaml
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class DataConfig:
@@ -66,15 +62,23 @@ class ClientState:
 
         self.leave: bool = leave
 
-        self.machine_system: str = platform.system()
-        self.machine_mac_address: str = get_mac_address() or ""
-        self.machine_node: str = str(uuid.getnode())
+        self.machine_system: str = config.client.machine_system
+        self.machine_mac_address: str = config.client.machine_mac_address
+        self.machine_node: str = config.client.machine_node
+
+        LOGGER.debug(
+            f"machine data: system={self.machine_system} "
+            f"mac_address={self.machine_mac_address} "
+            f"node={self.machine_node}"
+        )
 
         self.client_id: str | None = None
         self.client_token: str | None = None
         self.server_public_key: str | None = None
 
         self.datasources: list[DataSourceConfiguration] = config.datasources
+
+        LOGGER.debug(f"datasources found: {len(self.datasources)}")
 
         self.data = DataConfig(self.workdir, config.datasources)
 
@@ -86,6 +90,9 @@ class ClientState:
         self.client_id = client_id
         self.client_token = client_token
         self.server_public_key = server_public_key
+
+        LOGGER.info(f"assigned client_id={self.client_id}")
+        LOGGER.debug(f"assigned client_token={self.client_token}")
 
         self.dump_props()
 

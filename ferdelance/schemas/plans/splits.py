@@ -1,15 +1,15 @@
 from typing import Any
 
+from ferdelance.config import get_logger
 from ferdelance.schemas.plans.core import GenericPlan, GenericModel, Metrics
 
 from sklearn.model_selection import train_test_split
 
 import pandas as pd
 
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class TrainAll(GenericPlan):

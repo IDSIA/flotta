@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.client.state import ClientState
 from ferdelance.client.exceptions import ErrorClient
 from ferdelance.shared.actions import Action
@@ -10,12 +11,11 @@ from requests import Session, get, post
 from requests.adapters import HTTPAdapter, Retry
 
 import json
-import logging
 import os
 import shutil
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class RouteService:

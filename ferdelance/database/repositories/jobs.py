@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.tables import Job as JobDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.jobs import Job
@@ -9,9 +10,8 @@ from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from datetime import datetime
 from uuid import uuid4
 
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def view(job: JobDB) -> Job:

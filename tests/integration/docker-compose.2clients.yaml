@@ -29,20 +29,21 @@ services:
       - db-data:/var/lib/postgresql/data
     networks:
       - ferdelance
-    # ports:
-    #  - 15432:5432
+    ports:
+     - 15432:5432
 
   server: 
     image: idsia.ferdelance
     container_name: server
     environment:
-      - ferdelance_db_host=database
-      - ferdelance_db_port=5432
-      - ferdelance_db_username=${DATABASE_USER?Missing DATABASE_USER for server}
-      - ferdelance_db_password=${DATABASE_PASS?Missing DATABASE_PASS for server}
-      - ferdelance_db_scheme=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
-      - ferdelance_server_main_password=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
-      - ferdelance_server_token_project_default=${PROJECT_ID}
+      - FERDELANCE_DATABASE_HOST=database
+      - FERDELANCE_DATABASE_PORT=5432
+      - FERDELANCE_DATABASE_USERNAME=${DATABASE_USER?Missing DATABASE_USER for server}
+      - FERDELANCE_DATABASE_PASSWORD=${DATABASE_PASS?Missing DATABASE_PASS for server}
+      - FERDELANCE_DATABASE_SCHEME=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
+      - FERDELANCE_SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
+      - FERDELANCE_SERVER_TOKEN_PROJECT_DEFAULT=${PROJECT_ID}
+      - FERDELANCE_SERVER_healthcheck=3600
     volumes:
       - server-data:/ferdelance/storage
       - /dev/shm:/dev/shm
@@ -59,16 +60,16 @@ services:
     image: idsia.ferdelance
     container_name: client1
     environment:
-      - SERVER=http://server:1456
+      - FERDELANCE_SERVER_HOST=server
       - REPOSITORY_HOST=repository
     volumes: 
-      - client-1-data:/ferdelance/workdir
+      - client-1-data:/ferdelance/storage
       - ./conf/config.1.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
       - /dev/shm:/dev/shm
     networks:
       - ferdelance
-    command: --target client
+    command: --target client -c /ferdelance/config.yaml
     depends_on:
       - server
 
@@ -76,16 +77,16 @@ services:
     image: idsia.ferdelance
     container_name: client2
     environment:
-      - SERVER=http://server:1456
+      - FERDELANCE_SERVER_HOST=server
       - REPOSITORY_HOST=repository
     volumes: 
-      - client-2-data:/ferdelance/workdir
+      - client-2-data:/ferdelance/storage
       - ./conf/config.2.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
       - /dev/shm:/dev/shm
     networks:
       - ferdelance
-    command: --target client
+    command: --target client -c /ferdelance/config.yaml
     depends_on:
       - server
 
