@@ -242,10 +242,10 @@ class JobManagementService(Repository):
             LOGGER.error(f"artifact_id={artifact_id}: aggregation impossile: no worker available")
             raise e
 
-        except IntegrityError as e:
+        except IntegrityError:
             LOGGER.warning(f"artifact_id={artifact_id}: trying to re-schedule an already existing aggregation job")
             await self.session.rollback()
-            raise e
+            return await self.jr.get_by_id(result.job_id)
 
         except NoResultFound:
             raise ValueError(f"artifact_id={artifact_id} not found")

@@ -26,7 +26,6 @@ def view(job: JobDB) -> Job:
         is_model=job.is_model,
         is_estimation=job.is_estimation,
         is_aggregation=job.is_aggregation,
-        celery_id=job.celery_id,
         iteration=job.iteration,
     )
 
@@ -342,17 +341,6 @@ class JobRepository(Repository):
         """
         res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
         return [view(j) for j in res.all()]
-
-    async def get_celery_id_by_artifact(self, artifact_id: str) -> Job:
-        res = await self.session.scalars(
-            select(JobDB)
-            .select_from(JobDB)
-            .where(
-                JobDB.artifact_id == artifact_id,
-                JobDB.celery_id != None,
-            )
-        )
-        return view(res.one())
 
     async def count_jobs_by_artifact_id(self, artifact_id: str, iteration: int = -1) -> int:
         """Counts the number of jobs created for the given artifact_id.

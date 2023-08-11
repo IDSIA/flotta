@@ -2,7 +2,7 @@ from typing import Any
 
 from abc import ABC, abstractmethod
 
-from ferdelance.config import DataSourceConfiguration, get_logger
+from ferdelance.config import DataSourceConfiguration, get_logger, config_manager
 from ferdelance.client.state import DataConfig
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.artifacts import Artifact

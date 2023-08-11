@@ -146,9 +146,6 @@ class Job(Base):
     # Zero-based counter for iterations
     iteration: Mapped[int] = mapped_column(default=0)
 
-    # Id of the task assigned by celery (only if aggregation)
-    celery_id: Mapped[str | None] = mapped_column(default=None)
-
     # Id of the component executing the job
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
     component = relationship("Component")
