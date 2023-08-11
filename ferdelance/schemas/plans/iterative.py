@@ -1,14 +1,14 @@
 from typing import Any
+
+from ferdelance.config import get_logger
 from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.models import GenericModel
 
-from ferdelance.schemas.plans.core import GenericPlan, GenericModel, Metrics
+from ferdelance.schemas.plans.core import GenericPlan, Metrics
 
 import pandas as pd
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class IterativePlan(GenericPlan):

@@ -34,7 +34,7 @@ def test_ft_inputs():
     try:
         Transformer("example2", [qf1, qf2], ["wrong1", "wrong2"])
         assert True
-    except ValueError as e:
+    except ValueError:
         assert False
 
     try:

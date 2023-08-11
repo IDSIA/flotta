@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
     ComponentRepository,
@@ -11,9 +12,7 @@ from ferdelance.schemas.node import JoinData, JoinRequest
 
 from sqlalchemy.exc import NoResultFound
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class NodeService:
@@ -40,7 +39,7 @@ class NodeService:
 
             raise ValueError("Invalid client data")
 
-        except NoResultFound as e:
+        except NoResultFound:
             LOGGER.info("joining new client")
             # create new client
             client, token = await cr.create_client(

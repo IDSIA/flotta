@@ -1,9 +1,9 @@
-from ferdelance.config import conf
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_SERVER, TYPE_CLIENT
 from ferdelance.schemas.components import Component, dummy
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinRequest
+from ferdelance.schemas.node import JoinRequest, ServerPublicKey
 from ferdelance.server.security import check_token
 from ferdelance.server.services import SecurityService, NodeService
 from ferdelance.shared.decode import decode_from_transfer
@@ -18,9 +18,7 @@ from fastapi.responses import Response
 
 from sqlalchemy.exc import SQLAlchemyError, NoResultFound
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 node_router = APIRouter(prefix="/node")
@@ -39,8 +37,8 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 
 
 async def check_distributed(component: Component = Depends(check_access)) -> Component:
-    if not conf.DISTRIBUTED:
-        LOGGER.warning(f"requested access to distributed endpoint while in centralized mode")
+    if config_manager.get().mode != "distributed":
+        LOGGER.warning("requested access to distributed endpoint while in centralized mode")
         raise HTTPException(403, "Node is not in distributed mode.")
 
     return component
@@ -49,6 +47,15 @@ async def check_distributed(component: Component = Depends(check_access)) -> Com
 @node_router.get("/")
 async def node_home():
     return "Node 🏙"
+
+
+@node_router.get("/key", response_model=ServerPublicKey)
+async def node_get_public_key(session: AsyncSession = Depends(get_session)):
+    ss: SecurityService = SecurityService(session)
+    await ss.setup()
+    pk: str = ss.get_server_public_key()
+
+    return ServerPublicKey(public_key=pk)
 
 
 @node_router.post("/join", response_class=Response)
@@ -109,7 +116,8 @@ async def node_metadata(
 ):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
-    - summary (source, data type, min value, max value, standard deviation, ...) of features available for each data source
+    - summary (source, data type, min value, max value, standard deviation, ...) of features available
+      for each data source
     """
     LOGGER.info(f"client_id={component.id}: update metadata request")
 

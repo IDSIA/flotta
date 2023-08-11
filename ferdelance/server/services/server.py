@@ -1,8 +1,7 @@
+from ferdelance.config import get_logger
 from ferdelance.database import AsyncSession
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class ServerService:

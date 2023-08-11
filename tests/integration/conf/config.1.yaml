@@ -1,6 +1,5 @@
-server: ${SERVER}
-heartbeat: 10.0
-workdir: ./workdir
+client:
+  heartbeat: 10.0
 
 datasources:
   - name: california1

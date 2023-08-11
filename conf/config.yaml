@@ -1,7 +1,40 @@
-server: http://localhost:8080/
-heartbeat: 2.0
-workdir: ./workdir
-private_key_location: ./private_key.pem
+workdir: ./storage
+private_key_location: ./storage/private_key.pem
+
+server:
+  main_password: "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
+
+  # wait in seconds
+  healthcheck: 120
+
+  protocol: http
+  interface: localhost # use 0.0.0.0 in prod, 127.0.0.1 in dev
+  port: 1456
+  # this will produce http://localhost:1456/
+
+  token_client_expiration: 90 day
+  token_user_expiration: 30 days
+  token_project_default: ""
+
+database:
+  username: ""
+  password: ""
+  scheme: ferdelance
+
+  # in memory db (True)
+  memory: False
+
+  # sqlite (local/dev)
+  dialect: sqlite
+  host: ./storage/sqlite.db
+
+  # postgres (prod)
+  # dialect: postresql
+  # port: 5432
+  # host: ""
+
+client:
+  heartbeat: 2.0
 
 datasources:
   # - name: source1

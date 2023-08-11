@@ -1,8 +1,7 @@
 from typing import Callable
 
-from ferdelance.client.config import DataConfig
-from ferdelance.client.services.actions.execute import ExecuteAction, ExecutionResult
-from ferdelance.database.data import TYPE_WORKER, TYPE_USER
+from ferdelance.client.state import DataConfig
+from ferdelance.database.data import TYPE_USER
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -10,7 +9,6 @@ from ferdelance.database.repositories import (
 )
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Client, Token
-from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
@@ -21,9 +19,10 @@ from ferdelance.schemas.updates import (
     UpdateNothing,
     UpdateToken,
 )
-from ferdelance.schemas.worker import WorkerTask
+from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.server.services import ClientService, NodeService, WorkerService, WorkbenchService
 from ferdelance.server.startup import ServerStartup
+from ferdelance.tasks.jobs.actors import ExecutionResult, run_estimate, run_training
 
 from tests.utils import create_project
 
@@ -37,11 +36,11 @@ class ServerlessClient:
         self.session: AsyncSession = session
         self.index: int = index
 
-        self.action: ExecuteAction | None = None
         self.md: Metadata | None = None
+        self.data: DataConfig | None = None
 
         if isinstance(data, DataConfig):
-            self.action = ExecuteAction(data)
+            self.data = data
             self.md = data.metadata()
 
         if isinstance(data, Metadata):
@@ -74,10 +73,10 @@ class ServerlessClient:
     async def next_action(self) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
         return await self.client_service.update({})
 
-    async def get_client_task(self, next_action: UpdateExecute) -> ClientTask:
-        return await self.client_service.get_task(next_action)
+    async def get_client_task(self, job_id: str) -> TaskParameters:
+        return await self.client_service.get_task(job_id)
 
-    async def post_client_results(self, task: ClientTask, in_result: ExecutionResult | None = None) -> Result:
+    async def post_client_results(self, task: TaskParameters, in_result: ExecutionResult | None = None) -> Result:
         result = await self.client_service.task_completed(task.job_id)
 
         if in_result is not None:
@@ -88,10 +87,17 @@ class ServerlessClient:
 
         return result
 
-    async def execute(self, task: ClientTask) -> ExecutionResult:
-        if self.action is None:
-            raise ValueError("Action executor not available without local data configuration.")
-        return self.action.execute(task)
+    async def execute(self, task: TaskParameters) -> ExecutionResult:
+        if self.data is None:
+            raise ValueError("Cannot execute job without local data configuration.")
+
+        if task.artifact.is_estimation():
+            return run_estimate(self.data, task)
+
+        if task.artifact.is_model():
+            return run_training(self.data, task)
+
+        raise ValueError("Invalid artifact.")
 
     async def next_get_execute_post(self) -> Result:
         next_action = await self.next_action()
@@ -99,7 +105,7 @@ class ServerlessClient:
         if not isinstance(next_action, UpdateExecute):
             raise ValueError("next_action is not an execution action!")
 
-        task = await self.get_client_task(next_action)
+        task = await self.get_client_task(next_action.job_id)
         res = await self.execute(task)
         result = await self.post_client_results(task, res)
 
@@ -121,10 +127,10 @@ class ServerlessExecution:
     async def setup(self):
         await ServerStartup(self.session).startup()
 
-        worker_component, _ = await self.cr.create_component(TYPE_WORKER, "worker-1")
-        user_component, _ = await self.cr.create_component(TYPE_USER, "user-1")
+        self_component = await self.cr.get_self_component()
+        user_component, _ = await self.cr.create_component(TYPE_USER, "user-1-public_key", "user-1")
 
-        self.worker_service = WorkerService(self.session, worker_component)
+        self.worker_service = WorkerService(self.session, self_component)
         self.workbench_service = WorkbenchService(self.session, user_component)
 
     async def add_client(self, index: int, data: DataConfig | Metadata) -> ServerlessClient:
@@ -152,10 +158,10 @@ class ServerlessExecution:
     async def check_aggregation(self, result: Result) -> bool:
         return await self.clients[result.client_id].client_service.check(result)
 
-    async def aggregate(self, result: Result, start_function: Callable[[str, str, str], str]) -> Job:
+    async def aggregate(self, result: Result, start_function: Callable[[TaskArguments], None]) -> Job:
         return await self.clients[result.client_id].client_service.start_aggregation(result, start_function)
 
-    async def get_worker_task(self, job: Job) -> WorkerTask:
+    async def get_worker_task(self, job: Job) -> TaskParameters:
         return await self.worker_service.get_task(job.id)
 
     async def post_worker_result(self, job: Job):

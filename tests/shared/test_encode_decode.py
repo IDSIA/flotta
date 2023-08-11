@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.shared.generate import generate_asymmetric_key, RSAPrivateKey, RSAPublicKey
 from ferdelance.shared.encode import (
     encode_to_transfer,
@@ -12,12 +13,11 @@ from ferdelance.shared.decode import (
     HybridDecrypter,
 )
 
-import logging
 import random
 import string
 import os
 
-LOG = logging.getLogger(__name__)
+LOG = get_logger(__name__)
 
 
 def _random_string(length: int) -> str:

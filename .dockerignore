@@ -26,6 +26,7 @@ docs/_build
 *.tsv
 *.model
 
+logs/*
 data/*
 docker/*
 examples/*

@@ -1,6 +1,5 @@
 from ferdelance.schemas.queries import Query, QueryFilter, Operations, QueryFeature
 from ferdelance.schemas.datasources import Feature, DataSource
-from ferdelance.schemas.queries.operations import Operations
 from ferdelance.schemas.transformers import FederatedBinarizer
 
 DS1_NAME, DS1_ID = "data_source_1", "ds1"

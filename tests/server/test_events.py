@@ -1,10 +1,9 @@
-import logging
+from ferdelance.config import get_logger
+from ferdelance.server.api import api
 
 from fastapi.testclient import TestClient
 
-from ferdelance.server.api import api
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def test_startup_api():

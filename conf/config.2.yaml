@@ -1,6 +1,6 @@
 server: ${SERVER}
 heartbeat: 10.0
-workdir: ./workdir
+workdir: ./storage
 
 datasources:
   - name: california2

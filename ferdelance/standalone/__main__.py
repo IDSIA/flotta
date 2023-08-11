@@ -1,74 +1,59 @@
-from ferdelance.config import conf
-from ferdelance.client.arguments import setup_config_from_arguments
-from ferdelance.server.api import api
-from ferdelance.standalone.processes import LocalClient, LocalServer, LocalWorker
-from ferdelance.standalone.extra import extra
+from ferdelance.config import get_logger, config_manager
+from ferdelance.client.client import start_client
+from ferdelance.server.deployment import start_server
 
-from multiprocessing import JoinableQueue
+import ray
 
-import logging
-import signal
-import uvicorn
+import os
+import random
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(f"{__package__}.{__name__}")
 
 
 if __name__ == "__main__":
-    from multiprocessing import set_start_method
-
-    set_start_method("spawn")
-
-    client_conf = setup_config_from_arguments()
-
     LOGGER.info("standalone application starting")
 
-    conf.STANDALONE = True
-    conf.SERVER_MAIN_PASSWORD = (
+    os.environ["FERDELANCE_MODE"] = "standalone"
+
+    config = config_manager.get()
+
+    config.mode = "standalone"
+    config.server.main_password = (
         "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"  # this is a dummy key
     )
 
-    conf.DB_DIALECT = "sqlite"
-    conf.DB_HOST = "./sqlite.db"
-    conf.SERVER_INTERFACE = "0.0.0.0"
-    conf.STANDALONE_WORKERS = 7
-    conf.PROJECT_DEFAULT_TOKEN = (
-        "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"  # this is a standard
+    config.database.dialect = "sqlite"
+    config.database.host = "./storage/sqlite.db"
+    config.server.interface = "0.0.0.0"
+    config.server.token_project_default = (
+        "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"  # this is a dummy token
     )
 
-    extra.aggregation_queue = JoinableQueue()
-
-    worker_process = LocalWorker(extra.aggregation_queue)
-    client_process = LocalClient(client_conf)
-
-    server = LocalServer(
-        config=uvicorn.Config(
-            api,
-            host=conf.SERVER_INTERFACE,
-            port=conf.SERVER_PORT,
-        )
+    config.client.machine_mac_address = "02:00:00:%02x:%02x:%02x" % (
+        random.randint(0, 255),
+        random.randint(0, 255),
+        random.randint(0, 255),
     )
+    config.client.machine_node = str(1000000000000 + int(random.uniform(0, 1.0) * 1000000000))
 
-    def handler(signalname):
-        def f(signal_received, frame):
-            raise KeyboardInterrupt(f"{signalname}: stop received")
+    config.dump()
 
-        return f
+    # def handler(signalname):
+    #     def f(signal_received, frame):
+    #         raise KeyboardInterrupt(f"{signalname}: stop received")
 
-    signal.signal(signal.SIGINT, handler("SIGINT"))
-    signal.signal(signal.SIGTERM, handler("SIGTERM"))
+    #     return f
 
-    with server.run_in_thread():
-        try:
-            worker_process.start()
-            client_process.start()
+    # signal.signal(signal.SIGINT, handler("SIGINT"))
+    # signal.signal(signal.SIGTERM, handler("SIGTERM"))
 
-        except KeyboardInterrupt:
-            LOGGER.info("stopping...")
+    ray.init()
 
-        try:
-            client_process.join()
-            worker_process.join()
-        except KeyboardInterrupt:
-            LOGGER.info("stopping more...")
+    start_server(config)
+    h = start_client(config)
+
+    ray.get(h)
+
+    ray.shutdown()
 
     LOGGER.info("standalone application terminated")

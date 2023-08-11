@@ -1,7 +1,8 @@
+from ferdelance.config import get_logger
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.database.data import TYPE_SERVER
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.server import ServerJoinData, ServerJoinRequest
+from ferdelance.schemas.server import ServerJoinRequest
 from ferdelance.server.security import check_token
 
 from fastapi import (
@@ -12,11 +13,9 @@ from fastapi import (
 )
 from fastapi.responses import Response
 
-from sqlalchemy.exc import SQLAlchemyError, NoResultFound
+from sqlalchemy.exc import NoResultFound
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 server_router = APIRouter()
@@ -39,10 +38,29 @@ async def server_home():
     return "Server 🏢"
 
 
-@server_router.post("/node/join", response_class=Response)
-async def server_connect(
+@server_router.post("/task", response_class=Response)
+async def server_post_task(
     request: Request,
     data: ServerJoinRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    LOGGER.info("new node join request")
+    LOGGER.info("new task request")
+
+
+@server_router.post("/result/{result_id}", response_class=Response)
+async def server_post_result(
+    request: Request,
+    result_id: str,
+    data,
+    session: AsyncSession = Depends(get_session),
+):
+    LOGGER.info(f"received result with id={result_id}")
+
+
+@server_router.post("/metrics", response_class=Response)
+async def server_post_metrics(
+    request: Request,
+    data,
+    session: AsyncSession = Depends(get_session),
+):
+    LOGGER.info("received metrics")

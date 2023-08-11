@@ -1,15 +1,15 @@
 from typing import Any
 
+from ferdelance.config import get_logger
 from ferdelance.schemas.plans.core import GenericPlan, GenericModel, Metrics
 
 from sklearn.model_selection import train_test_split
 
 import pandas as pd
 
-import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class TrainAll(GenericPlan):
@@ -37,7 +37,7 @@ class TrainAll(GenericPlan):
         self.path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
         local_model.save(self.path_model)
 
-        LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
+        LOGGER.info(f"artifact_id={artifact_id}: saved model to {self.path_model}")
 
         return list()
 
@@ -74,7 +74,7 @@ class TrainTestSplit(GenericPlan):
         self.path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
         local_model.save(self.path_model)
 
-        LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
+        LOGGER.info(f"artifact_id={artifact_id}: saved model to {self.path_model}")
 
         # model testing
         metrics_list: list[Metrics] = list()
@@ -134,7 +134,7 @@ class TrainTestValSplit(GenericPlan):
         self.path_model = os.path.join(working_folder, f"{artifact_id}_model.pkl")
         local_model.save(self.path_model)
 
-        LOGGER.info(f"saved artifact_id={artifact_id} model to {self.path_model}")
+        LOGGER.info(f"artifact_id={artifact_id}: saved model to {self.path_model}")
 
         list_metrics: list[Metrics] = list()
 

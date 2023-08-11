@@ -1,9 +1,9 @@
+from ferdelance.config import config_manager
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.database import ServerArtifact
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.shared.status import ArtifactJobStatus
-from ferdelance.config import conf
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import NoResultFound
@@ -109,7 +109,7 @@ class ArtifactRepository(Repository):
                 to or loaded from. Path is considered to be a JSON file.
         """
 
-        path = conf.storage_dir_artifact(artifact_id)
+        path = config_manager.get().storage_artifact(artifact_id)
         await aos.makedirs(path, exist_ok=True)
         return os.path.join(path, filename)
 
@@ -164,7 +164,7 @@ class ArtifactRepository(Repository):
                 content = await f.read()
                 return Artifact(**json.loads(content))
 
-        except NoResultFound as _:
+        except NoResultFound:
             raise ValueError(f"artifact_id={artifact_id} not found")
 
     async def get_artifact(self, artifact_id: str) -> ServerArtifact:

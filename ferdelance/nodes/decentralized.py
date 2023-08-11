@@ -1,0 +1,2 @@
+class DecentralizedNode:
+    pass

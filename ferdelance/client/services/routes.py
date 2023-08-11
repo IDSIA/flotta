@@ -1,28 +1,26 @@
-from ferdelance.client.config import Config
+from ferdelance.config import get_logger
+from ferdelance.client.state import ClientState
 from ferdelance.client.exceptions import ErrorClient
 from ferdelance.shared.actions import Action
-from ferdelance.schemas.models import Metrics
+from ferdelance.shared.exchange import Exchange
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinData, JoinRequest
-from ferdelance.schemas.client import ClientTask
-from ferdelance.schemas.updates import DownloadApp, UpdateClientApp, UpdateExecute
-from ferdelance.shared.exchange import Exchange
+from ferdelance.schemas.updates import DownloadApp, UpdateClientApp
 
 from requests import Session, get, post
 from requests.adapters import HTTPAdapter, Retry
 
 import json
-import logging
 import os
 import shutil
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class RouteService:
-    def __init__(self, config: Config) -> None:
-        self.config = config
+    def __init__(self, config: ClientState) -> None:
+        self.config: ClientState = config
         self.exc: Exchange = Exchange()
 
         if self.config.private_key_location is not None:
@@ -35,6 +33,7 @@ class RouteService:
             self.exc.set_token(self.config.client_token)
 
     def check(self) -> None:
+        """Checks that the server is up waiting for a little bit."""
         s = Session()
 
         retries = Retry(total=10, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
@@ -68,6 +67,7 @@ class RouteService:
         return JoinData(**self.exc.get_payload(res.content))
 
     def leave(self) -> None:
+        """Send a leave request to the server."""
         res = post(
             f"{self.config.server}/node/leave",
             headers=self.exc.headers(),
@@ -99,6 +99,7 @@ class RouteService:
         # return metadata
 
     def get_update(self, content: dict) -> tuple[Action, dict]:
+        """Heartbeat command to check for an update on the server."""
         LOGGER.debug("requesting update")
 
         res = get(
@@ -113,20 +114,8 @@ class RouteService:
 
         return Action[data["action"]], data
 
-    def get_task(self, task: UpdateExecute) -> ClientTask:
-        LOGGER.info("requesting new client task")
-
-        res = get(
-            f"{self.config.server}/client/task",
-            data=self.exc.create_payload(task.dict()),
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        return ClientTask(**self.exc.get_payload(res.content))
-
     def get_new_client(self, data: UpdateClientApp):
+        """Deprecated."""
         expected_checksum = data.checksum
         download_app = DownloadApp(name=data.name, version=data.version)
 
@@ -151,34 +140,3 @@ class RouteService:
 
             with open(".update", "w") as f:
                 f.write(path_file)
-
-    def post_result(self, job_id: str, path_in: str):
-        path_out = f"{path_in}.enc"
-
-        self.exc.encrypt_file_for_remote(path_in, path_out)
-
-        res = post(
-            f"{self.config.server}/client/result/{job_id}",
-            data=open(path_out, "rb"),
-            headers=self.exc.headers(),
-        )
-
-        if os.path.exists(path_out):
-            os.remove(path_out)
-
-        res.raise_for_status()
-
-        LOGGER.info(f"job_id={job_id}: result from source={path_in} upload successful")
-
-    def post_metrics(self, metrics: Metrics):
-        res = post(
-            f"{self.config.server}/client/metrics",
-            data=self.exc.create_payload(metrics.dict()),
-            headers=self.exc.headers(),
-        )
-
-        res.raise_for_status()
-
-        LOGGER.info(
-            f"job_id={metrics.job_id}: metrics for artifact_id={metrics.artifact_id} from source={metrics.source} upload successful"
-        )

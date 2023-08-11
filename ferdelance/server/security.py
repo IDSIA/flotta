@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database import AsyncSession, get_session
 from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
 from ferdelance.database.repositories import ComponentRepository, KeyValueStore
@@ -12,10 +12,7 @@ from sqlalchemy.exc import NoResultFound
 
 from datetime import datetime, timedelta
 
-
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 async def generate_keys(session: AsyncSession) -> Exchange:
@@ -26,7 +23,7 @@ async def generate_keys(session: AsyncSession) -> Exchange:
         Current session to the database.
     """
 
-    SMP_VALUE = conf.SERVER_MAIN_PASSWORD
+    SMP_VALUE = config_manager.get().server.main_password
 
     if SMP_VALUE is None:
         LOGGER.critical(f"Environment variable {MAIN_KEY} is missing.")
@@ -118,5 +115,5 @@ async def check_token(
         return component
 
     except NoResultFound:
-        LOGGER.warning(f"valid token does not have client!")
+        LOGGER.warning("valid token does not have client!")
         raise HTTPException(403, "Permission denied")

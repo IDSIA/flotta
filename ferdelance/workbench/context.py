@@ -1,4 +1,6 @@
 from typing import Any
+
+from ferdelance.config import get_logger
 from ferdelance.workbench.interface import (
     Project,
     Client,
@@ -21,12 +23,11 @@ from ferdelance.shared.status import ArtifactJobStatus
 from time import sleep, time
 
 import json
-import logging
 import pickle
 import requests
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 HOME = os.path.expanduser("~")
 DATA_DIR = os.environ.get("DATA_HOME", os.path.join(HOME, ".local", "share", "ferdelance"))

@@ -1,115 +1,117 @@
 from ferdelance import __version__
-from ferdelance.client.config import Config, ConfigError
-from ferdelance.client.exceptions import RelaunchClient, ErrorClient
-from ferdelance.client.services.actions import ActionService
+from ferdelance.config import Configuration, get_logger
+from ferdelance.client.state import ClientState, ConfigError
+from ferdelance.client.exceptions import RelaunchClient, ErrorClient, UpdateClient
+from ferdelance.client.services.scheduling import ScheduleActionService
 from ferdelance.client.services.routes import RouteService
-from ferdelance.client.worker import ClientWorker
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.node import JoinData, JoinRequest
 from ferdelance.shared.exchange import Exchange
 
-from multiprocessing import Queue
-
 from time import sleep
 
-import logging
+import ray
+
 import os
 import requests
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
+def start_client(config: Configuration, leave: bool = False):
+    LOGGER.info("Starting a new client")
+    state = ClientState(config, leave)
+    client = FerdelanceClient.remote(state)
+    h = client.run.remote()  # type: ignore
+    return ray.get([h])
+
+
+@ray.remote
 class FerdelanceClient:
-    def __init__(self, config: Config) -> None:
+    def __init__(self, state: ClientState) -> None:
         # possible states are: work, exit, update, install
         self.status: Action = Action.INIT
 
-        self.config: Config = config
+        self.state: ClientState = state
 
         self.setup_completed: bool = False
         self.stop: bool = False
 
-        self.trainers: list[ClientWorker] = []
-        self.estimators: list[ClientWorker] = []
-
-        self.train_queue: Queue = Queue()
-        self.estimate_queue: Queue = Queue()
-
-    def check_server(self):
-        routes_service = RouteService(self.config)
+    def _check_server(self):
+        routes_service = RouteService(self.state)
         routes_service.check()
 
-    def beat(self):
-        LOGGER.debug(f"waiting for {self.config.heartbeat}")
-        sleep(self.config.heartbeat)
+    def _beat(self):
+        LOGGER.debug(f"waiting for {self.state.heartbeat}")
+        sleep(self.state.heartbeat)
 
-    def setup(self) -> None:
+    def _setup(self) -> None:
         """Component initialization (keys setup), joining the server (if not already joined), and sending metadata."""
 
         LOGGER.info("client initialization")
 
         # create required directories
-        os.makedirs(self.config.workdir, exist_ok=True)
-        os.chmod(self.config.workdir, 0o700)
-        os.makedirs(self.config.data.path_artifacts_folder(), exist_ok=True)
-        os.chmod(self.config.data.path_artifacts_folder(), 0o700)
+        os.makedirs(self.state.workdir, exist_ok=True)
+        os.chmod(self.state.workdir, 0o700)
+        os.makedirs(self.state.data.path_artifacts_folder(), exist_ok=True)
+        os.chmod(self.state.data.path_artifacts_folder(), 0o700)
 
         exc = Exchange()
 
-        if self.config.private_key_location is None:
-            if os.path.exists(self.config.path_private_key()):
+        if self.state.private_key_location is None:
+            if os.path.exists(self.state.path_private_key()):
                 # use existing one
                 LOGGER.info("private key location not set: using existing one")
-                self.config.private_key_location = self.config.path_private_key()
+                self.state.private_key_location = self.state.path_private_key()
 
             else:
                 # generate new key
                 LOGGER.info("private key location not set: creating a new one")
 
                 exc.generate_key()
-                exc.save_private_key(self.config.path_private_key())
+                exc.save_private_key(self.state.path_private_key())
 
-        elif not os.path.exists(self.config.private_key_location):
+        elif not os.path.exists(self.state.private_key_location):
             LOGGER.info("private key location not found: creating a new one")
 
             exc.generate_key()
-            exc.save_private_key(self.config.path_private_key())
+            exc.save_private_key(self.state.path_private_key())
 
         else:
             # load key
-            LOGGER.info(f"private key found at {self.config.private_key_location}")
-            exc.load_key(self.config.private_key_location)
+            LOGGER.info(f"private key found at {self.state.private_key_location}")
+            exc.load_key(self.state.private_key_location)
 
-        self.check_server()
+        self._check_server()
 
-        if os.path.exists(self.config.path_properties()):
+        if os.path.exists(self.state.path_properties()):
             # already joined
-            LOGGER.info(f"loading connection data from {self.config.path_properties()}")
-            self.config.read_props()
+            LOGGER.info(f"loading connection data from {self.state.path_properties()}")
+            self.state.read_props()
 
         else:
             # not joined yet
             LOGGER.info("collecting system info")
 
             join_data = JoinRequest(
-                name=self.config.name,
-                system=self.config.machine_system,
-                mac_address=self.config.machine_mac_address,
-                node=self.config.machine_node,
+                name=self.state.name,
+                system=self.state.machine_system,
+                mac_address=self.state.machine_mac_address,
+                node=self.state.machine_node,
                 public_key=exc.transfer_public_key(),
                 version=__version__,
             )
 
             try:
-                routes_service: RouteService = RouteService(self.config)
+                routes_service: RouteService = RouteService(self.state)
                 data: JoinData = routes_service.join(join_data)
-                self.config.join(data.id, data.token, data.public_key)
+                self.state.join(data.id, data.token, data.public_key)
 
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
-                    LOGGER.error(f"remote server {self.config.server} not found.")
-                    self.beat()
+                    LOGGER.error(f"remote server {self.state.server} not found.")
+                    self._beat()
                     raise RelaunchClient()
 
                 if e.response.status_code == 403:
@@ -122,7 +124,7 @@ class FerdelanceClient:
             except requests.exceptions.RequestException as e:
                 LOGGER.error("connection refused")
                 LOGGER.exception(e)
-                self.beat()
+                self._beat()
                 raise RelaunchClient()
 
             except Exception as e:
@@ -133,12 +135,9 @@ class FerdelanceClient:
         LOGGER.info("setup completed")
         self.setup_completed = True
 
-    def stop_loop(self):
+    def _stop_loop(self):
         LOGGER.info("gracefully stopping application")
         self.stop = True
-
-        self.train_queue.put(None)
-        self.estimate_queue.put(None)
 
     def run(self) -> int:
         """Main loop where the client contact the server for updates.
@@ -151,34 +150,16 @@ class FerdelanceClient:
             LOGGER.info("running client")
 
             if not self.setup_completed:
-                self.setup()
+                self._setup()
 
-            routes_service = RouteService(self.config)
+            routes_service = RouteService(self.state)
 
-            if self.config.leave:
+            if self.state.leave:
                 routes_service.leave()
 
             routes_service.send_metadata()
 
-            action_service = ActionService(self.config, self.train_queue, self.estimate_queue)
-
-            for i in range(self.config.resource_n_train_thread):
-                w = ClientWorker(
-                    self.config,
-                    f"trainer-{i}",
-                    self.train_queue,
-                )
-                w.start()
-                self.trainers.append(w)
-
-            for i in range(self.config.resource_n_estimate_thread):
-                w = ClientWorker(
-                    self.config,
-                    f"estimator-{i}",
-                    self.estimate_queue,
-                )
-                w.start()
-                self.estimators.append(w)
+            scheduler = ScheduleActionService(self.state)
 
             while self.status != Action.CLIENT_EXIT and not self.stop:
                 try:
@@ -188,12 +169,13 @@ class FerdelanceClient:
 
                     LOGGER.debug(f"update: action={action}")
 
-                    # work loop
-                    self.status = action_service.perform_action(action, data)
+                    self.status = scheduler.schedule(action, data)
 
                     if self.status == Action.CLIENT_UPDATE:
-                        LOGGER.info("update application and dependencies")
-                        return 1
+                        raise UpdateClient()
+
+                except UpdateClient as e:
+                    raise e
 
                 except ValueError as e:
                     # TODO: discriminate between bad and acceptable exceptions
@@ -215,7 +197,11 @@ class FerdelanceClient:
                     # TODO what to do in this case?
                     raise ErrorClient()
 
-                self.beat()
+                self._beat()
+
+        except UpdateClient:
+            LOGGER.info("update application and dependencies")
+            return 1
 
         except ConfigError as e:
             LOGGER.error("could not complete setup")
@@ -230,12 +216,6 @@ class FerdelanceClient:
             LOGGER.error("Unknown error")
             LOGGER.exception(e)
             raise ErrorClient()
-
-        finally:
-            for w in self.trainers:
-                w.join()
-            for w in self.estimators:
-                w.join()
 
         if self.stop:
             raise ErrorClient()

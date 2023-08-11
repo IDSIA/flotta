@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ferdelance.config import get_logger
+
 from enum import Enum
 from pydantic import BaseModel
 
@@ -8,10 +10,9 @@ from sklearn.preprocessing import LabelEncoder
 
 from .core import GenericModel, Model
 
-import logging
 import numpy as np
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class StrategyRandomForestClassifier(str, Enum):

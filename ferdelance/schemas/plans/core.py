@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Any
 from abc import ABC, abstractmethod
 
+from ferdelance.config import get_logger
 from ferdelance.schemas.models import GenericModel, Metrics
 from ferdelance.schemas.context import AggregationContext
 
@@ -10,9 +11,8 @@ from pydantic import BaseModel
 import pandas as pd
 
 import json
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class Plan(BaseModel):
