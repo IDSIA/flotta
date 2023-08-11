@@ -54,7 +54,7 @@ class EncryptRouteService(RouteService):
         self.exc.set_remote_key(server_public_key)
 
     def get_task_params(self, artifact_id: str, job_id: str) -> TaskParameters:
-        LOGGER.info(f"artifact_id={artifact_id} job_id={job_id}: requesting task execution parameters")
+        LOGGER.info(f"artifact_id={artifact_id}: requesting task execution parameters for job_id={job_id}")
 
         task = TaskParametersRequest(
             artifact_id=artifact_id,
