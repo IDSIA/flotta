@@ -105,31 +105,24 @@ a = ctx.submit(project, q)
 ### Server
 
 The _aggregation server_ is the central node of the framework.
-All workbenches send their payload, called artifacts, to the serve; while all the clients query the server for the next job to run.
+All workbenches send their payload, called artifacts, to the aggregation server; while all the clients query the server for the next job to run.
 
 The installation of the server is simple:
 
 ```bash
-pip install ferdelance[server]
+pip install ferdelance
 ```
 
-The server is a not so complex application and it is composed by three parts.
-The first part is the web APIs that allows the communication with clients and workbenches.
-The second part is the [Celery](https://docs.celeryq.dev/) worker used to perform the aggregation tasks.
-The last part is a database that keeps track of everything.
+The server is composed by a web API that runs and spawns [Ray](https://ray.io) aggregation tasks.
+The server also uses a database to keep track of every stored object.
 
-Both of these parts need to interact in the server in order to have a working application.
-
-The easiest way to deploy a server is through **Docker Compose**.
+The easiest way to deploy a server is using **Docker Compose**.
 
 The file [docker-compose.server.yaml](./docker-compose.server.yaml) contains a definition of all services required for the server's stack.
 
 This stack includes:
-- a Python repository used to update clients,
+- a Python repository used to update clients and workbenches,
 - a [PostgreSQL](https://www.postgresql.org/) database,
-- a [RabbitMQ](https://www.rabbitmq.com/) message broker for the [Celery](https://docs.celeryq.dev/) worker,
-- a [Redis](https://redis.io/) database for the Celery worker,
-- the worker service,
 - the server service.
 
 > **Note:** The services that need to be exposed to the world (server and repository) are labeled to be used with [Traefik proxy](https://traefik.io/traefik/) (highly recommended to use).
@@ -159,7 +152,7 @@ Once the stack is up and running, thanks to Traefik support, the server will be 
 The client application is an executable library that is written exclusively in Python:
 
 ```bash
-pip install ferdelance[client]
+pip install ferdelance
 ```
 
 Once installed it can be run by specifying a YAML configuration file:
@@ -172,15 +165,19 @@ The minimal content of the configuration file is the definition of the server ur
 The datasource must have a name and be associated with one or more project thought the `token` field. 
 
 ```yaml
-server: http://localhost:8080/  # url of remote server
-workdir: ./workdir              # OPTIONAL: local path of the working directory
-heartbeat: 10.0                 # OPTIONAL: float, waiting seconds for server updates
+workdir: ./storage               # OPTIONAL: local path of the working directory
+
+server:
+    host: http://localhost:1456/ # url of remote server
+
+client:
+    heartbeat: 10.0              # OPTIONAL: float, waiting seconds for server updates
 
 datasources:
-  - name: iris                  # name of the source
-    kind: file                  # how the datasource is stored (only 'file')
-    type: csv                   # file format supported (only 'csv' or 'tsv')
-    path: /data/iris.csv        # path to the file to use
+  - name: iris                   # name of the source
+    kind: file                   # how the datasource is stored (only 'file')
+    type: csv                    # file format supported (only 'csv' or 'tsv')
+    path: /data/iris.csv         # path to the file to use
     token: 
     - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 ```
@@ -237,8 +234,6 @@ python -m ferdelance.standalone -c ./config.yaml
 ```
 
 The server's variables can be set as environment variables, while the client config file can be set through the `-c` or `--config` arguments.
-
-> **Note:** in this mode the frameworks will spawn several processes to simulate the clients and the worker; it will use a local [`SQLite`](https://www.sqlite.org/) database; and it will not use the [Celery](https://docs.celeryq.dev/) infrastructure (so no [RabbitMQ](https://www.rabbitmq.com/) and no [Redis](https://redis.io/)); other behavior is equivalent to the distributed version.
 
 Instead, to develop for the whole infrastructure, the Docker Compose is the right way.
 
