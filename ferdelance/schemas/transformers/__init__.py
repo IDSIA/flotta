@@ -17,6 +17,7 @@ __all__ = [
     "FederatedRename",
 ]
 
+from ferdelance.config import get_logger
 from ferdelance.schemas.queries import QueryTransformer
 
 from .core import (
@@ -52,9 +53,8 @@ from inspect import signature
 import os
 import pickle
 import pandas as pd
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def save(obj: Transformer, path: str) -> None:

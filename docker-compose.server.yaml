@@ -9,7 +9,6 @@ volumes:
   ferdelance-server-data:
   ferdelance-db-data:
 
-
 services:
 
   # Python packages repository
@@ -37,60 +36,29 @@ services:
       - ferdelance-db-data:/var/lib/postgresql/data
     networks:
       - ferdelance
-
-  # Task Broker - Where server communicates the tasks to the worker
-  rabbitmq:
-    image: rabbitmq
-    container_name: rabbitmq
-    networks:
-      - ferdelance
-    command: rabbitmq-server
-
-  # Result Storage - Where worker stores results
-  redis:
-    image: redis
-    container_name: redis
-    networks:
-      - ferdelance
-    command: redis-server
-
-  # Ferdelance Worker - Server internal worker
-  worker:
-    image: idsia.ferdelance.server
-    container_name: worker
-    environment:
-      - WORKER_SERVER_HOST=server
-      - CELERY_BROKER_URL=pyamqp://rabbitmq/
-      - CELERY_BACKEND_URL=redis://redis/
-      - CELERY_QUEUE=${CELERY_QUEUE}
-    networks:
-      - ferdelance
-    command: --target worker
-    depends_on:
-      - redis
-      - rabbitmq
+    ports:
+      - 5432:5432
 
   # Ferdelance server
   server:
-    image: idsia.ferdelance.server
-    container_name: server
+    image: idsia.ferdelance
+    container_name: ferdelance-server
     environment:
       - DB_HOST=database
       - DB_USER=${DATABASE_USER?Missing DATABASE_USER for server}
       - DB_PASS=${DATABASE_PASS?Missing DATABASE_PASS for server}
       - DB_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
       - SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
-      - CELERY_BROKER_URL=pyamqp://rabbitmq/
-      - CELERY_BACKEND_URL=redis://redis/
     volumes:
-      - ./storage:/ferdelance/storage
+      - ferdelance-server-data:/ferdelance/storage
+      - ./conf/config.yaml:/ferdelance/config.yaml
+      - /dev/shm:/dev/shm
     networks:
       - www
       - ferdelance
-    command: --target server
+    command: --target server -c ./config.yaml
     depends_on:
       - database
-      - worker
       - repository
     labels:
       - "traefik.enable=true"

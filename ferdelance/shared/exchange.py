@@ -4,6 +4,7 @@ from .generate import (
     bytes_from_private_key,
     bytes_from_public_key,
     private_key_from_bytes,
+    private_key_from_str,
     public_key_from_bytes,
     public_key_from_str,
     RSAPrivateKey,
@@ -127,6 +128,16 @@ class Exchange:
             pk_bytes: bytes = bytes_from_public_key(self.remote_key)
             f.write(pk_bytes)
 
+    def set_private_key(self, private_key: str, encoding: str = "utf8") -> None:
+        """Set the private key and the public key from a private key
+        in string format and encoded for transfer.
+
+        :param private_key:
+            Private key stored in memory and in string encoded for transfer format.
+        """
+        self.private_key = private_key_from_str(decode_from_transfer(private_key, encoding))
+        self.public_key = self.private_key.public_key()
+
     def set_key_bytes(self, private_key_bytes: bytes) -> None:
         """Set the private key and the public key from a private key
         in bytes format.
@@ -199,6 +210,22 @@ class Exchange:
             raise ValueError("public key not set")
 
         data: str = bytes_from_public_key(self.public_key).decode(encoding)
+        return encode_to_transfer(data, encoding)
+
+    def transfer_private_key(self, encoding: str = "utf8") -> str:
+        """Encode the stored private key for secure transfer as string.
+
+        :return:
+            An encoded private key in string format.
+        :param encoding:
+            Encoding to use in the string-byte conversion.
+        :raise:
+            ValueError if there is no private key available.
+        """
+        if self.private_key is None:
+            raise ValueError("public key not set")
+
+        data: str = bytes_from_private_key(self.private_key).decode(encoding)
         return encode_to_transfer(data, encoding)
 
     def encrypt(self, content: str, encoding: str = "utf8") -> str:
@@ -282,7 +309,7 @@ class Exchange:
 
         return json.loads(HybridDecrypter(self.private_key, encoding=encoding).decrypt(content))
 
-    def stream(self, content: str, encoding: str = "utf8") -> Iterator[bytes]:
+    def stream(self, content: str | bytes, encoding: str = "utf8") -> Iterator[bytes]:
         """Creates a stream from content in memory.
 
         :param content:

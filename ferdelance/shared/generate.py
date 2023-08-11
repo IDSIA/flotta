@@ -21,7 +21,7 @@ def generate_asymmetric_key() -> RSAPrivateKey:
 def private_key_from_bytes(data: bytes) -> RSAPrivateKey:
     """Convert the input data in a valid private key.
 
-    This is useful when reading the key from a binary source, like a database 
+    This is useful when reading the key from a binary source, like a database
     or a filesystem.
 
     :param data:
@@ -29,10 +29,10 @@ def private_key_from_bytes(data: bytes) -> RSAPrivateKey:
     :return:
         A valid private key.
     """
-    return load_pem_private_key(data, password=None, backend=default_backend())
+    return load_pem_private_key(data, password=None, backend=default_backend())  # type: ignore
 
 
-def private_key_from_str(data: str, encoding: str = 'utf8') -> RSAPrivateKey:
+def private_key_from_str(data: str, encoding: str = "utf8") -> RSAPrivateKey:
     """Convert a str to a valid private key.
 
     This is useful when reading the key from an encoded source, like a database.
@@ -50,7 +50,7 @@ def private_key_from_str(data: str, encoding: str = 'utf8') -> RSAPrivateKey:
 def bytes_from_private_key(private_key: RSAPrivateKey) -> bytes:
     """Get the private bytes from a private key.
 
-    This is useful when writing the key to a binary sink, like a database 
+    This is useful when writing the key to a binary sink, like a database
     or a filesystem.
 
     :param private_key:
@@ -77,10 +77,10 @@ def public_key_from_bytes(data: bytes) -> RSAPublicKey:
     :return:
         A valid public key.
     """
-    return load_ssh_public_key(data, backend=default_backend())
+    return load_ssh_public_key(data, backend=default_backend())  # type: ignore
 
 
-def public_key_from_str(data: str, encoding: str = 'utf8') -> RSAPublicKey:
+def public_key_from_str(data: str, encoding: str = "utf8") -> RSAPublicKey:
     """Convert a str to a valid public key.
 
     This is useful when reading the key from an encoded source, like a database.
@@ -98,7 +98,7 @@ def public_key_from_str(data: str, encoding: str = 'utf8') -> RSAPublicKey:
 def bytes_from_public_key(public_key: RSAPublicKey) -> bytes:
     """Get the public bytes from a public key.
 
-    This is useful when writing the key to a binary sink, like a database 
+    This is useful when writing the key to a binary sink, like a database
     or a filesystem.
 
     :param public_key:
@@ -115,8 +115,10 @@ def bytes_from_public_key(public_key: RSAPublicKey) -> bytes:
 
 
 class SymmetricKey:
-    def __init__(self, key: bytes | None = None, iv: bytes | None = None, key_size: int = 32, iv_size: int = 16) -> None:
-        """Generates a new random key, initialization vector, and cipher for 
+    def __init__(
+        self, key: bytes | None = None, iv: bytes | None = None, key_size: int = 32, iv_size: int = 16
+    ) -> None:
+        """Generates a new random key, initialization vector, and cipher for
         a symmetric encryption algorithm.
 
         :param key:
@@ -132,11 +134,7 @@ class SymmetricKey:
         self.key: bytes = key if key else os.urandom(key_size)
         self.iv: bytes = iv if iv else os.urandom(iv_size)
 
-        self.cipher: Cipher = Cipher(
-            algorithms.AES(self.key),
-            modes.CTR(self.iv),
-            backend=default_backend()
-        )
+        self.cipher: Cipher = Cipher(algorithms.AES(self.key), modes.CTR(self.iv), backend=default_backend())
 
     def encryptor(self):
         """Get a encryptor from the cipher."""

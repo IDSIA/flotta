@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.config import conf
+from ferdelance.config import Configuration, DatabaseConfiguration, config_manager, get_logger
 
 from typing import Any, AsyncGenerator
 
@@ -8,47 +8,48 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.engine import URL
 
-import logging
+import os
+
+LOGGER = get_logger(__name__)
 
 
-LOGGER = logging.getLogger(__name__)
+def db_connection_url(conf: DatabaseConfiguration, sync: bool = False) -> URL | str:
+    LOGGER.warning(os.environ.get("FERDELANCE_CONFIG_FILE"))
 
+    driver: str = ""
 
-def db_connection_url(sync: bool = False) -> URL | str:
-    driver = ""
-
-    if conf.DB_MEMORY:
+    if conf.memory:
         if not sync:
             driver = "+aiosqlite"
 
         return f"sqlite{driver}://"
 
-    dialect = conf.DB_DIALECT.lower()
+    dialect = conf.dialect.lower()
 
-    assert conf.DB_HOST is not None
+    assert conf.host is not None
 
     if dialect == "sqlite":
         if not sync:
             driver = "+aiosqlite"
 
         # in this case host is an absolute path
-        return f"sqlite{driver}:///{conf.DB_HOST}"
+        return f"sqlite{driver}:///{conf.host}"
 
     if dialect == "postgresql":
-        assert conf.DB_USER is not None
-        assert conf.DB_PASS is not None
-        assert conf.DB_PORT is not None
+        assert conf.username is not None
+        assert conf.password is not None
+        assert conf.port is not None
 
         if not sync:
             driver = "+asyncpg"
 
         return URL.create(
             f"postgresql{driver}",
-            conf.DB_USER,
-            conf.DB_PASS,
-            conf.DB_HOST,
-            conf.DB_PORT,
-            conf.DB_SCHEMA,
+            conf.username,
+            conf.password,
+            conf.host,
+            conf.port,
+            conf.scheme,
         )
 
     raise ValueError(f"dialect {dialect} is not supported")
@@ -70,7 +71,8 @@ class DataBase:
             LOGGER.debug("Database singleton creation")
             cls.instance = super(DataBase, cls).__new__(cls)
 
-            cls.instance.database_url = db_connection_url()
+            conf: Configuration = config_manager.get()
+            cls.instance.database_url = db_connection_url(conf.database)
 
             if cls.instance.database_url is None:
                 raise ValueError("Connection to database is not set!")

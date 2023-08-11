@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.tables import (
     Application as ApplicationDB,
     Component as ComponentDB,
@@ -7,7 +8,7 @@ from ferdelance.database.tables import (
 )
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.tokens import TokenRepository
-from ferdelance.database.data import TYPE_CLIENT, TYPE_WORKER
+from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.schemas.components import (
     Component,
     Client,
@@ -19,9 +20,8 @@ from ferdelance.schemas.components import (
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def viewComponent(component: ComponentDB) -> Component:
@@ -169,7 +169,8 @@ class ComponentRepository(Repository):
         """
 
         LOGGER.info(
-            f"creating new type={TYPE_CLIENT} version={version} mac_address={machine_mac_address} node={machine_node} name={name}"
+            f"creating new type={TYPE_CLIENT} version={version} "
+            f"mac_address={machine_mac_address} node={machine_node} name={name}"
         )
 
         res = await self.session.scalars(
@@ -215,7 +216,7 @@ class ComponentRepository(Repository):
 
         return viewClient(component), viewToken(token)
 
-    async def create_component(self, type_name: str, public_key: str) -> tuple[Component, Token]:
+    async def create_component(self, type_name: str, public_key: str, name: str) -> tuple[Component, Token]:
         """Creates a generic component. All components are defined by a public
         key and a type. The type defines which area can be accessed by the
         component, while the public key will help in the communication between
@@ -255,7 +256,7 @@ class ComponentRepository(Repository):
             id=token.component_id,
             public_key=public_key,
             type_name=type_name,
-            name="",
+            name=name,
         )
 
         self.session.add(component)
@@ -545,7 +546,7 @@ class ComponentRepository(Repository):
         )
         return viewToken(res.one())
 
-    async def get_token_for_workers(self) -> str:
+    async def get_token_for_self(self) -> str:
         """Return the tokens used by the internal server's workers. This should
         be an unique token for all workers.
 
@@ -557,7 +558,7 @@ class ComponentRepository(Repository):
         res = await self.session.scalars(
             select(TokenDB)
             .join(ComponentDB, ComponentDB.id == TokenDB.component_id)
-            .where(ComponentDB.type_name == TYPE_WORKER)
+            .where(ComponentDB.name == "localhost")
             .limit(1)
         )
 
@@ -565,7 +566,7 @@ class ComponentRepository(Repository):
 
         return str(client_token.token)
 
-    async def get_worker(self) -> Component:
+    async def get_self_component(self) -> Component:
         """Return the tokens used by the internal server's workers. This should
         be an unique token for all workers.
 
@@ -574,7 +575,7 @@ class ComponentRepository(Repository):
                 The token used by the internal workers.
         """
 
-        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_WORKER).limit(1))
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.name == "localhost").limit(1))
 
         component: ComponentDB = res.one()
 

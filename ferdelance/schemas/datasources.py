@@ -140,7 +140,7 @@ class DataSource(BaseDataSource):
             mean = 0.0 if df.v_mean is None else df.v_mean
             lines.append(f"- {df.dtype:8} {df.name:32} {mean:.2}")
 
-        return f"\n".join(lines)
+        return "\n".join(lines)
 
     def features_dict(self) -> dict[str, QueryFeature]:
         return {f.name: f.qf() for f in self.features}
@@ -237,7 +237,7 @@ class AggregatedDataSource(BaseDataSource):
             mean = 0.0 if df.v_mean is None else df.v_mean
             lines.append(f"- {df.dtype:8} {df.name:32} {mean:.2}")
 
-        return f"\n".join(lines)
+        return "\n".join(lines)
 
     def extract(self) -> Query:
         """Proceeds on extracting all the features and creating a transformation

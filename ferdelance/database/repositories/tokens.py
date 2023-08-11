@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.tables import Token
 from ferdelance.database.repositories import Repository, AsyncSession
 from ferdelance.database.repositories.settings import (
@@ -12,9 +13,7 @@ from hashlib import sha256
 from uuid import uuid4
 from time import time
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class TokenRepository(Repository):

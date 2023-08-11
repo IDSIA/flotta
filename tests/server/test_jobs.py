@@ -1,3 +1,4 @@
+from ferdelance.config import get_logger
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.repositories import JobRepository
 from ferdelance.database.tables import Artifact, Component
@@ -5,10 +6,9 @@ from ferdelance.shared.status import JobStatus
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
 import pytest
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio

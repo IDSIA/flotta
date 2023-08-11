@@ -1,20 +1,13 @@
-from ferdelance.client import FerdelanceClient
-from ferdelance.client.arguments import setup_config_from_arguments
+from ferdelance.config import config_manager, get_logger
+from ferdelance.client.client import start_client
 from ferdelance.client.exceptions import ClientExitStatus
 
-import logging
+import ray
+
 import os
-import signal
 import sys
 
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
-
-logging.basicConfig(
-    level=LOG_LEVEL,
-    format="%(asctime)s %(name)8s %(levelname)6s %(message)s",
-)
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(f"{__package__}.{__name__}")
 
 
 if __name__ == "__main__":
@@ -24,17 +17,15 @@ if __name__ == "__main__":
     - 2 error (terminate)
     """
 
-    def main_signal_handler(signum, frame):
-        """This handler is used to gracefully stop when ctrl-c is hit in the terminal."""
-        client.stop_loop()
+    os.environ["FERDELANCE_MODE"] = "client"
 
-    signal.signal(signal.SIGINT, main_signal_handler)
-    signal.signal(signal.SIGTERM, main_signal_handler)
+    config = config_manager.get()
+    leave = config_manager.leave()
+
+    ray.init()
 
     try:
-        conf = setup_config_from_arguments()
-        client = FerdelanceClient(conf)
-        exit_code = client.run()
+        exit_code = start_client(config, leave)
 
     except ClientExitStatus as e:
         exit_code = e.exit_code

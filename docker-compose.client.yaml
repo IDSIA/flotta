@@ -3,21 +3,22 @@ version: '3.3'
 networks:
   ferdelance:
 
-
 volumes:
-  client-data:
-
+  ferdelance-client-data:
 
 services:
+
+  # Ferdelance client
   client:
-    image: idsia.ferdelance.client
+    image: idsia.ferdelance
     container_name: ferdelance-client
     environment:
       - FDL_SERVER=${FDL_SERVER?Missing server URL for client}
       - FDL_HEARTBEAT=10.0
     volumes:
-      - client-data:/ferdelance/workdir
+      - ferdelance-client-data:/ferdelance/storage
       - ./conf/config.yaml:/ferdelance/config.yaml
-      - ./data:/ferdelance/data
+      - /dev/shm:/dev/shm
     networks:
       - ferdelance
+    command: --target server -c ./config.yaml

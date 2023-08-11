@@ -1,7 +1,6 @@
-from ferdelance import __version__
-from ferdelance.config import conf
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.const import PUBLIC_KEY
-from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER, TYPE_WORKER
+from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER
 from ferdelance.database.repositories import (
     Repository,
     AsyncSession,
@@ -13,9 +12,8 @@ from ferdelance.database.repositories.settings import setup_settings
 from ferdelance.server import security
 
 import aiofiles.os
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 class ServerStartup(Repository):
@@ -28,27 +26,19 @@ class ServerStartup(Repository):
     async def init_directories(self) -> None:
         LOGGER.info("directory initialization")
 
-        await aiofiles.os.makedirs(conf.STORAGE_ARTIFACTS, exist_ok=True)
-        await aiofiles.os.makedirs(conf.STORAGE_CLIENTS, exist_ok=True)
-        await aiofiles.os.makedirs(conf.STORAGE_RESULTS, exist_ok=True)
+        conf = config_manager.get()
+
+        await aiofiles.os.makedirs(conf.storage_artifact_dir(), exist_ok=True)
+        await aiofiles.os.makedirs(conf.storage_clients_dir(), exist_ok=True)
+        await aiofiles.os.makedirs(conf.storage_results_dir(), exist_ok=True)
 
         LOGGER.info("directory initialization completed")
 
-    async def create_component(self, type: str, public_key: str) -> None:
-        LOGGER.info(f"creating component {type}")
-
-        try:
-            await self.cr.create_component(public_key=public_key, type_name=type)
-
-        except ValueError:
-            LOGGER.warning(f"client already exists for type={type}")
-            return
-
-        LOGGER.info(f"client {type} created")
-
     async def create_project(self) -> None:
+        conf = config_manager.get()
+
         try:
-            await self.pr.create_project("Project Zero", conf.PROJECT_DEFAULT_TOKEN)
+            await self.pr.create_project("Project Zero", conf.server.token_project_default)
 
         except ValueError:
             LOGGER.warning("Project zero already exists")
@@ -60,10 +50,16 @@ class ServerStartup(Repository):
         LOGGER.info("setup setting and security keys completed")
 
     async def populate_database(self) -> None:
-        spk: str = await self.kvs.get_str(PUBLIC_KEY)
+        # server component
+        public_key: str = await self.kvs.get_str(PUBLIC_KEY)
         await self.cr.create_types(COMPONENT_TYPES)
-        await self.create_component(TYPE_SERVER, spk)
-        await self.create_component(TYPE_WORKER, "")  # TODO: worker should have a public key
+        try:
+            await self.cr.create_component(TYPE_SERVER, public_key, "localhost")
+            LOGGER.info("self component created")
+        except ValueError:
+            LOGGER.warning("self component already exists")
+
+        # projects
         await self.create_project()
 
     async def startup(self) -> None:

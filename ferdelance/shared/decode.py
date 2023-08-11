@@ -1,5 +1,7 @@
 from collections.abc import Iterator
 
+from ferdelance.config import get_logger
+
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
@@ -10,9 +12,8 @@ from base64 import b64decode
 from hashlib import sha256
 
 import json
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 def decode_from_transfer(text: str, encoding: str = "utf8") -> str:

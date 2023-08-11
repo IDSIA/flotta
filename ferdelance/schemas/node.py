@@ -20,3 +20,7 @@ class JoinData(BaseModel):
     id: str
     token: str
     public_key: str
+
+
+class ServerPublicKey(BaseModel):
+    public_key: str

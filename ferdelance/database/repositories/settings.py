@@ -1,6 +1,10 @@
-from ferdelance.config import conf
+from typing import Any
+
+from ferdelance.config import config_manager
 from ferdelance.database.repositories.core import Repository, AsyncSession
 from ferdelance.database.tables import Setting
+
+from pytimeparse import parse
 
 from cryptography.fernet import Fernet
 from sqlalchemy import select, update
@@ -13,23 +17,26 @@ KEY_USER_TOKEN_EXPIRATION = "TOKEN_USER_EXPIRATION"
 
 
 async def setup_settings(session: AsyncSession) -> None:
-    CLIENT_TOKEN_EXPIRATION = conf.CLIENT_TOKEN_EXPIRATION
-    USER_TOKEN_EXPIRATION = conf.USER_TOKEN_EXPIRATION
+    conf = config_manager.get().server
+    CLIENT_TOKEN_EXPIRATION = parse(conf.token_client_expiration)
+    USER_TOKEN_EXPIRATION = parse(conf.token_user_expiration)
 
     kvs = KeyValueStore(session)
-    await kvs.put_str(KEY_CLIENT_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)
+    await kvs.put_any(KEY_CLIENT_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)
 
     kvs = KeyValueStore(session)
-    await kvs.put_str(KEY_USER_TOKEN_EXPIRATION, USER_TOKEN_EXPIRATION)
+    await kvs.put_any(KEY_USER_TOKEN_EXPIRATION, USER_TOKEN_EXPIRATION)
 
 
 def build_settings_cipher() -> Fernet:
-    server_main_password: str | None = conf.SERVER_MAIN_PASSWORD
+    conf = config_manager.get().server
+
+    server_main_password: str | None = conf.main_password
 
     assert server_main_password is not None
 
-    smp0 = server_main_password[:32].encode("utf-8")
-    smp1 = server_main_password[-32:].encode("utf-8")
+    smp0 = server_main_password[:32].encode("utf8")
+    smp1 = server_main_password[-32:].encode("utf8")
     smp2 = base64.b64encode(bytes(a ^ b for a, b in zip(smp0, smp1)))
 
     return Fernet(smp2)
@@ -69,6 +76,10 @@ class KeyValueStore(Repository):
         await self.put_str(key, value)
 
     async def put_float(self, key: str, value_in: float) -> None:
+        value = str(value_in)
+        await self.put_str(key, value)
+
+    async def put_any(self, key: str, value_in: Any) -> None:
         value = str(value_in)
         await self.put_str(key, value)
 

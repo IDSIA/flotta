@@ -1,4 +1,4 @@
-from ferdelance.config import conf
+from ferdelance.config import config_manager, get_logger
 from ferdelance.database.tables import Job
 from ferdelance.server.api import api
 from ferdelance.workbench.interface import (
@@ -7,7 +7,6 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.client import ClientTask
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.updates import UpdateExecute
 from ferdelance.schemas.plans import TrainTestSplit
@@ -15,6 +14,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
+from ferdelance.schemas.tasks import TaskParameters
 from ferdelance.shared.actions import Action
 from ferdelance.shared.status import ArtifactJobStatus
 
@@ -29,13 +29,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
 import os
 import pytest
 import shutil
-import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio
@@ -52,7 +50,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         res = server.request(
             "GET",
-            f"/workbench/project",
+            "/workbench/project",
             headers=wb_exc.headers(),
             content=wb_exc.create_payload(wpt.dict()),
         )
@@ -104,7 +102,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         res = server.request(
             "GET",
-            f"/workbench/artifact/status",
+            "/workbench/artifact/status",
             content=wb_exc.create_payload(wba.dict()),
             headers=wb_exc.headers(),
         )
@@ -120,7 +118,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         res = server.request(
             "GET",
-            f"/workbench/artifact",
+            "/workbench/artifact",
             content=wb_exc.create_payload(wba.dict()),
             headers=wb_exc.headers(),
         )
@@ -159,7 +157,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         task_response = server.request(
             method="GET",
-            url="/client/task",
+            url="/task/params",
             headers=cl_exc.headers(),
             content=cl_exc.create_payload(update_execute.dict()),
         )
@@ -167,9 +165,9 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         content = cl_exc.get_payload(task_response.content)
 
-        task = ClientTask(**content)
+        task = TaskParameters(**content)
 
-        assert TEST_DATASOURCE_HASH in task.datasource_hashes
+        assert TEST_DATASOURCE_HASH in task.content_ids
 
         art = task.artifact
 
@@ -183,4 +181,4 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         # cleanup
 
-        shutil.rmtree(os.path.join(conf.STORAGE_ARTIFACTS, artifact_id))
+        shutil.rmtree(os.path.join(config_manager.get().storage_artifact(artifact_id)))
