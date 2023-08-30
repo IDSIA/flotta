@@ -16,17 +16,6 @@ class UpdateToken(UpdateData):
         return super().__str__()
 
 
-class UpdateClientApp(UpdateData):
-    """Data for the client on the new app to download."""
-
-    checksum: str
-    name: str
-    version: str
-
-    def __str__(self) -> str:
-        return f"{super().__str__()}, name={self.name}, version={self.version}"
-
-
 class UpdateExecute(UpdateData):
     """Task that the client has to execute next."""
 

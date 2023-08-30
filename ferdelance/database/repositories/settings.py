@@ -17,7 +17,7 @@ KEY_USER_TOKEN_EXPIRATION = "TOKEN_USER_EXPIRATION"
 
 
 async def setup_settings(session: AsyncSession) -> None:
-    conf = config_manager.get().server
+    conf = config_manager.get().node
     CLIENT_TOKEN_EXPIRATION = parse(conf.token_client_expiration)
     USER_TOKEN_EXPIRATION = parse(conf.token_user_expiration)
 
@@ -29,7 +29,7 @@ async def setup_settings(session: AsyncSession) -> None:
 
 
 def build_settings_cipher() -> Fernet:
-    conf = config_manager.get().server
+    conf = config_manager.get().node
 
     server_main_password: str | None = conf.main_password
 

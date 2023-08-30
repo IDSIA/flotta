@@ -1,6 +1,6 @@
 from ferdelance.config import config_manager, get_logger
 from ferdelance.database.const import PUBLIC_KEY
-from ferdelance.database.data import COMPONENT_TYPES, TYPE_SERVER
+from ferdelance.database.data import COMPONENT_TYPES, TYPE_NODE
 from ferdelance.database.repositories import (
     Repository,
     AsyncSession,
@@ -9,7 +9,7 @@ from ferdelance.database.repositories import (
     ProjectRepository,
 )
 from ferdelance.database.repositories.settings import setup_settings
-from ferdelance.server import security
+from ferdelance.node import security
 
 import aiofiles.os
 
@@ -38,7 +38,7 @@ class ServerStartup(Repository):
         conf = config_manager.get()
 
         try:
-            await self.pr.create_project("Project Zero", conf.server.token_project_default)
+            await self.pr.create_project("Project Zero", conf.node.token_project_default)
 
         except ValueError:
             LOGGER.warning("Project zero already exists")
@@ -54,7 +54,7 @@ class ServerStartup(Repository):
         public_key: str = await self.kvs.get_str(PUBLIC_KEY)
         await self.cr.create_types(COMPONENT_TYPES)
         try:
-            await self.cr.create_component(TYPE_SERVER, public_key, "localhost")
+            await self.cr.create_component(TYPE_NODE, public_key, "localhost")
             LOGGER.info("self component created")
         except ValueError:
             LOGGER.warning("self component already exists")

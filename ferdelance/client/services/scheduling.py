@@ -1,8 +1,7 @@
 from ferdelance.config import get_logger
 from ferdelance.client.state import ClientState
-from ferdelance.client.services.routes import RouteService
 from ferdelance.exceptions import InvalidAction
-from ferdelance.schemas.updates import UpdateToken, UpdateClientApp, UpdateExecute
+from ferdelance.schemas.updates import UpdateToken, UpdateExecute
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.shared.actions import Action as ActionType
 from ferdelance.shared.exchange import Exchange
@@ -14,14 +13,12 @@ LOGGER = get_logger(__name__)
 class ScheduleActionService:
     def __init__(self, config: ClientState) -> None:
         self.config: ClientState = config
-        self.routes_service: RouteService = RouteService(config)
 
     def do_nothing(self) -> ActionType:
         LOGGER.debug("nothing new from the server")
         return ActionType.DO_NOTHING
 
-    def update_client(self, data: UpdateClientApp) -> ActionType:
-        self.routes_service.get_new_client(data)
+    def update_client(self) -> ActionType:
         return ActionType.UPDATE_CLIENT
 
     def update_token(self, data: UpdateToken) -> ActionType:
@@ -33,7 +30,7 @@ class ScheduleActionService:
         backend = get_jobs_backend()
 
         assert self.config.private_key_location is not None
-        assert self.config.server_public_key is not None
+        assert self.config.node_public_key is not None
         assert self.config.client_token is not None
 
         exc = Exchange()
@@ -43,7 +40,7 @@ class ScheduleActionService:
             TaskArguments(
                 private_key=exc.transfer_private_key(),
                 server_url=self.config.server,
-                server_public_key=self.config.server_public_key,
+                server_public_key=self.config.node_public_key,
                 token=self.config.client_token,
                 datasources=[d.dict() for d in self.config.datasources],
                 workdir=self.config.workdir,
@@ -57,7 +54,7 @@ class ScheduleActionService:
         backend = get_jobs_backend()
 
         assert self.config.private_key_location is not None
-        assert self.config.server_public_key is not None
+        assert self.config.node_public_key is not None
         assert self.config.client_token is not None
 
         exc = Exchange()
@@ -67,7 +64,7 @@ class ScheduleActionService:
             TaskArguments(
                 private_key=exc.transfer_private_key(),
                 server_url=self.config.server,
-                server_public_key=self.config.server_public_key,
+                server_public_key=self.config.node_public_key,
                 token=self.config.client_token,
                 datasources=[d.dict() for d in self.config.datasources],
                 workdir=self.config.workdir,
@@ -88,7 +85,7 @@ class ScheduleActionService:
             return self.update_token(UpdateToken(**data))
 
         if action == ActionType.UPDATE_CLIENT:
-            return self.update_client(UpdateClientApp(**data))
+            return self.update_client()
 
         if action == ActionType.DO_NOTHING:
             return self.do_nothing()

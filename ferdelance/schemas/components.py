@@ -49,14 +49,3 @@ class Event(BaseModel):
     component_id: str
     time: datetime
     event: str
-
-
-class Application(BaseModel):
-    id: str
-    creation_time: datetime
-    version: str
-    active: bool
-    path: str
-    name: str
-    description: str | None
-    checksum: str

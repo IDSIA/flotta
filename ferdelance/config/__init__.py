@@ -1,6 +1,6 @@
 __all__ = [
     "Configuration",
-    "ServerConfiguration",
+    "NodeConfiguration",
     "DatabaseConfiguration",
     "ClientConfiguration",
     "DataSourceConfiguration",
@@ -12,7 +12,7 @@ __all__ = [
 
 from .config import (
     Configuration,
-    ServerConfiguration,
+    NodeConfiguration,
     DatabaseConfiguration,
     ClientConfiguration,
     DataSourceConfiguration,

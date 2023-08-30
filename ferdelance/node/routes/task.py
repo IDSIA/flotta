@@ -1,14 +1,16 @@
 from ferdelance.config import get_logger
+from ferdelance.client.services.scheduling import ScheduleActionService
 from ferdelance.database import get_session, AsyncSession
-from ferdelance.database.data import TYPE_CLIENT, TYPE_SERVER
+from ferdelance.database.data import TYPE_CLIENT, TYPE_NODE
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
-from ferdelance.server.services import SecurityService, ClientService, WorkerService
-from ferdelance.server.security import check_token
-from ferdelance.server.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
+from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.node.services import SecurityService, ClientService, WorkerService
+from ferdelance.node.security import check_token
+from ferdelance.node.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -26,7 +28,7 @@ task_router = APIRouter(prefix="/task")
 
 async def check_access(component: Component = Depends(check_token)) -> Component:
     try:
-        if component.type_name not in (TYPE_CLIENT, TYPE_SERVER):
+        if component.type_name not in (TYPE_CLIENT, TYPE_NODE):
             LOGGER.warning(f"client of type={component.type_name} cannot access this route")
             raise HTTPException(403)
 
@@ -39,6 +41,24 @@ async def check_access(component: Component = Depends(check_token)) -> Component
 @task_router.get("/")
 async def client_home():
     return "Task 🔨"
+
+
+@task_router.post("/", response_class=Response)
+async def server_post_task(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    component: Component = Depends(check_access),
+):
+    LOGGER.info(f"client_id={component.id}: new task execution")
+
+    ss: SecurityService = SecurityService(session)
+
+    await ss.setup(component.public_key)
+
+    data = await ss.read_request(request)
+    content = UpdateExecute(**data)
+
+    scheduler = ScheduleActionService()
 
 
 @task_router.get("/params", response_class=Response)
@@ -61,7 +81,7 @@ async def get_task_params(
             cs: ClientService = ClientService(session, component)
             content: TaskParameters = await cs.get_task(payload.job_id)
 
-        elif component.type_name == TYPE_SERVER:
+        elif component.type_name == TYPE_NODE:
             ws: WorkerService = WorkerService(session, component)
             content: TaskParameters = await ws.get_task(payload.job_id)
 
@@ -138,7 +158,7 @@ async def post_result(
 
             await cs.check_and_start(result)
 
-        elif component.type_name == TYPE_SERVER:
+        elif component.type_name == TYPE_NODE:
             ws: WorkerService = WorkerService(session, component)
             result: Result = await ws.aggregation_completed(job_id)
 
@@ -200,7 +220,7 @@ async def post_error(
 
             await cs.check_and_start(result)
 
-        elif component.type_name == TYPE_SERVER:
+        elif component.type_name == TYPE_NODE:
             ws: WorkerService = WorkerService(session, component)
 
             result = await ws.aggregation_failed(error)

@@ -38,7 +38,7 @@ class FerdelanceClient:
         self.setup_completed: bool = False
         self.stop: bool = False
 
-    def _check_server(self):
+    def _check_node(self):
         routes_service = RouteService(self.state)
         routes_service.check()
 
@@ -47,7 +47,9 @@ class FerdelanceClient:
         sleep(self.state.heartbeat)
 
     def _setup(self) -> None:
-        """Component initialization (keys setup), joining the server (if not already joined), and sending metadata."""
+        """Component initialization (keys setup), joining the server node (if not already joined), and sending
+        metadata.
+        """
 
         LOGGER.info("client initialization")
 
@@ -83,7 +85,7 @@ class FerdelanceClient:
             LOGGER.info(f"private key found at {self.state.private_key_location}")
             exc.load_key(self.state.private_key_location)
 
-        self._check_server()
+        self._check_node()
 
         if os.path.exists(self.state.path_properties()):
             # already joined
@@ -110,7 +112,7 @@ class FerdelanceClient:
 
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
-                    LOGGER.error(f"remote server {self.state.server} not found.")
+                    LOGGER.error(f"remote server node {self.state.server} not found.")
                     self._beat()
                     raise RelaunchClient()
 
@@ -140,7 +142,7 @@ class FerdelanceClient:
         self.stop = True
 
     def run(self) -> int:
-        """Main loop where the client contact the server for updates.
+        """Main loop where the client contact the server node for updates.
 
         :return:
             Exit code to use

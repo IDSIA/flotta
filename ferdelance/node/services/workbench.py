@@ -18,7 +18,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchDataSourceIdList,
     WorkbenchJoinData,
 )
-from ferdelance.server.services import JobManagementService
+from ferdelance.node.services import JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 

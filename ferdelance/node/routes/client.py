@@ -4,10 +4,9 @@ from ferdelance.config import get_logger
 from ferdelance.database import get_session
 from ferdelance.database.data import TYPE_CLIENT
 from ferdelance.database.repositories import AsyncSession
-from ferdelance.schemas.components import Component, Application
-from ferdelance.schemas.updates import DownloadApp
-from ferdelance.server.services import SecurityService, ClientService
-from ferdelance.server.security import check_token
+from ferdelance.schemas.components import Component
+from ferdelance.node.services import SecurityService, ClientService
+from ferdelance.node.security import check_token
 
 from fastapi import (
     APIRouter,
@@ -67,38 +66,3 @@ async def client_update(
     next_action = await cs.update(payload)
 
     return ss.create_response(next_action.dict())
-
-
-# TODO: this can be removed
-@client_router.get("/download/application", response_class=Response)
-async def client_update_files(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
-):
-    """
-    API request by the client to get updated files. With this endpoint a client can:
-    - update application software
-    - obtain model files
-    """
-    LOGGER.info(f"client_id={component.id}: update files request")
-
-    ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    payload = DownloadApp(**data)
-
-    try:
-        new_app: Application = await cs.update_files(payload)
-
-        return ss.encrypt_file(new_app.path)
-    except ValueError as e:
-        LOGGER.exception(e)
-        raise HTTPException(400, "Old versions are not permitted")
-
-    except NoResultFound as e:
-        LOGGER.exception(e)
-        raise HTTPException(404, "no newest version found")

@@ -7,10 +7,9 @@ from ferdelance.database.repositories import (
     JobRepository,
 )
 from ferdelance.shared.actions import Action
-from ferdelance.schemas.components import Client, Token, Application
+from ferdelance.schemas.components import Client, Token
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.updates import (
-    UpdateClientApp,
     UpdateExecute,
     UpdateNothing,
     UpdateToken,
@@ -47,38 +46,6 @@ class ActionService:
 
         return UpdateToken(action=Action.UPDATE_TOKEN.name, token=token.token)
 
-    async def _check_client_app_update(self, client: Client) -> bool:
-        """Compares the client current version with the newest version on the database.
-
-        :return:
-            True if there is a new version and this version is different from the current client version.
-        """
-        try:
-            app: Application = await self.cr.get_newest_app()
-
-            LOGGER.debug(f"client_id={client.id}: version={client.version} newest_version={app.version}")
-
-            return client.version != app.version
-
-        except NoResultFound:
-            return False
-
-    async def _action_update_client_app(self) -> UpdateClientApp:
-        """Update and restart the client with the new version.
-
-        :return:
-            Fetch and return the version to download.
-        """
-
-        new_client: Application = await self.cr.get_newest_app()
-
-        return UpdateClientApp(
-            action=Action.UPDATE_CLIENT.name,
-            checksum=new_client.checksum,
-            name=new_client.name,
-            version=new_client.version,
-        )
-
     async def _check_scheduled_job(self, client: Client) -> Job:
         return await self.jr.next_job_for_component(client.id)
 
@@ -97,17 +64,12 @@ class ActionService:
         """Do nothing and waits for the next update request."""
         return UpdateNothing(action=Action.DO_NOTHING.name)
 
-    async def next(
-        self, client: Client, payload: dict[str, Any]
-    ) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
+    async def next(self, client: Client, payload: dict[str, Any]) -> UpdateExecute | UpdateNothing | UpdateToken:
         # TODO: consume client payload
 
         try:
             if await self._check_client_token(client):
                 return await self._action_update_token(client)
-
-            if await self._check_client_app_update(client):
-                return await self._action_update_client_app()
 
             task = await self._check_scheduled_job(client)
             return await self._action_schedule_job(task)

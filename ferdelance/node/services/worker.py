@@ -5,7 +5,7 @@ from ferdelance.database.repositories import (
     JobRepository,
     ArtifactRepository,
 )
-from ferdelance.server.services import JobManagementService
+from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result, ServerArtifact

@@ -55,7 +55,7 @@ class ClientState:
         self.config: Configuration = config
 
         self.name: str = config.client.name
-        self.server: str = config.server.url()
+        self.server: str = config.node.url()
         self.heartbeat: float = config.client.heartbeat
         self.workdir: str = config.workdir
         self.private_key_location: str = config.private_key_location
@@ -74,7 +74,7 @@ class ClientState:
 
         self.client_id: str | None = None
         self.client_token: str | None = None
-        self.server_public_key: str | None = None
+        self.node_public_key: str | None = None
 
         self.datasources: list[DataSourceConfiguration] = config.datasources
 
@@ -86,10 +86,10 @@ class ClientState:
             LOGGER.error("No valid datasource available!")
             raise ConfigError()
 
-    def join(self, client_id: str, client_token: str, server_public_key: str) -> None:
+    def join(self, client_id: str, client_token: str, node_public_key: str) -> None:
         self.client_id = client_id
         self.client_token = client_token
-        self.server_public_key = server_public_key
+        self.node_public_key = node_public_key
 
         LOGGER.info(f"assigned client_id={self.client_id}")
         LOGGER.debug(f"assigned client_token={self.client_token}")
@@ -120,7 +120,7 @@ class ClientState:
 
             self.client_id = props["client_id"]
             self.client_token = props["client_token"]
-            self.server_public_key = props["server_public_key"]
+            self.node_public_key = props["node_public_key"]
 
     def dump_props(self):
         """Save current configuration to a file in the working directory."""
@@ -131,7 +131,7 @@ class ClientState:
                         "version": __version__,
                         "client_id": self.client_id,
                         "client_token": self.client_token,
-                        "server_public_key": self.server_public_key,
+                        "node_public_key": self.node_public_key,
                     },
                 },
                 f,

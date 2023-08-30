@@ -1,13 +1,12 @@
-from ferdelance.config import Configuration, config_manager, get_logger
+from ferdelance.config import get_logger
 from ferdelance.database import DataBase, Base
-from ferdelance.server.routes import (
+from ferdelance.node.routes import (
     client_router,
     node_router,
-    server_router,
     task_router,
     workbench_router,
 )
-from ferdelance.server.startup import ServerStartup
+from ferdelance.node.startup import ServerStartup
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -17,25 +16,20 @@ LOGGER = get_logger(__name__)
 
 
 def init_api() -> FastAPI:
-    """Initializes the API by adding the routers. If the env variable `DISTRIBUTED` is set, then the server will work
-    in distributed mode and the API for client node will be disabled. Otherwise, the API for servers will be disabled
-    allowing new clients to connect.
-    """
+    """Initializes the API by adding the routers."""
     api: FastAPI = FastAPI()
 
-    conf: Configuration = config_manager.get()
-
+    LOGGER.info("Added router for /node")
     api.include_router(node_router)
-    api.include_router(workbench_router)
-    api.include_router(task_router)
-    LOGGER.info("Added routers for /node /workbench /task")
 
-    if conf.mode == "distributed":
-        LOGGER.info("Added router for /server")
-        api.include_router(server_router)
-    else:
-        LOGGER.info("Added router for /client")
-        api.include_router(client_router)
+    LOGGER.info("Added router for /workbench")
+    api.include_router(workbench_router)
+
+    LOGGER.info("Added router for /task")
+    api.include_router(task_router)
+
+    LOGGER.info("Added router for /client")
+    api.include_router(client_router)
 
     return api
 

@@ -6,20 +6,18 @@ from ferdelance.database.repositories import (
     ComponentRepository,
     AsyncSession,
 )
-from ferdelance.schemas.components import Application, Component
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.updates import (
-    DownloadApp,
-    UpdateClientApp,
     UpdateExecute,
     UpdateNothing,
     UpdateToken,
 )
 from ferdelance.schemas.tasks import TaskArguments, TaskParameters
-from ferdelance.server.services import ActionService, JobManagementService
+from ferdelance.node.services import ActionService, JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 
@@ -35,7 +33,7 @@ class ClientService:
         self.component: Component = component
         self.jms: JobManagementService = JobManagementService(self.session)
 
-    async def update(self, payload: dict[str, Any]) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
+    async def update(self, payload: dict[str, Any]) -> UpdateExecute | UpdateNothing | UpdateToken:
         cr: ComponentRepository = ComponentRepository(self.session)
         acs: ActionService = ActionService(self.session)
 
@@ -49,26 +47,6 @@ class ClientService:
         await cr.create_event(self.component.id, f"action:{next_action.action}")
 
         return next_action
-
-    async def update_files(self, payload: DownloadApp) -> Application:
-        cr: ComponentRepository = ComponentRepository(self.session)
-
-        await cr.create_event(self.component.id, "update files")
-
-        new_app: Application = await cr.get_newest_app()
-
-        if new_app.version != payload.version:
-            LOGGER.warning(
-                f"client_id={self.component.id} "
-                f"requested app version={payload.version} while latest version={new_app.version}"
-            )
-            raise ValueError("Old versions are not permitted")
-
-        await cr.update_client(self.component.id, version=payload.version)
-
-        LOGGER.info(f"client_id={self.component.id}: requested new client version={payload.version}")
-
-        return new_app
 
     async def get_task(self, job_id: str) -> TaskParameters:
         cr: ComponentRepository = ComponentRepository(self.session)

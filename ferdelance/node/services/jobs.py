@@ -18,8 +18,8 @@ from ferdelance.schemas.database import ServerArtifact, Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.tasks import TaskParameters, TaskArguments
-from ferdelance.server.exceptions import ArtifactDoesNotExists
-from ferdelance.server.services import SecurityService
+from ferdelance.node.exceptions import ArtifactDoesNotExists
+from ferdelance.node.services import SecurityService
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 from ferdelance.tasks.backends import get_jobs_backend
 
@@ -223,7 +223,7 @@ class JobManagementService(Repository):
 
             args = TaskArguments(
                 private_key=self.ss.get_server_private_key(),
-                server_url=config_manager.get().server.url(),
+                server_url=config_manager.get().node.url(),
                 server_public_key=self.ss.get_server_public_key(),
                 token=token,
                 datasources=list(),

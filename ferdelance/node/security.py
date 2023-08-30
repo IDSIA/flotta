@@ -23,7 +23,7 @@ async def generate_keys(session: AsyncSession) -> Exchange:
         Current session to the database.
     """
 
-    SMP_VALUE = config_manager.get().server.main_password
+    SMP_VALUE = config_manager.get().node.main_password
 
     if SMP_VALUE is None:
         LOGGER.critical(f"Environment variable {MAIN_KEY} is missing.")

@@ -1,11 +1,11 @@
 from ferdelance.config import config_manager, get_logger
 from ferdelance.database import get_session, AsyncSession
-from ferdelance.database.data import TYPE_SERVER, TYPE_CLIENT
+from ferdelance.database.data import TYPE_NODE, TYPE_CLIENT
 from ferdelance.schemas.components import Component, dummy
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinRequest, ServerPublicKey
-from ferdelance.server.security import check_token
-from ferdelance.server.services import SecurityService, NodeService
+from ferdelance.node.security import check_token
+from ferdelance.node.services import SecurityService, NodeService
 from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import (
@@ -26,7 +26,7 @@ node_router = APIRouter(prefix="/node")
 
 async def check_access(component: Component = Depends(check_token)) -> Component:
     try:
-        if component.type_name not in (TYPE_SERVER, TYPE_CLIENT):
+        if component.type_name not in (TYPE_NODE, TYPE_CLIENT):
             LOGGER.warning(f"component type={component.type_name} cannot access this router")
             raise HTTPException(403)
 
@@ -79,7 +79,6 @@ async def node_join(
         jd = await ns.connect(client_public_key, data, ip_address)
 
         await ss.setup(client_public_key)
-        jd.public_key = ss.get_server_public_key()
 
         return ss.create_response(jd.dict())
 

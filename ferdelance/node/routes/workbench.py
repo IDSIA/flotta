@@ -12,8 +12,8 @@ from ferdelance.schemas.artifacts import (
 )
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.project import Project
-from ferdelance.server.security import check_token
-from ferdelance.server.services import (
+from ferdelance.node.security import check_token
+from ferdelance.node.services import (
     SecurityService,
     WorkbenchService,
     WorkbenchConnectService,

@@ -5,13 +5,11 @@ from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinData, JoinRequest
-from ferdelance.schemas.updates import DownloadApp, UpdateClientApp
 
 from requests import Session, get, post
 from requests.adapters import HTTPAdapter, Retry
 
 import json
-import os
 import shutil
 
 
@@ -26,14 +24,14 @@ class RouteService:
         if self.config.private_key_location is not None:
             self.exc.load_key(self.config.private_key_location)
 
-        if self.config.server_public_key is not None:
-            self.exc.set_remote_key(self.config.server_public_key)
+        if self.config.node_public_key is not None:
+            self.exc.set_remote_key(self.config.node_public_key)
 
         if self.config.client_token is not None:
             self.exc.set_token(self.config.client_token)
 
     def check(self) -> None:
-        """Checks that the server is up waiting for a little bit."""
+        """Checks that the server is up, if not wait for a little bit."""
         s = Session()
 
         retries = Retry(total=10, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
@@ -96,10 +94,10 @@ class RouteService:
 
         LOGGER.info("metadata uploaded successful")
 
-        # return metadata
+        # TODO: return metadata?
 
     def get_update(self, content: dict) -> tuple[Action, dict]:
-        """Heartbeat command to check for an update on the server."""
+        """Heartbeat command to check for an update from the server."""
         LOGGER.debug("requesting update")
 
         res = get(
@@ -113,30 +111,3 @@ class RouteService:
         data = self.exc.get_payload(res.content)
 
         return Action[data["action"]], data
-
-    def get_new_client(self, data: UpdateClientApp):
-        """Deprecated."""
-        expected_checksum = data.checksum
-        download_app = DownloadApp(name=data.name, version=data.version)
-
-        with post(
-            f"{self.config.server}/client/download/application",
-            data=self.exc.create_payload(download_app.dict()),
-            headers=self.exc.headers(),
-            stream=True,
-        ) as stream:
-            if not stream.ok:
-                LOGGER.error(f"could not download new client version={data.version} from server={self.config.server}")
-                return "update"
-
-            path_file: str = os.path.join(self.config.workdir, data.name)
-            checksum: str = self.exc.stream_response_to_file(stream, path_file)
-
-            if checksum != expected_checksum:
-                LOGGER.error("Checksum mismatch: received invalid data!")
-                return Action.DO_NOTHING
-
-            LOGGER.error(f"Checksum of {path_file} passed")
-
-            with open(".update", "w") as f:
-                f.write(path_file)

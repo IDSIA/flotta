@@ -58,7 +58,7 @@ def check_for_env_variables(value_in: dict[str, Any], prefix: str) -> dict[str, 
     return value_out
 
 
-class ServerConfiguration(BaseModel):
+class NodeConfiguration(BaseModel):
     main_password: str = ""
 
     protocol: str = "http"
@@ -133,7 +133,7 @@ class DataSourceConfiguration(BaseModel):
 class Configuration(BaseSettings):
     database: DatabaseConfiguration = DatabaseConfiguration()
 
-    server: ServerConfiguration = ServerConfiguration()
+    node: NodeConfiguration = NodeConfiguration()
     client: ClientConfiguration = ClientConfiguration()
 
     datasources: list[DataSourceConfiguration] = list()

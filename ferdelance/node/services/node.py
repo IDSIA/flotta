@@ -5,12 +5,15 @@ from ferdelance.database.repositories import (
     DataSourceRepository,
     ProjectRepository,
 )
+from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.components import Component, Client
 from ferdelance.schemas.metadata import Metadata
-
 from ferdelance.schemas.node import JoinData, JoinRequest
 
 from sqlalchemy.exc import NoResultFound
+
+import requests
+
 
 LOGGER = get_logger(__name__)
 
@@ -19,6 +22,9 @@ class NodeService:
     def __init__(self, session: AsyncSession, component: Component | Client) -> None:
         self.session: AsyncSession = session
         self.component: Component | Client = component
+
+        self.ss: SecurityService = SecurityService(session)
+        self.cr: ComponentRepository = ComponentRepository(self.session)
 
     async def connect(self, client_public_key: str, data: JoinRequest, ip_address: str) -> JoinData:
         """
@@ -32,17 +38,15 @@ class NodeService:
         :return:
             A WorkbenchJoinData object that can be returned to the connected workbench.
         """
-        cr: ComponentRepository = ComponentRepository(self.session)
-
         try:
-            await cr.get_by_key(client_public_key)
+            await self.cr.get_by_key(client_public_key)
 
             raise ValueError("Invalid client data")
 
         except NoResultFound:
             LOGGER.info("joining new client")
             # create new client
-            client, token = await cr.create_client(
+            client, token = await self.cr.create_client(
                 name=data.name,
                 version=data.version,
                 public_key=client_public_key,
@@ -54,14 +58,16 @@ class NodeService:
 
             LOGGER.info(f"client_id={client.id}: created new client")
 
-            await cr.create_event(client.id, "creation")
+            await self.cr.create_event(client.id, "creation")
+
+            await self.distribute_add(client)
 
         LOGGER.info(f"client_id={client.id}: created new client")
 
         return JoinData(
             id=client.id,
             token=token.token,
-            public_key="",
+            public_key=self.ss.get_server_public_key(),
         )
 
     async def leave(self) -> None:
@@ -69,19 +75,37 @@ class NodeService:
         :raise:
             NoResultFound when there is no project with the given token.
         """
-        cr: ComponentRepository = ComponentRepository(self.session)
-        await cr.client_leave(self.component.id)
-        await cr.create_event(self.component.id, "left")
+        await self.cr.client_leave(self.component.id)
+        await self.cr.create_event(self.component.id, "left")
+        await self.distribute_remove(self.component)
 
     async def metadata(self, metadata: Metadata) -> Metadata:
-        cr: ComponentRepository = ComponentRepository(self.session)
         dsr: DataSourceRepository = DataSourceRepository(self.session)
         pr: ProjectRepository = ProjectRepository(self.session)
 
-        await cr.create_event(self.component.id, "update metadata")
+        await self.cr.create_event(self.component.id, "update metadata")
 
         # this will also update existing metadata
         await dsr.create_or_update_from_metadata(self.component.id, metadata)
         await pr.add_datasources_from_metadata(metadata)
 
+        await self.distribute_metadata(self.component, metadata)
+
         return metadata
+
+    async def distribute_add(self, component: Component) -> None:
+        for node in await self.cr.list_nodes():
+            if node.id == self.component.id:
+                # skip self node
+                continue
+
+            requests.post(
+                f"http://{node.url}:{node.port}/node/add",
+                data=,
+            )
+
+    async def distribute_remove(self, component: Component) -> None:
+        ...
+
+    async def distribute_metadata(self, component: Component, metadata: Metadata) -> None:
+        ...

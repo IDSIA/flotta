@@ -24,6 +24,8 @@ class Backend:
 
         LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")
 
+        return task_handler
+
     def start_training(self, args: TaskArguments) -> None:
         LOGGER.info(f"artifact_id={args.artifact_id}: scheduling training task with job_id={args.job_id}")
 
@@ -41,6 +43,8 @@ class Backend:
 
         LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")
 
+        return task_handler
+
     def start_estimation(self, args: TaskArguments) -> None:
         LOGGER.info(f"artifact_id={args.artifact_id}: scheduling training task with job_id={args.job_id}")
 
@@ -57,3 +61,5 @@ class Backend:
         task_handler = actor_handler.run.remote()  # type: ignore
 
         LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")
+
+        return task_handler

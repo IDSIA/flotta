@@ -1,6 +1,6 @@
 from ferdelance.config import config_manager, get_logger
 
-from ferdelance.server.deployment import start_server
+from ferdelance.node.deployment import start_server
 
 import ray
 import requests
@@ -23,9 +23,9 @@ if __name__ == "__main__":
 
     # This is an horrid way to keep this script (and ray) alive...
     while True:
-        sleep(config.server.healthcheck)
+        sleep(config.node.healthcheck)
         try:
-            res = requests.get(f"{config.server.url_deploy()}/")
+            res = requests.get(f"{config.node.url_deploy()}/")
             res.raise_for_status()
         except Exception as e:
             LOGGER.error(e)

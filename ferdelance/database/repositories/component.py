@@ -1,6 +1,5 @@
 from ferdelance.config import get_logger
 from ferdelance.database.tables import (
-    Application as ApplicationDB,
     Component as ComponentDB,
     ComponentType,
     Event as EventDB,
@@ -8,13 +7,12 @@ from ferdelance.database.tables import (
 )
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.tokens import TokenRepository
-from ferdelance.database.data import TYPE_CLIENT
+from ferdelance.database.data import TYPE_CLIENT, TYPE_NODE
 from ferdelance.schemas.components import (
     Component,
     Client,
     Token,
     Event,
-    Application,
 )
 
 from sqlalchemy import select
@@ -74,19 +72,6 @@ def viewEvent(event: EventDB) -> Event:
         id=event.id,
         time=event.time,
         event=event.event,
-    )
-
-
-def viewApplication(app: ApplicationDB) -> Application:
-    return Application(
-        id=app.id,
-        creation_time=app.creation_time,
-        version=app.version,
-        active=app.active,
-        path=app.path,
-        name=app.name,
-        description=app.description,
-        checksum=app.checksum,
     )
 
 
@@ -441,6 +426,10 @@ class ComponentRepository(Repository):
         res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_CLIENT))
         return [viewClient(c) for c in res.all()]
 
+    async def list_nodes(self) -> list[Component]:
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.type_name == TYPE_NODE))
+        return [viewComponent(c) for c in res.all()]
+
     async def list_clients_by_ids(self, client_ids: list[str]) -> list[Client]:
         """Lists all the clients that have the id in the list of ids.
 
@@ -620,19 +609,3 @@ class ComponentRepository(Repository):
         """
         res = await self.session.scalars(select(EventDB).where(EventDB.component_id == component_id))
         return [viewEvent(e) for e in res.all()]
-
-    async def get_newest_app(self) -> Application:
-        """Return an handler to the newest version available of the framework.
-
-        Raises:
-            NoResultFound:
-                If there are no applications available.
-
-        Returns:
-            Application:
-                An handler for the newest application.
-        """
-        result = await self.session.scalars(
-            select(ApplicationDB).where(ApplicationDB.active).order_by(ApplicationDB.creation_time.desc()).limit(1)
-        )
-        return viewApplication(result.one())
