@@ -1,9 +1,0 @@
-TYPE_NODE: str = "NODE"
-TYPE_CLIENT: str = "CLIENT"
-TYPE_USER: str = "USER"
-
-COMPONENT_TYPES: list[str] = [
-    TYPE_NODE,
-    TYPE_CLIENT,
-    TYPE_USER,
-]

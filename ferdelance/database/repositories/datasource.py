@@ -1,7 +1,8 @@
-from ferdelance.config import config_manager, get_logger
+from ferdelance.config import config_manager
 from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
 from ferdelance.database.repositories.core import AsyncSession, Repository
-from ferdelance.database.repositories.component import viewClient, ComponentDB, Client
+from ferdelance.database.repositories.component import ComponentDB, Component, viewComponent
+from ferdelance.logging import get_logger
 from ferdelance.schemas.metadata import Metadata, MetaDataSource
 from ferdelance.schemas.datasources import DataSource, Feature
 
@@ -340,7 +341,7 @@ class DataSourceRepository(Repository):
         stored_ds = await self.load(datasource_id)
         return view(ds, stored_ds.features)
 
-    async def get_client_by_datasource_id(self, datasource_id: str) -> Client:
+    async def get_client_by_datasource_id(self, datasource_id: str) -> Component:
         """Return information on the client of the given datasource_id.
 
         Args:
@@ -363,4 +364,4 @@ class DataSourceRepository(Repository):
                 DataSourceDB.removed == False,  # noqa: E712
             )
         )
-        return viewClient(res.one())
+        return viewComponent(res.one())

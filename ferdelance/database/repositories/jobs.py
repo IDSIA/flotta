@@ -1,4 +1,4 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.database.tables import Job as JobDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.jobs import Job

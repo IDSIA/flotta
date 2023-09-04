@@ -12,7 +12,7 @@ from sqlalchemy import select, update
 import base64
 
 
-KEY_CLIENT_TOKEN_EXPIRATION = "TOKEN_CLIENT_EXPIRATION"
+KEY_NODE_TOKEN_EXPIRATION = "TOKEN_CLIENT_EXPIRATION"
 KEY_USER_TOKEN_EXPIRATION = "TOKEN_USER_EXPIRATION"
 
 
@@ -22,7 +22,7 @@ async def setup_settings(session: AsyncSession) -> None:
     USER_TOKEN_EXPIRATION = parse(conf.token_user_expiration)
 
     kvs = KeyValueStore(session)
-    await kvs.put_any(KEY_CLIENT_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)
+    await kvs.put_any(KEY_NODE_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)
 
     kvs = KeyValueStore(session)
     await kvs.put_any(KEY_USER_TOKEN_EXPIRATION, USER_TOKEN_EXPIRATION)

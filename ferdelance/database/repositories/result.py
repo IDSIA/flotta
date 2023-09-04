@@ -231,7 +231,7 @@ class ResultRepository(Repository):
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
-                ResultDB.is_model == True,
+                ResultDB.is_model == True,  # noqa: E712
             )
         )
         result_list = [view(m) for m in res.all()]
@@ -290,7 +290,7 @@ class ResultRepository(Repository):
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
-                ResultDB.is_aggregation == True,
+                ResultDB.is_aggregation == True,  # noqa: E712
             )
         )
         return view(res.one())
@@ -320,7 +320,7 @@ class ResultRepository(Repository):
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
                 ResultDB.component_id == client_id,
-                ResultDB.is_aggregation == False,
+                ResultDB.is_aggregation == False,  # noqa: E712
             )
         )
         return view(res.one())

@@ -1,4 +1,4 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.tokens import TokenRepository
 from ferdelance.database.repositories.datasource import DataSourceRepository

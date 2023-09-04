@@ -33,6 +33,7 @@ class Component(Base):
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
 
     name: Mapped[str] = mapped_column(nullable=True)
+    is_self: Mapped[bool] = mapped_column(default=False)
 
     type_name: Mapped[str] = mapped_column(ForeignKey("component_types.type"))
     type = relationship("ComponentType")
@@ -45,18 +46,12 @@ class Component(Base):
     public_key: Mapped[str] = mapped_column(nullable=False)
 
     # fdl component's version
-    version: Mapped[str | None] = mapped_column(String, nullable=True)
-    # component output for operative system (use "platform.system()")
-    machine_system: Mapped[str | None] = mapped_column(String, nullable=True)
-    # component output for mac address (use "from getmac import get_mac_address; get_mac_address()")
-    machine_mac_address: Mapped[str | None] = mapped_column(String, nullable=True)
-    # component output for machine node (use "uuid.getnode()")
-    machine_node: Mapped[str | None] = mapped_column(String, nullable=True)
+    version: Mapped[str | None] = mapped_column(String)
 
     # node component ip addresss (for indirect communication)
-    ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String)
     # node component complete url (for direct communication)
-    url: Mapped[str | None] = mapped_column(String, nullable=True)
+    url: Mapped[str | None] = mapped_column(String)
 
 
 class Token(Base):
