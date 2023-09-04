@@ -1,4 +1,4 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.database.repositories import Repository, AsyncSession
 from ferdelance.database.repositories.settings import KeyValueStore
 from ferdelance.shared.exchange import Exchange
@@ -7,7 +7,7 @@ from ferdelance.shared.decode import HybridDecrypter
 from fastapi import Request
 from fastapi.responses import StreamingResponse, Response
 
-from typing import Any, Iterator
+from typing import Iterator
 
 import aiofiles
 
@@ -54,17 +54,28 @@ class SecurityService(Repository):
     def decrypt(self, content: str) -> str:
         return self.exc.decrypt(content)
 
-    def create_response(self, content: dict[str, Any]) -> Response:
+    def verify_headers(self, request: Request) -> tuple[str, str]:
+        headers = request.headers.get("Authentication", "")
+
+        if not headers:
+            raise ValueError("Invalid header signatures")
+
+        component_id, checksum = self.exc.get_header(headers)
+
+        return component_id, checksum
+
+    def create_response(self, content: bytes) -> Response:
         data = self.exc.create_payload(content)
         return Response(content=data)
 
-    async def read_request(self, request: Request) -> dict[str, Any]:
+    async def read_request(self, request: Request) -> tuple[str, bytes]:
         body = await request.body()
         return self.exc.get_payload(body)
 
     def encrypt_file(self, path: str) -> StreamingResponse:
         """Used to stream encrypt data from a file, using less memory."""
-        return StreamingResponse(self.exc.stream_from_file(path), media_type="application/octet-stream")
+        _, it = self.exc.stream_from_file(path)
+        return StreamingResponse(it, media_type="application/octet-stream")
 
     async def stream_decrypt_file(self, request: Request, path: str) -> str:
         """Used to stream decrypt data to a file, using less memory."""
@@ -81,7 +92,7 @@ class SecurityService(Repository):
 
         return dec.get_checksum()
 
-    def stream_encrypt(self, content: str) -> Iterator[bytes]:
+    def stream_encrypt(self, content: str) -> tuple[str, Iterator[bytes]]:
         """Used to encrypt small data that can be kept in memory."""
         return self.exc.stream(content)
 

@@ -1,13 +1,13 @@
-from ferdelance.config import get_logger
-from ferdelance.client.state import ClientState
+from ferdelance.client.state import State
 from ferdelance.client.exceptions import ErrorClient
+from ferdelance.logging import get_logger
 from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinData, JoinRequest
+from ferdelance.schemas.node import JoinData, NodeJoinRequest
+from ferdelance.utils import check_url
 
-from requests import Session, get, post
-from requests.adapters import HTTPAdapter, Retry
+from requests import get, post
 
 import json
 import shutil
@@ -17,32 +17,24 @@ LOGGER = get_logger(__name__)
 
 
 class RouteService:
-    def __init__(self, config: ClientState) -> None:
-        self.config: ClientState = config
+    def __init__(self, state: State) -> None:
+        self.state: State = state
         self.exc: Exchange = Exchange()
 
-        if self.config.private_key_location is not None:
-            self.exc.load_key(self.config.private_key_location)
+        if self.state.private_key_location is not None:
+            self.exc.load_key(self.state.private_key_location)
 
-        if self.config.node_public_key is not None:
-            self.exc.set_remote_key(self.config.node_public_key)
+        if self.state.node_public_key is not None:
+            self.exc.set_remote_key(self.state.node_public_key)
 
-        if self.config.client_token is not None:
-            self.exc.set_token(self.config.client_token)
+        if self.state.client_token is not None:
+            self.exc.set_token(self.state.client_token)
 
     def check(self) -> None:
-        """Checks that the server is up, if not wait for a little bit."""
-        s = Session()
+        """Checks that the server node is up, if not wait for a little bit."""
+        check_url(f"{self.state.server}/client/")
 
-        retries = Retry(total=10, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
-
-        s.mount("http://", HTTPAdapter(max_retries=retries))
-
-        res = s.get(f"{self.config.server}/client/")
-
-        res.raise_for_status()
-
-    def join(self, join_data: JoinRequest) -> JoinData:
+    def join(self, join_data: NodeJoinRequest) -> JoinData:
         """Send a join request to the server.
 
         :param system:
@@ -58,7 +50,7 @@ class RouteService:
         :return:
             The connection data for a join request.
         """
-        res = post(f"{self.config.server}/node/join", data=json.dumps(join_data.dict()))
+        res = post(f"{self.state.server}/node/join", data=json.dumps(join_data.dict()))
 
         res.raise_for_status()
 
@@ -67,25 +59,25 @@ class RouteService:
     def leave(self) -> None:
         """Send a leave request to the server."""
         res = post(
-            f"{self.config.server}/node/leave",
+            f"{self.state.server}/node/leave",
             headers=self.exc.headers(),
         )
 
         res.raise_for_status()
 
-        LOGGER.info(f"removing working directory {self.config.workdir}")
-        shutil.rmtree(self.config.workdir)
+        LOGGER.info(f"removing working directory {self.state.workdir}")
+        shutil.rmtree(self.state.workdir)
 
-        LOGGER.info(f"client left server {self.config.server}")
+        LOGGER.info(f"client left server {self.state.server}")
         raise ErrorClient()
 
     def send_metadata(self) -> None:
         LOGGER.info("sending metadata to remote")
 
-        metadata: Metadata = self.config.data.metadata()
+        metadata: Metadata = self.state.data.metadata()
 
         res = post(
-            f"{self.config.server}/node/metadata",
+            f"{self.state.server}/node/metadata",
             data=self.exc.create_payload(metadata.dict()),
             headers=self.exc.headers(),
         )
@@ -101,7 +93,7 @@ class RouteService:
         LOGGER.debug("requesting update")
 
         res = get(
-            f"{self.config.server}/client/update",
+            f"{self.state.server}/client/update",
             data=self.exc.create_payload(content),
             headers=self.exc.headers(),
         )

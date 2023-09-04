@@ -12,7 +12,6 @@ class TaskArguments(BaseModel):
     private_key: str
     server_url: str
     server_public_key: str
-    token: str
     workdir: str
     datasources: list[dict[str, Any]]
     job_id: str
@@ -31,6 +30,7 @@ class TaskParameters(BaseModel):
 
     artifact: Artifact
     job_id: str
+    iteration: int
     content_ids: list[str]
 
 

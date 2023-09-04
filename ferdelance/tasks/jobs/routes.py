@@ -1,7 +1,7 @@
 from typing import Any
 from abc import ABC, abstractmethod
 
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models.metrics import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
@@ -42,7 +42,6 @@ class EncryptRouteService(RouteService):
     def __init__(
         self,
         server_url: str,
-        token: str,
         private_key: str,
         server_public_key: str,
     ) -> None:
@@ -50,7 +49,6 @@ class EncryptRouteService(RouteService):
 
         self.exc: Exchange = Exchange()
         self.exc.set_private_key(private_key)
-        self.exc.set_token(token)
         self.exc.set_remote_key(server_public_key)
 
     def get_task_params(self, artifact_id: str, job_id: str) -> TaskParameters:

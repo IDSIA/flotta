@@ -1,6 +1,6 @@
-from typing import Any, Callable
+from typing import Callable
 
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -27,20 +27,20 @@ import json
 LOGGER = get_logger(__name__)
 
 
-class ClientService:
+class ComponentService:
     def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
         self.component: Component = component
         self.jms: JobManagementService = JobManagementService(self.session)
 
-    async def update(self, payload: dict[str, Any]) -> UpdateExecute | UpdateNothing | UpdateToken:
+    async def update(self) -> UpdateExecute | UpdateNothing | UpdateToken:
         cr: ComponentRepository = ComponentRepository(self.session)
         acs: ActionService = ActionService(self.session)
 
         await cr.create_event(self.component.id, "update")
         client = await cr.get_client_by_id(self.component.id)
 
-        next_action = await acs.next(client, payload)
+        next_action = await acs.next(client)
 
         LOGGER.debug(f"client_id={self.component.id}: update action={next_action.action}")
 

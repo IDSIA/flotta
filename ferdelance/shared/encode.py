@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 
 from .commons import DEFAULT_SEPARATOR
 from .generate import SymmetricKey
@@ -17,7 +17,7 @@ import json
 LOGGER = get_logger(__name__)
 
 
-def encode_to_transfer(text: str, encoding: str = "utf8") -> str:
+def encode_to_transfer(text: str | bytes, encoding: str = "utf8") -> str:
     """Encode a string that will be sent through a transfer between client and server.
 
     :param text:
@@ -27,13 +27,14 @@ def encode_to_transfer(text: str, encoding: str = "utf8") -> str:
     :return:
         Encoded text.
     """
-    in_bytes: bytes = text.encode(encoding)
-    b64_bytes: bytes = b64encode(in_bytes)
+    if isinstance(text, str):
+        text = text.encode(encoding)
+    b64_bytes: bytes = b64encode(text)
     out_text: str = b64_bytes.decode(encoding)
     return out_text
 
 
-def encrypt(public_key: RSAPublicKey, text: str, encoding: str = "utf8") -> str:
+def encrypt(public_key: RSAPublicKey, text: str | bytes, encoding: str = "utf8") -> str:
     """Encrypt a text using a public key.
 
     :param public_key:
@@ -43,8 +44,9 @@ def encrypt(public_key: RSAPublicKey, text: str, encoding: str = "utf8") -> str:
     :param encoding:
         Encoding to use in the string-byte conversion.
     """
-    plain_text: bytes = text.encode(encoding)
-    enc_text: bytes = public_key.encrypt(plain_text, padding.PKCS1v15())
+    if isinstance(text, str):
+        text = text.encode(encoding)
+    enc_text: bytes = public_key.encrypt(text, padding.PKCS1v15())
     b64_text: bytes = b64encode(enc_text)
     ret_text: str = b64_text.decode(encoding)
     return ret_text
@@ -110,7 +112,7 @@ class HybridEncrypter:
         self.encryptor = None
         self.checksum = None
 
-    def encrypt(self, content: str) -> bytes:
+    def encrypt(self, content: str | bytes) -> bytes:
         """Encrypt the whole content.
 
         :param content:
@@ -209,12 +211,10 @@ class HybridEncrypter:
             raise ValueError("Call the start() method before update(...)")
 
         if isinstance(content, str):
-            data = content.encode(self.encoding)
-        else:
-            data = content
+            content = content.encode(self.encoding)
 
-        self.checksum.update(data)
-        return self.encryptor.update(data)
+        self.checksum.update(content)
+        return self.encryptor.update(content)
 
     def end(self) -> bytes:
         """Finalize and end the encryption process.

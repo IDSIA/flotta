@@ -1,6 +1,7 @@
 from typing import Callable
 
-from ferdelance.config import config_manager, get_logger
+from ferdelance.config import config_manager
+from ferdelance.logging import get_logger
 from ferdelance.database.repositories import (
     AsyncSession,
     ArtifactRepository,
@@ -12,7 +13,7 @@ from ferdelance.database.repositories import (
     Repository,
 )
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
-from ferdelance.schemas.components import Client
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.database import ServerArtifact, Result
 from ferdelance.schemas.errors import TaskError
@@ -85,7 +86,7 @@ class JobManagementService(Repository):
         LOGGER.info(f"artifact_id={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration #{iteration}")
 
         for datasource_id in datasources_ids:
-            client: Client = await self.dsr.get_client_by_datasource_id(datasource_id)
+            client: Component = await self.dsr.get_client_by_datasource_id(datasource_id)
 
             await self.jr.schedule_job(
                 artifact.id,
@@ -138,7 +139,7 @@ class JobManagementService(Repository):
 
             await self.jr.start_execution(job)
 
-            return TaskParameters(artifact=artifact, job_id=job.id, content_ids=hashes)
+            return TaskParameters(artifact=artifact, job_id=job.id, content_ids=hashes, iteration=job.iteration)
 
         except NoResultFound:
             LOGGER.warning(f"client_id={client_id}: task with job_id={job_id} does not exists")
@@ -200,19 +201,14 @@ class JobManagementService(Repository):
         artifact_id = result.artifact_id
 
         try:
-            token = await self.cr.get_token_for_self()
-
-            if token is None:
-                raise ValueError("No worker available")
-
             artifact = await self.ar.get_status(artifact_id)
 
             # schedule an aggregation
-            worker_id = await self.cr.get_component_id_by_token(token)
+            worker = await self.cr.get_self_component()
 
             job: Job = await self.jr.schedule_job(
                 artifact_id,
-                worker_id,
+                worker.id,
                 is_model=result.is_model,
                 is_estimation=result.is_estimation,
                 is_aggregation=True,
@@ -223,9 +219,8 @@ class JobManagementService(Repository):
 
             args = TaskArguments(
                 private_key=self.ss.get_server_private_key(),
-                server_url=config_manager.get().node.url(),
+                server_url=config_manager.get().node.url_extern(),
                 server_public_key=self.ss.get_server_public_key(),
-                token=token,
                 datasources=list(),
                 workdir=".",
                 job_id=job.id,
@@ -276,6 +271,7 @@ class JobManagementService(Repository):
                 artifact=artifact,
                 job_id=job_id,
                 content_ids=[r.id for r in results],
+                iteration=job.iteration,
             )
 
         except NoResultFound:

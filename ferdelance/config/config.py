@@ -1,9 +1,13 @@
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseSettings, BaseModel, root_validator
+from ferdelance.const import TYPE_CLIENT, TYPE_NODE
+
+from ferdelance.datasources import DataSourceDB, DataSourceFile
+from ferdelance.schemas.metadata import Metadata
+from ferdelance.logging import get_logger
 
 from .arguments import setup_config_from_arguments
-from .logging import get_logger
 
 from dotenv import load_dotenv
 from getmac import get_mac_address
@@ -59,38 +63,63 @@ def check_for_env_variables(value_in: dict[str, Any], prefix: str) -> dict[str, 
 
 
 class NodeConfiguration(BaseModel):
+    name: str = ""
+
     main_password: str = ""
 
+    # protocol used
     protocol: str = "http"
+    # interface to use
     interface: str = "0.0.0.0"
-    host: str = "localhost"
+    # external host (or fqdn) to use
+    url: str = "localhost"
+    # external port to listen to
     port: int = 1456
 
     token_client_expiration: str = "90 days"
     token_user_expiration: str = "30 days"
     token_project_default: str = ""
 
-    healthcheck: int = 60
+    # self-check in seconds when mode=node
+    healthcheck: float = 60
+    # concact server node each interval in second for update when mode=client
+    heartbeat: float = 2.0
 
-    @root_validator()
+    machine_system: str = platform.system()
+    machine_mac_address: str = get_mac_address() or ""
+    machine_node: str = str(uuid.getnode())
+
+    @root_validator(pre=True)
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         return check_for_env_variables(values, "ferdelance_server")
 
-    def url(self) -> str:
-        return f"{self.protocol}://{self.host.rstrip('/')}:{self.port}"
+    def url_extern(self) -> str:
+        """Url that will be sent to other nodes and used to contact this node."""
+        return f"{self.protocol}://{self.url.rstrip('/')}:{self.port}"
 
     def url_deploy(self) -> str:
+        """Url to use for deploying the api throug ray serve."""
         return f"{self.protocol}://{self.interface.rstrip('/')}:{self.port}"
+
+
+class JoinConfiguration(BaseModel):
+    first: bool = False
+    url: str | None = None
+
+    @root_validator(pre=True)
+    @classmethod
+    def env_var_validate(cls, values: dict[str, Any]):
+        return check_for_env_variables(values, "ferdelance_client")
 
 
 class DatabaseConfiguration(BaseModel):
     username: str | None = None
     password: str | None = None
 
-    dialect: str = "postgresql"
-    port: int = 5432
-    host: str | None = None
+    dialect: str = "sqlite"  # "postgresql"
+    port: int = -1  # 5432
+    host: str | None = "./storage/sqlite.db"  # None
     scheme: str = "ferdelance"
 
     memory: bool = False
@@ -101,21 +130,6 @@ class DatabaseConfiguration(BaseModel):
         return check_for_env_variables(values, "ferdelance_database")
 
 
-class ClientConfiguration(BaseModel):
-    heartbeat: float = 2.0
-
-    name: str = ""
-
-    machine_system: str = platform.system()
-    machine_mac_address: str = get_mac_address() or ""
-    machine_node: str = str(uuid.getnode())
-
-    @root_validator()
-    @classmethod
-    def env_var_validate(cls, values: dict[str, Any]):
-        return check_for_env_variables(values, "ferdelance_client")
-
-
 class DataSourceConfiguration(BaseModel):
     name: str
     token: list[str] | str | None
@@ -124,31 +138,84 @@ class DataSourceConfiguration(BaseModel):
     conn: str | None = None
     path: str | None = None
 
-    @root_validator()
+    @root_validator(pre=True)
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         return check_for_env_variables(values, "ferdelance_datasource")
+
+
+class DataSourceStorage:
+    def __init__(self, datasources: list[DataSourceConfiguration]) -> None:
+        """Hash -> DataSource"""
+        self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
+
+        for ds in datasources:
+            if ds.token is None:
+                tokens = list()
+            elif isinstance(ds.token, str):
+                tokens = [ds.token]
+            else:
+                tokens = ds.token
+
+            if ds.kind == "db":
+                if ds.conn is None:
+                    LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
+                    continue
+                datasource = DataSourceDB(ds.name, ds.type, ds.conn, tokens)
+                self.datasources[datasource.hash] = datasource
+
+            if ds.kind == "file":
+                if ds.path is None:
+                    LOGGER.error(f"Missing path for datasource with name={ds.conn}")
+                    continue
+                datasource = DataSourceFile(ds.name, ds.type, ds.path, tokens)
+                self.datasources[datasource.hash] = datasource
+
+    def metadata(self) -> Metadata:
+        return Metadata(datasources=[ds.metadata() for _, ds in self.datasources.items()])
 
 
 class Configuration(BaseSettings):
     database: DatabaseConfiguration = DatabaseConfiguration()
 
     node: NodeConfiguration = NodeConfiguration()
-    client: ClientConfiguration = ClientConfiguration()
+    join: JoinConfiguration = JoinConfiguration()
 
     datasources: list[DataSourceConfiguration] = list()
 
-    mode: Literal["client", "server", "standalone", "distributed"] = "standalone"
+    mode: str = "node"  # Literal["client", "node", "standalone"] = "node"
 
     workdir: str = os.path.join(".", "storage")
-    private_key_location: str = os.path.join(".", "storage", "private_key.pem")
 
     file_chunk_size: int = 4096
 
-    @root_validator()
+    @root_validator(pre=True)
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         return check_for_env_variables(values, "ferdelance")
+
+    @root_validator(pre=False)
+    @classmethod
+    def force_client_mode(cls, values: dict[str, Any]):
+        """Force node url to localhost when mode=client"""
+        if values["mode"] == "client":
+            LOGGER.info("Client mode dtected, forcing api to localhost")
+            node = values["node"]
+            node["protocol"] = "http"
+            node["interface"] = "localhost"
+            node["port"] = 1456
+
+        return values
+
+    def get_node_type(self) -> str:
+        if self.mode == "client":
+            return TYPE_CLIENT
+        if self.mode == "node":
+            return TYPE_NODE
+        if self.mode == "standalone":
+            return TYPE_NODE
+
+        raise ValueError(f"invalid or unsupported mode={self.mode}")
 
     def storage_datasources_dir(self) -> str:
         return os.path.join(self.workdir, "datasources")
@@ -177,9 +244,11 @@ class Configuration(BaseSettings):
     def storage_config(self) -> str:
         return os.path.join(self.workdir, "config.yaml")
 
-    def dump(self) -> None:
-        os.makedirs(self.storage_clients_dir(), exist_ok=True)
+    def private_key_location(self) -> str:
+        return os.path.join(self.workdir, "private_key.pem")
 
+    def dump(self) -> None:
+        os.makedirs(self.workdir, exist_ok=True)
         with open(self.storage_config(), "w") as f:
             try:
                 yaml.safe_dump(self.dict(), f)
@@ -197,6 +266,14 @@ class Configuration(BaseSettings):
 
 class ConfigManager:
     def __init__(self) -> None:
+        self.config: Configuration
+        self._leave: bool = False
+
+        self._set_config()
+
+        self.data: DataSourceStorage = DataSourceStorage(self.config.datasources)
+
+    def _set_config(self) -> None:
         # config path from cli parameters
         config_path, self._leave = setup_config_from_arguments()
 
@@ -224,7 +301,6 @@ class ConfigManager:
             try:
                 yaml_data: dict[str, Any] = yaml.safe_load(f)
                 self.config = Configuration(**yaml_data)
-                self.config.dump()
 
             except yaml.YAMLError as e:
                 LOGGER.error(f"could not read config file {config_path}")

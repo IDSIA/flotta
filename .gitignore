@@ -22,6 +22,7 @@ __pycache__
 *.gz
 
 *.pem
+*.pub
 
 storage/
 logs/

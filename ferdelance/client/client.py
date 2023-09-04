@@ -1,11 +1,12 @@
 from ferdelance import __version__
-from ferdelance.config import Configuration, get_logger
-from ferdelance.client.state import ClientState, ConfigError
+from ferdelance.config import Configuration
+from ferdelance.client.state import State, ConfigError
 from ferdelance.client.exceptions import RelaunchClient, ErrorClient, UpdateClient
 from ferdelance.client.services.scheduling import ScheduleActionService
 from ferdelance.client.services.routes import RouteService
+from ferdelance.logging import get_logger
 from ferdelance.shared.actions import Action
-from ferdelance.schemas.node import JoinData, JoinRequest
+from ferdelance.schemas.node import JoinData, NodeJoinRequest
 from ferdelance.shared.exchange import Exchange
 
 from time import sleep
@@ -21,7 +22,7 @@ LOGGER = get_logger(__name__)
 
 def start_client(config: Configuration, leave: bool = False):
     LOGGER.info("Starting a new client")
-    state = ClientState(config, leave)
+    state = State(config, leave)
     client = FerdelanceClient.remote(state)
     h = client.run.remote()  # type: ignore
     return ray.get([h])
@@ -29,11 +30,11 @@ def start_client(config: Configuration, leave: bool = False):
 
 @ray.remote
 class FerdelanceClient:
-    def __init__(self, state: ClientState) -> None:
+    def __init__(self, state: State) -> None:
         # possible states are: work, exit, update, install
         self.status: Action = Action.INIT
 
-        self.state: ClientState = state
+        self.state: State = state
 
         self.setup_completed: bool = False
         self.stop: bool = False
@@ -56,8 +57,8 @@ class FerdelanceClient:
         # create required directories
         os.makedirs(self.state.workdir, exist_ok=True)
         os.chmod(self.state.workdir, 0o700)
-        os.makedirs(self.state.data.path_artifacts_folder(), exist_ok=True)
-        os.chmod(self.state.data.path_artifacts_folder(), 0o700)
+        os.makedirs(self.state.config.storage_artifact_dir(), exist_ok=True)
+        os.chmod(self.state.config.storage_artifact_dir(), 0o700)
 
         exc = Exchange()
 
@@ -96,7 +97,7 @@ class FerdelanceClient:
             # not joined yet
             LOGGER.info("collecting system info")
 
-            join_data = JoinRequest(
+            join_data = NodeJoinRequest(
                 name=self.state.name,
                 system=self.state.machine_system,
                 mac_address=self.state.machine_mac_address,

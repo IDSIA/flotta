@@ -1,16 +1,16 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.client.services.scheduling import ScheduleActionService
+from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.database import get_session, AsyncSession
-from ferdelance.database.data import TYPE_CLIENT, TYPE_NODE
+from ferdelance.node.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
+from ferdelance.node.middlewares import SessionArgs, session_args
+from ferdelance.node.services import SecurityService, ComponentService, WorkerService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
 from ferdelance.schemas.updates import UpdateExecute
-from ferdelance.node.services import SecurityService, ClientService, WorkerService
-from ferdelance.node.security import check_token
-from ferdelance.node.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -26,15 +26,17 @@ LOGGER = get_logger(__name__)
 task_router = APIRouter(prefix="/task")
 
 
-async def check_access(component: Component = Depends(check_token)) -> Component:
+async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:
     try:
-        if component.type_name not in (TYPE_CLIENT, TYPE_NODE):
-            LOGGER.warning(f"client of type={component.type_name} cannot access this route")
+        if args.component.type_name not in (TYPE_CLIENT, TYPE_NODE):
+            LOGGER.warning(
+                f"component_id={args.component.id}: type={args.component.type_name} cannot access this route"
+            )
             raise HTTPException(403)
 
-        return component
+        return args
     except NoResultFound:
-        LOGGER.warning(f"client_id={component.id} not found")
+        LOGGER.warning(f"component_id={args.component.id}: not found")
         raise HTTPException(403)
 
 
@@ -45,50 +47,34 @@ async def client_home():
 
 @task_router.post("/", response_class=Response)
 async def server_post_task(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    content: UpdateExecute,
+    args: SessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"client_id={component.id}: new task execution")
-
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    content = UpdateExecute(**data)
+    LOGGER.info(f"component_id={args.component.id}: new task execution")
 
     scheduler = ScheduleActionService()
 
 
-@task_router.get("/params", response_class=Response)
+@task_router.get("/params", response_model=TaskParameters)
 async def get_task_params(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    payload: TaskParametersRequest,
+    args: SessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"client_id={component.id}: new task request")
-
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    payload = TaskParametersRequest(**data)
+    LOGGER.info(f"component_id={args.component.id}: new task request")
 
     try:
-        if component.type_name == TYPE_CLIENT:
-            cs: ClientService = ClientService(session, component)
+        if args.component.type_name == TYPE_CLIENT:
+            cs: ComponentService = ComponentService(args.session, args.component)
             content: TaskParameters = await cs.get_task(payload.job_id)
 
-        elif component.type_name == TYPE_NODE:
-            ws: WorkerService = WorkerService(session, component)
+        elif args.component.type_name == TYPE_NODE:
+            ws: WorkerService = WorkerService(args.session, args.component)
             content: TaskParameters = await ws.get_task(payload.job_id)
 
         else:
             raise TaskDoesNotExists()
 
-        return ss.create_response(content.dict())
+        return content
 
     except ArtifactDoesNotExists as e:
         LOGGER.error(f"artifact_id={payload.artifact_id} does not exists for job_id={payload.job_id}")
@@ -103,35 +89,32 @@ async def get_task_params(
 
 @task_router.get("/result/{result_id}", response_class=FileResponse)
 async def get_result(
-    result_id: str, session: AsyncSession = Depends(get_session), component: Component = Depends(check_access)
+    result_id: str,
+    args: SessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component_id={component.id}: request result_id={result_id}")
-
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(component.public_key)
+    LOGGER.info(f"component_id={args.component.id}: request result_id={result_id}")
 
     try:
-        ws: WorkerService = WorkerService(session, component)
+        ws: WorkerService = WorkerService(args.session, args.component)
         result = await ws.get_result(result_id)
 
-        if not result.is_aggregation and component.type_name == TYPE_CLIENT:
+        if not result.is_aggregation and args.component.type_name == TYPE_CLIENT:
             # Only aggregation jobs can download results
-            LOGGER.error(f"component_id={component.id}: Tryied to get result with result_id={result_id}")
+            LOGGER.error(f"component_id={args.component.id}: Tryied to get result with result_id={result_id}")
             raise HTTPException(403)
 
-        return ss.encrypt_file(result.path)
+        return args.security_service.encrypt_file(result.path)
 
     except HTTPException as e:
         raise e
 
     except NoResultFound as e:
-        LOGGER.error(f"component_id={component.id}: Result does not exists for result_id={result_id}")
+        LOGGER.error(f"component_id={args.component.id}: Result does not exists for result_id={result_id}")
         LOGGER.exception(e)
         raise HTTPException(404)
 
     except Exception as e:
-        LOGGER.error(f"component_id={component.id}: {e}")
+        LOGGER.error(f"component_id={args.component.id}: {e}")
         LOGGER.exception(e)
         raise HTTPException(500)
 
@@ -141,9 +124,9 @@ async def post_result(
     request: Request,
     job_id: str,
     session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    component: Component = Depends(allow_access),
 ):
-    LOGGER.info(f"client_id={component.id}: complete work on job_id={job_id}")
+    LOGGER.info(f"component_id={component.id}: complete work on job_id={job_id}")
 
     ss: SecurityService = SecurityService(session)
 
@@ -151,7 +134,7 @@ async def post_result(
 
     try:
         if component.type_name == TYPE_CLIENT:
-            cs: ClientService = ClientService(session, component)
+            cs: ComponentService = ComponentService(session, component)
             result = await cs.task_completed(job_id)
 
             await ss.stream_decrypt_file(request, result.path)
@@ -176,66 +159,51 @@ async def post_result(
 
 @task_router.post("/metrics")
 async def post_metrics(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    metrics: Metrics,
+    args: SessionArgs = Depends(allow_access),
 ):
-    ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    metrics = Metrics(**data)
+    cs: ComponentService = ComponentService(args.session, args.component)
 
     LOGGER.info(
-        f"client_id={component.id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}"
+        f"component_id={args.component.id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}"
     )
 
     await cs.metrics(metrics)
 
-    return {}
+    return
 
 
 @task_router.post("/error")
 async def post_error(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    error: TaskError,
+    args: SessionArgs = Depends(allow_access),
 ):
-    LOGGER.warn(f"client_id={component.id}: error message")
-
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    error = TaskError(**data)
+    LOGGER.warn(f"component_id={args.component.id}: error message")
 
     try:
-        if component.type_name == TYPE_CLIENT:
-            cs: ClientService = ClientService(session, component)
+        if args.component.type_name == TYPE_CLIENT:
+            cs: ComponentService = ComponentService(args.session, args.component)
 
             result = await cs.task_failed(error)
 
             await cs.check_and_start(result)
 
-        elif component.type_name == TYPE_NODE:
-            ws: WorkerService = WorkerService(session, component)
+        elif args.component.type_name == TYPE_NODE:
+            ws: WorkerService = WorkerService(args.session, args.component)
 
             result = await ws.aggregation_failed(error)
 
         else:
             raise ValueError("Could not save error to disk!")
 
-        LOGGER.warn(f"component_id={component.id}: job_id={error.job_id} in error={error.message}")
+        LOGGER.warn(f"component_id={args.component.id}: job_id={error.job_id} in error={error.message}")
 
         async with aiofiles.open(result.path, "w") as out_file:
             content = json.dumps(error.dict())
             await out_file.write(content)
 
-        return {}
+        return
     except Exception as e:
-        LOGGER.error(f"component_id={component.id}: could not save error to disk for job_id={error.job_id}")
+        LOGGER.error(f"component_id={args.component.id}: could not save error to disk for job_id={error.job_id}")
         LOGGER.exception(e)
         return HTTPException(500)

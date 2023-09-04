@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.schemas.plans.core import GenericPlan, GenericModel, Metrics
 
 from sklearn.model_selection import train_test_split

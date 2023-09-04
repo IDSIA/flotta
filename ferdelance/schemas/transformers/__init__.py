@@ -17,7 +17,7 @@ __all__ = [
     "FederatedRename",
 ]
 
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.schemas.queries import QueryTransformer
 
 from .core import (

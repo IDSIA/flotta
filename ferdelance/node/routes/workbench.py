@@ -1,26 +1,20 @@
-from ferdelance.config import get_logger
-from ferdelance.database import get_session, AsyncSession
-from ferdelance.database.data import TYPE_USER
+from ferdelance.const import TYPE_USER
+from ferdelance.database import get_session
+from ferdelance.logging import get_logger
+from ferdelance.node.middlewares import SessionArgs, session_args
+from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
+from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
+from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
+    WorkbenchClientList,
+    WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
-from ferdelance.schemas.artifacts import (
-    ArtifactStatus,
-    Artifact,
-)
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.project import Project
-from ferdelance.node.security import check_token
-from ferdelance.node.services import (
-    SecurityService,
-    WorkbenchService,
-    WorkbenchConnectService,
-)
 from ferdelance.shared.decode import decode_from_transfer
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, Response
 
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
@@ -31,15 +25,15 @@ LOGGER = get_logger(__name__)
 workbench_router = APIRouter(prefix="/workbench")
 
 
-async def check_access(component: Component = Depends(check_token)) -> Component:
+async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:
     try:
-        if component.type_name != TYPE_USER:
-            LOGGER.warning(f"client of type={component.type_name} cannot access this route")
+        if args.component.type_name != TYPE_USER:
+            LOGGER.warning(f"client of type={args.component.type_name} cannot access this route")
             raise HTTPException(403)
 
-        return component
+        return args
     except NoResultFound:
-        LOGGER.warning(f"component_id={component.id} not found")
+        LOGGER.warning(f"component_id={args.component.id} not found")
         raise HTTPException(403)
 
 
@@ -49,21 +43,26 @@ async def wb_home():
 
 
 @workbench_router.post("/connect", response_class=Response)
-async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends(get_session)):
+async def wb_connect(
+    data: WorkbenchJoinRequest,
+    args: SessionArgs = Depends(get_session),
+):
     LOGGER.info("new workbench connected")
 
-    ss: SecurityService = SecurityService(session)
-    wb: WorkbenchConnectService = WorkbenchConnectService(session)
+    wb: WorkbenchConnectService = WorkbenchConnectService(args.session)
 
     try:
-        user_public_key = decode_from_transfer(data.public_key)
+        data.public_key = decode_from_transfer(data.public_key)
 
-        wjd = await wb.connect(user_public_key)
+        await args.security_service.setup(data.public_key)
+        args.security_service.exc.verify(f"{data.id}:{data.checksum}", data.signature)
 
-        await ss.setup(user_public_key)
-        wjd.public_key = ss.get_server_public_key()
+        if data.checksum != args.checksum:
+            raise ValueError("Checksum failed")
 
-        return ss.create_response(wjd.dict())
+        await wb.register(data, args.ip_address)
+
+        return
 
     except NoResultFound as e:
         LOGGER.exception(e)
@@ -74,95 +73,63 @@ async def wb_connect(data: WorkbenchJoinRequest, session: AsyncSession = Depends
         LOGGER.exception("Database error")
         raise HTTPException(500, "Internal error")
 
-    except ValueError as e:
+    except ValueError | Exception as e:
         LOGGER.exception(e)
         raise HTTPException(403, "Invalid client data")
 
 
-@workbench_router.get("/project", response_class=Response)
+@workbench_router.get("/project", response_model=Project)
 async def wb_get_project(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
-):
-    LOGGER.info(f"user_id={component.id}: requested a project given its token")
+    wpt=WorkbenchProjectToken,
+    args: SessionArgs = Depends(allow_access),
+) -> Project:
+    LOGGER.info(f"user_id={args.component.id}: requested a project given its token")
 
-    ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    wpt = WorkbenchProjectToken(**data)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        project: Project = await ws.project(wpt.token)
-
-        return ss.create_response(project.dict())
+        return await ws.project(wpt.token)
 
     except NoResultFound:
-        LOGGER.warning(f"user_id={component.id}: request project with invalid token={wpt.token}")
+        LOGGER.warning(f"user_id={args.component.id}: request project with invalid token={wpt.token}")
         raise HTTPException(404)
 
 
-@workbench_router.get("/clients", response_class=Response)
+@workbench_router.get("/clients", response_model=WorkbenchClientList)
 async def wb_get_client_list(
-    request: Request, session: AsyncSession = Depends(get_session), component: Component = Depends(check_access)
-):
-    LOGGER.info(f"user_id={component.id}: requested a list of clients")
+    wpt: WorkbenchProjectToken,
+    args: SessionArgs = Depends(allow_access),
+) -> WorkbenchClientList:
+    LOGGER.info(f"user_id={args.component.id}: requested a list of clients")
 
-    ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    wpt = WorkbenchProjectToken(**data)
-
-    wcl = await ws.get_client_list(wpt.token)
-
-    return ss.create_response(wcl.dict())
+    return await ws.get_client_list(wpt.token)
 
 
-@workbench_router.get("/datasources", response_class=Response)
+@workbench_router.get("/datasources", response_model=WorkbenchDataSourceIdList)
 async def wb_get_datasource_list(
-    request: Request, session: AsyncSession = Depends(get_session), component: Component = Depends(check_access)
-):
-    LOGGER.info(f"user_id={component.id}: requested a list of available data source")
+    wpt: WorkbenchProjectToken,
+    args: SessionArgs = Depends(allow_access),
+) -> WorkbenchDataSourceIdList:
+    LOGGER.info(f"user_id={args.component.id}: requested a list of available data source")
 
-    ss: SecurityService = SecurityService(session)
-    wb: WorkbenchService = WorkbenchService(session, component)
+    wb: WorkbenchService = WorkbenchService(args.session, args.component)
 
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    wpt = WorkbenchProjectToken(**data)
-
-    wdsl = await wb.get_datasource_list(wpt.token)
-
-    return ss.create_response(wdsl.dict())
+    return await wb.get_datasource_list(wpt.token)
 
 
-@workbench_router.post("/artifact/submit", response_class=Response)
+@workbench_router.post("/artifact/submit", response_model=ArtifactStatus)
 async def wb_post_artifact_submit(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
-):
-    LOGGER.info(f"user_id={component.id}: submitted a new artifact")
+    artifact: Artifact,
+    args: SessionArgs = Depends(allow_access),
+) -> ArtifactStatus:
+    LOGGER.info(f"user_id={args.component.id}: submitted a new artifact")
 
-    ss: SecurityService = SecurityService(session)
-    wb: WorkbenchService = WorkbenchService(session, component)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    artifact = Artifact(**data)
+    wb: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        status: ArtifactStatus = await wb.submit_artifact(artifact)
-
-        return ss.create_response(status.dict())
+        return await wb.submit_artifact(artifact)
 
     except ValueError as e:
         LOGGER.error("Artifact already exists")
@@ -170,51 +137,34 @@ async def wb_post_artifact_submit(
         raise HTTPException(403)
 
 
-@workbench_router.get("/artifact/status", response_class=Response)
+@workbench_router.get("/artifact/status", response_model=ArtifactStatus)
 async def wb_get_artifact_status(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
-):
-    LOGGER.info(f"user_id={component.id}: requested status of artifact")
+    wba: WorkbenchArtifact,
+    args: SessionArgs = Depends(allow_access),
+) -> ArtifactStatus:
+    LOGGER.info(f"user_id={args.component.id}: requested status of artifact")
 
-    ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    wba = WorkbenchArtifact(**data)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        status: ArtifactStatus = await ws.get_status_artifact(wba.artifact_id)
+        return await ws.get_status_artifact(wba.artifact_id)
 
-        return ss.create_response(status.dict())
     except NoResultFound:
         LOGGER.warning(f"artifact_id={wba.artifact_id} not found in database")
         raise HTTPException(404)
 
 
-@workbench_router.get("/artifact", response_class=Response)
+@workbench_router.get("/artifact", response_model=Artifact)
 async def wb_get_artifact(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    wba: WorkbenchArtifact,
+    args: SessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user_id={component.id}: requested details on artifact")
+    LOGGER.info(f"user_id={args.component.id}: requested details on artifact")
 
-    ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component)
-
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    wba = WorkbenchArtifact(**data)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        artifact = await ws.get_artifact(wba.artifact_id)
-
-        return ss.create_response(artifact.dict())
+        return await ws.get_artifact(wba.artifact_id)
 
     except ValueError as e:
         LOGGER.error(f"{e}")
@@ -223,24 +173,17 @@ async def wb_get_artifact(
 
 @workbench_router.get("/result", response_class=FileResponse)
 async def wb_get_result(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    wba: WorkbenchArtifact,
+    args: SessionArgs = Depends(allow_access),
 ):
-    ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component)
+    LOGGER.info(f"user_id={args.component.id}: requested result with artifact_id={wba.artifact_id}")
 
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    wba = WorkbenchArtifact(**data)
-
-    LOGGER.info(f"user_id={component.id}: requested result with artifact_id={wba.artifact_id}")
+    ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
         result = await ws.get_result(wba.artifact_id)
 
-        return ss.encrypt_file(result.path)
+        return args.security_service.encrypt_file(result.path)
 
     except ValueError as e:
         LOGGER.warning(str(e))
@@ -256,29 +199,23 @@ async def wb_get_result(
         raise HTTPException(500)
 
 
-@workbench_router.get(
-    "/result/partial/{artifact_id}/{builder_user_id}",
-    response_class=FileResponse,
-)
+@workbench_router.get("/result/partial/{artifact_id}/{builder_user_id}", response_class=FileResponse)
 async def wb_get_partial_result(
     artifact_id: str,
     builder_user_id: str,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    args: SessionArgs = Depends(allow_access),
 ):
     LOGGER.info(
-        f"user_id={component.id}: requested partial model for artifact_id={artifact_id} from user_id={builder_user_id}"
+        f"user_id={args.component.id}: requested partial model for "
+        f"artifact_id={artifact_id} from user_id={builder_user_id}"
     )
 
-    ss: SecurityService = SecurityService(session)
-    ws: WorkbenchService = WorkbenchService(session, component)
-
-    await ss.setup(component.public_key)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
         result = await ws.get_partial_result(artifact_id, builder_user_id)
 
-        return ss.encrypt_file(result.path)
+        return args.security_service.encrypt_file(result.path)
 
     except ValueError as e:
         LOGGER.warning(str(e))

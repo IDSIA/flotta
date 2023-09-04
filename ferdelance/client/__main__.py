@@ -1,4 +1,5 @@
-from ferdelance.config import config_manager, get_logger
+from ferdelance.config import config_manager
+from ferdelance.logging import get_logger
 from ferdelance.client.client import start_client
 from ferdelance.client.exceptions import ClientExitStatus
 

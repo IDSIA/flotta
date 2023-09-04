@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.schemas.context import AggregationContext
 from ferdelance.schemas.models import GenericModel
 

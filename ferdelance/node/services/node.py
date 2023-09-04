@@ -1,4 +1,4 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
     ComponentRepository,
@@ -6,9 +6,9 @@ from ferdelance.database.repositories import (
     ProjectRepository,
 )
 from ferdelance.node.services.security import SecurityService
-from ferdelance.schemas.components import Component, Client
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinData, JoinRequest
+from ferdelance.schemas.node import JoinData, NodeJoinRequest
 
 from sqlalchemy.exc import NoResultFound
 
@@ -19,14 +19,14 @@ LOGGER = get_logger(__name__)
 
 
 class NodeService:
-    def __init__(self, session: AsyncSession, component: Component | Client) -> None:
+    def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
-        self.component: Component | Client = component
+        self.component: Component = component
 
         self.ss: SecurityService = SecurityService(session)
         self.cr: ComponentRepository = ComponentRepository(self.session)
 
-    async def connect(self, client_public_key: str, data: JoinRequest, ip_address: str) -> JoinData:
+    async def connect(self, data: NodeJoinRequest, ip_address: str) -> JoinData:
         """
         :raise:
             NoResultFound if the access parameters (token) is not valid.
@@ -39,35 +39,36 @@ class NodeService:
             A WorkbenchJoinData object that can be returned to the connected workbench.
         """
         try:
-            await self.cr.get_by_key(client_public_key)
+            await self.cr.get_by_key(data.public_key)
 
             raise ValueError("Invalid client data")
 
         except NoResultFound:
-            LOGGER.info("joining new client")
-            # create new client
-            client, token = await self.cr.create_client(
-                name=data.name,
-                version=data.version,
-                public_key=client_public_key,
-                machine_system=data.system,
-                machine_mac_address=data.mac_address,
-                machine_node=data.node,
-                ip_address=ip_address,
+            LOGGER.info(f"component_id={data.id}: joining new component")
+
+            component = await self.cr.create_component(
+                data.id,
+                data.type_name,
+                data.public_key,
+                data.version,
+                data.name,
+                ip_address,
+                data.url,
             )
 
-            LOGGER.info(f"client_id={client.id}: created new client")
+            LOGGER.info(f"component_id={component.id}: created new client")
 
-            await self.cr.create_event(client.id, "creation")
+            await self.cr.create_event(component.id, "creation")
 
-            await self.distribute_add(client)
+            await self.distribute_add(component)
 
-        LOGGER.info(f"client_id={client.id}: created new client")
+        LOGGER.info(f"component_id={component.id}: created new client")
+
+        self_component = await self.cr.get_self_component()
 
         return JoinData(
-            id=client.id,
-            token=token.token,
-            public_key=self.ss.get_server_public_key(),
+            component=self_component,
+            nodes=list(),  # TODO: complete with list of nodes
         )
 
     async def leave(self) -> None:
@@ -75,7 +76,7 @@ class NodeService:
         :raise:
             NoResultFound when there is no project with the given token.
         """
-        await self.cr.client_leave(self.component.id)
+        await self.cr.component_leave(self.component.id)
         await self.cr.create_event(self.component.id, "left")
         await self.distribute_remove(self.component)
 
@@ -100,8 +101,8 @@ class NodeService:
                 continue
 
             requests.post(
-                f"http://{node.url}:{node.port}/node/add",
-                data=,
+                f"{node.url}/node/add",
+                data=None,  # TODO: fill with encrypted component request
             )
 
     async def distribute_remove(self, component: Component) -> None:

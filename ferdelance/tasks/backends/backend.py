@@ -1,4 +1,4 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.tasks.jobs import EstimationJob, AggregatingJob, TrainingJob
 
@@ -16,7 +16,6 @@ class Backend:
             args.artifact_id,
             args.job_id,
             args.server_url,
-            args.token,
             args.private_key,
             args.server_public_key,
         )
@@ -33,7 +32,6 @@ class Backend:
             args.artifact_id,
             args.job_id,
             args.server_url,
-            args.token,
             args.private_key,
             args.server_public_key,
             args.workdir,
@@ -52,7 +50,6 @@ class Backend:
             args.artifact_id,
             args.job_id,
             args.server_url,
-            args.token,
             args.private_key,
             args.server_public_key,
             args.workdir,

@@ -1,6 +1,6 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
-from ferdelance.database.data import TYPE_USER
+from ferdelance.const import TYPE_USER
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -10,13 +10,13 @@ from ferdelance.database.repositories import (
 )
 from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.client import ClientDetails
-from ferdelance.schemas.components import Component, Token
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
-    WorkbenchJoinData,
+    WorkbenchJoinRequest,
 )
 from ferdelance.node.services import JobManagementService
 
@@ -31,7 +31,7 @@ class WorkbenchConnectService:
     def __init__(self, session: AsyncSession) -> None:
         self.session: AsyncSession = session
 
-    async def connect(self, user_public_key: str) -> WorkbenchJoinData:
+    async def register(self, data: WorkbenchJoinRequest, ip_address: str) -> None:
         """Connects a workbench to the server. If the provided user_public_key
         does not exits, then a new user will be created.
 
@@ -52,27 +52,23 @@ class WorkbenchConnectService:
         cr: ComponentRepository = ComponentRepository(self.session)
 
         try:
-            user = await cr.get_by_key(user_public_key)
-
-            try:
-                token: Token = await cr.get_token_by_component_id(user.id)
-
-            except NoResultFound as e:
-                raise e
+            user = await cr.get_by_key(data.public_key)
 
         except NoResultFound:
             # creating new user
-            user, token = await cr.create_component(TYPE_USER, user_public_key, f"workbench-{user_public_key[10:27]}")
+            user = await cr.create_component(
+                data.id,
+                TYPE_USER,
+                data.public_key,
+                data.version,
+                data.name,
+                ip_address,
+                "",
+            )
 
             LOGGER.info(f"user_id={user.id}: created new user")
 
         LOGGER.info(f"user_id={user.id}: new workbench connected")
-
-        return WorkbenchJoinData(
-            id=user.id,
-            token=token.token,
-            public_key="",
-        )
 
 
 class WorkbenchService:

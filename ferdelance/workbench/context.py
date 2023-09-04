@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.workbench.interface import (
     Project,
     Client,
@@ -14,7 +14,6 @@ from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
-    WorkbenchJoinData,
     WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange

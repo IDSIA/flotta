@@ -1,4 +1,5 @@
-from ferdelance.config import Configuration, get_logger
+from ferdelance.config import Configuration
+from ferdelance.logging import get_logger
 from ferdelance.node.api import api
 
 from ray.serve.handle import RayServeSyncHandle

@@ -1,9 +1,7 @@
 from ferdelance import __version__
-from ferdelance.config import get_logger
-from ferdelance.config import Configuration, DataSourceConfiguration
-from ferdelance.client.datasources import DataSourceFile, DataSourceDB
+from ferdelance.config import Configuration, DataSourceConfiguration, DataSourceStorage
 from ferdelance.client.exceptions import ConfigError
-from ferdelance.schemas.metadata import Metadata
+from ferdelance.logging import get_logger
 
 import os
 import yaml
@@ -12,59 +10,21 @@ import yaml
 LOGGER = get_logger(__name__)
 
 
-class DataConfig:
-    def __init__(self, workdir: str, datasources: list[DataSourceConfiguration]) -> None:
-        self.workdir: str = workdir
-
-        """Hash -> DataSource"""
-        self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
-
-        for ds in datasources:
-            if ds.token is None:
-                tokens = list()
-            elif isinstance(ds.token, str):
-                tokens = [ds.token]
-            else:
-                tokens = ds.token
-
-            if ds.kind == "db":
-                if ds.conn is None:
-                    LOGGER.error(f"Missing connection for datasource with name={ds.conn}")
-                    continue
-                datasource = DataSourceDB(ds.name, ds.type, ds.conn, tokens)
-                self.datasources[datasource.hash] = datasource
-
-            if ds.kind == "file":
-                if ds.path is None:
-                    LOGGER.error(f"Missing path for datasource with name={ds.conn}")
-                    continue
-                datasource = DataSourceFile(ds.name, ds.type, ds.path, tokens)
-                self.datasources[datasource.hash] = datasource
-
-    def path_artifacts_folder(self) -> str:
-        path = os.path.join(self.workdir, "artifacts")
-        os.makedirs(path, exist_ok=True)
-        return path
-
-    def metadata(self) -> Metadata:
-        return Metadata(datasources=[ds.metadata() for _, ds in self.datasources.items()])
-
-
-class ClientState:
+class State:
     def __init__(self, config: Configuration, leave: bool = False) -> None:
         self.config: Configuration = config
 
-        self.name: str = config.client.name
-        self.server: str = config.node.url()
-        self.heartbeat: float = config.client.heartbeat
+        self.name: str = config.node.name
+        self.server: str = config.node.url_extern()
+        self.heartbeat: float = config.node.heartbeat
         self.workdir: str = config.workdir
-        self.private_key_location: str = config.private_key_location
+        self.private_key_location: str = config.private_key_location()
 
         self.leave: bool = leave
 
-        self.machine_system: str = config.client.machine_system
-        self.machine_mac_address: str = config.client.machine_mac_address
-        self.machine_node: str = config.client.machine_node
+        self.machine_system: str = config.node.machine_system
+        self.machine_mac_address: str = config.node.machine_mac_address
+        self.machine_node: str = config.node.machine_node
 
         LOGGER.debug(
             f"machine data: system={self.machine_system} "
@@ -80,7 +40,7 @@ class ClientState:
 
         LOGGER.debug(f"datasources found: {len(self.datasources)}")
 
-        self.data = DataConfig(self.workdir, config.datasources)
+        self.data: DataSourceStorage = DataSourceStorage(config.datasources)
 
         if not self.data.datasources:
             LOGGER.error("No valid datasource available!")

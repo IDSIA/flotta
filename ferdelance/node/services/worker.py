@@ -1,4 +1,4 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
     ResultRepository,
@@ -53,6 +53,7 @@ class WorkerService:
             return TaskParameters(
                 artifact=artifact,
                 job_id=job_id,
+                iteration=job.iteration,
                 content_ids=[r.id for r in results],
             )
 

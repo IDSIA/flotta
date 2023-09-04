@@ -2,7 +2,7 @@ __all__ = [
     "ActionService",
     "SecurityService",
     "NodeService",
-    "ClientService",
+    "ComponentService",
     "WorkbenchConnectService",
     "WorkbenchService",
     "WorkerService",
@@ -13,6 +13,6 @@ from .security import SecurityService
 from .node import NodeService
 from .actions import ActionService
 from .jobs import JobManagementService
-from .client import ClientService
+from .component import ComponentService
 from .workbench import WorkbenchConnectService, WorkbenchService
 from .worker import WorkerService

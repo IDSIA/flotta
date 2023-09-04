@@ -1,19 +1,14 @@
-from ferdelance.config import config_manager, get_logger
-from ferdelance.database import get_session, AsyncSession
-from ferdelance.database.data import TYPE_NODE, TYPE_CLIENT
+from ferdelance.config import config_manager
+from ferdelance.const import TYPE_NODE, TYPE_CLIENT
+from ferdelance.logging import get_logger
+from ferdelance.node.middlewares import SessionArgs, session_args
+from ferdelance.node.services import NodeService
 from ferdelance.schemas.components import Component, dummy
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinRequest, ServerPublicKey
-from ferdelance.node.security import check_token
-from ferdelance.node.services import SecurityService, NodeService
+from ferdelance.schemas.node import NodeJoinRequest, ServerPublicKey
 from ferdelance.shared.decode import decode_from_transfer
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    Request,
-    HTTPException,
-)
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
 from sqlalchemy.exc import SQLAlchemyError, NoResultFound
@@ -24,19 +19,21 @@ LOGGER = get_logger(__name__)
 node_router = APIRouter(prefix="/node")
 
 
-async def check_access(component: Component = Depends(check_token)) -> Component:
+async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:
     try:
-        if component.type_name not in (TYPE_NODE, TYPE_CLIENT):
-            LOGGER.warning(f"component type={component.type_name} cannot access this router")
+        if args.component.type_name not in (TYPE_CLIENT, TYPE_NODE):
+            LOGGER.warning(
+                f"component_id={args.component.id}: type={args.component.type_name} cannot access this router"
+            )
             raise HTTPException(403)
 
-        return component
+        return args
     except NoResultFound:
-        LOGGER.warning(f"component_id={component.id} not found")
+        LOGGER.warning(f"component_id={args.component.id}: not found")
         raise HTTPException(403)
 
 
-async def check_distributed(component: Component = Depends(check_access)) -> Component:
+async def check_distributed(component: Component = Depends(allow_access)) -> Component:
     if config_manager.get().mode != "distributed":
         LOGGER.warning("requested access to distributed endpoint while in centralized mode")
         raise HTTPException(403, "Node is not in distributed mode.")
@@ -50,122 +47,105 @@ async def node_home():
 
 
 @node_router.get("/key", response_model=ServerPublicKey)
-async def node_get_public_key(session: AsyncSession = Depends(get_session)):
-    ss: SecurityService = SecurityService(session)
-    await ss.setup()
-    pk: str = ss.get_server_public_key()
+async def node_get_public_key(
+    args: SessionArgs = Depends(session_args),
+):
+    pk = args.security_service.get_server_public_key()
 
     return ServerPublicKey(public_key=pk)
 
 
 @node_router.post("/join", response_class=Response)
 async def node_join(
-    request: Request,
-    data: JoinRequest,
-    session: AsyncSession = Depends(get_session),
+    data: NodeJoinRequest,
+    args: SessionArgs = Depends(session_args),
 ):
-    ss: SecurityService = SecurityService(session)
-    ns: NodeService = NodeService(session, dummy)
-
-    if request.client is None:
-        LOGGER.warning("client not set for request?")
-        raise HTTPException(400)
-
-    ip_address = request.client.host
+    ns: NodeService = NodeService(args.session, dummy)
 
     try:
-        client_public_key = decode_from_transfer(data.public_key)
+        data.public_key = decode_from_transfer(data.public_key)
 
-        jd = await ns.connect(client_public_key, data, ip_address)
+        await args.security_service.setup(data.public_key)
+        args.security_service.exc.verify(f"{data.id}:{data.checksum}", data.signature)
 
-        await ss.setup(client_public_key)
+        if data.checksum != args.checksum:
+            raise ValueError("Checksum failed")
 
-        return ss.create_response(jd.dict())
+        jd = await ns.connect(data, args.ip_address)
+
+        return jd
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
         LOGGER.exception("Database error")
         raise HTTPException(500, "Internal error")
 
-    except ValueError as e:
+    except ValueError | Exception as e:
         LOGGER.exception(e)
-        raise HTTPException(403, "Invalid client data")
+        raise HTTPException(403, "Invalid data")
 
 
 @node_router.post("/leave")
 async def node_leave(
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    args: SessionArgs = Depends(allow_access),
 ):
     """API for existing client to be removed"""
-    LOGGER.info(f"client_id={component.id}: request to leave")
+    LOGGER.info(f"component_id={args.component.id}: request to leave")
 
-    ns: NodeService = NodeService(session, component)
+    ns: NodeService = NodeService(args.session, args.component)
 
     await ns.leave()
 
     return {}
 
 
-@node_router.post("/metadata")
+@node_router.post("/metadata", response_model=Metadata)
 async def node_metadata(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    metadata: Metadata,
+    args: SessionArgs = Depends(allow_access),
 ):
     """Endpoint used by a client to send information regarding its metadata. These metadata includes:
     - data source available
     - summary (source, data type, min value, max value, standard deviation, ...) of features available
       for each data source
     """
-    LOGGER.info(f"client_id={component.id}: update metadata request")
+    LOGGER.info(f"component_id={args.component.id}: update metadata request")
 
-    ss: SecurityService = SecurityService(session)
-    ns: NodeService = NodeService(session, component)
+    ns: NodeService = NodeService(args.session, args.component)
 
-    await ss.setup(component.public_key)
-
-    data = await ss.read_request(request)
-    metadata = Metadata(**data)
     metadata = await ns.metadata(metadata)
 
-    return ss.create_response(metadata.dict())
+    return metadata
 
 
 @node_router.put("/add")
 async def node_update_add(
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_distributed),
+    args: SessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component_id={component.id}: adding new node")
+    LOGGER.info(f"component_id={args.component.id}: adding new node")
 
-    ss: SecurityService = SecurityService(session)
-    ns: NodeService = NodeService(session, component)
+    ns: NodeService = NodeService(args.session, args.component)
 
     # TODO
 
 
 @node_router.put("/remove")
 async def node_update_remove(
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_distributed),
+    args: SessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component_id={component.id}: removing node")
+    LOGGER.info(f"component_id={args.component.id}: removing node")
 
-    ss: SecurityService = SecurityService(session)
-    ns: NodeService = NodeService(session, component)
+    ns: NodeService = NodeService(args.session, args.component)
 
     # TODO
 
 
 @node_router.put("/metadata")
 async def node_update_metadata(
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_distributed),
+    args: SessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component_id={component.id}: updating metadata")
+    LOGGER.info(f"component_id={args.component.id}: updating metadata")
 
-    ss: SecurityService = SecurityService(session)
-    ns: NodeService = NodeService(session, component)
+    ns: NodeService = NodeService(args.session, args.component)
 
     # TODO

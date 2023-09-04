@@ -1,16 +1,18 @@
-from ferdelance.config import get_logger
 from ferdelance.database import DataBase, Base
+from ferdelance.logging import get_logger
+from ferdelance.node.middlewares import EncodedRoute
 from ferdelance.node.routes import (
     client_router,
     node_router,
     task_router,
     workbench_router,
 )
-from ferdelance.node.startup import ServerStartup
+from ferdelance.node.startup import NodeStartup
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
 
 LOGGER = get_logger(__name__)
 
@@ -30,6 +32,8 @@ def init_api() -> FastAPI:
 
     LOGGER.info("Added router for /client")
     api.include_router(client_router)
+
+    api.router.route_class = EncodedRoute
 
     return api
 
@@ -51,7 +55,7 @@ async def populate_database() -> None:
             LOGGER.info("database creation completed")
 
         async with inst.async_session() as session:
-            ss = ServerStartup(session)
+            ss = NodeStartup(session)
             await ss.startup()
 
     except Exception as e:
@@ -67,7 +71,7 @@ async def shutdown() -> None:
 
 
 @api.get("/")
-async def root():
+async def root(request: Request):
     """This is the endpoint for the home page."""
     return "Hi! 😀"
 
@@ -76,5 +80,5 @@ async def root():
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     exc_str = f"{exc}".replace("\n", " ").replace("   ", " ")
     LOGGER.error(f"{request}: {exc_str}")
-    content = {"status_code": 10422, "message": exc_str, "data": None}
+    content = {"status_code": 422, "message": exc_str, "data": None}
     return JSONResponse(content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)

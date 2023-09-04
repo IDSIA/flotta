@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 
 from enum import Enum
 from pydantic import BaseModel

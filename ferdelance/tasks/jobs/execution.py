@@ -1,5 +1,6 @@
-from ferdelance.config import get_logger
-from ferdelance.client.state import DataConfig
+from ferdelance.config import config_manager
+from ferdelance.client.state import DataSourceStorage
+from ferdelance.logging import get_logger
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.estimators import apply_estimator
 from ferdelance.schemas.transformers import apply_transformer
@@ -13,14 +14,15 @@ import os
 LOGGER = get_logger(__name__)
 
 
-def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:
+def setup(artifact: Artifact, job_id: str, iteration: int) -> str:
     if not artifact.id:
         raise ValueError("Invalid Artifact")
 
     LOGGER.info(f"artifact_id={artifact.id}: received new task with job_id={job_id}")
 
-    # TODO: this should include iteration!
-    working_folder = os.path.join(data.path_artifacts_folder(), f"{artifact.id}", f"{job_id}")
+    config = config_manager.get()
+
+    working_folder = os.path.join(config.storage_artifact(artifact.id, iteration), f"{job_id}")
 
     os.makedirs(working_folder, exist_ok=True)
 
@@ -37,7 +39,7 @@ def setup(artifact: Artifact, job_id: str, data: DataConfig) -> str:
 def apply_transform(
     artifact: Artifact,
     task: TaskParameters,
-    data: DataConfig,
+    data: DataSourceStorage,
     working_folder: str,
 ) -> pd.DataFrame:
     dfs: list[pd.DataFrame] = []
@@ -82,11 +84,11 @@ def apply_transform(
     return df_dataset
 
 
-def run_training(data: DataConfig, task: TaskParameters) -> ExecutionResult:
+def run_training(data: DataSourceStorage, task: TaskParameters) -> ExecutionResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
 
-    working_folder = setup(artifact, job_id, data)
+    working_folder = setup(artifact, job_id, task.iteration)
 
     df_dataset = apply_transform(artifact, task, data, working_folder)
 
@@ -114,12 +116,12 @@ def run_training(data: DataConfig, task: TaskParameters) -> ExecutionResult:
     )
 
 
-def run_estimate(data: DataConfig, task: TaskParameters) -> ExecutionResult:
+def run_estimate(data: DataSourceStorage, task: TaskParameters) -> ExecutionResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
     artifact.id = artifact.id
 
-    working_folder = setup(artifact, job_id, data)
+    working_folder = setup(artifact, job_id, task.iteration)
 
     df_dataset = apply_transform(artifact, task, data, working_folder)
 

@@ -1,6 +1,6 @@
-from ferdelance.config import get_logger
-from ferdelance.client.state import ClientState
+from ferdelance.client.state import State
 from ferdelance.exceptions import InvalidAction
+from ferdelance.logging import get_logger
 from ferdelance.schemas.updates import UpdateToken, UpdateExecute
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.shared.actions import Action as ActionType
@@ -11,11 +11,11 @@ LOGGER = get_logger(__name__)
 
 
 class ScheduleActionService:
-    def __init__(self, config: ClientState) -> None:
-        self.config: ClientState = config
+    def __init__(self, state: State) -> None:
+        self.state: State = state
 
     def do_nothing(self) -> ActionType:
-        LOGGER.debug("nothing new from the server")
+        LOGGER.debug("nothing new from the server node")
         return ActionType.DO_NOTHING
 
     def update_client(self) -> ActionType:
@@ -23,27 +23,27 @@ class ScheduleActionService:
 
     def update_token(self, data: UpdateToken) -> ActionType:
         LOGGER.info("updating client token with a new one")
-        self.config.set_token(data.token)
+        self.state.set_token(data.token)
         return ActionType.UPDATE_TOKEN
 
     def start_training(self, data: UpdateExecute) -> ActionType:
         backend = get_jobs_backend()
 
-        assert self.config.private_key_location is not None
-        assert self.config.node_public_key is not None
-        assert self.config.client_token is not None
+        assert self.state.private_key_location is not None
+        assert self.state.node_public_key is not None
+        assert self.state.client_token is not None
 
         exc = Exchange()
-        exc.load_key(self.config.private_key_location)
+        exc.load_key(self.state.private_key_location)
 
         backend.start_training(
             TaskArguments(
                 private_key=exc.transfer_private_key(),
-                server_url=self.config.server,
-                server_public_key=self.config.node_public_key,
-                token=self.config.client_token,
-                datasources=[d.dict() for d in self.config.datasources],
-                workdir=self.config.workdir,
+                server_url=self.state.server,
+                server_public_key=self.state.node_public_key,
+                token=self.state.client_token,
+                datasources=[d.dict() for d in self.state.datasources],
+                workdir=self.state.workdir,
                 job_id=data.job_id,
                 artifact_id=data.artifact_id,
             )
@@ -53,21 +53,21 @@ class ScheduleActionService:
     def start_estimate(self, data: UpdateExecute) -> ActionType:
         backend = get_jobs_backend()
 
-        assert self.config.private_key_location is not None
-        assert self.config.node_public_key is not None
-        assert self.config.client_token is not None
+        assert self.state.private_key_location is not None
+        assert self.state.node_public_key is not None
+        assert self.state.client_token is not None
 
         exc = Exchange()
-        exc.load_key(self.config.private_key_location)
+        exc.load_key(self.state.private_key_location)
 
         backend.start_estimation(
             TaskArguments(
                 private_key=exc.transfer_private_key(),
-                server_url=self.config.server,
-                server_public_key=self.config.node_public_key,
-                token=self.config.client_token,
-                datasources=[d.dict() for d in self.config.datasources],
-                workdir=self.config.workdir,
+                server_url=self.state.server,
+                server_public_key=self.state.node_public_key,
+                token=self.state.client_token,
+                datasources=[d.dict() for d in self.state.datasources],
+                workdir=self.state.workdir,
                 job_id=data.job_id,
                 artifact_id=data.artifact_id,
             )

@@ -2,8 +2,9 @@ from typing import Any
 
 from abc import ABC, abstractmethod
 
-from ferdelance.config import DataSourceConfiguration, get_logger
-from ferdelance.client.state import DataConfig
+from ferdelance.config import DataSourceConfiguration
+from ferdelance.logging import get_logger
+from ferdelance.client.state import DataSourceStorage
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import GenericModel
@@ -23,11 +24,10 @@ class GenericJob(ABC):
         artifact_id: str,
         job_id: str,
         server_url: str,
-        token: str,
         private_key: str,
         server_public_key: str,
     ) -> None:
-        self.routes_service: RouteService = EncryptRouteService(server_url, token, private_key, server_public_key)
+        self.routes_service: RouteService = EncryptRouteService(server_url, private_key, server_public_key)
         self.artifact_id: str = artifact_id
         self.job_id: str = job_id
 
@@ -45,17 +45,16 @@ class LocalJob(GenericJob):
         artifact_id: str,
         job_id: str,
         server_url: str,
-        token: str,
         private_key: str,
         server_public_key: str,
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, server_url, token, private_key, server_public_key)
+        super().__init__(artifact_id, job_id, server_url, private_key, server_public_key)
 
         self.datasources: list[DataSourceConfiguration] = [DataSourceConfiguration(**d) for d in datasources]
 
-        self.data = DataConfig(workdir, self.datasources)
+        self.data = DataSourceStorage(self.datasources)
 
 
 @ray.remote
@@ -65,13 +64,12 @@ class TrainingJob(LocalJob):
         artifact_id: str,
         job_id: str,
         server_url: str,
-        token: str,
         private_key: str,
         server_public_key: str,
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, server_url, token, private_key, server_public_key, workdir, datasources)
+        super().__init__(artifact_id, job_id, server_url, private_key, server_public_key, workdir, datasources)
 
     def __repr__(self) -> str:
         return f"Training{super().__repr__()}"
@@ -116,13 +114,12 @@ class EstimationJob(LocalJob):
         artifact_id: str,
         job_id: str,
         server_url: str,
-        token: str,
         private_key: str,
         server_public_key: str,
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, server_url, token, private_key, server_public_key, workdir, datasources)
+        super().__init__(artifact_id, job_id, server_url, private_key, server_public_key, workdir, datasources)
 
     def __repr__(self) -> str:
         return f"Estimation{super().__repr__()}"
@@ -157,11 +154,10 @@ class AggregatingJob(GenericJob):
         artifact_id: str,
         job_id: str,
         server_url: str,
-        token: str,
         private_key: str,
         server_public_key: str,
     ) -> None:
-        super().__init__(artifact_id, job_id, server_url, token, private_key, server_public_key)
+        super().__init__(artifact_id, job_id, server_url, private_key, server_public_key)
 
     def __repr__(self) -> str:
         return f"Aggregating{super().__repr__()}"

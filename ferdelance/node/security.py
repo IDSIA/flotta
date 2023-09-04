@@ -1,16 +1,12 @@
-from ferdelance.config import config_manager, get_logger
-from ferdelance.database import AsyncSession, get_session
-from ferdelance.database.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
-from ferdelance.database.repositories import ComponentRepository, KeyValueStore
-from ferdelance.schemas.components import Component, Token
+from ferdelance.config import config_manager
+from ferdelance.logging import get_logger
+from ferdelance.database import AsyncSession
+from ferdelance.const import MAIN_KEY, PRIVATE_KEY, PUBLIC_KEY
+from ferdelance.database.repositories import KeyValueStore
 from ferdelance.shared.exchange import Exchange
-
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBasicCredentials, HTTPBearer
 
 from sqlalchemy.exc import NoResultFound
 
-from datetime import datetime, timedelta
 
 LOGGER = get_logger(__name__)
 
@@ -65,55 +61,3 @@ async def generate_keys(session: AsyncSession) -> Exchange:
         LOGGER.info("Keys generation completed")
 
     return e
-
-
-async def check_token(
-    credentials: HTTPBasicCredentials = Depends(HTTPBearer()), session: AsyncSession = Depends(get_session)
-) -> Component:
-    """Checks if the given token exists in the database.
-
-    :param credentials:
-        Content of Authorization header.
-    :session:
-        Session on the database.
-    :return:
-        The component object associated with the authorization header, otherwise an exception is raised.
-    """
-    given_token: str = credentials.credentials  # type: ignore
-
-    cr: ComponentRepository = ComponentRepository(session)
-
-    try:
-        token: Token = await cr.get_token_by_token(given_token)
-
-    except NoResultFound:
-        LOGGER.warning("received token does not exist in database")
-        raise HTTPException(401, "Invalid access token")
-
-    # TODO: add expiration to token, and also an endpoint to update the token using an expired one
-
-    component_id = str(token.component_id)
-
-    if not token.valid:
-        LOGGER.warning("received invalid token")
-        raise HTTPException(403, "Permission denied")
-
-    if token.creation_time + timedelta(seconds=token.expiration_time) < datetime.now(token.creation_time.tzinfo):
-        LOGGER.warning(f"component_id={component_id}: received expired token: invalidating")
-        await cr.invalidate_tokens(component_id)
-        # allow access only for a single time, since the token update has priority
-
-    LOGGER.debug(f"component_id={component_id}: received valid token")
-
-    try:
-        component: Component = await cr.get_by_id(component_id)
-
-        if component.left or not component.active:
-            LOGGER.warning("Component that left or has been deactivated tried to connect!")
-            raise HTTPException(403, "Permission denied")
-
-        return component
-
-    except NoResultFound:
-        LOGGER.warning("valid token does not have client!")
-        raise HTTPException(403, "Permission denied")

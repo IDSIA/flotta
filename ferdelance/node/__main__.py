@@ -1,5 +1,5 @@
-from ferdelance.config import config_manager, get_logger
-
+from ferdelance.config import config_manager
+from ferdelance.logging import get_logger
 from ferdelance.node.deployment import start_server
 
 import ray
@@ -17,6 +17,10 @@ if __name__ == "__main__":
 
     config = config_manager.get()
 
+    # TODO: setup here the configuration parameters desired
+
+    config.dump()
+
     ray.init()
 
     c = start_server(config)
@@ -30,3 +34,8 @@ if __name__ == "__main__":
         except Exception as e:
             LOGGER.error(e)
             LOGGER.exception(e)
+        except KeyboardInterrupt:
+            # TODO: should we use handlers?
+            break
+
+    ray.shutdown()

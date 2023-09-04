@@ -1,19 +1,9 @@
-from typing import Any
+from ferdelance.const import TYPE_CLIENT
+from ferdelance.logging import get_logger
+from ferdelance.node.middlewares import SessionArgs, session_args
+from ferdelance.node.services import ComponentService
 
-from ferdelance.config import get_logger
-from ferdelance.database import get_session
-from ferdelance.database.data import TYPE_CLIENT
-from ferdelance.database.repositories import AsyncSession
-from ferdelance.schemas.components import Component
-from ferdelance.node.services import SecurityService, ClientService
-from ferdelance.node.security import check_token
-
-from fastapi import (
-    APIRouter,
-    Depends,
-    Request,
-    HTTPException,
-)
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
 from sqlalchemy.exc import NoResultFound
@@ -24,15 +14,17 @@ LOGGER = get_logger(__name__)
 client_router = APIRouter(prefix="/client")
 
 
-async def check_access(component: Component = Depends(check_token)) -> Component:
+async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:
     try:
-        if component.type_name != TYPE_CLIENT:
-            LOGGER.warning(f"client of type={component.type_name} cannot access this route")
+        if args.component.type_name != TYPE_CLIENT:
+            LOGGER.warning(
+                f"component_id={args.component.id}: client of type={args.component.type_name} cannot access this route"
+            )
             raise HTTPException(403)
 
-        return component
+        return args
     except NoResultFound:
-        LOGGER.warning(f"client_id={component.id} not found")
+        LOGGER.warning(f"client_id={args.component.id} not found")
         raise HTTPException(403)
 
 
@@ -43,9 +35,7 @@ async def client_home():
 
 @client_router.get("/update", response_class=Response)
 async def client_update(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    component: Component = Depends(check_access),
+    args: SessionArgs = Depends(allow_access),
 ):
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
@@ -53,16 +43,10 @@ async def client_update(
     - new client app package
     - nothing (keep alive)
     """
-    LOGGER.debug(f"client_id={component.id}: update request")
+    LOGGER.debug(f"client_id={args.component.id}: update request")
 
-    ss: SecurityService = SecurityService(session)
-    cs: ClientService = ClientService(session, component)
+    cs: ComponentService = ComponentService(args.session, args.component)
 
-    await ss.setup(component.public_key)
+    next_action = await cs.update()
 
-    # consume current results (if present) and compute next action
-    payload: dict[str, Any] = await ss.read_request(request)
-
-    next_action = await cs.update(payload)
-
-    return ss.create_response(next_action.dict())
+    return next_action
