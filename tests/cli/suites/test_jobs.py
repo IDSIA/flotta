@@ -1,4 +1,5 @@
 from ferdelance.cli.fdl_suites.jobs.functions import list_jobs
+from ferdelance.const import TYPE_CLIENT
 from ferdelance.database import AsyncSession
 from ferdelance.schemas.jobs import Job as JobView
 from ferdelance.database.tables import Artifact, Component, Job
@@ -10,13 +11,12 @@ import pytest
 async def test_jobs_list(session: AsyncSession):
     c1: Component = Component(
         id="C1",
+        name="client1",
         version="test",
         public_key="1",
-        machine_system="1",
-        machine_mac_address="1",
-        machine_node="1",
         ip_address="1",
-        type_name="CLIENT",
+        url="",
+        type_name=TYPE_CLIENT,
     )
     a1: Artifact = Artifact(
         id="A1",

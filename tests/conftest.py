@@ -2,7 +2,7 @@ from typing import AsyncGenerator
 
 from ferdelance.config import config_manager
 from ferdelance.database import Base, DataBase
-from ferdelance.database.data import COMPONENT_TYPES
+from ferdelance.const import COMPONENT_TYPES
 from ferdelance.database.tables import ComponentType
 from ferdelance.shared.exchange import Exchange
 
@@ -23,8 +23,8 @@ conf.database.memory = False
 conf.database.dialect = "sqlite"
 conf.database.host = db_file
 
-conf.server.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
-conf.private_key_location = str(os.path.join("tests", "private_key.pem"))
+conf.node.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
+conf.workdir = str(os.path.join("tests", "storage"))
 
 
 def create_dirs() -> None:

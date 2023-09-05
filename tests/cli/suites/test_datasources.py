@@ -1,5 +1,5 @@
 from ferdelance.cli.fdl_suites.datasources.functions import describe_datasource, list_datasources
-from ferdelance.database.data import TYPE_CLIENT
+from ferdelance.const import TYPE_CLIENT
 from ferdelance.database.repositories import DataSourceRepository, ProjectRepository
 from ferdelance.database.tables import Component
 from ferdelance.schemas.datasources import DataSource as DataSourceView
@@ -8,28 +8,25 @@ from ferdelance.schemas.metadata import MetaDataSource
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import pytest
-import pytest
 
 
 async def populate_test_db(session: AsyncSession):
     c1: Component = Component(
         id="C1",
+        name="client1",
         version="test",
         public_key="1",
-        machine_system="1",
-        machine_mac_address="1",
-        machine_node="1",
         ip_address="1",
+        url="",
         type_name=TYPE_CLIENT,
     )
     c2: Component = Component(
         id="C2",
+        name="client2",
         version="test",
         public_key="2",
-        machine_system="2",
-        machine_mac_address="2",
-        machine_node="2",
         ip_address="2",
+        url="",
         type_name=TYPE_CLIENT,
     )
 

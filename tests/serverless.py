@@ -1,27 +1,27 @@
 from typing import Callable
 
-from ferdelance.client.state import DataConfig
-from ferdelance.database.data import TYPE_USER
+from ferdelance import __version__
+from ferdelance.client.state import DataSourceStorage
+from ferdelance.const import TYPE_CLIENT, TYPE_USER
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
     JobRepository,
 )
+from ferdelance.node.services import ComponentService, NodeService, WorkerService, WorkbenchService
+from ferdelance.node.startup import NodeStartup
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.components import Client, Token
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
+from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
-from ferdelance.schemas.jobs import Job
+from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.schemas.updates import (
-    UpdateClientApp,
     UpdateExecute,
     UpdateNothing,
     UpdateToken,
 )
-from ferdelance.schemas.tasks import TaskArguments, TaskParameters
-from ferdelance.server.services import ClientService, NodeService, WorkerService, WorkbenchService
-from ferdelance.server.startup import ServerStartup
 from ferdelance.tasks.jobs.actors import ExecutionResult, run_estimate, run_training
 
 from tests.utils import create_project
@@ -32,14 +32,14 @@ import aiofiles.os
 
 
 class ServerlessClient:
-    def __init__(self, session: AsyncSession, index: int, data: DataConfig | Metadata | None = None) -> None:
+    def __init__(self, session: AsyncSession, index: int, data: DataSourceStorage | Metadata | None = None) -> None:
         self.session: AsyncSession = session
         self.index: int = index
 
         self.md: Metadata | None = None
-        self.data: DataConfig | None = None
+        self.data: DataSourceStorage | None = None
 
-        if isinstance(data, DataConfig):
+        if isinstance(data, DataSourceStorage):
             self.data = data
             self.md = data.metadata()
 
@@ -48,30 +48,29 @@ class ServerlessClient:
 
         self.cr: ComponentRepository = ComponentRepository(session)
 
-        self.client: Client = None  # type: ignore
-        self.node_service: NodeService = None  # type: ignore
-        self.token: Token = None  # type: ignore
+        self.client: Component
+        self.node_service: NodeService
 
     async def setup(self):
-        self.client, self.token = await self.cr.create_client(
+        self.client = await self.cr.create_component(
             f"client-{self.index}",
-            "1",
+            TYPE_CLIENT,
             f"key-{self.index}",
-            f"sys-{self.index}",
-            f"mac-{self.index}",
-            f"node-{self.index}",
+            __version__,
+            f"client-{self.index}",
             f"ip-{self.index}",
+            "",
         )
         self.node_service = NodeService(self.session, self.client)
-        self.client_service = ClientService(self.session, self.client)
+        self.client_service = ComponentService(self.session, self.client)
 
     def metadata(self) -> Metadata:
         if self.md is None:
             raise ValueError("This client ha been created without metadata")
         return self.md
 
-    async def next_action(self) -> UpdateClientApp | UpdateExecute | UpdateNothing | UpdateToken:
-        return await self.client_service.update({})
+    async def next_action(self) -> UpdateExecute | UpdateNothing | UpdateToken:
+        return await self.client_service.update()
 
     async def get_client_task(self, job_id: str) -> TaskParameters:
         return await self.client_service.get_task(job_id)
@@ -121,19 +120,27 @@ class ServerlessExecution:
 
         self.clients: dict[str, ServerlessClient] = dict()
 
-        self.worker_service: WorkerService = None  # type: ignore
-        self.workbench_service: WorkbenchService = None  # type: ignore
+        self.worker_service: WorkerService
+        self.workbench_service: WorkbenchService
 
     async def setup(self):
-        await ServerStartup(self.session).startup()
+        await NodeStartup(self.session).startup()
 
         self_component = await self.cr.get_self_component()
-        user_component, _ = await self.cr.create_component(TYPE_USER, "user-1-public_key", "user-1")
+        user_component = await self.cr.create_component(
+            "user-1",
+            TYPE_USER,
+            "user-1-public_key",
+            __version__,
+            "user-1",
+            "ip-user-1",
+            "",
+        )
 
         self.worker_service = WorkerService(self.session, self_component)
         self.workbench_service = WorkbenchService(self.session, user_component)
 
-    async def add_client(self, index: int, data: DataConfig | Metadata) -> ServerlessClient:
+    async def add_client(self, index: int, data: DataSourceStorage | Metadata) -> ServerlessClient:
         sc = ServerlessClient(self.session, index, data)
         await sc.setup()
         await sc.node_service.metadata(sc.metadata())
