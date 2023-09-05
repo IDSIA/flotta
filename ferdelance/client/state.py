@@ -42,9 +42,10 @@ class State:
 
         self.data: DataSourceStorage = DataSourceStorage(config.datasources)
 
-        if not self.data.datasources:
-            LOGGER.error("No valid datasource available!")
-            raise ConfigError()
+        # TODO: re-enable this check
+        # if not self.data.datasources:
+        #     LOGGER.error("No valid datasource available!")
+        #     raise ConfigError()
 
     def join(self, client_id: str, client_token: str, node_public_key: str) -> None:
         self.client_id = client_id

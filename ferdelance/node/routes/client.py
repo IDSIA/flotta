@@ -1,6 +1,6 @@
 from ferdelance.const import TYPE_CLIENT
 from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SessionArgs, session_args
+from ferdelance.node.middlewares import EncodedAPIRoute, SessionArgs, session_args
 from ferdelance.node.services import ComponentService
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,7 +11,7 @@ from sqlalchemy.exc import NoResultFound
 LOGGER = get_logger(__name__)
 
 
-client_router = APIRouter(prefix="/client")
+client_router = APIRouter(prefix="/client", route_class=EncodedAPIRoute)
 
 
 async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:

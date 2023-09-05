@@ -1,3 +1,4 @@
+import base64
 from typing import Iterator
 from .generate import (
     generate_asymmetric_key,
@@ -32,10 +33,12 @@ import json
 
 
 class Exchange:
-    def __init__(self) -> None:
+    def __init__(self, encoding: str = "utf8") -> None:
         self.private_key: RSAPrivateKey | None = None
         self.public_key: RSAPublicKey | None = None
         self.remote_key: RSAPublicKey | None = None
+
+        self.encoding = encoding
 
     def generate_key(self) -> None:
         """Generates a new pair of asymmetric keys."""
@@ -130,14 +133,14 @@ class Exchange:
             pk_bytes: bytes = bytes_from_public_key(self.remote_key)
             f.write(pk_bytes)
 
-    def set_private_key(self, private_key: str, encoding: str = "utf8") -> None:
+    def set_private_key(self, private_key: str) -> None:
         """Set the private key and the public key from a private key
         in string format and encoded for transfer.
 
         :param private_key:
             Private key stored in memory and in string encoded for transfer format.
         """
-        self.private_key = private_key_from_str(decode_from_transfer(private_key, encoding))
+        self.private_key = private_key_from_str(decode_from_transfer(private_key, self.encoding))
         self.public_key = self.private_key.public_key()
 
     def set_key_bytes(self, private_key_bytes: bytes) -> None:
@@ -172,15 +175,13 @@ class Exchange:
 
         return bytes_from_public_key(self.public_key)
 
-    def set_remote_key(self, data: str, encoding: str = "utf8") -> None:
+    def set_remote_key(self, data: str) -> None:
         """Decode and set a public key from a remote host.
 
         :param data:
             String content not yet decoded.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         """
-        self.remote_key = public_key_from_str(decode_from_transfer(data, encoding), encoding)
+        self.remote_key = public_key_from_str(decode_from_transfer(data, self.encoding), self.encoding)
 
     def set_remote_key_bytes(self, remote_key: bytes) -> None:
         """Set the public key of the remote host from bytes stored in memory.
@@ -190,126 +191,133 @@ class Exchange:
         """
         self.remote_key = public_key_from_bytes(remote_key)
 
-    def transfer_public_key(self, encoding: str = "utf8") -> str:
+    def transfer_public_key(self) -> str:
         """Encode the stored public key for secure transfer to remote host.
 
         :return:
             An encoded public key in string format.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         :raise:
             ValueError if there is no public key available.
         """
         if self.public_key is None:
             raise ValueError("public key not set")
 
-        data: str = bytes_from_public_key(self.public_key).decode(encoding)
-        return encode_to_transfer(data, encoding)
+        data: str = bytes_from_public_key(self.public_key).decode(self.encoding)
+        return encode_to_transfer(data, self.encoding)
 
-    def transfer_private_key(self, encoding: str = "utf8") -> str:
+    def transfer_private_key(self) -> str:
         """Encode the stored private key for secure transfer as string.
 
         :return:
             An encoded private key in string format.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         :raise:
             ValueError if there is no private key available.
         """
         if self.private_key is None:
             raise ValueError("public key not set")
 
-        data: str = bytes_from_private_key(self.private_key).decode(encoding)
-        return encode_to_transfer(data, encoding)
+        data: str = bytes_from_private_key(self.private_key).decode(self.encoding)
+        return encode_to_transfer(data, self.encoding)
 
-    def encrypt(self, content: str, encoding: str = "utf8") -> str:
+    def encrypt(self, content: str) -> str:
         """Encrypt a text for the remote host using the stored remote public key.
 
         :param content:
             Content to be encrypted.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         :raise:
             ValueError if there is no remote public key.
         """
         if self.remote_key is None:
             raise ValueError("No remote host public key available")
 
-        return encrypt(self.remote_key, content, encoding)
+        return encrypt(self.remote_key, content, self.encoding)
 
-    def decrypt(self, content: str, encoding: str = "utf8") -> str:
+    def decrypt(self, content: str) -> str:
         """Decrypt a text encrypted by the remote host with the public key,
         using the stored private key.
 
         :param content:
             Content to be decrypted.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         :raise:
             ValueError if there is no private key.
         """
         if self.private_key is None:
             raise ValueError("No private key available")
 
-        return decrypt(self.private_key, content, encoding)
+        return decrypt(self.private_key, content, self.encoding)
 
-    def sign(self, content: str, encoding: str = "utf8") -> str:
+    def sign(self, content: str) -> str:
         if self.private_key is None:
             raise ValueError("Private key not set")
 
-        return sign(self.private_key, content, encoding)
+        return sign(self.private_key, content, self.encoding)
 
-    def verify(self, content: str, signature: str, encoding: str = "utf8") -> None:
-        if self.public_key is None:
+    def verify(self, content: str, signature: str) -> None:
+        if self.remote_key is None:
             raise ValueError("Public key not set")
 
-        verify(self.public_key, content, signature, encoding)
+        verify(self.remote_key, content, signature, self.encoding)
 
-    def sign_header(
-        self, component_id: str, checksum: str, set_encryption: bool = True, encoding: str = "utf8"
-    ) -> dict[str, str]:
-        if self.remote_key is None:
-            raise ValueError("No public remote key available")
-
-        token_data = {
-            "id": component_id,
-            "checksum": checksum,
-            "signature": self.sign(f"{component_id}:{checksum}", encoding),
-        }
-        token = encrypt(self.remote_key, json.dumps(token_data), encoding)
-
+    def create_header(self, set_encryption: bool = True) -> dict[str, str]:
         if set_encryption:
-            content_encoding = f"encrypted/{encoding}"
-            accept_encoding = f"encrypted/{encoding}"
+            content_encoding = f"encrypted/{self.encoding}"
+            accept_encoding = f"encrypted/{self.encoding}"
         else:
-            content_encoding = encoding
-            accept_encoding = encoding
+            content_encoding = self.encoding
+            accept_encoding = self.encoding
 
         return {
-            "Authorization": token,
             "Content-Encoding": content_encoding,
             "Accept-Encoding": accept_encoding,
         }
 
-    def get_header(self, content: str, encoding: str = "utf8") -> tuple[str, str]:
-        content = self.decrypt(content)
+    def create_signed_header(self, component_id: str, checksum: str, set_encryption: bool = True) -> dict[str, str]:
+        if self.remote_key is None:
+            raise ValueError("No public remote key available")
 
-        data = json.loads(content)
+        data_to_sign = f"{component_id}:{checksum}"
+        signature = self.sign(data_to_sign)
+
+        token_data = {
+            "id": component_id,
+            "checksum": checksum,
+            "signature": signature,
+        }
+
+        enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
+
+        data_json = json.dumps(token_data)
+        data_enc = enc.encrypt(data_json)
+        data_b64 = base64.b64encode(data_enc)
+        data = data_b64.decode(self.encoding)
+
+        return self.create_header(set_encryption) | {
+            "Authorization": data,
+        }
+
+    def get_header(self, content: str) -> tuple[str, str]:
+        if self.private_key is None:
+            raise ValueError("No public remote key available")
+
+        dec = HybridDecrypter(self.private_key, encoding=self.encoding)
+
+        token = content.encode(self.encoding)
+        data_b64 = base64.b64decode(token)
+        data_enc = dec.decrypt(data_b64)
+        data = json.loads(data_enc)
 
         author_id, checksum, signature = data["id"], data["checksum"], data["signature"]
 
-        self.verify(f"{author_id}:{checksum}", signature, encoding)
+        self.verify(f"{author_id}:{checksum}", signature)
 
         return author_id, checksum
 
-    def create_payload(self, content: str | bytes, encoding: str = "utf8") -> tuple[str, bytes]:
+    def create_payload(self, content: str | bytes) -> tuple[str, bytes]:
         """Convert a dictionary of a JSON object in string format, then
         encode it for transfer using an hybrid encryption algorithm.
 
         :param content:
             The dictionary to encrypt.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
 
         :raise:
             ValueError if the remote key is not set.
@@ -320,22 +328,20 @@ class Exchange:
         if self.remote_key is None:
             raise ValueError("No public remote key available")
 
-        enc = HybridEncrypter(self.remote_key, encoding=encoding)
+        enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
 
         payload = enc.encrypt(content)
         checksum = enc.get_checksum()
 
         return checksum, payload
 
-    def get_payload(self, content: str | bytes, encoding: str = "utf8") -> tuple[str, bytes]:
+    def get_payload(self, content: str | bytes) -> tuple[str, bytes]:
         """Convert the received content in bytes format to a dictionary
         assuming the content is a JSON object in string format, then
         decode it using an hybrid encryption algorithm.
 
         :param content:
             The content to decrypt.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
 
         :return:
             A JSON object in dictionary format, the checksum of the data.
@@ -347,22 +353,31 @@ class Exchange:
             raise ValueError("No private key available")
 
         if isinstance(content, str):
-            content = content.encode(encoding)
+            content = content.encode(self.encoding)
 
-        dec = HybridDecrypter(self.private_key, encoding=encoding)
+        dec = HybridDecrypter(self.private_key, encoding=self.encoding)
 
         dec_payload = dec.decrypt(content)
         checksum = dec.get_checksum()
 
         return checksum, dec_payload
 
-    def stream(self, content: str | bytes, encoding: str = "utf8") -> tuple[str, Iterator[bytes]]:
+    def create(
+        self,
+        component_id: str,
+        content: str | bytes = "",
+        set_encryption: bool = True,
+    ) -> tuple[dict[str, str], bytes]:
+        checksum, payload = self.create_payload(content)
+        headers = self.create_signed_header(component_id, checksum, set_encryption)
+
+        return headers, payload
+
+    def stream(self, content: str | bytes) -> tuple[str, Iterator[bytes]]:
         """Creates a stream from content in memory.
 
         :param content:
             The content to stream to the remote host.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         :return:
             An iterator that can be consumed to produce the stream.
         :raise:
@@ -373,17 +388,15 @@ class Exchange:
 
         checksum = str_checksum(content)
 
-        enc = HybridEncrypter(self.remote_key, encoding=encoding)
+        enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
 
         return checksum, enc.encrypt_to_stream(content)
 
-    def stream_from_file(self, path: str, encoding: str = "utf8") -> tuple[str, Iterator[bytes]]:
+    def stream_from_file(self, path: str) -> tuple[str, Iterator[bytes]]:
         """Creates a stream from content from a file.
 
         :param path:
             The path where the content to stream is located.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         :return:
             An iterator that can be consumed to produce the stream.
         :raise:
@@ -392,41 +405,35 @@ class Exchange:
         if self.remote_key is None:
             raise ValueError("No remote key available")
 
-        enc = HybridEncrypter(self.remote_key, encoding=encoding)
+        enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
 
         checksum = file_checksum(path)
 
         return checksum, enc.encrypt_file_to_stream(path)
 
-    def stream_response(self, content: Iterator[bytes], encoding: str = "utf8") -> tuple[bytes, str]:
+    def stream_response(self, content: Iterator[bytes]) -> tuple[bytes, str]:
         """Consumes the stream content of a response, and save the content in memory.
 
         :param stream:
             A requests.Response opened with the attribute `stream=True`.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         :raise:
             ValueError if no private key is available.
         """
         if self.private_key is None:
             raise ValueError("No private key available")
 
-        dec = HybridDecrypter(self.private_key, encoding=encoding)
+        dec = HybridDecrypter(self.private_key, encoding=self.encoding)
 
         data = dec.decrypt_stream(content)
         return data, dec.get_checksum()
 
-    def stream_response_to_file(
-        self, stream: Response, path_out: str | Path, encoding: str = "utf8", CHUNK_SIZE: int = 4096
-    ) -> str:
+    def stream_response_to_file(self, stream: Response, path_out: str | Path, CHUNK_SIZE: int = 4096) -> str:
         """Consumes the stream content of a response, and save the content to file.
 
         :param stream:
             A requests.Response opened with the attribute `stream=True`.
         :param path:
             Location on disk to save the download content to.
-        :param encoding:
-            Encoding to use in the string-byte conversion.
         :raise:
             ValueError if no private key is available or the path already exists.
         """
@@ -436,7 +443,7 @@ class Exchange:
         if os.path.exists(path_out):
             raise ValueError(f"path {path_out} already exists")
 
-        dec = HybridDecrypter(self.private_key, encoding=encoding)
+        dec = HybridDecrypter(self.private_key, encoding=self.encoding)
         dec.decrypt_stream_to_file(stream.iter_content(chunk_size=CHUNK_SIZE), path_out)
 
         return dec.get_checksum()

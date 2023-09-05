@@ -1,7 +1,7 @@
 from ferdelance.const import TYPE_USER
 from ferdelance.database import get_session
 from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SessionArgs, session_args
+from ferdelance.node.middlewares import EncodedAPIRoute, SessionArgs, session_args
 from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
 from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.project import Project
@@ -12,6 +12,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
+from ferdelance.shared.checksums import str_checksum
 from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,7 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
 LOGGER = get_logger(__name__)
 
 
-workbench_router = APIRouter(prefix="/workbench")
+workbench_router = APIRouter(prefix="/workbench", route_class=EncodedAPIRoute)
 
 
 async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:
@@ -57,16 +58,14 @@ async def wb_connect(
         await args.security_service.setup(data.public_key)
         args.security_service.exc.verify(f"{data.id}:{data.checksum}", data.signature)
 
-        if data.checksum != args.checksum:
+        checksum = str_checksum(f"{data.id}:{data.public_key}")
+
+        if data.checksum != checksum:
             raise ValueError("Checksum failed")
 
         await wb.register(data, args.ip_address)
 
         return
-
-    except NoResultFound as e:
-        LOGGER.exception(e)
-        raise HTTPException(403, "Invalid user access")
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)

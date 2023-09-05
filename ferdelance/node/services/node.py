@@ -1,3 +1,4 @@
+from ferdelance.const import TYPE_NODE
 from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
@@ -66,9 +67,18 @@ class NodeService:
 
         self_component = await self.cr.get_self_component()
 
+        nodes = [self_component]
+
+        if data.type_name == TYPE_NODE:
+            saved_nodes = await self.cr.list_nodes()
+
+            for node in saved_nodes:  # TODO: complete with list of nodes
+                if node.id != data.id:
+                    nodes.append(node)
+
         return JoinData(
             component=self_component,
-            nodes=list(),  # TODO: complete with list of nodes
+            nodes=nodes,
         )
 
     async def leave(self) -> None:
@@ -99,11 +109,11 @@ class NodeService:
             if node.id == self.component.id:
                 # skip self node
                 continue
-
-            requests.post(
-                f"{node.url}/node/add",
-                data=None,  # TODO: fill with encrypted component request
-            )
+            # TODO:
+            # requests.post(
+            #     f"{node.url}/node/add",
+            #     data=None,  # TODO: fill with encrypted component request
+            # )
 
     async def distribute_remove(self, component: Component) -> None:
         ...

@@ -1,7 +1,7 @@
 from ferdelance import __version__
 from ferdelance.config import config_manager, Configuration, DataSourceStorage
 from ferdelance.client.state import State
-from ferdelance.const import PUBLIC_KEY, PRIVATE_KEY
+from ferdelance.const import PUBLIC_KEY, PRIVATE_KEY, TYPE_CLIENT
 from ferdelance.const import COMPONENT_TYPES, TYPE_NODE
 from ferdelance.database.repositories import (
     Repository,
@@ -16,11 +16,13 @@ from ferdelance.node import security
 from ferdelance.node.services import NodeService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, ServerPublicKey
+from ferdelance.shared.checksums import str_checksum
 from ferdelance.shared.exchange import Exchange
 
 from sqlalchemy.exc import NoResultFound
 
 import aiofiles.os
+import json
 import requests
 import uuid
 
@@ -129,29 +131,39 @@ class NodeStartup(Repository):
             exc.set_remote_key(content.public_key)
             exc.set_key_bytes(private_bytes)
 
+            type_name = TYPE_NODE if self.config.mode == "node" else TYPE_CLIENT
+
+            data_to_sign = f"{self.component.id}:{self.component.public_key}"
+
+            checksum = str_checksum(data_to_sign)
+            signature = exc.sign(data_to_sign)
+
             # send join data
             join_req = NodeJoinRequest(
                 id=self.component.id,
                 name=self.config.node.name,
-                type_name="",  # TODO: assign!
+                type_name=type_name,
                 public_key=exc.transfer_public_key(),
                 version=__version__,
                 url=self.config.node.url_extern(),
+                checksum=checksum,
+                signature=signature,
             )
 
-            _, join_req_payload = exc.create_payload(join_req.dict())
+            headers, join_req_payload = exc.create(self.component.id, join_req.json())
 
             res = requests.post(
                 f"{remote}/node/join",
+                headers=headers,
                 data=join_req_payload,
             )
 
             res.raise_for_status()
 
-            payload, _ = exc.get_payload(res.content)
+            _, payload = exc.get_payload(res.content)
 
             # get node list
-            join_data = JoinData(**payload)
+            join_data = JoinData(**json.loads(payload))
 
             for node in join_data.nodes:
                 # insert nodes into database

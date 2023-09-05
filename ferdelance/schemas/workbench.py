@@ -13,7 +13,6 @@ class WorkbenchJoinRequest(BaseModel):
 
     name: str = ""
 
-    # for signature validation
     checksum: str
     signature: str
 

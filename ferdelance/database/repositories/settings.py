@@ -3,6 +3,7 @@ from typing import Any
 from ferdelance.config import config_manager
 from ferdelance.database.repositories.core import Repository, AsyncSession
 from ferdelance.database.tables import Setting
+from ferdelance.shared.checksums import str_checksum
 
 from pytimeparse import parse
 
@@ -35,8 +36,10 @@ def build_settings_cipher() -> Fernet:
 
     assert server_main_password is not None
 
-    smp0 = server_main_password[:32].encode("utf8")
-    smp1 = server_main_password[-32:].encode("utf8")
+    smp = base64.b64encode(str_checksum(server_main_password).encode())
+
+    smp0 = smp[:32]
+    smp1 = smp[-32:]
     smp2 = base64.b64encode(bytes(a ^ b for a, b in zip(smp0, smp1)))
 
     return Fernet(smp2)

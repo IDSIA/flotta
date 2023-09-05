@@ -13,7 +13,14 @@ import asyncio
 from typing import List
 
 from ferdelance.cli.base import CLICommandSuite, CLIParser
-from ferdelance.cli.fdl_suites import *
+from ferdelance.cli.fdl_suites import (
+    models_cli_suite,
+    artifacts_cli_suite,
+    jobs_cli_suite,
+    clients_cli_suite,
+    projects_cli_suite,
+    datasources_cli_suite,
+)
 
 
 async def main() -> None:

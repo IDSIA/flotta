@@ -3,7 +3,7 @@ from ferdelance.client.services.scheduling import ScheduleActionService
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.node.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
-from ferdelance.node.middlewares import SessionArgs, session_args
+from ferdelance.node.middlewares import EncodedAPIRoute, SessionArgs, session_args
 from ferdelance.node.services import SecurityService, ComponentService, WorkerService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
@@ -23,7 +23,7 @@ import json
 LOGGER = get_logger(__name__)
 
 
-task_router = APIRouter(prefix="/task")
+task_router = APIRouter(prefix="/task", route_class=EncodedAPIRoute)
 
 
 async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:

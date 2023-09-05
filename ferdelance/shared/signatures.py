@@ -2,18 +2,23 @@ from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.hazmat.primitives.asymmetric.padding import PSS, MGF1
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
+import base64
 
-def sign(private_key: RSAPrivateKey, content: str, encoding: str = "utf8") -> str:
+
+def sign(private_key: RSAPrivateKey, data: str | bytes, encoding: str = "utf8") -> str:
+    if isinstance(data, str):
+        data = data.encode(encoding)
+
     signature = private_key.sign(
-        content.encode(encoding),
+        data,
         PSS(mgf=MGF1(SHA256()), salt_length=PSS.MAX_LENGTH),
         SHA256(),
     )
 
-    return signature.decode(encoding)
+    return base64.b64encode(signature).decode(encoding)
 
 
-def verify(public_key: RSAPublicKey, message: str, signature: str, encoding: str = "utf8") -> None:
+def verify(public_key: RSAPublicKey, data: str | bytes, signature: str | bytes, encoding: str = "utf8") -> None:
     """Verify that the given message has been signed with the private part of
     the given public key, meaning that the signature is valid.
 
@@ -31,9 +36,17 @@ def verify(public_key: RSAPublicKey, message: str, signature: str, encoding: str
         Raises:
             InvalidSignature if the signature is not valid.
     """
+    if isinstance(data, str):
+        data = data.encode(encoding)
+
+    if isinstance(signature, str):
+        signature = signature.encode(encoding)
+
+    signature = base64.b64decode(signature)
+
     public_key.verify(
-        signature.encode(encoding),
-        message.encode(encoding),
+        signature,
+        data,
         PSS(mgf=MGF1(SHA256()), salt_length=PSS.MAX_LENGTH),
         SHA256(),
     )
