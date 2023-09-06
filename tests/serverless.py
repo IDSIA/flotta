@@ -17,11 +17,7 @@ from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.tasks import TaskArguments, TaskParameters
-from ferdelance.schemas.updates import (
-    UpdateExecute,
-    UpdateNothing,
-    UpdateToken,
-)
+from ferdelance.schemas.updates import UpdateExecute, UpdateNothing
 from ferdelance.tasks.jobs.actors import ExecutionResult, run_estimate, run_training
 
 from tests.utils import create_project
@@ -69,7 +65,7 @@ class ServerlessClient:
             raise ValueError("This client ha been created without metadata")
         return self.md
 
-    async def next_action(self) -> UpdateExecute | UpdateNothing | UpdateToken:
+    async def next_action(self) -> UpdateExecute | UpdateNothing:
         return await self.client_service.update()
 
     async def get_client_task(self, job_id: str) -> TaskParameters:

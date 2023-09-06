@@ -1,7 +1,7 @@
 from typing import Any
 
 from ferdelance.config import DataSourceConfiguration
-from ferdelance.client.state import DataConfig
+from ferdelance.client.state import DataSourceStorage
 from ferdelance.database import AsyncSession
 from ferdelance.schemas.updates import UpdateNothing
 
@@ -35,20 +35,18 @@ async def test_aggregation(session: AsyncSession):
     assert os.path.exists(DATA_PATH_1)
     assert os.path.exists(DATA_PATH_2)
 
-    data1 = DataConfig(
-        "./storage/data",
+    data1 = DataSourceStorage(
         [
             DataSourceConfiguration(
                 name="california1",
+                token=[TEST_PROJECT_TOKEN],
                 kind="file",
                 type="csv",
                 path=DATA_PATH_1,
-                token=[TEST_PROJECT_TOKEN],
             )
         ],
     )
-    data2 = DataConfig(
-        "./storage/data",
+    data2 = DataSourceStorage(
         [
             DataSourceConfiguration(
                 name="california2",

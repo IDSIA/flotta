@@ -1,4 +1,5 @@
-from ferdelance.config import config_manager, get_logger
+from ferdelance.config import config_manager
+from ferdelance.logging import get_logger
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainTestSplit, IterativePlan
 from ferdelance.schemas.updates import UpdateExecute
@@ -20,7 +21,7 @@ LOGGER = get_logger(__name__)
 def start_function(args: TaskArguments) -> None:
     """Pseudo function to simulate the start of an aggregation job."""
 
-    LOGGER.info(f"artifact_id={args.artifact_id}: new aggregation job_id={args.job_id} with token={args.token}")
+    LOGGER.info(f"artifact_id={args.artifact_id}: new aggregation job_id={args.job_id}")
 
 
 async def assert_count_it(sse: ServerlessExecution, artifact_id: str, exp_iteration: int, exp_jobs: int) -> None:

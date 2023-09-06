@@ -1,5 +1,5 @@
-from ferdelance.config import get_logger
-from ferdelance.server.api import api
+from ferdelance.logging import get_logger
+from ferdelance.node.api import api
 
 from fastapi.testclient import TestClient
 

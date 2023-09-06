@@ -1,5 +1,5 @@
-from ferdelance.config import get_logger
-from ferdelance.database.data import TYPE_CLIENT
+from ferdelance.logging import get_logger
+from ferdelance.const import TYPE_CLIENT
 from ferdelance.database.repositories import JobRepository
 from ferdelance.database.tables import Artifact, Component
 from ferdelance.shared.status import JobStatus
@@ -36,24 +36,22 @@ async def test_jobs_next(session: AsyncSession):
     session.add(
         Component(
             id=client_id_1,
+            name="client1",
             version="test",
             public_key="1",
-            machine_system="1",
-            machine_mac_address="1",
-            machine_node="1",
             ip_address="1",
+            url="",
             type_name=TYPE_CLIENT,
         )
     )
     session.add(
         Component(
             id=client_id_2,
+            name="client2",
             version="test",
             public_key="2",
-            machine_system="2",
-            machine_mac_address="2",
-            machine_node="2",
             ip_address="2",
+            url="",
             type_name=TYPE_CLIENT,
         )
     )

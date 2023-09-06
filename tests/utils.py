@@ -186,16 +186,15 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     metadata: Metadata = get_metadata()
     send_metadata(client_id, api, cl_exc, metadata)
 
-    # this is for connect a new workbench
-
+    # this is to connect a new workbench
     headers = wb_exc.create_header(False)
 
-    response_key = api.post(
+    response_key = api.get(
         "/node/key",
         headers=headers,
     )
 
-    assert response_key.status_code == 200
+    response_key.raise_for_status()
 
     spk = ServerPublicKey(**response_key.json())
 
@@ -213,9 +212,9 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
 
     wjr = WorkbenchJoinRequest(
         id=wb_id,
+        name="test_workbench",
         public_key=wb_exc.transfer_public_key(),
         version="test",
-        name="workbench",
         checksum=checksum,
         signature=signature,
     )
@@ -229,7 +228,7 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
         content=payload,
     )
 
-    assert res_connect.status_code == 200
+    res_connect.raise_for_status()
 
     return ConnectionArguments(
         client_id=client_id,
@@ -240,11 +239,10 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     )
 
 
-def client_update(api: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
+def client_update(component_id: str, api: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
     update = ClientUpdate(action=Action.DO_NOTHING.name)
 
-    _, payload = exchange.create_payload(update.json())
-    headers = exchange.create_header(True)
+    headers, payload = exchange.create(component_id, update.json())
 
     response = api.request(
         method="GET",
