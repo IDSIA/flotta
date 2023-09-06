@@ -1,6 +1,5 @@
 from ferdelance import __version__
 from ferdelance.config import Configuration, DataSourceConfiguration, DataSourceStorage
-from ferdelance.client.exceptions import ConfigError
 from ferdelance.logging import get_logger
 
 import os
@@ -22,18 +21,7 @@ class State:
 
         self.leave: bool = leave
 
-        self.machine_system: str = config.node.machine_system
-        self.machine_mac_address: str = config.node.machine_mac_address
-        self.machine_node: str = config.node.machine_node
-
-        LOGGER.debug(
-            f"machine data: system={self.machine_system} "
-            f"mac_address={self.machine_mac_address} "
-            f"node={self.machine_node}"
-        )
-
-        self.client_id: str | None = None
-        self.client_token: str | None = None
+        self.client_id: str = ""
         self.node_public_key: str | None = None
 
         self.datasources: list[DataSourceConfiguration] = config.datasources
@@ -47,18 +35,11 @@ class State:
         #     LOGGER.error("No valid datasource available!")
         #     raise ConfigError()
 
-    def join(self, client_id: str, client_token: str, node_public_key: str) -> None:
+    def join(self, client_id: str, node_public_key: str) -> None:
         self.client_id = client_id
-        self.client_token = client_token
         self.node_public_key = node_public_key
 
         LOGGER.info(f"assigned client_id={self.client_id}")
-        LOGGER.debug(f"assigned client_token={self.client_token}")
-
-        self.dump_props()
-
-    def set_token(self, client_token: str) -> None:
-        self.client_token = client_token
 
         self.dump_props()
 
@@ -80,7 +61,6 @@ class State:
             props = props_data["client"]
 
             self.client_id = props["client_id"]
-            self.client_token = props["client_token"]
             self.node_public_key = props["node_public_key"]
 
     def dump_props(self):
@@ -91,7 +71,6 @@ class State:
                     "client": {
                         "version": __version__,
                         "client_id": self.client_id,
-                        "client_token": self.client_token,
                         "node_public_key": self.node_public_key,
                     },
                 },

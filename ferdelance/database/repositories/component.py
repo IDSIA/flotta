@@ -84,6 +84,9 @@ class ComponentRepository(Repository):
         ip_address: str,
         url: str,
         is_self: bool = False,
+        active: bool = True,
+        blacklisted: bool = False,
+        left: bool = False,
     ) -> Component:
         """Creates a generic component. All components are defined by a public
         key and a type. The type defines which area can be accessed by the
@@ -123,9 +126,8 @@ class ComponentRepository(Repository):
                 address, machine node, or public key.
 
         Returns:
-            tuple[Component, Token]:
-                A tuple composed by two parts. The first part is the handler to
-                the component object.
+            Component:
+                A handler to the component object.
         """
 
         LOGGER.info(f"creating new component_id={component_id} type_name={type_name} version={version} name={name}")
@@ -145,6 +147,9 @@ class ComponentRepository(Repository):
             name=name,
             is_self=is_self,
             url=url,
+            active=active,
+            blacklisted=blacklisted,
+            left=left,
         )
 
         self.session.add(component)

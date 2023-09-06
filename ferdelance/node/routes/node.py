@@ -1,10 +1,11 @@
 from ferdelance.const import TYPE_NODE, TYPE_CLIENT
+from ferdelance.database.repositories.component import ComponentRepository
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, session_args, valid_session_args, ValidSessionArgs
 from ferdelance.node.services import NodeService
-from ferdelance.schemas.components import dummy
+from ferdelance.schemas.components import Component, dummy
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinData, NodeJoinRequest, ServerPublicKey
+from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata, ServerPublicKey
 from ferdelance.shared.checksums import str_checksum
 from ferdelance.shared.decode import decode_from_transfer
 
@@ -114,32 +115,54 @@ async def node_metadata(
 
 @node_router.put("/add")
 async def node_update_add(
+    new_component: Component,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component_id={args.component.id}: adding new node")
+    LOGGER.info(f"component_id={args.component.id}: adding new node component_id={new_component.id}")
 
-    ns: NodeService = NodeService(args.session, args.component)
+    try:
+        ns: NodeService = NodeService(args.session, args.component)
 
-    # TODO
+        await ns.add(new_component)
+
+    except Exception as e:
+        LOGGER.error(
+            f"Could not add new component with component_id={new_component.id} from component_id={args.component.id}"
+        )
+        LOGGER.exception(e)
+        raise HTTPException(500)
 
 
 @node_router.put("/remove")
 async def node_update_remove(
+    component: Component,
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"component_id={args.component.id}: removing node")
-
     ns: NodeService = NodeService(args.session, args.component)
 
-    # TODO
+    try:
+        await ns.remove(component)
+
+    except Exception as e:
+        LOGGER.error(
+            f"Could not remove component with component_id={component.id} from component_id={args.component.id}"
+        )
+        LOGGER.exception(e)
+        raise HTTPException(500)
 
 
 @node_router.put("/metadata")
 async def node_update_metadata(
+    node_metadata: NodeMetadata,
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"component_id={args.component.id}: updating metadata")
 
-    ns: NodeService = NodeService(args.session, args.component)
+    cr: ComponentRepository = ComponentRepository(args.session)
 
-    # TODO
+    component = await cr.get_by_id(node_metadata.id)
+
+    ns: NodeService = NodeService(args.session, component)
+
+    await ns.metadata(node_metadata.metadata)

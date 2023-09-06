@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 from ferdelance.schemas.components import Component
+from ferdelance.schemas.metadata import Metadata
 
 
 class NodeJoinRequest(BaseModel):
@@ -32,3 +33,8 @@ class JoinData(BaseModel):
 
 class ServerPublicKey(BaseModel):
     public_key: str
+
+
+class NodeMetadata(BaseModel):
+    id: str
+    metadata: Metadata

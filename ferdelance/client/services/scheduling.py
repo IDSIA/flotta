@@ -26,7 +26,6 @@ class ScheduleActionService:
 
         assert self.state.private_key_location is not None
         assert self.state.node_public_key is not None
-        assert self.state.client_token is not None
 
         exc = Exchange()
         exc.load_key(self.state.private_key_location)
@@ -49,7 +48,6 @@ class ScheduleActionService:
 
         assert self.state.private_key_location is not None
         assert self.state.node_public_key is not None
-        assert self.state.client_token is not None
 
         exc = Exchange()
         exc.load_key(self.state.private_key_location)

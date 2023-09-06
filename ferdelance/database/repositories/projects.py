@@ -1,6 +1,5 @@
 from ferdelance.logging import get_logger
 from ferdelance.database.repositories.core import AsyncSession, Repository
-from ferdelance.database.repositories.tokens import TokenRepository
 from ferdelance.database.repositories.datasource import DataSourceRepository
 from ferdelance.database.tables import (
     DataSource as DataSourceDB,
@@ -17,7 +16,9 @@ from ferdelance.schemas.project import (
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-import uuid
+from hashlib import sha256
+from time import time
+from uuid import uuid4
 
 LOGGER = get_logger(__name__)
 
@@ -57,8 +58,31 @@ class ProjectRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-        self.tr: TokenRepository = TokenRepository(session)
         self.dsr: DataSourceRepository = DataSourceRepository(session)
+
+    async def generate_project_token(self, name: str, encoding: str = "utf8") -> str:
+        """Project have tokens assigned to them. The token is based on the name
+        of the project. Project's tokens are intended to not be replaceable.
+
+        Args:
+            name (str):
+                The name of the new project.
+
+        Returns:
+            str:
+                A string to use as a token.
+        """
+
+        LOGGER.info("generating token for new project")
+
+        ms = round(time() * 1000 + 7)
+        salt = str(uuid4())[:17]
+
+        token_b: bytes = f"{ms}¨{name}${salt};".encode(encoding)
+        token_b: bytes = sha256(token_b).hexdigest().encode(encoding)
+        token: str = sha256(token_b).hexdigest()
+
+        return token
 
     async def create_project(self, name: str, token: str | None = None) -> str:
         """Create a new project. It is possible to assign a name and a token.
@@ -81,7 +105,7 @@ class ProjectRepository(Repository):
         """
 
         if token is None:
-            token = await self.tr.generate_project_token(name)
+            token = await self.generate_project_token(name)
 
         res = await self.session.scalars(
             select(ProjectDB).where(
@@ -94,7 +118,7 @@ class ProjectRepository(Repository):
             raise ValueError("A project with the given token already exists")
 
         project = ProjectDB(
-            id=str(uuid.uuid4()),
+            id=str(uuid4()),
             name=name,
             token=token,
         )

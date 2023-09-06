@@ -9,7 +9,7 @@ from ferdelance.database.repositories import (
 from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinData, NodeJoinRequest
+from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata
 
 from sqlalchemy.exc import NoResultFound
 
@@ -104,19 +104,113 @@ class NodeService:
 
         return metadata
 
+    async def add(self, new_component: Component) -> None:
+        try:
+            await self.cr.get_by_id(new_component.id)
+            LOGGER.warning(f"component_id={self.component.id}: new component_id={new_component.id} already exists")
+            return
+        except NoResultFound:
+            pass
+
+        try:
+            c = await self.cr.get_by_key(new_component.public_key)
+            LOGGER.warning(
+                f"component_id={self.component.id}: public key already exists for new component_id={new_component.id} "
+                f"under component_id={c.id}"
+            )
+            return
+        except NoResultFound:
+            pass
+
+        await self.cr.create_component(
+            new_component.id,
+            new_component.type_name,
+            new_component.public_key,
+            new_component.version,
+            new_component.name,
+            new_component.ip_address,
+            new_component.url,
+        )
+
+    async def remove(self, component: Component) -> None:
+        await self.cr.component_leave(component.id)
+
     async def distribute_add(self, component: Component) -> None:
+        if component.type_name != TYPE_NODE:
+            return
+
         for node in await self.cr.list_nodes():
             if node.id == self.component.id:
                 # skip self node
                 continue
-            # TODO:
-            # requests.post(
-            #     f"{node.url}/node/add",
-            #     data=None,  # TODO: fill with encrypted component request
-            # )
+
+            if node.type_name != TYPE_NODE:
+                # skip nodes that are not server nodes
+                continue
+
+            headers, payload = self.ss.exc.create(self.component.id, component.json())
+
+            res = requests.put(
+                f"{node.url}/node/add",
+                headers=headers,
+                data=payload,
+            )
+
+            if res.status_code != 200:
+                LOGGER.error(
+                    f"component_id={self.component.id}: could not add component_id={component.id} to node={node.id}"
+                )
 
     async def distribute_remove(self, component: Component) -> None:
-        ...
+        if component.type_name != TYPE_NODE:
+            return
+
+        for node in await self.cr.list_nodes():
+            if node.id == self.component.id:
+                # skip self node
+                continue
+
+            if node.type_name != TYPE_NODE:
+                # skip nodes that are not server nodes
+                continue
+
+            headers, payload = self.ss.exc.create(self.component.id, component.json())
+
+            res = requests.put(
+                f"{node.url}/node/remove",
+                headers=headers,
+                data=payload,
+            )
+            if res.status_code != 200:
+                LOGGER.error(
+                    f"component_id={self.component.id}: could not remove "
+                    f"component_id={component.id} from node={node.id}"
+                )
 
     async def distribute_metadata(self, component: Component, metadata: Metadata) -> None:
-        ...
+        if component.type_name != TYPE_NODE:
+            return
+
+        for node in await self.cr.list_nodes():
+            if node.id == self.component.id:
+                # skip self node
+                continue
+
+            if node.type_name != TYPE_NODE:
+                # skip nodes that are not server nodes
+                continue
+
+            node_metadata = NodeMetadata(id=component.id, metadata=metadata)
+            headers, payload = self.ss.exc.create(self.component.id, node_metadata.json())
+
+            res = requests.put(
+                f"{node.url}/node/metadata",
+                headers=headers,
+                data=payload,
+            )
+
+            if res.status_code != 200:
+                LOGGER.error(
+                    f"component_id={self.component.id}: could not send metadata from "
+                    f"component_id={component.id} to node={node.id}"
+                )

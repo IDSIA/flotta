@@ -5,8 +5,8 @@ from pydantic import BaseModel
 class Component(BaseModel):
     id: str
 
-    type_name: str
     name: str = ""
+    type_name: str
 
     public_key: str
 

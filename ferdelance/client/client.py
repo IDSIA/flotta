@@ -1,12 +1,10 @@
-from ferdelance import __version__
 from ferdelance.config import Configuration
-from ferdelance.client.state import State, ConfigError
-from ferdelance.client.exceptions import RelaunchClient, ErrorClient, UpdateClient
+from ferdelance.client.state import State
+from ferdelance.client.exceptions import ConfigError, RelaunchClient, ErrorClient, UpdateClient
 from ferdelance.client.services.scheduling import ScheduleActionService
 from ferdelance.client.services.routes import RouteService
 from ferdelance.logging import get_logger
 from ferdelance.shared.actions import Action
-from ferdelance.schemas.node import JoinData, NodeJoinRequest
 from ferdelance.shared.exchange import Exchange
 
 from time import sleep
@@ -97,19 +95,9 @@ class FerdelanceClient:
             # not joined yet
             LOGGER.info("collecting system info")
 
-            join_data = NodeJoinRequest(
-                name=self.state.name,
-                system=self.state.machine_system,
-                mac_address=self.state.machine_mac_address,
-                node=self.state.machine_node,
-                public_key=exc.transfer_public_key(),
-                version=__version__,
-            )
-
             try:
                 routes_service: RouteService = RouteService(self.state)
-                data: JoinData = routes_service.join(join_data)
-                self.state.join(data.id, data.token, data.public_key)
+                routes_service.join()
 
             except requests.HTTPError as e:
                 if e.response.status_code == 404:

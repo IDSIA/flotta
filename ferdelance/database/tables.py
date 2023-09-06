@@ -54,23 +54,6 @@ class Component(Base):
     url: Mapped[str | None] = mapped_column(String)
 
 
-class Token(Base):
-    """Table that collects all used access tokens for the components.
-    If an invalid token is reused, a client could be blacklisted (or updated).
-    """
-
-    __tablename__ = "tokens"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    expiration_time: Mapped[float] = mapped_column(nullable=True)
-    token: Mapped[str] = mapped_column(nullable=False, index=True, unique=True)
-    valid: Mapped[bool] = mapped_column(default=True)
-
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
-    component = relationship("Component")
-
-
 class Event(Base):
     """Table that collects all the event on the components."""
 

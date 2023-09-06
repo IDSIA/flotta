@@ -1,16 +1,20 @@
+from ferdelance import __version__
 from ferdelance.client.state import State
 from ferdelance.client.exceptions import ErrorClient
+from ferdelance.const import TYPE_CLIENT
 from ferdelance.logging import get_logger
-from ferdelance.shared.actions import Action
-from ferdelance.shared.exchange import Exchange
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinData, NodeJoinRequest
+from ferdelance.shared.actions import Action
+from ferdelance.shared.checksums import str_checksum
+from ferdelance.shared.exchange import Exchange
 from ferdelance.utils import check_url
 
 from requests import get, post
 
 import json
 import shutil
+import uuid
 
 
 LOGGER = get_logger(__name__)
@@ -27,14 +31,11 @@ class RouteService:
         if self.state.node_public_key is not None:
             self.exc.set_remote_key(self.state.node_public_key)
 
-        if self.state.client_token is not None:
-            self.exc.set_token(self.state.client_token)
-
     def check(self) -> None:
         """Checks that the server node is up, if not wait for a little bit."""
         check_url(f"{self.state.server}/client/")
 
-    def join(self, join_data: NodeJoinRequest) -> JoinData:
+    def join(self) -> JoinData:
         """Send a join request to the server.
 
         :param system:
@@ -50,17 +51,51 @@ class RouteService:
         :return:
             The connection data for a join request.
         """
-        res = post(f"{self.state.server}/node/join", data=json.dumps(join_data.dict()))
+
+        self.state.client_id = str(uuid.uuid4())
+
+        public_key = self.exc.transfer_public_key()
+
+        data_to_sign = f"{self.state.client_id}:{public_key}"
+
+        checksum = str_checksum(data_to_sign)
+        signature = self.exc.sign(data_to_sign)
+
+        join_data = NodeJoinRequest(
+            id=self.state.client_id,
+            name=self.state.name,
+            type_name=TYPE_CLIENT,
+            public_key=public_key,
+            version=__version__,
+            url="",
+            checksum=checksum,
+            signature=signature,
+        )
+
+        _, payload = self.exc.create_payload(join_data.json())
+        headers = self.exc.create_header(True)
+
+        res = post(
+            f"{self.state.server}/node/join",
+            headers=headers,
+            data=payload,
+        )
 
         res.raise_for_status()
 
-        return JoinData(**self.exc.get_payload(res.content))
+        _, payload = self.exc.get_payload(res.content)
+
+        return JoinData(**json.loads(payload))
 
     def leave(self) -> None:
         """Send a leave request to the server."""
+
+        headers, payload = self.exc.create(self.state.client_id, "", True)
+
         res = post(
             f"{self.state.server}/node/leave",
-            headers=self.exc.headers(),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
@@ -75,31 +110,34 @@ class RouteService:
         LOGGER.info("sending metadata to remote")
 
         metadata: Metadata = self.state.data.metadata()
+        headers, payload = self.exc.create(self.state.client_id, metadata.json())
 
         res = post(
             f"{self.state.server}/node/metadata",
-            data=self.exc.create_payload(metadata.dict()),
-            headers=self.exc.headers(),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
         LOGGER.info("metadata uploaded successful")
 
-        # TODO: return metadata?
-
     def get_update(self, content: dict) -> tuple[Action, dict]:
         """Heartbeat command to check for an update from the server."""
         LOGGER.debug("requesting update")
 
+        headers, payload = self.exc.create(self.state.client_id, json.dumps(content))
+
         res = get(
             f"{self.state.server}/client/update",
-            data=self.exc.create_payload(content),
-            headers=self.exc.headers(),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        data = self.exc.get_payload(res.content)
+        _, res_payload = self.exc.get_payload(res.content)
+
+        data = json.loads(res_payload)
 
         return Action[data["action"]], data
