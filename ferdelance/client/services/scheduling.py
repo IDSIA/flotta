@@ -1,7 +1,7 @@
 from ferdelance.client.state import State
 from ferdelance.exceptions import InvalidAction
 from ferdelance.logging import get_logger
-from ferdelance.schemas.updates import UpdateToken, UpdateExecute
+from ferdelance.schemas.updates import UpdateExecute
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.shared.actions import Action as ActionType
 from ferdelance.shared.exchange import Exchange
@@ -21,11 +21,6 @@ class ScheduleActionService:
     def update_client(self) -> ActionType:
         return ActionType.UPDATE_CLIENT
 
-    def update_token(self, data: UpdateToken) -> ActionType:
-        LOGGER.info("updating client token with a new one")
-        self.state.set_token(data.token)
-        return ActionType.UPDATE_TOKEN
-
     def start_training(self, data: UpdateExecute) -> ActionType:
         backend = get_jobs_backend()
 
@@ -41,7 +36,6 @@ class ScheduleActionService:
                 private_key=exc.transfer_private_key(),
                 server_url=self.state.server,
                 server_public_key=self.state.node_public_key,
-                token=self.state.client_token,
                 datasources=[d.dict() for d in self.state.datasources],
                 workdir=self.state.workdir,
                 job_id=data.job_id,
@@ -65,7 +59,6 @@ class ScheduleActionService:
                 private_key=exc.transfer_private_key(),
                 server_url=self.state.server,
                 server_public_key=self.state.node_public_key,
-                token=self.state.client_token,
                 datasources=[d.dict() for d in self.state.datasources],
                 workdir=self.state.workdir,
                 job_id=data.job_id,
@@ -80,9 +73,6 @@ class ScheduleActionService:
 
         if action == ActionType.EXECUTE_ESTIMATE:
             return self.start_estimate(UpdateExecute(**data))
-
-        if action == ActionType.UPDATE_TOKEN:
-            return self.update_token(UpdateToken(**data))
 
         if action == ActionType.UPDATE_CLIENT:
             return self.update_client()

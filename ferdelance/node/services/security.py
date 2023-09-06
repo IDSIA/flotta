@@ -54,15 +54,11 @@ class SecurityService(Repository):
     def decrypt(self, content: str) -> str:
         return self.exc.decrypt(content)
 
-    def verify_headers(self, request: Request) -> tuple[str, str]:
-        headers = request.headers.get("Authentication", "")
+    def get_headers(self, signature_data: str) -> tuple[str, str, str]:
+        return self.exc.get_header(signature_data)
 
-        if not headers:
-            raise ValueError("Invalid header signatures")
-
-        component_id, checksum = self.exc.get_header(headers)
-
-        return component_id, checksum
+    def verify_signature_data(self, component_id: str, checksum: str, signature: str) -> None:
+        self.exc.verify(f"{component_id}:{checksum}", signature)
 
     def create_response(self, content: bytes) -> Response:
         data = self.exc.create_payload(content)

@@ -7,11 +7,7 @@ from ferdelance.database.repositories import (
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.updates import (
-    UpdateExecute,
-    UpdateNothing,
-    UpdateToken,
-)
+from ferdelance.schemas.updates import UpdateExecute, UpdateNothing
 
 from sqlalchemy.exc import NoResultFound
 
@@ -43,7 +39,7 @@ class ActionService:
         """Do nothing and waits for the next update request."""
         return UpdateNothing(action=Action.DO_NOTHING.name)
 
-    async def next(self, component: Component) -> UpdateExecute | UpdateNothing | UpdateToken:
+    async def next(self, component: Component) -> UpdateExecute | UpdateNothing:
         # TODO: consume component payload
 
         try:

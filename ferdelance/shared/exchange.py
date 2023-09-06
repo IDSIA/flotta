@@ -254,7 +254,7 @@ class Exchange:
 
     def verify(self, content: str, signature: str) -> None:
         if self.remote_key is None:
-            raise ValueError("Public key not set")
+            raise ValueError("Remote key not set")
 
         verify(self.remote_key, content, signature, self.encoding)
 
@@ -292,10 +292,10 @@ class Exchange:
         data = data_b64.decode(self.encoding)
 
         return self.create_header(set_encryption) | {
-            "Authorization": data,
+            "Signature": data,
         }
 
-    def get_header(self, content: str) -> tuple[str, str]:
+    def get_header(self, content: str) -> tuple[str, str, str]:
         if self.private_key is None:
             raise ValueError("No public remote key available")
 
@@ -306,11 +306,9 @@ class Exchange:
         data_enc = dec.decrypt(data_b64)
         data = json.loads(data_enc)
 
-        author_id, checksum, signature = data["id"], data["checksum"], data["signature"]
+        component_id, checksum, signature = data["id"], data["checksum"], data["signature"]
 
-        self.verify(f"{author_id}:{checksum}", signature)
-
-        return author_id, checksum
+        return component_id, checksum, signature
 
     def create_payload(self, content: str | bytes) -> tuple[str, bytes]:
         """Convert a dictionary of a JSON object in string format, then

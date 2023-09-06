@@ -36,7 +36,7 @@ class ValidSessionArgs(SessionArgs):
     component: Component
 
 
-class EncodedRequest(Request):
+class SignableRequest(Request):
     def __init__(
         self,
         db_session: AsyncSession,
@@ -55,6 +55,7 @@ class EncodedRequest(Request):
 
         self.ip_address: str = self.client.host if self.client else ""
 
+        self.signed_checksum: str = ""
         self.checksum: str = ""
 
         self.self_component: Component = self_component
@@ -91,41 +92,27 @@ class EncodedRequest(Request):
         if not hasattr(self, "_body"):
             body: bytes = await super().body()
 
-            cr: ComponentRepository = ComponentRepository(self.db_session)
-
             try:
-                if self.headers.get("Authentication", ""):
-                    LOGGER.debug("checking authentication header")
+                if self.content_encrypted and self.signed_checksum and self.component:
+                    # decrypt body
+                    LOGGER.debug(f"component_id={self.component.id}: Received signed request with encrypted data")
 
-                    # verify header
-                    component_id, self.given_checksum = self.security.verify_headers(self)
+                    self.checksum, payload = self.security.exc.get_payload(body)
 
-                    if self.content_encrypted:
-                        # decrypt body
-                        LOGGER.debug(f"component_id={component_id}: Received encrypted data")
+                    if self.signed_checksum != self.checksum:
+                        LOGGER.warning(f"component_id={self.component.id}: Checksum failed")
+                        raise HTTPException(403)
 
-                        self.checksum, payload = self.security.exc.get_payload(body)
-
-                        if self.given_checksum != self.checksum:
-                            LOGGER.warning(f"component_id={component_id}: Checksum failed")
-                            raise HTTPException(403)
-
-                        body = payload
-
-                        # get component
-                        self.component = await cr.get_by_id(component_id)
-                        await self.security.setup(self.component.public_key)
+                    body = payload
 
                 else:
-                    LOGGER.debug("not authenticated header")
+                    LOGGER.debug("not signed request")
 
                     if self.content_encrypted:
                         # decrypt body
-                        LOGGER.debug("component_id=UNKNOWN: Received encrypted data")
+                        LOGGER.debug("Received not signed request with encrypted data")
 
-                        self.checksum, payload = self.security.exc.get_payload(body)
-
-                        body = payload
+                        self.checksum, body = self.security.exc.get_payload(body)
 
             except Exception as e:
                 LOGGER.warning(f"Secure checks failed: {e}")
@@ -136,48 +123,83 @@ class EncodedRequest(Request):
         return self._body
 
 
-class EncodedAPIRoute(APIRoute):
+async def check_signature(db_session: AsyncSession, request: Request) -> SignableRequest:
+    cr: ComponentRepository = ComponentRepository(db_session)
+    self_component = await cr.get_self_component()
+
+    request = SignableRequest(db_session, self_component, request.scope, request.receive)
+    await request.security.setup()
+
+    given_signature = request.headers.get("Signature", "")
+    if given_signature:
+        LOGGER.debug("checking authentication header")
+
+        # decrypt header
+        component_id, request.signed_checksum, signature = request.security.get_headers(given_signature)
+
+        # get request's component
+        component = await cr.get_by_id(component_id)
+
+        if not component.active:
+            LOGGER.warning(f"component_id={component.id}: request denied to inactive component")
+            raise HTTPException(403, "Inactive component")
+
+        if component.blacklisted:
+            LOGGER.warning(f"component_id={component.id}: request denied to blacklisted component")
+            raise HTTPException(403, "Access Denied")
+
+        await request.security.setup(component.public_key)
+
+        request.component = component
+
+        # verify signature data
+        request.security.verify_signature_data(component_id, request.signed_checksum, signature)
+
+    return request
+
+
+async def encrypt_response(request: SignableRequest, response: Response) -> Response:
+    args: SessionArgs = request.args()
+
+    if args.accept_encrypted:
+        checksum, payload = args.security_service.exc.create_payload(response.body)
+
+        response.headers["Content-Length"] = f"{len(payload)}"
+        response.body = payload
+
+        headers = args.security_service.exc.create_signed_header(
+            args.self_component.id,
+            checksum,
+            args.accept_encrypted,
+        )
+    else:
+        checksum = ""  # TODO: maybe set this to something...
+        headers = args.security_service.exc.create_header(False)
+
+    for k, v in headers.items():
+        response.headers[k] = v
+
+    return response
+
+
+class SignedAPIRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         original_route_handler = super().get_route_handler()
 
         async def custom_route_handler(request: Request) -> Response:
             async with DataBase().session() as db_session:
-                cr: ComponentRepository = ComponentRepository(db_session)
-                self_component = await cr.get_self_component()
-
-                request = EncodedRequest(db_session, self_component, request.scope, request.receive)
-                await request.security.setup()
+                request = await check_signature(db_session, request)
 
                 response = await original_route_handler(request)
 
-                args = request.args()
-
-                if args.accept_encrypted:
-                    checksum, payload = args.security_service.exc.create_payload(response.body)
-
-                    response.headers["Content-Length"] = f"{len(payload)}"
-                    response.body = payload
-
-                    headers = args.security_service.exc.create_signed_header(
-                        args.self_component.id,
-                        checksum,
-                        args.accept_encrypted,
-                    )
-                else:
-                    checksum = ""  # TODO: maybe set this to something...
-                    headers = args.security_service.exc.create_header(False)
-
-                for k, v in headers.items():
-                    response.headers[k] = v
-
-                return response
+                return await encrypt_response(request, response)
 
         return custom_route_handler
 
 
-async def session_args(request: EncodedRequest) -> SessionArgs:
+async def session_args(request: SignableRequest) -> SessionArgs:
     return request.args()
 
 
-async def valid_session_args(request: EncodedRequest) -> ValidSessionArgs:
+async def valid_session_args(request: SignableRequest) -> ValidSessionArgs:
     return request.valid_args()

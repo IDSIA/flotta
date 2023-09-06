@@ -1,6 +1,6 @@
 from ferdelance.database import DataBase, Base
 from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import EncodedAPIRoute
+from ferdelance.node.middlewares import SignedAPIRoute
 from ferdelance.node.routes import (
     client_router,
     node_router,
@@ -33,7 +33,7 @@ def init_api() -> FastAPI:
     LOGGER.info("Added router for /client")
     api.include_router(client_router)
 
-    api.router.route_class = EncodedAPIRoute
+    api.router.route_class = SignedAPIRoute
 
     return api
 

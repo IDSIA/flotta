@@ -1,6 +1,6 @@
 from ferdelance.const import TYPE_NODE, TYPE_CLIENT
 from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import EncodedAPIRoute, SessionArgs, session_args, valid_session_args, ValidSessionArgs
+from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, session_args, valid_session_args, ValidSessionArgs
 from ferdelance.node.services import NodeService
 from ferdelance.schemas.components import dummy
 from ferdelance.schemas.metadata import Metadata
@@ -8,27 +8,27 @@ from ferdelance.schemas.node import JoinData, NodeJoinRequest, ServerPublicKey
 from ferdelance.shared.checksums import str_checksum
 from ferdelance.shared.decode import decode_from_transfer
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from sqlalchemy.exc import SQLAlchemyError, NoResultFound
 
 LOGGER = get_logger(__name__)
 
 
-node_router = APIRouter(prefix="/node", route_class=EncodedAPIRoute)
+node_router = APIRouter(prefix="/node", route_class=SignedAPIRoute)
 
 
-async def allow_access(identity: ValidSessionArgs = Depends(valid_session_args)) -> ValidSessionArgs:
+async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> ValidSessionArgs:
     try:
-        if identity.component.type_name not in (TYPE_CLIENT, TYPE_NODE):
+        if args.component.type_name not in (TYPE_CLIENT, TYPE_NODE):
             LOGGER.warning(
-                f"component_id={identity.component.id}: type={identity.component.type_name} cannot access this router"
+                f"component_id={args.component.id}: type={args.component.type_name} cannot access this router"
             )
             raise HTTPException(403, "Access Denied")
 
-        return identity
+        return args
     except NoResultFound:
-        LOGGER.warning(f"component_id={identity.component.id}: not found")
+        LOGGER.warning(f"component_id={args.component.id}: not found")
         raise HTTPException(403, "Access Denied")
 
 
@@ -83,7 +83,7 @@ async def node_join(
         raise HTTPException(403, "Invalid data")
 
 
-@node_router.post("/leave")
+@node_router.post("/leave", response_class=Response)
 async def node_leave(
     args: ValidSessionArgs = Depends(allow_access),
 ) -> None:

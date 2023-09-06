@@ -14,7 +14,6 @@ from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.updates import (
     UpdateExecute,
     UpdateNothing,
-    UpdateToken,
 )
 from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.node.services import ActionService, JobManagementService
@@ -33,7 +32,7 @@ class ComponentService:
         self.component: Component = component
         self.jms: JobManagementService = JobManagementService(self.session)
 
-    async def update(self) -> UpdateExecute | UpdateNothing | UpdateToken:
+    async def update(self) -> UpdateExecute | UpdateNothing:
         cr: ComponentRepository = ComponentRepository(self.session)
         acs: ActionService = ActionService(self.session)
 

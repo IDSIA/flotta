@@ -1,7 +1,6 @@
 from ferdelance.const import TYPE_USER
-from ferdelance.database import get_session
 from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import EncodedAPIRoute, SessionArgs, session_args
+from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, session_args, valid_session_args
 from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
 from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.project import Project
@@ -23,10 +22,10 @@ from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
 LOGGER = get_logger(__name__)
 
 
-workbench_router = APIRouter(prefix="/workbench", route_class=EncodedAPIRoute)
+workbench_router = APIRouter(prefix="/workbench", route_class=SignedAPIRoute)
 
 
-async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:
+async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> SessionArgs:
     try:
         if args.component.type_name != TYPE_USER:
             LOGGER.warning(f"client of type={args.component.type_name} cannot access this route")
@@ -46,19 +45,20 @@ async def wb_home():
 @workbench_router.post("/connect", response_class=Response)
 async def wb_connect(
     data: WorkbenchJoinRequest,
-    args: SessionArgs = Depends(get_session),
+    args: SessionArgs = Depends(session_args),
 ):
     LOGGER.info("new workbench connected")
 
     wb: WorkbenchConnectService = WorkbenchConnectService(args.session)
 
     try:
+        data_to_sign = f"{data.id}:{data.public_key}"
+
         data.public_key = decode_from_transfer(data.public_key)
-
         await args.security_service.setup(data.public_key)
-        args.security_service.exc.verify(f"{data.id}:{data.checksum}", data.signature)
 
-        checksum = str_checksum(f"{data.id}:{data.public_key}")
+        args.security_service.exc.verify(data_to_sign, data.signature)
+        checksum = str_checksum(data_to_sign)
 
         if data.checksum != checksum:
             raise ValueError("Checksum failed")
@@ -72,15 +72,19 @@ async def wb_connect(
         LOGGER.exception("Database error")
         raise HTTPException(500, "Internal error")
 
-    except ValueError | Exception as e:
+    except ValueError as e:
+        LOGGER.exception(e)
+        raise HTTPException(403, "Invalid client data")
+
+    except Exception as e:
         LOGGER.exception(e)
         raise HTTPException(403, "Invalid client data")
 
 
 @workbench_router.get("/project", response_model=Project)
 async def wb_get_project(
-    wpt=WorkbenchProjectToken,
-    args: SessionArgs = Depends(allow_access),
+    wpt: WorkbenchProjectToken,
+    args: ValidSessionArgs = Depends(allow_access),
 ) -> Project:
     LOGGER.info(f"user_id={args.component.id}: requested a project given its token")
 
@@ -97,7 +101,7 @@ async def wb_get_project(
 @workbench_router.get("/clients", response_model=WorkbenchClientList)
 async def wb_get_client_list(
     wpt: WorkbenchProjectToken,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ) -> WorkbenchClientList:
     LOGGER.info(f"user_id={args.component.id}: requested a list of clients")
 
@@ -109,7 +113,7 @@ async def wb_get_client_list(
 @workbench_router.get("/datasources", response_model=WorkbenchDataSourceIdList)
 async def wb_get_datasource_list(
     wpt: WorkbenchProjectToken,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ) -> WorkbenchDataSourceIdList:
     LOGGER.info(f"user_id={args.component.id}: requested a list of available data source")
 
@@ -121,7 +125,7 @@ async def wb_get_datasource_list(
 @workbench_router.post("/artifact/submit", response_model=ArtifactStatus)
 async def wb_post_artifact_submit(
     artifact: Artifact,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ) -> ArtifactStatus:
     LOGGER.info(f"user_id={args.component.id}: submitted a new artifact")
 
@@ -139,7 +143,7 @@ async def wb_post_artifact_submit(
 @workbench_router.get("/artifact/status", response_model=ArtifactStatus)
 async def wb_get_artifact_status(
     wba: WorkbenchArtifact,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ) -> ArtifactStatus:
     LOGGER.info(f"user_id={args.component.id}: requested status of artifact")
 
@@ -156,7 +160,7 @@ async def wb_get_artifact_status(
 @workbench_router.get("/artifact", response_model=Artifact)
 async def wb_get_artifact(
     wba: WorkbenchArtifact,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"user_id={args.component.id}: requested details on artifact")
 
@@ -173,7 +177,7 @@ async def wb_get_artifact(
 @workbench_router.get("/result", response_class=FileResponse)
 async def wb_get_result(
     wba: WorkbenchArtifact,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"user_id={args.component.id}: requested result with artifact_id={wba.artifact_id}")
 
@@ -202,7 +206,7 @@ async def wb_get_result(
 async def wb_get_partial_result(
     artifact_id: str,
     builder_user_id: str,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(
         f"user_id={args.component.id}: requested partial model for "

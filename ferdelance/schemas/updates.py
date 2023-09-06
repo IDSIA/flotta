@@ -7,15 +7,6 @@ class UpdateData(BaseModel):
     action: str
 
 
-class UpdateToken(UpdateData):
-    """The client has a new token to use."""
-
-    token: str
-
-    def __str__(self) -> str:
-        return super().__str__()
-
-
 class UpdateExecute(UpdateData):
     """Task that the client has to execute next."""
 
@@ -27,10 +18,3 @@ class UpdateNothing(UpdateData):
     """Nothing else to do."""
 
     pass
-
-
-class DownloadApp(BaseModel):
-    """Details from the client to the app to download"""
-
-    name: str
-    version: str

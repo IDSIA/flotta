@@ -3,7 +3,7 @@ from ferdelance.client.services.scheduling import ScheduleActionService
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.node.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
-from ferdelance.node.middlewares import EncodedAPIRoute, SessionArgs, session_args
+from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, valid_session_args
 from ferdelance.node.services import SecurityService, ComponentService, WorkerService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
@@ -23,10 +23,10 @@ import json
 LOGGER = get_logger(__name__)
 
 
-task_router = APIRouter(prefix="/task", route_class=EncodedAPIRoute)
+task_router = APIRouter(prefix="/task", route_class=SignedAPIRoute)
 
 
-async def allow_access(args: SessionArgs = Depends(session_args)) -> SessionArgs:
+async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> SessionArgs:
     try:
         if args.component.type_name not in (TYPE_CLIENT, TYPE_NODE):
             LOGGER.warning(
@@ -48,7 +48,7 @@ async def client_home():
 @task_router.post("/", response_class=Response)
 async def server_post_task(
     content: UpdateExecute,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"component_id={args.component.id}: new task execution")
 
@@ -58,7 +58,7 @@ async def server_post_task(
 @task_router.get("/params", response_model=TaskParameters)
 async def get_task_params(
     payload: TaskParametersRequest,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"component_id={args.component.id}: new task request")
 
@@ -90,7 +90,7 @@ async def get_task_params(
 @task_router.get("/result/{result_id}", response_class=FileResponse)
 async def get_result(
     result_id: str,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"component_id={args.component.id}: request result_id={result_id}")
 
@@ -160,12 +160,13 @@ async def post_result(
 @task_router.post("/metrics")
 async def post_metrics(
     metrics: Metrics,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
     cs: ComponentService = ComponentService(args.session, args.component)
 
     LOGGER.info(
-        f"component_id={args.component.id}: submitted new metrics for artifact_id={metrics.artifact_id} source={metrics.source}"
+        f"component_id={args.component.id}: submitted new metrics for "
+        f"artifact_id={metrics.artifact_id} source={metrics.source}"
     )
 
     await cs.metrics(metrics)
@@ -176,7 +177,7 @@ async def post_metrics(
 @task_router.post("/error")
 async def post_error(
     error: TaskError,
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.warn(f"component_id={args.component.id}: error message")
 
