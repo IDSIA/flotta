@@ -143,8 +143,7 @@ def get_metadata(
 
 
 def send_metadata(component_id: str, api: TestClient, exc: Exchange, metadata: Metadata) -> None:
-    checksum, payload = exc.create_payload(metadata.json())
-    headers = exc.create_signed_header(component_id, checksum)
+    headers, payload = exc.create(component_id, metadata.json())
 
     upload_response = api.post(
         "/node/metadata",
