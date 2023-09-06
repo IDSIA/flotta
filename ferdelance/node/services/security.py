@@ -1,3 +1,5 @@
+from typing import Iterator
+
 from ferdelance.logging import get_logger
 from ferdelance.database.repositories import Repository, AsyncSession
 from ferdelance.database.repositories.settings import KeyValueStore
@@ -7,9 +9,8 @@ from ferdelance.shared.decode import HybridDecrypter
 from fastapi import Request
 from fastapi.responses import StreamingResponse, Response
 
-from typing import Iterator
-
 import aiofiles
+import os
 
 LOGGER = get_logger(__name__)
 
@@ -68,10 +69,10 @@ class SecurityService(Repository):
         body = await request.body()
         return self.exc.get_payload(body)
 
-    def encrypt_file(self, path: str) -> StreamingResponse:
+    def encrypt_file(self, path: str | os.PathLike[str]) -> tuple[str, StreamingResponse]:
         """Used to stream encrypt data from a file, using less memory."""
-        _, it = self.exc.stream_from_file(path)
-        return StreamingResponse(it, media_type="application/octet-stream")
+        checksum, it = self.exc.stream_from_file(path)
+        return checksum, StreamingResponse(it, media_type="application/octet-stream")
 
     async def stream_decrypt_file(self, request: Request, path: str) -> str:
         """Used to stream decrypt data to a file, using less memory."""

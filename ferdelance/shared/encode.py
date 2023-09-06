@@ -8,11 +8,11 @@ from .generate import SymmetricKey
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
-
 from base64 import b64encode
 from hashlib import sha256
 
 import json
+import os
 
 LOGGER = get_logger(__name__)
 
@@ -128,7 +128,7 @@ class HybridEncrypter:
 
         return bytes(enc_content)
 
-    def encrypt_file_to_stream(self, in_path: str, CHUNK_SIZE: int = 4096) -> Iterator[bytes]:
+    def encrypt_file_to_stream(self, in_path: str | os.PathLike[str], CHUNK_SIZE: int = 4096) -> Iterator[bytes]:
         """Generator function that encrypt an input file read from disk.
 
         :param in_path:

@@ -186,7 +186,7 @@ async def wb_get_result(
     try:
         result = await ws.get_result(wba.artifact_id)
 
-        return args.security_service.encrypt_file(result.path)
+        return FileResponse(result.path)
 
     except ValueError as e:
         LOGGER.warning(str(e))
@@ -218,7 +218,7 @@ async def wb_get_partial_result(
     try:
         result = await ws.get_partial_result(artifact_id, builder_user_id)
 
-        return args.security_service.encrypt_file(result.path)
+        return FileResponse(result.path)
 
     except ValueError as e:
         LOGGER.warning(str(e))

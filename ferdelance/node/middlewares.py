@@ -1,6 +1,7 @@
 from typing import Callable, Coroutine, Any
 from dataclasses import dataclass
 
+
 from ferdelance.database import DataBase, AsyncSession
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.logging import get_logger
@@ -8,6 +9,7 @@ from ferdelance.node.services import SecurityService
 from ferdelance.schemas.components import Component
 
 from fastapi import HTTPException, Request, Response
+from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
 
 from starlette.types import Receive, Scope, Send
@@ -161,7 +163,18 @@ async def check_signature(db_session: AsyncSession, request: Request) -> Signabl
 async def encrypt_response(request: SignableRequest, response: Response) -> Response:
     args: SessionArgs = request.args()
 
-    if args.accept_encrypted:
+    if isinstance(response, FileResponse) and args.accept_encrypted:
+        checksum, stream_response = args.security_service.encrypt_file(response.path)
+
+        headers = args.security_service.exc.create_signed_header(
+            args.self_component.id,
+            checksum,
+            args.accept_encrypted,
+        )
+
+        response = stream_response
+
+    elif args.accept_encrypted:
         checksum, payload = args.security_service.exc.create_payload(response.body)
 
         response.headers["Content-Length"] = f"{len(payload)}"
@@ -173,7 +186,7 @@ async def encrypt_response(request: SignableRequest, response: Response) -> Resp
             args.accept_encrypted,
         )
     else:
-        checksum = ""  # TODO: maybe set this to something...
+        checksum = ""  # TODO: maybe set this to something and use it...
         headers = args.security_service.exc.create_header(False)
 
     for k, v in headers.items():

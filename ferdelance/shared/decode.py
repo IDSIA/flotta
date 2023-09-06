@@ -11,9 +11,8 @@ from .commons import DEFAULT_SEPARATOR
 from base64 import b64decode
 from hashlib import sha256
 
-from pathlib import Path
-
 import json
+import os
 
 LOGGER = get_logger(__name__)
 
@@ -127,7 +126,7 @@ class HybridDecrypter:
 
         return bytes(data)
 
-    def decrypt_stream_to_file(self, stream_func: Iterator[bytes], path_out: str | Path) -> None:
+    def decrypt_stream_to_file(self, stream_func: Iterator[bytes], path_out: str | os.PathLike[str]) -> None:
         """Consumer method takes an iterable of chunks produced by an HybridEncryptor object.
 
         Decrypted data are save to disk at the given location.

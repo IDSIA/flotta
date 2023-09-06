@@ -26,8 +26,6 @@ from .checksums import str_checksum, file_checksum
 
 from requests import Response
 
-from pathlib import Path
-
 import os
 import json
 
@@ -390,7 +388,7 @@ class Exchange:
 
         return checksum, enc.encrypt_to_stream(content)
 
-    def stream_from_file(self, path: str) -> tuple[str, Iterator[bytes]]:
+    def stream_from_file(self, path: str | os.PathLike[str]) -> tuple[str, Iterator[bytes]]:
         """Creates a stream from content from a file.
 
         :param path:
@@ -425,7 +423,9 @@ class Exchange:
         data = dec.decrypt_stream(content)
         return data, dec.get_checksum()
 
-    def stream_response_to_file(self, stream: Response, path_out: str | Path, CHUNK_SIZE: int = 4096) -> str:
+    def stream_response_to_file(
+        self, stream: Response, path_out: str | os.PathLike[str], CHUNK_SIZE: int = 4096
+    ) -> str:
         """Consumes the stream content of a response, and save the content to file.
 
         :param stream:
@@ -446,7 +446,7 @@ class Exchange:
 
         return dec.get_checksum()
 
-    def encrypt_file_for_remote(self, path_in: str | Path, path_out: str | Path) -> str:
+    def encrypt_file_for_remote(self, path_in: str | os.PathLike[str], path_out: str | os.PathLike[str]) -> str:
         """Encrypt a file from disk to another file on disk. This file can be sent
         to the remote host.
 
@@ -471,7 +471,7 @@ class Exchange:
 
         return enc.get_checksum()
 
-    def encrypt_file(self, path_in: str | Path, path_out: str | Path) -> str:
+    def encrypt_file(self, path_in: str | os.PathLike[str], path_out: str | os.PathLike[str]) -> str:
         """Encrypt a file from disk to another file on disk. This file can be decrypted
         only with a private key.
 
@@ -496,7 +496,7 @@ class Exchange:
 
         return enc.get_checksum()
 
-    def decrypt_file(self, path_in: str | Path, path_out: str | Path) -> None:
+    def decrypt_file(self, path_in: str | os.PathLike[str], path_out: str | os.PathLike[str]) -> None:
         """Decrypt a file from disk to another file on disk. This file can must be
         encrypted with a valid public key.
 
