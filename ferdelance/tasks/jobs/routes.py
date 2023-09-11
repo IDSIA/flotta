@@ -7,6 +7,7 @@ from ferdelance.schemas.models.metrics import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
 from ferdelance.shared.exchange import Exchange
 
+import json
 import os
 import pickle
 import requests
@@ -41,12 +42,14 @@ class EncryptRouteService(RouteService):
 
     def __init__(
         self,
+        component_id: str,
         server_url: str,
         private_key: str,
         server_public_key: str,
     ) -> None:
         self.server: str = server_url
 
+        self.component_id: str = component_id
         self.exc: Exchange = Exchange()
         self.exc.set_private_key(private_key)
         self.exc.set_remote_key(server_public_key)
@@ -59,22 +62,28 @@ class EncryptRouteService(RouteService):
             job_id=job_id,
         )
 
+        headers, payload = self.exc.create(self.component_id, task.json())
+
         res = requests.get(
             f"{self.server}/task/params",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(task.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        return TaskParameters(**self.exc.get_payload(res.content))
+        _, data = self.exc.get_payload(res.content)
+
+        return TaskParameters(**json.loads(data))
 
     def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
         LOGGER.info(f"artifact_id={artifact_id}: requesting partial result_id={result_id} for job_id={job_id}")
 
+        headers, _ = self.exc.create(self.component_id)
+
         with requests.get(
             f"{self.server}/task/result/{result_id}",
-            headers=self.exc.headers(),
+            headers=headers,
             stream=True,
         ) as res:
             res.raise_for_status()
@@ -89,11 +98,12 @@ class EncryptRouteService(RouteService):
         if path_in is not None:
             path_out = f"{path_in}.enc"
 
-            self.exc.encrypt_file_for_remote(path_in, path_out)
+            checksum = self.exc.encrypt_file_for_remote(path_in, path_out)
+            headers = self.exc.create_signed_header(self.component_id, checksum)
 
             res = requests.post(
                 f"{self.server}/task/result/{job_id}",
-                headers=self.exc.headers(),
+                headers=headers,
                 data=open(path_out, "rb"),
             )
 
@@ -103,12 +113,14 @@ class EncryptRouteService(RouteService):
             res.raise_for_status()
 
         elif content is not None:
-            data = pickle.dumps(content)
+            headers, payload = self.exc.create(self.component_id, content)
+
+            _, data = self.exc.stream(payload)
 
             res = requests.post(
                 f"{self.server}/task/result/{job_id}",
-                headers=self.exc.headers(),
-                data=self.exc.stream(data),
+                headers=headers,
+                data=data,
             )
 
             res.raise_for_status()
@@ -120,10 +132,13 @@ class EncryptRouteService(RouteService):
 
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
         LOGGER.info(f"artifact_id={artifact_id}: posting metrics for job_id={job_id}")
+
+        headers, payload = self.exc.create(self.component_id, metrics.json())
+
         res = requests.post(
             f"{self.server}/task/metrics",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(metrics.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
@@ -135,10 +150,13 @@ class EncryptRouteService(RouteService):
 
     def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
         LOGGER.error(f"artifact_id={artifact_id} job_id={job_id}: error_message={error.message}")
+
+        headers, payload = self.exc.create(self.component_id, error.json())
+
         res = requests.post(
             f"{self.server}/task/error",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(error.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()

@@ -5,8 +5,6 @@ from ferdelance.database.repositories.core import Repository, AsyncSession
 from ferdelance.database.tables import Setting
 from ferdelance.shared.checksums import str_checksum
 
-from pytimeparse import parse
-
 from cryptography.fernet import Fernet
 from sqlalchemy import select, update
 
@@ -17,22 +15,13 @@ KEY_NODE_TOKEN_EXPIRATION = "TOKEN_CLIENT_EXPIRATION"
 KEY_USER_TOKEN_EXPIRATION = "TOKEN_USER_EXPIRATION"
 
 
-async def setup_settings(session: AsyncSession) -> None:
-    conf = config_manager.get().node
-    CLIENT_TOKEN_EXPIRATION = parse(conf.token_client_expiration)
-    USER_TOKEN_EXPIRATION = parse(conf.token_user_expiration)
-
-    kvs = KeyValueStore(session)
-    await kvs.put_any(KEY_NODE_TOKEN_EXPIRATION, CLIENT_TOKEN_EXPIRATION)
-
-    kvs = KeyValueStore(session)
-    await kvs.put_any(KEY_USER_TOKEN_EXPIRATION, USER_TOKEN_EXPIRATION)
-
-
-def build_settings_cipher() -> Fernet:
+def build_settings_cipher() -> Fernet | None:
     conf = config_manager.get().node
 
-    server_main_password: str | None = conf.main_password
+    server_main_password: str = conf.main_password
+
+    if not server_main_password:
+        return None
 
     assert server_main_password is not None
 
@@ -50,23 +39,27 @@ class KeyValueStore(Repository):
 
     def __init__(self, session: AsyncSession, encode: str = "utf8") -> None:
         super().__init__(session)
-        self.cipher = build_settings_cipher()
+        self.cipher: Fernet | None = build_settings_cipher()
         self.encode: str = encode
 
     async def put_bytes(self, key: str, value_in: bytes) -> None:
-        value = self.cipher.encrypt(value_in)
-        value = base64.b64encode(value)
-        value = value.decode(self.encode)
+        if self.cipher:
+            value: bytes = self.cipher.encrypt(value_in)
+            value: bytes = base64.b64encode(value)
+        else:
+            value = value_in
+
+        data: str = value.decode(self.encode)
 
         # check that entry exists
         res = await self.session.execute(select(Setting).where(Setting.key == key).limit(1))
         db_setting: Setting | None = res.scalar_one_or_none()
 
         if db_setting is None:
-            db_setting = Setting(key=key, value=value)
+            db_setting = Setting(key=key, value=data)
             self.session.add(db_setting)
         else:
-            await self.session.execute(update(Setting).where(Setting.key == key).values(value=value))
+            await self.session.execute(update(Setting).where(Setting.key == key).values(value=data))
 
         await self.session.commit()
 
@@ -92,10 +85,11 @@ class KeyValueStore(Repository):
 
         db_setting: Setting = res.scalar_one()
 
-        value = db_setting.value
-        value = value.encode(self.encode)
-        value = base64.b64decode(value)
-        value = self.cipher.decrypt(value)
+        data: str = db_setting.value
+        value: bytes = data.encode(self.encode)
+        if self.cipher:
+            value: bytes = base64.b64decode(value)
+            value: bytes = self.cipher.decrypt(value)
 
         return value
 

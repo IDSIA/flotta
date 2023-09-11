@@ -6,16 +6,14 @@ from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.datasources import DataSourceDB, DataSourceFile
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.logging import get_logger
+from ferdelance.shared.exchange import Exchange
 
 from .arguments import setup_config_from_arguments
 
 from dotenv import load_dotenv
-from getmac import get_mac_address
 
 import os
-import platform
 import re
-import uuid
 import yaml
 
 
@@ -76,18 +74,12 @@ class NodeConfiguration(BaseModel):
     # external port to listen to
     port: int = 1456
 
-    token_client_expiration: str = "90 days"
-    token_user_expiration: str = "30 days"
     token_project_default: str = ""
 
     # self-check in seconds when mode=node
     healthcheck: float = 60
     # concact server node each interval in second for update when mode=client
     heartbeat: float = 2.0
-
-    machine_system: str = platform.system()
-    machine_mac_address: str = get_mac_address() or ""
-    machine_node: str = str(uuid.getnode())
 
     @root_validator(pre=True)
     @classmethod
@@ -247,6 +239,9 @@ class Configuration(BaseSettings):
     def private_key_location(self) -> str:
         return os.path.join(self.workdir, "private_key.pem")
 
+    def storage_properties(self) -> str:
+        return os.path.join(self.workdir, "properties.yaml")
+
     def dump(self) -> None:
         os.makedirs(self.workdir, exist_ok=True)
         with open(self.storage_config(), "w") as f:
@@ -311,6 +306,39 @@ class ConfigManager:
         LOGGER.warning("Using default configuration.")
         self.config: Configuration = Configuration()
         self.config.dump()
+
+    def _set_keys(self) -> None:
+        exc = Exchange()
+
+        path_private_key = self.config.private_key_location()
+
+        if os.path.exists(path_private_key):
+            # use existing one
+            LOGGER.info(f"private key found at {path_private_key}")
+            exc.load_key(path_private_key)
+
+        else:
+            # generate new key
+            LOGGER.info("private key location not found: creating a new one")
+
+            exc.generate_key()
+            exc.save_private_key(path_private_key)
+
+    def _set_directories(self) -> None:
+        LOGGER.info("directory initialization")
+
+        # create required directories
+        os.makedirs(self.config.storage_artifact_dir(), exist_ok=True)
+        os.makedirs(self.config.storage_clients_dir(), exist_ok=True)
+        os.makedirs(self.config.storage_results_dir(), exist_ok=True)
+        # os.chmod(self.config.workdir, 0o700)
+
+        LOGGER.info("directory initialization completed")
+
+    def setup(self) -> None:
+        self._set_config()
+        self._set_directories()
+        self._set_keys()
 
     def get(self) -> Configuration:
         return self.config

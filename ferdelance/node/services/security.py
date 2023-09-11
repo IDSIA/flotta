@@ -1,8 +1,7 @@
 from typing import Iterator
 
+from ferdelance.config import config_manager
 from ferdelance.logging import get_logger
-from ferdelance.database.repositories import Repository, AsyncSession
-from ferdelance.database.repositories.settings import KeyValueStore
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.decode import HybridDecrypter
 
@@ -20,34 +19,34 @@ PUBLIC_KEY = "SERVER_KEY_PUBLIC"
 PRIVATE_KEY = "SERVER_KEY_PRIVATE"
 
 
-class SecurityService(Repository):
-    def __init__(self, db: AsyncSession) -> None:
-        super().__init__(db)
-
-        self.kvs: KeyValueStore = KeyValueStore(db)
+class SecurityService:
+    def __init__(self, remote_key_str: str | None = None) -> None:
         self.exc: Exchange = Exchange()
+        self.exc.load_key(config_manager.get().private_key_location())
 
-    async def setup(self, remote_key_str: str | None = None) -> None:
-        private_bytes: bytes = await self.kvs.get_bytes(PRIVATE_KEY)
-        self.exc.set_key_bytes(private_bytes)
+        self.set_remote_key(remote_key_str)
 
+    def set_remote_key(self, remote_key_str: str | None = None) -> None:
         if remote_key_str is not None:
             remote_key_bytes = remote_key_str.encode("utf8")
             self.exc.set_remote_key_bytes(remote_key_bytes)
 
-    def get_server_public_key(self) -> str:
+    def get_public_key(self) -> str:
         """
         :return:
-            The server public key in string format.
+            The public key of this node in transferreable format.
         """
         return self.exc.transfer_public_key()
 
-    def get_server_private_key(self) -> str:
+    def get_private_key(self) -> str:
         """
         :return:
-            The server private key in string format.
+            The private key of this node in transferreable format.
         """
         return self.exc.transfer_private_key()
+
+    def sign(self, content: str) -> str:
+        return self.exc.sign(content)
 
     def encrypt(self, content: str) -> str:
         return self.exc.encrypt(content)
@@ -57,6 +56,14 @@ class SecurityService(Repository):
 
     def get_headers(self, signature_data: str) -> tuple[str, str, str]:
         return self.exc.get_header(signature_data)
+
+    def create(
+        self,
+        component_id: str,
+        content: str | bytes = "",
+        set_encryption: bool = True,
+    ) -> tuple[dict[str, str], bytes]:
+        return self.exc.create(component_id, content, set_encryption)
 
     def verify_signature_data(self, component_id: str, checksum: str, signature: str) -> None:
         self.exc.verify(f"{component_id}:{checksum}", signature)

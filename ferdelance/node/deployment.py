@@ -5,6 +5,10 @@ from ferdelance.node.api import api
 from ray.serve.handle import RayServeSyncHandle
 from ray import serve
 
+from time import sleep
+
+import requests
+
 LOGGER = get_logger(__name__)
 
 
@@ -17,7 +21,7 @@ class ServerWrapper:
     pass
 
 
-def start_server(configuration: Configuration, name: str = "Ferdelance_server") -> RayServeSyncHandle | None:
+def start_node(configuration: Configuration, name: str = "Ferdelance_server") -> RayServeSyncHandle | None:
     LOGGER.info(f"Creating server at host={configuration.node.interface} port={configuration.node.port}")
 
     return serve.run(
@@ -26,3 +30,18 @@ def start_server(configuration: Configuration, name: str = "Ferdelance_server") 
         port=configuration.node.port,
         name=name,
     )
+
+
+def wait_node(config: Configuration, c):
+    # This is an horrid way to keep this script (and ray) alive...
+    while True:
+        sleep(config.node.healthcheck)
+        try:
+            res = requests.get(f"{config.node.url_deploy()}/")
+            res.raise_for_status()
+        except Exception as e:
+            LOGGER.error(e)
+            LOGGER.exception(e)
+        except KeyboardInterrupt:
+            # TODO: should we use handlers?
+            break

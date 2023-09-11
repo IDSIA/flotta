@@ -1,7 +1,6 @@
 from ferdelance.config import config_manager
-from ferdelance.client.client import start_client
 from ferdelance.logging import get_logger
-from ferdelance.node.deployment import start_server
+from ferdelance.node.deployment import start_node, wait_node
 
 import ray
 
@@ -39,6 +38,8 @@ if __name__ == "__main__":
 
     config.dump()
 
+    config_manager.setup()
+
     # def handler(signalname):
     #     def f(signal_received, frame):
     #         raise KeyboardInterrupt(f"{signalname}: stop received")
@@ -50,10 +51,9 @@ if __name__ == "__main__":
 
     ray.init()
 
-    start_server(config)
-    h = start_client(config)
+    c = start_node(config)
 
-    ray.get(h)
+    wait_node(config, c)
 
     ray.shutdown()
 

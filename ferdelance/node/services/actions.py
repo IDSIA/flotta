@@ -7,7 +7,7 @@ from ferdelance.database.repositories import (
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.updates import UpdateExecute, UpdateNothing
+from ferdelance.schemas.updates import UpdateData
 
 from sqlalchemy.exc import NoResultFound
 
@@ -24,7 +24,7 @@ class ActionService:
     async def _check_scheduled_job(self, component: Component) -> Job:
         return await self.jr.next_job_for_component(component.id)
 
-    async def _action_schedule_job(self, job: Job) -> UpdateExecute:
+    async def _action_schedule_job(self, job: Job) -> UpdateData:
         if job.is_model:
             action = Action.EXECUTE_TRAINING
         elif job.is_estimation:
@@ -33,13 +33,13 @@ class ActionService:
             LOGGER.error(f"Invalid action type for job_id={job.id}")
             raise ValueError()
 
-        return UpdateExecute(action=action.name, job_id=job.id, artifact_id=job.artifact_id)
+        return UpdateData(action=action.name, job_id=job.id, artifact_id=job.artifact_id)
 
-    async def _action_nothing(self) -> UpdateNothing:
+    async def _action_nothing(self) -> UpdateData:
         """Do nothing and waits for the next update request."""
-        return UpdateNothing(action=Action.DO_NOTHING.name)
+        return UpdateData(action=Action.DO_NOTHING.name)
 
-    async def next(self, component: Component) -> UpdateExecute | UpdateNothing:
+    async def next(self, component: Component) -> UpdateData:
         # TODO: consume component payload
 
         try:

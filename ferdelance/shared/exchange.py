@@ -31,12 +31,15 @@ import json
 
 
 class Exchange:
-    def __init__(self, encoding: str = "utf8") -> None:
+    def __init__(self, private_key_path: str = "", encoding: str = "utf8") -> None:
         self.private_key: RSAPrivateKey | None = None
         self.public_key: RSAPublicKey | None = None
         self.remote_key: RSAPublicKey | None = None
 
         self.encoding = encoding
+
+        if private_key_path:
+            self.load_key(private_key_path)
 
     def generate_key(self) -> None:
         """Generates a new pair of asymmetric keys."""
@@ -215,6 +218,20 @@ class Exchange:
             raise ValueError("public key not set")
 
         data: str = bytes_from_private_key(self.private_key).decode(self.encoding)
+        return encode_to_transfer(data, self.encoding)
+
+    def transfer_remote_key(self) -> str:
+        """Encode the stored private key for secure transfer as string.
+
+        :return:
+            The encoded remote public key in string format.
+        :raise:
+            ValueError if there is no remote key available.
+        """
+        if self.remote_key is None:
+            raise ValueError("remote public key not set")
+
+        data: str = bytes_from_public_key(self.remote_key).decode(self.encoding)
         return encode_to_transfer(data, self.encoding)
 
     def encrypt(self, content: str) -> str:

@@ -2,13 +2,12 @@ from ferdelance.const import TYPE_CLIENT
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
 from ferdelance.node.services import ComponentService
+from ferdelance.schemas.client import ClientUpdate
+from ferdelance.schemas.updates import UpdateData
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from sqlalchemy.exc import NoResultFound
-
-from ferdelance.schemas.client import ClientUpdate
-from ferdelance.schemas.updates import UpdateExecute, UpdateNothing
 
 LOGGER = get_logger(__name__)
 
@@ -35,11 +34,11 @@ async def client_home():
     return "Client 🏠"
 
 
-@client_router.get("/update", response_model=UpdateExecute | UpdateNothing)
+@client_router.get("/update", response_model=UpdateData)
 async def client_update(
     _: ClientUpdate,
     args: ValidSessionArgs = Depends(allow_access),
-) -> UpdateExecute | UpdateNothing:
+) -> UpdateData:
     """API used by the client to get the updates. Updates can be one of the following:
     - new server public key
     - new artifact package

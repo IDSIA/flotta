@@ -50,7 +50,7 @@ class SignableRequest(Request):
         super().__init__(scope, receive, send)
 
         self.db_session: AsyncSession = db_session
-        self.security: SecurityService = SecurityService(db_session)
+        self.security: SecurityService = SecurityService()
 
         self.content_encrypted: bool = "encrypted" in self.headers.get("Content-Encoding", "").split("/")
         self.accept_encrypted: bool = "encrypted" in self.headers.get("Accept-Encoding", "").split("/")
@@ -130,7 +130,6 @@ async def check_signature(db_session: AsyncSession, request: Request) -> Signabl
     self_component = await cr.get_self_component()
 
     request = SignableRequest(db_session, self_component, request.scope, request.receive)
-    await request.security.setup()
 
     given_signature = request.headers.get("Signature", "")
     if given_signature:
@@ -150,7 +149,7 @@ async def check_signature(db_session: AsyncSession, request: Request) -> Signabl
             LOGGER.warning(f"component_id={component.id}: request denied to blacklisted component")
             raise HTTPException(403, "Access Denied")
 
-        await request.security.setup(component.public_key)
+        request.security.set_remote_key(component.public_key)
 
         request.component = component
 

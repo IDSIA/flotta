@@ -9,9 +9,10 @@ from ferdelance.schemas.models.metrics import Metrics
 class TaskArguments(BaseModel):
     """Used to launch a new local task."""
 
+    component_id: str
     private_key: str
-    server_url: str
-    server_public_key: str
+    node_url: str
+    node_public_key: str
     workdir: str
     datasources: list[dict[str, Any]]
     job_id: str

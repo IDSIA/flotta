@@ -1,5 +1,5 @@
 from ferdelance.logging import get_logger
-from ferdelance.client.services.scheduling import ScheduleActionService
+from ferdelance.node.services.scheduling import ScheduleActionService
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.node.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
@@ -10,7 +10,7 @@ from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
-from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.schemas.updates import UpdateData
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -47,7 +47,7 @@ async def client_home():
 
 @task_router.post("/", response_class=Response)
 async def server_post_task(
-    content: UpdateExecute,
+    content: UpdateData,
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"component_id={args.component.id}: new task execution")
@@ -128,9 +128,7 @@ async def post_result(
 ):
     LOGGER.info(f"component_id={component.id}: complete work on job_id={job_id}")
 
-    ss: SecurityService = SecurityService(session)
-
-    await ss.setup(component.public_key)
+    ss: SecurityService = SecurityService(component.public_key)
 
     try:
         if component.type_name == TYPE_CLIENT:

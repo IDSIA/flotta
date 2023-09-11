@@ -13,11 +13,12 @@ class Backend:
         LOGGER.info(f"artifact_id={args.artifact_id}: scheduling aggregation task with job_id={args.job_id}")
 
         actor_handler = AggregatingJob.remote(
+            args.component_id,
             args.artifact_id,
             args.job_id,
-            args.server_url,
+            args.node_url,
             args.private_key,
-            args.server_public_key,
+            args.node_public_key,
         )
         task_handler = actor_handler.run.remote()  # type: ignore
 
@@ -29,11 +30,12 @@ class Backend:
         LOGGER.info(f"artifact_id={args.artifact_id}: scheduling training task with job_id={args.job_id}")
 
         actor_handler = TrainingJob.remote(
+            args.component_id,
             args.artifact_id,
             args.job_id,
-            args.server_url,
+            args.node_url,
             args.private_key,
-            args.server_public_key,
+            args.node_public_key,
             args.workdir,
             args.datasources,
         )
@@ -47,11 +49,12 @@ class Backend:
         LOGGER.info(f"artifact_id={args.artifact_id}: scheduling training task with job_id={args.job_id}")
 
         actor_handler = EstimationJob.remote(
+            args.component_id,
             args.artifact_id,
             args.job_id,
-            args.server_url,
+            args.node_url,
             args.private_key,
-            args.server_public_key,
+            args.node_public_key,
             args.workdir,
             args.datasources,
         )

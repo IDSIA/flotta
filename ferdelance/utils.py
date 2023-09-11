@@ -1,6 +1,20 @@
 from requests import Session
 from requests.adapters import HTTPAdapter, Retry
 
+import json
+import numpy as np
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
 
 def check_url(url: str, total_retry=10, backoff_factor=0.5) -> None:
     """Checks that the given url up, if not wait for a little bit.

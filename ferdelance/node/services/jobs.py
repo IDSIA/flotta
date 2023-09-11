@@ -12,6 +12,8 @@ from ferdelance.database.repositories import (
     ResultRepository,
     Repository,
 )
+from ferdelance.node.exceptions import ArtifactDoesNotExists
+from ferdelance.node.services import SecurityService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.context import AggregationContext
@@ -19,8 +21,6 @@ from ferdelance.schemas.database import ServerArtifact, Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.tasks import TaskParameters, TaskArguments
-from ferdelance.node.exceptions import ArtifactDoesNotExists
-from ferdelance.node.services import SecurityService
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 from ferdelance.tasks.backends import get_jobs_backend
 
@@ -34,16 +34,18 @@ LOGGER = get_logger(__name__)
 
 
 class JobManagementService(Repository):
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, component_id: str) -> None:
         super().__init__(session)
 
+        self.component_id: str = component_id
         self.ar: ArtifactRepository = ArtifactRepository(session)
         self.cr: ComponentRepository = ComponentRepository(session)
         self.dsr: DataSourceRepository = DataSourceRepository(session)
         self.jr: JobRepository = JobRepository(session)
-        self.ss: SecurityService = SecurityService(session)
         self.pr: ProjectRepository = ProjectRepository(session)
         self.rr: ResultRepository = ResultRepository(session)
+
+        self.ss: SecurityService = SecurityService()
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         """The submitted artifact will be stored on disk after an handler has been created in the database.
@@ -215,12 +217,11 @@ class JobManagementService(Repository):
                 iteration=artifact.iteration,
             )
 
-            await self.ss.setup()
-
             args = TaskArguments(
-                private_key=self.ss.get_server_private_key(),
-                server_url=config_manager.get().node.url_extern(),
-                server_public_key=self.ss.get_server_public_key(),
+                component_id=self.component_id,
+                private_key=self.ss.get_private_key(),
+                node_url=config_manager.get().node.url_extern(),
+                node_public_key=self.ss.get_public_key(),
                 datasources=list(),
                 workdir=".",
                 job_id=job.id,

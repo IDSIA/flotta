@@ -13,16 +13,10 @@ class State:
     def __init__(self, config: Configuration, leave: bool = False) -> None:
         self.config: Configuration = config
 
-        self.name: str = config.node.name
-        self.server: str = config.node.url_extern()
-        self.heartbeat: float = config.node.heartbeat
-        self.workdir: str = config.workdir
-        self.private_key_location: str = config.private_key_location()
-
         self.leave: bool = leave
 
         self.client_id: str = ""
-        self.node_public_key: str | None = None
+        self.remote_public_key: str | None = None
 
         self.datasources: list[DataSourceConfiguration] = config.datasources
 
@@ -35,24 +29,19 @@ class State:
         #     LOGGER.error("No valid datasource available!")
         #     raise ConfigError()
 
-    def join(self, client_id: str, node_public_key: str) -> None:
+    def join(self, client_id: str, remote_public_key: str) -> None:
         self.client_id = client_id
-        self.node_public_key = node_public_key
+        self.remote_public_key = remote_public_key
 
         LOGGER.info(f"assigned client_id={self.client_id}")
 
         self.dump_props()
 
     def get_server(self) -> str:
-        return self.server.rstrip("/")
+        return self.config.node.url_extern()
 
     def path_properties(self) -> str:
-        return os.path.join(self.workdir, "properties.yaml")
-
-    def path_private_key(self) -> str:
-        if self.private_key_location is None:
-            self.private_key_location = os.path.join(self.workdir, "private_key.pem")
-        return self.private_key_location
+        return os.path.join(self.config.workdir, "properties.yaml")
 
     def read_props(self):
         with open(self.path_properties(), "r") as f:
@@ -61,7 +50,7 @@ class State:
             props = props_data["client"]
 
             self.client_id = props["client_id"]
-            self.node_public_key = props["node_public_key"]
+            self.remote_public_key = props["remote_public_key"]
 
     def dump_props(self):
         """Save current configuration to a file in the working directory."""
@@ -71,7 +60,7 @@ class State:
                     "client": {
                         "version": __version__,
                         "client_id": self.client_id,
-                        "node_public_key": self.node_public_key,
+                        "remote_public_key": self.remote_public_key,
                     },
                 },
                 f,

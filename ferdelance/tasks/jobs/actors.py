@@ -2,13 +2,13 @@ from typing import Any
 
 from abc import ABC, abstractmethod
 
+from ferdelance.client.state import DataSourceStorage
 from ferdelance.config import DataSourceConfiguration
 from ferdelance.logging import get_logger
-from ferdelance.client.state import DataSourceStorage
-from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.models import GenericModel
+from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.estimators import GenericEstimator
+from ferdelance.schemas.models import GenericModel
 from ferdelance.schemas.tasks import ExecutionResult
 from ferdelance.tasks.jobs.execution import run_estimate, run_training
 from ferdelance.tasks.jobs.routes import EncryptRouteService, RouteService, TaskParameters
@@ -21,13 +21,14 @@ LOGGER = get_logger(__name__)
 class GenericJob(ABC):
     def __init__(
         self,
+        component_id: str,
         artifact_id: str,
         job_id: str,
-        server_url: str,
+        node_url: str,
         private_key: str,
-        server_public_key: str,
+        node_public_key: str,
     ) -> None:
-        self.routes_service: RouteService = EncryptRouteService(server_url, private_key, server_public_key)
+        self.routes_service: RouteService = EncryptRouteService(component_id, node_url, private_key, node_public_key)
         self.artifact_id: str = artifact_id
         self.job_id: str = job_id
 
@@ -42,6 +43,7 @@ class GenericJob(ABC):
 class LocalJob(GenericJob):
     def __init__(
         self,
+        component_id: str,
         artifact_id: str,
         job_id: str,
         server_url: str,
@@ -50,7 +52,9 @@ class LocalJob(GenericJob):
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, server_url, private_key, server_public_key)
+        super().__init__(component_id, artifact_id, job_id, server_url, private_key, server_public_key)
+
+        self.wordir: str = workdir
 
         self.datasources: list[DataSourceConfiguration] = [DataSourceConfiguration(**d) for d in datasources]
 
@@ -61,15 +65,18 @@ class LocalJob(GenericJob):
 class TrainingJob(LocalJob):
     def __init__(
         self,
+        component_id: str,
         artifact_id: str,
         job_id: str,
-        server_url: str,
+        node_url: str,
         private_key: str,
-        server_public_key: str,
+        node_public_key: str,
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, server_url, private_key, server_public_key, workdir, datasources)
+        super().__init__(
+            component_id, artifact_id, job_id, node_url, private_key, node_public_key, workdir, datasources
+        )
 
     def __repr__(self) -> str:
         return f"Training{super().__repr__()}"
@@ -111,6 +118,7 @@ class TrainingJob(LocalJob):
 class EstimationJob(LocalJob):
     def __init__(
         self,
+        component_id: str,
         artifact_id: str,
         job_id: str,
         server_url: str,
@@ -119,7 +127,9 @@ class EstimationJob(LocalJob):
         workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(artifact_id, job_id, server_url, private_key, server_public_key, workdir, datasources)
+        super().__init__(
+            component_id, artifact_id, job_id, server_url, private_key, server_public_key, workdir, datasources
+        )
 
     def __repr__(self) -> str:
         return f"Estimation{super().__repr__()}"
@@ -151,13 +161,14 @@ class EstimationJob(LocalJob):
 class AggregatingJob(GenericJob):
     def __init__(
         self,
+        component_id: str,
         artifact_id: str,
         job_id: str,
         server_url: str,
         private_key: str,
         server_public_key: str,
     ) -> None:
-        super().__init__(artifact_id, job_id, server_url, private_key, server_public_key)
+        super().__init__(component_id, artifact_id, job_id, server_url, private_key, server_public_key)
 
     def __repr__(self) -> str:
         return f"Aggregating{super().__repr__()}"

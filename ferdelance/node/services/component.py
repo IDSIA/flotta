@@ -11,10 +11,7 @@ from ferdelance.schemas.database import Result
 from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
-from ferdelance.schemas.updates import (
-    UpdateExecute,
-    UpdateNothing,
-)
+from ferdelance.schemas.updates import UpdateData
 from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.node.services import ActionService, JobManagementService
 
@@ -30,9 +27,9 @@ class ComponentService:
     def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
         self.component: Component = component
-        self.jms: JobManagementService = JobManagementService(self.session)
+        self.jms: JobManagementService = JobManagementService(self.session, self.component.id)
 
-    async def update(self) -> UpdateExecute | UpdateNothing:
+    async def update(self) -> UpdateData:
         cr: ComponentRepository = ComponentRepository(self.session)
         acs: ActionService = ActionService(self.session)
 

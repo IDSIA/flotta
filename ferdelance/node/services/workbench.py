@@ -117,7 +117,7 @@ class WorkbenchService:
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        jms: JobManagementService = JobManagementService(self.session)
+        jms: JobManagementService = JobManagementService(self.session, self.component.id)
         return await jms.submit_artifact(artifact)
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:

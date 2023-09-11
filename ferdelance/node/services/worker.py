@@ -26,7 +26,7 @@ class WorkerService:
     def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
         self.component: Component = component
-        self.jms: JobManagementService = JobManagementService(self.session)
+        self.jms: JobManagementService = JobManagementService(self.session, self.component.id)
 
     async def get_task(self, job_id: str) -> TaskParameters:
         jr: JobRepository = JobRepository(self.session)

@@ -24,7 +24,7 @@ class NodeService:
         self.session: AsyncSession = session
         self.component: Component = component
 
-        self.ss: SecurityService = SecurityService(session)
+        self.ss: SecurityService = SecurityService()
         self.cr: ComponentRepository = ComponentRepository(self.session)
 
     async def connect(self, data: NodeJoinRequest, ip_address: str) -> JoinData:
@@ -148,7 +148,7 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
-            headers, payload = self.ss.exc.create(self.component.id, component.json())
+            headers, payload = self.ss.create(self.component.id, component.json())
 
             res = requests.put(
                 f"{node.url}/node/add",
@@ -174,7 +174,7 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
-            headers, payload = self.ss.exc.create(self.component.id, component.json())
+            headers, payload = self.ss.create(self.component.id, component.json())
 
             res = requests.put(
                 f"{node.url}/node/remove",
@@ -201,7 +201,7 @@ class NodeService:
                 continue
 
             node_metadata = NodeMetadata(id=component.id, metadata=metadata)
-            headers, payload = self.ss.exc.create(self.component.id, node_metadata.json())
+            headers, payload = self.ss.create(self.component.id, node_metadata.json())
 
             res = requests.put(
                 f"{node.url}/node/metadata",
