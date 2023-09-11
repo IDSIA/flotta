@@ -9,7 +9,7 @@ from ferdelance.workbench.interface import (
     ArtifactStatus,
 )
 from ferdelance.schemas.models import Model
-from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.schemas.updates import UpdateData
 from ferdelance.schemas.plans import TrainTestSplit
 from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
@@ -163,7 +163,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         assert status_code == 200
         assert Action[action] == Action.EXECUTE_TRAINING
 
-        update_execute = UpdateExecute(**data)
+        update_execute = UpdateData(**data)
 
         assert update_execute.job_id == job.id
 

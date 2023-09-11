@@ -3,8 +3,6 @@ from typing import Any
 from ferdelance.config import DataSourceConfiguration
 from ferdelance.client.state import DataSourceStorage
 from ferdelance.database import AsyncSession
-from ferdelance.schemas.updates import UpdateNothing
-
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import (
     GenericModel,
@@ -14,6 +12,7 @@ from ferdelance.schemas.models import (
 )
 from ferdelance.schemas.plans import TrainTestSplit
 from ferdelance.schemas.tasks import TaskArguments
+from ferdelance.schemas.updates import UpdateData
 
 from tests.serverless import ServerlessExecution
 from tests.utils import TEST_PROJECT_TOKEN
@@ -138,8 +137,8 @@ async def test_aggregation(session: AsyncSession):
     # check
     next_action = await client1.next_action()
 
-    assert isinstance(next_action, UpdateNothing)
+    assert isinstance(next_action, UpdateData)
 
     next_action = await client2.next_action()
 
-    assert isinstance(next_action, UpdateNothing)
+    assert isinstance(next_action, UpdateData)

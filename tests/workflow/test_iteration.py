@@ -2,7 +2,7 @@ from ferdelance.config import config_manager
 from ferdelance.logging import get_logger
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainTestSplit, IterativePlan
-from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.schemas.updates import UpdateData
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.workbench.interface import Artifact
 
@@ -75,7 +75,7 @@ async def test_iteration(session: AsyncSession):
     # client
     next_action = await client.next_action()
 
-    assert isinstance(next_action, UpdateExecute)
+    assert isinstance(next_action, UpdateData)
 
     task = await client.get_client_task(next_action.job_id)
 
@@ -109,7 +109,7 @@ async def test_iteration(session: AsyncSession):
     # client
     next_action = await client.next_action()
 
-    assert isinstance(next_action, UpdateExecute)
+    assert isinstance(next_action, UpdateData)
 
     task = await client.get_client_task(next_action.job_id)
 

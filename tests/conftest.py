@@ -26,6 +26,8 @@ conf.database.host = db_file
 conf.node.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
 conf.workdir = str(os.path.join("tests", "storage"))
 
+config_manager.setup()
+
 
 def create_dirs() -> None:
     os.makedirs(conf.storage_datasources_dir(), exist_ok=True)
@@ -43,7 +45,8 @@ def delete_dirs() -> None:
     shutil.rmtree(conf.storage_clients_dir())
     shutil.rmtree(conf.storage_results_dir())
 
-    os.remove(db_path)
+    if os.path.exists(db_path):
+        os.remove(db_path)
 
 
 @pytest_asyncio.fixture()

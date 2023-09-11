@@ -1,4 +1,3 @@
-from httpx import HTTPStatusError
 from ferdelance.logging import get_logger
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.database.tables import DataSource as DataSourceDB
@@ -19,6 +18,8 @@ from fastapi.testclient import TestClient
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from httpx import HTTPStatusError
 
 import os
 import pytest
