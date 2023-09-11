@@ -1,5 +1,5 @@
 from ferdelance.config import config_manager
-from ferdelance.client.exceptions import ConfigError, ErrorClient, UpdateClient
+from ferdelance.exceptions import ConfigError, ErrorClient, UpdateClient
 from ferdelance.logging import get_logger
 from ferdelance.node.services.scheduling import ScheduleActionService
 from ferdelance.node.services.security import SecurityService

@@ -1,6 +1,5 @@
 from ferdelance import __version__
 from ferdelance.config import config_manager, Configuration, DataSourceStorage
-from ferdelance.client.state import State
 from ferdelance.const import TYPE_CLIENT, COMPONENT_TYPES, TYPE_NODE
 from ferdelance.database.repositories import (
     Repository,
@@ -40,8 +39,6 @@ class NodeStartup(Repository):
         LOGGER.debug(f"datasources found: {len(self.config.datasources)}")
 
         self.data: DataSourceStorage = DataSourceStorage(self.config.datasources)
-
-        self.state: State = State(self.config)
 
         self.self_component: Component
         self.remote_key: str
