@@ -1,4 +1,5 @@
 from ferdelance.const import TYPE_NODE
+from ferdelance.config import config_manager
 from ferdelance.logging import get_logger
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
@@ -9,6 +10,7 @@ from ferdelance.database.repositories import ProjectRepository, ComponentReposit
 from ferdelance.node.api import api
 from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainAll
 from ferdelance.schemas.tasks import TaskParameters, TaskArguments, TaskParametersRequest
@@ -30,16 +32,16 @@ LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_worker_task_not_found(exc: Exchange):
+async def test_task_task_not_found(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
-        node_id = create_node(server, exc, TYPE_NODE)
+        node_id = create_node(server, exchange, TYPE_NODE)
 
         tpr = TaskParametersRequest(
             artifact_id=str(uuid.uuid4()),
             job_id=str(uuid.uuid4()),
         )
 
-        headers, payload = exc.create(node_id, tpr.json())
+        headers, payload = exchange.create(node_id, tpr.json())
 
         res = server.request(
             "GET",
@@ -52,13 +54,19 @@ async def test_worker_task_not_found(exc: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_worker_endpoints(session: AsyncSession, exc: Exchange):
+async def test_task_endpoints(session: AsyncSession):
     with TestClient(api) as server:
-        cr: ComponentRepository = ComponentRepository(session)
-
-        component = await cr.get_self_component()
-
         args = await connect(server, session)
+
+        wb_id = args.wb_id
+        nd_id = args.nd_id
+        nd_exc = args.nd_exc
+
+        cr: ComponentRepository = ComponentRepository(session)
+        self_component: Component = await cr.get_self_component()
+        sc_id = self_component.id
+        sc_exc = Exchange(config_manager.get().private_key_location())
+        sc_exc.set_remote_key(self_component.public_key)
 
         # prepare new artifact
         pr: ProjectRepository = ProjectRepository(session)
@@ -72,7 +80,7 @@ async def test_worker_endpoints(session: AsyncSession, exc: Exchange):
         )
 
         # fake submit of artifact
-        jms: JobManagementService = JobManagementService(session, component.id)
+        jms: JobManagementService = JobManagementService(session, wb_id)
 
         status = await jms.submit_artifact(artifact)
 
@@ -100,8 +108,8 @@ async def test_worker_endpoints(session: AsyncSession, exc: Exchange):
 
         assert JobStatus[job.status] == JobStatus.SCHEDULED
 
-        # simulate client work
-        jm: JobManagementService = JobManagementService(session, component.id)
+        # simulate client train task
+        jm: JobManagementService = JobManagementService(session, nd_id)
 
         await jm.client_task_start(job.id, args.nd_id)
         result = await jm.create_result(job.id, args.nd_id)
@@ -133,22 +141,22 @@ async def test_worker_endpoints(session: AsyncSession, exc: Exchange):
 
         assert ArtifactJobStatus[art_db.status] == ArtifactJobStatus.AGGREGATING
 
-        # get job scheduled for worker
+        # get job scheduled for aggregation task
         res = await session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact.id,
-                JobDB.component_id == component.id,
+                JobDB.component_id == sc_id,
                 JobDB.status == JobStatus.SCHEDULED.name,
             )
         )
-        job_worker: JobDB | None = res.one_or_none()
+        job_aggregate: JobDB | None = res.one_or_none()
 
-        assert job_worker is not None
+        assert job_aggregate is not None
 
-        # simulate worker behavior
-        tpr = TaskParametersRequest(artifact_id=artifact.id, job_id=job_worker.id)
+        # simulate aggregation behavior: get task parameters
+        tpr = TaskParametersRequest(artifact_id=artifact.id, job_id=job_aggregate.id)
 
-        headers, payload = args.nd_exc.create(args.nd_id, tpr.json())
+        headers, payload = sc_exc.create(sc_id, tpr.json())
 
         res = server.request(
             "GET",
@@ -159,11 +167,11 @@ async def test_worker_endpoints(session: AsyncSession, exc: Exchange):
 
         assert res.status_code == 200
 
-        _, res_data = args.nd_exc.get_payload(res.content)
+        _, res_data = sc_exc.get_payload(res.content)
 
         wt: TaskParameters = TaskParameters(**json.loads(res_data))
 
-        assert wt.job_id == job_worker.id
+        assert wt.job_id == job_aggregate.id
 
         assert artifact.id == wt.artifact.id
 
@@ -177,37 +185,43 @@ async def test_worker_endpoints(session: AsyncSession, exc: Exchange):
 
         assert post_d == get_d
 
-        # test worker submit model
-        model_path = os.path.join(".", "model.bin")
+        # test submit of a (fake) aggregated model
+        model_path_in = os.path.join(".", "tests", "storage", "model.bin")
+        model_path_out = os.path.join(".", "tests", "storage", "model.enc")
         model = {"model": "example_model"}
 
-        with open(model_path, "wb") as f:
+        with open(model_path_in, "wb") as f:
             pickle.dump(model, f)
 
+        checksum = sc_exc.encrypt_file_for_remote(model_path_in, model_path_out)
+        headers = sc_exc.create_signed_header(sc_id, checksum)
+
         res = server.post(
-            f"/task/result/{job_worker.id}",
-            headers=wk_exc.headers(),
-            content=b"".join(wk_exc.stream_from_file(model_path)),
+            f"/task/result/{job_aggregate.id}",
+            headers=headers,
+            content=open(model_path_out, "rb"),
         )
 
         assert res.status_code == 200
 
-        res = await session.scalars(select(ResultDB).where(ResultDB.component_id == wk_id))
+        res = await session.scalars(select(ResultDB).where(ResultDB.component_id == sc_id))
         results: list[ResultDB] = list(res.all())
 
         assert len(results) == 1
 
         result_id = results[0].id
 
-        # test worker get model
+        # test node get aggregated model
+        headers, _ = nd_exc.create(nd_id, "")
+
         res = server.get(
             f"/task/result/{result_id}",
-            headers=wk_exc.headers(),
+            headers=headers,
         )
 
         assert res.status_code == 200
 
-        data, _ = wk_exc.stream_response(res.iter_bytes())
+        data, _ = nd_exc.stream_response(res.iter_bytes())
 
         model_get = pickle.loads(data)
 
@@ -220,31 +234,36 @@ async def test_worker_endpoints(session: AsyncSession, exc: Exchange):
         # cleanup
         os.remove(art_db.path)
         os.remove(results[0].path)
-        os.remove(model_path)
+        os.remove(model_path_in)
+        os.remove(model_path_out)
 
 
 @pytest.mark.asyncio
-async def test_worker_access(session: AsyncSession):
+async def test_task_access(session: AsyncSession):
     with TestClient(api) as server:
-        _, wk_exc = await setup_worker(session, server)
+        args = await connect(server, session)
+
+        nd_id = args.nd_id
+        nd_exc = args.nd_exc
+        headers, _ = nd_exc.create(nd_id)
 
         res = server.get(
             "/client/update",
-            headers=wk_exc.headers(),
+            headers=headers,
         )
 
         assert res.status_code == 403
 
         res = server.get(
             "/task/result/none",
-            headers=wk_exc.headers(),
+            headers=headers,
         )
 
         assert res.status_code == 404  # there is no artifact, and 404 is correct
 
         res = server.get(
             "/workbench/clients",
-            headers=wk_exc.headers(),
+            headers=headers,
         )
 
         assert res.status_code == 403

@@ -1,14 +1,16 @@
 from typing import Callable
 
 from ferdelance import __version__
-from ferdelance.client.state import DataSourceStorage
+from ferdelance.config import DataSourceStorage
 from ferdelance.const import TYPE_CLIENT, TYPE_USER
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
+    DataSourceRepository,
     JobRepository,
+    ProjectRepository,
 )
-from ferdelance.node.services import ComponentService, NodeService, WorkerService, WorkbenchService
+from ferdelance.node.services import ComponentService, TaskService, WorkbenchService
 from ferdelance.node.startup import NodeStartup
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
@@ -45,7 +47,6 @@ class ServerlessClient:
         self.cr: ComponentRepository = ComponentRepository(session)
 
         self.client: Component
-        self.node_service: NodeService
 
     async def setup(self):
         self.client = await self.cr.create_component(
@@ -57,7 +58,6 @@ class ServerlessClient:
             f"ip-{self.index}",
             "",
         )
-        self.node_service = NodeService(self.session, self.client)
         self.client_service = ComponentService(self.session, self.client)
 
     def metadata(self) -> Metadata:
@@ -116,7 +116,7 @@ class ServerlessExecution:
 
         self.clients: dict[str, ServerlessClient] = dict()
 
-        self.worker_service: WorkerService
+        self.worker_service: TaskService
         self.workbench_service: WorkbenchService
 
     async def setup(self):
@@ -133,13 +133,23 @@ class ServerlessExecution:
             "",
         )
 
-        self.worker_service = WorkerService(self.session, self_component)
+        self.worker_service = TaskService(self.session, self_component)
         self.workbench_service = WorkbenchService(self.session, user_component)
 
     async def add_client(self, index: int, data: DataSourceStorage | Metadata) -> ServerlessClient:
         sc = ServerlessClient(self.session, index, data)
         await sc.setup()
-        await sc.node_service.metadata(sc.metadata())
+
+        metadata = sc.metadata()
+
+        dsr: DataSourceRepository = DataSourceRepository(self.session)
+        pr: ProjectRepository = ProjectRepository(self.session)
+
+        await self.cr.create_event(sc.client.id, "update metadata")
+
+        # this will also update existing metadata
+        await dsr.create_or_update_from_metadata(sc.client.id, metadata)
+        await pr.add_datasources_from_metadata(metadata)
 
         self.clients[sc.client.id] = sc
 

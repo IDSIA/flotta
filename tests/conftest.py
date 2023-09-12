@@ -1,8 +1,8 @@
 from typing import AsyncGenerator
 
 from ferdelance.config import config_manager
-from ferdelance.database import Base, DataBase
 from ferdelance.const import COMPONENT_TYPES
+from ferdelance.database import Base, DataBase
 from ferdelance.database.tables import ComponentType
 from ferdelance.shared.exchange import Exchange
 
@@ -25,6 +25,8 @@ conf.database.host = db_file
 
 conf.node.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
 conf.workdir = str(os.path.join("tests", "storage"))
+
+conf.dump()
 
 config_manager.setup()
 
@@ -59,10 +61,15 @@ async def session() -> AsyncGenerator[AsyncSession, None]:
         await conn.run_sync(Base.metadata.create_all)
         try:
             async with inst.session() as session:
-                for t in COMPONENT_TYPES:
-                    session.add(ComponentType(type=t))
-                await session.commit()
+                try:
+                    for t in COMPONENT_TYPES:
+                        session.add(ComponentType(type=t))
+                    await session.commit()
+                except Exception:
+                    pass
                 yield session
+        except Exception as e:
+            print(e)
         finally:
             await conn.run_sync(Base.metadata.drop_all)
             delete_dirs()

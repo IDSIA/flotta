@@ -4,7 +4,7 @@ from ferdelance.logging import get_logger
 from ferdelance.const import TYPE_CLIENT
 from ferdelance.database.repositories import ProjectRepository, AsyncSession
 from ferdelance.schemas.client import ClientUpdate
-from ferdelance.schemas.node import JoinData, NodeJoinRequest, ServerPublicKey
+from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.workbench import WorkbenchJoinRequest
 from ferdelance.shared.actions import Action
@@ -41,7 +41,7 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
 
     response_key.raise_for_status()
 
-    spk = ServerPublicKey(**response_key.json())
+    spk = NodePublicKey(**response_key.json())
 
     exc.set_remote_key(spk.public_key)
 
@@ -195,7 +195,7 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
 
     response_key.raise_for_status()
 
-    spk = ServerPublicKey(**response_key.json())
+    spk = NodePublicKey(**response_key.json())
 
     wb_exc.set_remote_key(spk.public_key)
 

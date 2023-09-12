@@ -1,7 +1,6 @@
 from typing import Any
 
-from ferdelance.config import DataSourceConfiguration
-from ferdelance.client.state import DataSourceStorage
+from ferdelance.config import DataSourceConfiguration, DataSourceStorage
 from ferdelance.database import AsyncSession
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import (
