@@ -21,7 +21,7 @@ import os
 LOGGER = get_logger(__name__)
 
 
-class WorkerService:
+class TaskService:
     def __init__(self, session: AsyncSession, component: Component) -> None:
         self.session: AsyncSession = session
         self.component: Component = component

@@ -25,7 +25,7 @@ class NodeJoinRequest(BaseModel):
 class JoinData(BaseModel):
     """Data returned to the node after a successful join."""
 
-    component: Component
+    component_id: str  # id of the joined component
 
     # TODO: list of other nodes (no clients) with projects and metadata (?)
     nodes: list[Component]

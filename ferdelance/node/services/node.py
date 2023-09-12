@@ -20,12 +20,18 @@ LOGGER = get_logger(__name__)
 
 
 class NodeService:
-    def __init__(self, session: AsyncSession, component: Component) -> None:
+    def __init__(self, session: AsyncSession, component: Component | None = None) -> None:
         self.session: AsyncSession = session
-        self.component: Component = component
 
         self.ss: SecurityService = SecurityService()
         self.cr: ComponentRepository = ComponentRepository(self.session)
+
+        if component:
+            self.component: Component = component
+            self.ss.set_remote_key(component.public_key)
+
+        else:
+            self.component: Component
 
     async def connect(self, data: NodeJoinRequest, ip_address: str) -> JoinData:
         """
@@ -45,41 +51,45 @@ class NodeService:
             raise ValueError("Invalid client data")
 
         except NoResultFound:
-            LOGGER.info(f"component_id={data.id}: joining new component")
+            pass
+        except Exception as e:
+            raise e
 
-            self.component = await self.cr.create_component(
-                data.id,
-                data.type_name,
-                data.public_key,
-                data.version,
-                data.name,
-                ip_address,
-                data.url,
-            )
+        LOGGER.info(f"component_id={data.id}: joining new component")
 
-            self.ss.set_remote_key(data.public_key)
+        self.component = await self.cr.create_component(
+            data.id,
+            data.type_name,
+            data.public_key,
+            data.version,
+            data.name,
+            ip_address,
+            data.url,
+        )
 
-            LOGGER.info(f"component_id={self.component.id}: created new client")
+        self.ss.set_remote_key(data.public_key)
 
-            await self.cr.create_event(self.component.id, "creation")
-
-            await self.distribute_add(self.component)
+        await self.cr.create_event(self.component.id, "creation")
 
         LOGGER.info(f"component_id={self.component.id}: created new client")
 
         self_component = await self.cr.get_self_component()
 
-        nodes = [self_component]
+        nodes: list[Component] = list()
 
         if data.type_name == TYPE_NODE:
             saved_nodes = await self.cr.list_nodes()
 
             for node in saved_nodes:  # TODO: complete with list of nodes
-                if node.id != data.id:
+                if node.id not in (data.id, self_component.id):
                     nodes.append(node)
 
+        await self.distribute_add(self.component, nodes)
+
+        nodes.append(self_component)
+
         return JoinData(
-            component=self_component,
+            component_id=self_component.id,
             nodes=nodes,
         )
 
@@ -137,20 +147,24 @@ class NodeService:
     async def remove(self, component: Component) -> None:
         await self.cr.component_leave(component.id)
 
-    async def distribute_add(self, component: Component) -> None:
-        if component.type_name != TYPE_NODE:
+    async def distribute_add(self, new_component: Component, nodes: list[Component]) -> None:
+        if new_component.type_name != TYPE_NODE:
             return
 
-        for node in await self.cr.list_nodes():
-            if node.id == self.component.id:
+        for node in nodes:
+            if node.id not in (self.component.id, new_component.id):
                 # skip self node
+                continue
+
+            if not node.active or node.blacklisted:
+                # skip disabeld nodes
                 continue
 
             if node.type_name != TYPE_NODE:
                 # skip nodes that are not server nodes
                 continue
 
-            headers, payload = self.ss.create(self.component.id, component.json())
+            headers, payload = self.ss.create(self.component.id, new_component.json())
 
             res = requests.put(
                 f"{node.url}/node/add",
@@ -160,7 +174,7 @@ class NodeService:
 
             if res.status_code != 200:
                 LOGGER.error(
-                    f"component_id={self.component.id}: could not add component_id={component.id} to node={node.id}"
+                    f"component_id={self.component.id}: could not add component_id={new_component.id} to node={node.id}"
                 )
 
     async def distribute_remove(self, component: Component) -> None:

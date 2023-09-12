@@ -5,8 +5,7 @@ from ferdelance.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, valid_session_args
 from ferdelance.node.services.scheduling import ScheduleActionService
-from ferdelance.node.services import SecurityService, ComponentService, WorkerService
-from ferdelance.schemas.components import Component
+from ferdelance.node.services import SecurityService, ComponentService, TaskService
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest, TaskError
@@ -83,7 +82,7 @@ async def get_task_params(
             content: TaskParameters = await cs.get_task(payload.job_id)
 
         elif args.component.type_name == TYPE_NODE:
-            ws: WorkerService = WorkerService(args.session, args.component)
+            ws: TaskService = TaskService(args.session, args.component)
             content: TaskParameters = await ws.get_task(payload.job_id)
 
         else:
@@ -110,7 +109,7 @@ async def get_result(
     LOGGER.info(f"component_id={args.component.id}: request result_id={result_id}")
 
     try:
-        ws: WorkerService = WorkerService(args.session, args.component)
+        ws: TaskService = TaskService(args.session, args.component)
         result = await ws.get_result(result_id)
 
         if not result.is_aggregation and args.component.type_name == TYPE_CLIENT:
@@ -118,7 +117,7 @@ async def get_result(
             LOGGER.error(f"component_id={args.component.id}: Tryied to get result with result_id={result_id}")
             raise HTTPException(403)
 
-        return args.security_service.encrypt_file(result.path)
+        return FileResponse(result.path)
 
     except HTTPException as e:
         raise e
@@ -139,8 +138,10 @@ async def post_result(
     request: Request,
     job_id: str,
     session: AsyncSession = Depends(get_session),
-    component: Component = Depends(allow_access),
+    args: SessionArgs = Depends(allow_access),
 ):
+    component = args.self_component
+
     LOGGER.info(f"component_id={component.id}: complete work on job_id={job_id}")
 
     ss: SecurityService = SecurityService(component.public_key)
@@ -155,7 +156,7 @@ async def post_result(
             await cs.check_and_start(result)
 
         elif component.type_name == TYPE_NODE:
-            ws: WorkerService = WorkerService(session, component)
+            ws: TaskService = TaskService(session, component)
             result: Result = await ws.aggregation_completed(job_id)
 
             await ss.stream_decrypt_file(request, result.path)
@@ -203,7 +204,7 @@ async def post_error(
             await cs.check_and_start(result)
 
         elif args.component.type_name == TYPE_NODE:
-            ws: WorkerService = WorkerService(args.session, args.component)
+            ws: TaskService = TaskService(args.session, args.component)
 
             result = await ws.aggregation_failed(error)
 

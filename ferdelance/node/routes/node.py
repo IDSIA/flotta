@@ -3,7 +3,7 @@ from ferdelance.database.repositories.component import ComponentRepository
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, session_args, valid_session_args, ValidSessionArgs
 from ferdelance.node.services import NodeService
-from ferdelance.schemas.components import Component, dummy
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata, NodePublicKey
 from ferdelance.shared.checksums import str_checksum
@@ -64,7 +64,7 @@ async def node_join(
         if data.checksum != checksum:
             raise ValueError("Checksum failed")
 
-        ns: NodeService = NodeService(args.session, dummy)
+        ns: NodeService = NodeService(args.session)
         return await ns.connect(data, args.ip_address)
 
     except SQLAlchemyError as e:

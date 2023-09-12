@@ -5,7 +5,7 @@ __all__ = [
     "ComponentService",
     "WorkbenchConnectService",
     "WorkbenchService",
-    "WorkerService",
+    "TaskService",
     "JobManagementService",
 ]
 
@@ -15,4 +15,4 @@ from .actions import ActionService
 from .jobs import JobManagementService
 from .component import ComponentService
 from .workbench import WorkbenchConnectService, WorkbenchService
-from .worker import WorkerService
+from .task import TaskService
