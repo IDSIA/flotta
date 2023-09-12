@@ -34,3 +34,6 @@ experiments/
 data/
 *sqlite.db
 *.bin
+*.enc
+*.pem
+*.pub
