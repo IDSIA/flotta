@@ -4,8 +4,15 @@ import pandas as pd
 
 
 class DataSourceDB(DataSource):
-    def __init__(self, name: str, type: str, connection_string: str, tokens: list[str] = list()) -> None:
-        super().__init__(name, type, connection_string, tokens)
+    def __init__(
+        self,
+        name: str,
+        type: str,
+        connection_string: str,
+        tokens: list[str] = list(),
+        encoding: str = "utf8",
+    ) -> None:
+        super().__init__(name, type, connection_string, tokens, encoding)
         self.connection_string: str = connection_string
 
     def get(self) -> pd.DataFrame:

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 from ferdelance.logging import get_logger
 from ferdelance.schemas.models import GenericModel, Metrics
-from ferdelance.schemas.context import AggregationContext
+from ferdelance.schemas.context import TaskAggregationContext
 
 from pydantic import BaseModel
 
@@ -58,11 +58,11 @@ class GenericPlan(ABC):
             params=self.params(),
         )
 
-    async def pre_aggregation_hook(self, context: AggregationContext) -> None:
+    async def pre_aggregation_hook(self, context: TaskAggregationContext) -> None:
         """This hook controls the start of an aggregation job."""
         pass
 
-    async def post_aggregation_hook(self, context: AggregationContext) -> None:
+    async def post_aggregation_hook(self, context: TaskAggregationContext) -> None:
         """This hook controls the scheduling of new training jobs."""
         pass
 

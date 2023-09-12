@@ -12,7 +12,7 @@ from ferdelance.logging import get_logger
 from ferdelance.node.services import NodeService
 from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.node import JoinData, NodeJoinRequest, ServerPublicKey
+from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
 from ferdelance.shared.checksums import str_checksum
 from ferdelance.tasks.jobs.heartbeat import Heartbeat
 
@@ -57,9 +57,15 @@ class NodeStartup(Repository):
         """Add metadata found in the configuration file. The metadata are
         extracted from the given data sources.
         """
+        metadata = self.data.metadata()
+
+        if not metadata.datasources:
+            LOGGER.info("No metadata associated with this node")
+            return
+
         ns: NodeService = NodeService(self.session, self.self_component)
 
-        await ns.metadata(self.data.metadata())
+        await ns.metadata(metadata)
 
     async def populate_database(self) -> None:
         """Add basic information to the database."""
@@ -110,7 +116,7 @@ class NodeStartup(Repository):
 
             res.raise_for_status()
 
-            content = ServerPublicKey(**res.json())
+            content = NodePublicKey(**res.json())
             self.remote_key = content.public_key
             self.ss.set_remote_key(self.remote_key)
 

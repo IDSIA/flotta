@@ -35,3 +35,11 @@ class ConfigError(ClientExitStatus):
 
     def __init__(self, *args: str) -> None:
         super().__init__(2, *args)
+
+
+class ArtifactDoesNotExists(Exception):
+    ...
+
+
+class TaskDoesNotExists(Exception):
+    ...

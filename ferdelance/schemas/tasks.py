@@ -35,6 +35,12 @@ class TaskParameters(BaseModel):
     content_ids: list[str]
 
 
+class TaskError(BaseModel):
+    job_id: str = ""
+    message: str = ""
+    stack_trace: str = ""
+
+
 class ExecutionResult(BaseModel):
     job_id: str
     path: str

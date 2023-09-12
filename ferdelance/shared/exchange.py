@@ -182,7 +182,7 @@ class Exchange:
         :param data:
             String content not yet decoded.
         """
-        self.remote_key = public_key_from_str(decode_from_transfer(data, self.encoding), self.encoding)
+        self.remote_key = public_key_from_str(data, self.encoding)
 
     def set_remote_key_bytes(self, remote_key: bytes) -> None:
         """Set the public key of the remote host from bytes stored in memory.
@@ -203,8 +203,7 @@ class Exchange:
         if self.public_key is None:
             raise ValueError("public key not set")
 
-        data: str = bytes_from_public_key(self.public_key).decode(self.encoding)
-        return encode_to_transfer(data, self.encoding)
+        return bytes_from_public_key(self.public_key).decode(self.encoding)
 
     def transfer_private_key(self) -> str:
         """Encode the stored private key for secure transfer as string.

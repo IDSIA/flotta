@@ -7,8 +7,15 @@ import pandas as pd
 
 
 class DataSourceFile(DataSource):
-    def __init__(self, name: str, type: str, path: str, tokens: list[str] = list()) -> None:
-        super().__init__(name, type, path, tokens)
+    def __init__(
+        self,
+        name: str,
+        type: str,
+        path: str,
+        tokens: list[str] = list(),
+        encoding: str = "utf8",
+    ) -> None:
+        super().__init__(name, type, path, tokens, encoding)
 
         self.path: Path = Path(path)
 

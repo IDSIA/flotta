@@ -1,6 +1,0 @@
-class ArtifactDoesNotExists(Exception):
-    ...
-
-
-class TaskDoesNotExists(Exception):
-    ...

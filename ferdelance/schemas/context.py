@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class AggregationContext(BaseModel):
+class TaskAggregationContext(BaseModel):
     artifact_id: str
 
     job_total: int = 0

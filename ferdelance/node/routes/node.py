@@ -5,9 +5,8 @@ from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, session_arg
 from ferdelance.node.services import NodeService
 from ferdelance.schemas.components import Component, dummy
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata, ServerPublicKey
+from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata, NodePublicKey
 from ferdelance.shared.checksums import str_checksum
-from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 
@@ -38,13 +37,13 @@ async def node_home():
     return "Node 🏙"
 
 
-@node_router.get("/key", response_model=ServerPublicKey)
+@node_router.get("/key", response_model=NodePublicKey)
 async def node_get_public_key(
     args: SessionArgs = Depends(session_args),
 ):
     pk = args.security_service.get_public_key()
 
-    return ServerPublicKey(public_key=pk)
+    return NodePublicKey(public_key=pk)
 
 
 @node_router.post("/join", response_model=JoinData)
@@ -54,12 +53,9 @@ async def node_join(
 ) -> JoinData:
     LOGGER.info("new component joining")
 
-    ns: NodeService = NodeService(args.session, dummy)
-
     try:
         data_to_sign = f"{data.id}:{data.public_key}"
 
-        data.public_key = decode_from_transfer(data.public_key)
         args.security_service.set_remote_key(data.public_key)
 
         args.security_service.exc.verify(data_to_sign, data.signature)
@@ -68,6 +64,7 @@ async def node_join(
         if data.checksum != checksum:
             raise ValueError("Checksum failed")
 
+        ns: NodeService = NodeService(args.session, dummy)
         return await ns.connect(data, args.ip_address)
 
     except SQLAlchemyError as e:

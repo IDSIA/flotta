@@ -1,25 +1,26 @@
-# TODO: reconsider these tests.
-"""
+from ferdelance.const import TYPE_NODE
 from ferdelance.logging import get_logger
 from ferdelance.database.tables import (
     Artifact as ArtifactDB,
     Job as JobDB,
     Result as ResultDB,
 )
-from ferdelance.database.repositories import ProjectRepository, AsyncSession
+from ferdelance.database.repositories import ProjectRepository, ComponentRepository, AsyncSession
 from ferdelance.node.api import api
 from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainAll
 from ferdelance.schemas.tasks import TaskParameters, TaskArguments, TaskParametersRequest
+from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
-from tests.utils import connect, TEST_PROJECT_TOKEN
+from tests.utils import connect, TEST_PROJECT_TOKEN, create_node
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+import json
 import os
 import pickle
 import pytest
@@ -29,30 +30,35 @@ LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_worker_task_not_found(session: AsyncSession):
+async def test_worker_task_not_found(exc: Exchange):
     with TestClient(api) as server:
-        _, exc = await setup_worker(session, server)
+        node_id = create_node(server, exc, TYPE_NODE)
 
         tpr = TaskParametersRequest(
             artifact_id=str(uuid.uuid4()),
             job_id=str(uuid.uuid4()),
         )
 
+        headers, payload = exc.create(node_id, tpr.json())
+
         res = server.request(
             "GET",
             "/task/params",
-            headers=exc.headers(),
-            content=exc.create_payload(tpr.dict()),
+            headers=headers,
+            content=payload,
         )
 
         assert res.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_worker_endpoints(session: AsyncSession):
+async def test_worker_endpoints(session: AsyncSession, exc: Exchange):
     with TestClient(api) as server:
+        cr: ComponentRepository = ComponentRepository(session)
+
+        component = await cr.get_self_component()
+
         args = await connect(server, session)
-        wk_id, wk_exc = await setup_worker(session, server)
 
         # prepare new artifact
         pr: ProjectRepository = ProjectRepository(session)
@@ -66,7 +72,7 @@ async def test_worker_endpoints(session: AsyncSession):
         )
 
         # fake submit of artifact
-        jms: JobManagementService = JobManagementService(session)
+        jms: JobManagementService = JobManagementService(session, component.id)
 
         status = await jms.submit_artifact(artifact)
 
@@ -87,7 +93,7 @@ async def test_worker_endpoints(session: AsyncSession):
         res = await session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact.id,
-                JobDB.component_id == args.client_id,
+                JobDB.component_id == args.nd_id,
             )
         )
         job: JobDB = res.one()
@@ -95,11 +101,11 @@ async def test_worker_endpoints(session: AsyncSession):
         assert JobStatus[job.status] == JobStatus.SCHEDULED
 
         # simulate client work
-        jm: JobManagementService = JobManagementService(session)
+        jm: JobManagementService = JobManagementService(session, component.id)
 
-        await jm.client_task_start(job.id, args.client_id)
-        result = await jm.create_result(job.id, args.client_id)
-        await jm.client_task_completed(job.id, args.client_id)
+        await jm.client_task_start(job.id, args.nd_id)
+        result = await jm.create_result(job.id, args.nd_id)
+        await jm.client_task_completed(job.id, args.nd_id)
 
         def ignore(task: TaskArguments) -> None:
             return
@@ -110,7 +116,7 @@ async def test_worker_endpoints(session: AsyncSession):
         res = await session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact.id,
-                JobDB.component_id == args.client_id,
+                JobDB.component_id == args.nd_id,
             )
         )
         job: JobDB = res.one()
@@ -131,7 +137,7 @@ async def test_worker_endpoints(session: AsyncSession):
         res = await session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact.id,
-                JobDB.component_id == wk_id,
+                JobDB.component_id == component.id,
                 JobDB.status == JobStatus.SCHEDULED.name,
             )
         )
@@ -141,16 +147,21 @@ async def test_worker_endpoints(session: AsyncSession):
 
         # simulate worker behavior
         tpr = TaskParametersRequest(artifact_id=artifact.id, job_id=job_worker.id)
+
+        headers, payload = args.nd_exc.create(args.nd_id, tpr.json())
+
         res = server.request(
             "GET",
             "/task/params",
-            headers=wk_exc.headers(),
-            content=wk_exc.create_payload(tpr.dict()),
+            headers=headers,
+            content=payload,
         )
 
         assert res.status_code == 200
 
-        wt: TaskParameters = TaskParameters(**wk_exc.get_payload(res.content))
+        _, res_data = args.nd_exc.get_payload(res.content)
+
+        wt: TaskParameters = TaskParameters(**json.loads(res_data))
 
         assert wt.job_id == job_worker.id
 
@@ -237,4 +248,3 @@ async def test_worker_access(session: AsyncSession):
         )
 
         assert res.status_code == 403
-"""

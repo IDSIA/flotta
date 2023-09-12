@@ -1,7 +1,7 @@
 from typing import Any
 
 from ferdelance.logging import get_logger
-from ferdelance.schemas.context import AggregationContext
+from ferdelance.schemas.context import TaskAggregationContext
 from ferdelance.schemas.models import GenericModel
 
 from ferdelance.schemas.plans.core import GenericPlan, Metrics
@@ -33,5 +33,5 @@ class IterativePlan(GenericPlan):
 
         return self.local_plan.run(df, local_model, working_folder, artifact_id)
 
-    async def post_aggregation_hook(self, context: AggregationContext) -> None:
+    async def post_aggregation_hook(self, context: TaskAggregationContext) -> None:
         context.schedule_next_iteration = context.current_iteration < self.iterations - 1

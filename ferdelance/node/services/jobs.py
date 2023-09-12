@@ -12,15 +12,14 @@ from ferdelance.database.repositories import (
     ResultRepository,
     Repository,
 )
-from ferdelance.node.exceptions import ArtifactDoesNotExists
+from ferdelance.exceptions import ArtifactDoesNotExists
 from ferdelance.node.services import SecurityService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.context import AggregationContext
+from ferdelance.schemas.context import TaskAggregationContext
 from ferdelance.schemas.database import ServerArtifact, Result
-from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.tasks import TaskParameters, TaskArguments
+from ferdelance.schemas.tasks import TaskParameters, TaskArguments, TaskError
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 from ferdelance.tasks.backends import get_jobs_backend
 
@@ -155,7 +154,7 @@ class JobManagementService(Repository):
             it = job.iteration
 
             artifact: Artifact = await self.ar.load(artifact_id)
-            context = AggregationContext(
+            context = TaskAggregationContext(
                 artifact_id=artifact_id,
                 current_iteration=it,
                 next_iteration=it + 1,
@@ -329,7 +328,7 @@ class JobManagementService(Repository):
         artifact_id = job.artifact_id
 
         artifact: Artifact = await self.ar.load(artifact_id)
-        context = AggregationContext(
+        context = TaskAggregationContext(
             artifact_id=artifact_id,
             current_iteration=job.iteration,
             next_iteration=job.iteration + 1,

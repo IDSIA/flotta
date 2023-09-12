@@ -2,7 +2,7 @@ from ferdelance.database.repositories import ProjectRepository
 from ferdelance.node.api import api
 from ferdelance.shared.exchange import Exchange
 
-from tests.utils import create_project, create_client, get_metadata, send_metadata
+from tests.utils import create_project, create_node, get_metadata, send_metadata
 
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +18,7 @@ async def test_load_project(session: AsyncSession, exchange: Exchange):
         metadata = get_metadata(project_token=p_token)
 
         await create_project(session, p_token)
-        client_id = create_client(client, exchange)
+        client_id = create_node(client, exchange)
         send_metadata(client_id, client, exchange, metadata)
 
         pr: ProjectRepository = ProjectRepository(session)

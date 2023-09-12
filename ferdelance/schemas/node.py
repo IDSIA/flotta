@@ -31,7 +31,7 @@ class JoinData(BaseModel):
     nodes: list[Component]
 
 
-class ServerPublicKey(BaseModel):
+class NodePublicKey(BaseModel):
     public_key: str
 
 

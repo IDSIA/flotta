@@ -20,16 +20,27 @@ PRIVATE_KEY = "SERVER_KEY_PRIVATE"
 
 
 class SecurityService:
-    def __init__(self, remote_key_str: str | None = None) -> None:
-        self.exc: Exchange = Exchange()
-        self.exc.load_key(config_manager.get().private_key_location())
+    def __init__(self, remote_key_str: str | None = None, encoding: str = "utf8") -> None:
+        """Creates a secure contexte between a local node, indicated by the
+        `self_component`, and a remote node.
 
-        self.set_remote_key(remote_key_str)
+        Args:
+            remote_key_str (str | None, optional):
+                If present, set the remote public key to use for the connection.
+                Otherwise, use the #set_remote_key() method to set the remote key.
+                Defaults to None.
+        """
+        self.encoding = encoding
 
-    def set_remote_key(self, remote_key_str: str | None = None) -> None:
+        private_key_path: str = config_manager.get().private_key_location()
+
+        self.exc: Exchange = Exchange(private_key_path, self.encoding)
+
         if remote_key_str is not None:
-            remote_key_bytes = remote_key_str.encode("utf8")
-            self.exc.set_remote_key_bytes(remote_key_bytes)
+            self.set_remote_key(remote_key_str)
+
+    def set_remote_key(self, remote_key_str: str) -> None:
+        self.exc.set_remote_key(remote_key_str)
 
     def get_public_key(self) -> str:
         """

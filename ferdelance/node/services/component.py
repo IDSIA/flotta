@@ -8,11 +8,10 @@ from ferdelance.database.repositories import (
 )
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
+from ferdelance.schemas.tasks import TaskArguments, TaskParameters, TaskError
 from ferdelance.schemas.updates import UpdateData
-from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.node.services import ActionService, JobManagementService
 
 from sqlalchemy.exc import NoResultFound

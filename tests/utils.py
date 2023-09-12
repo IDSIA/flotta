@@ -26,7 +26,7 @@ def setup_exchange() -> Exchange:
     return exc
 
 
-def create_client(api: TestClient, exc: Exchange, client_id: str = "") -> str:
+def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, client_id: str = "") -> str:
     """Creates and register a new client.
     :return:
         Component id for this new client.
@@ -59,7 +59,7 @@ def create_client(api: TestClient, exc: Exchange, client_id: str = "") -> str:
     cjr = NodeJoinRequest(
         id=client_id,
         name="testing_client",
-        type_name=TYPE_CLIENT,
+        type_name=type_name,
         public_key=public_key,
         version="test",
         url="http://localhost/",
@@ -163,9 +163,9 @@ async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKE
 
 
 class ConnectionArguments(BaseModel):
-    client_id: str
+    nd_id: str
     wb_id: str
-    cl_exc: Exchange
+    nd_exc: Exchange
     wb_exc: Exchange
     project_token: str
 
@@ -176,14 +176,14 @@ class ConnectionArguments(BaseModel):
 async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> ConnectionArguments:
     await create_project(session, p_token)
 
-    cl_exc = setup_exchange()
+    nd_exc = setup_exchange()
     wb_exc = setup_exchange()
 
     # this is to have a client
-    client_id = create_client(api, cl_exc)
+    client_id = create_node(api, nd_exc)
 
     metadata: Metadata = get_metadata()
-    send_metadata(client_id, api, cl_exc, metadata)
+    send_metadata(client_id, api, nd_exc, metadata)
 
     # this is to connect a new workbench
     headers = wb_exc.create_header(False)
@@ -230,9 +230,9 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     res_connect.raise_for_status()
 
     return ConnectionArguments(
-        client_id=client_id,
+        nd_id=client_id,
         wb_id=wb_id,
-        cl_exc=cl_exc,
+        nd_exc=nd_exc,
         wb_exc=wb_exc,
         project_token=p_token,
     )

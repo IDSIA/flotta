@@ -9,8 +9,7 @@ from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result, ServerArtifact
-from ferdelance.schemas.errors import TaskError
-from ferdelance.schemas.tasks import TaskParameters
+from ferdelance.schemas.tasks import TaskParameters, TaskError
 from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy.exc import NoResultFound

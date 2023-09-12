@@ -9,8 +9,3 @@ class ClientDetails(BaseModel):
 
 class ClientUpdate(BaseModel):
     action: str
-
-
-class ClientUpdateTaskCompleted(ClientUpdate):
-    client_task_id: str
-    # TODO: consider return errors to workbench

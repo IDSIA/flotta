@@ -1,16 +1,15 @@
 from ferdelance.config import config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.database import get_session, AsyncSession
+from ferdelance.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 from ferdelance.logging import get_logger
-from ferdelance.node.exceptions import ArtifactDoesNotExists, TaskDoesNotExists
 from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, valid_session_args
 from ferdelance.node.services.scheduling import ScheduleActionService
 from ferdelance.node.services import SecurityService, ComponentService, WorkerService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Result
-from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models import Metrics
-from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
+from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest, TaskError
 from ferdelance.schemas.updates import UpdateData
 
 from fastapi import APIRouter, Depends, HTTPException, Request

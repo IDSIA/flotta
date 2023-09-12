@@ -2,7 +2,7 @@ from typing import Any
 
 from ferdelance import __version__
 from ferdelance.logging import get_logger
-from ferdelance.schemas.node import ServerPublicKey
+from ferdelance.schemas.node import NodePublicKey
 from ferdelance.shared.checksums import str_checksum
 from ferdelance.workbench.interface import (
     Project,
@@ -119,7 +119,7 @@ class Context:
 
         response_key.raise_for_status()
 
-        spk = ServerPublicKey(**response_key.json())
+        spk = NodePublicKey(**response_key.json())
 
         self.exc.set_remote_key(spk.public_key)
 

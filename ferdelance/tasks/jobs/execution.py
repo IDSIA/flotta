@@ -1,5 +1,4 @@
-from ferdelance.config import config_manager
-from ferdelance.client.state import DataSourceStorage
+from ferdelance.config import config_manager, DataSourceStorage
 from ferdelance.logging import get_logger
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.estimators import apply_estimator

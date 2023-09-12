@@ -35,7 +35,7 @@ LOGGER = get_logger(__name__)
 async def test_workbench_connect(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
-        client_id = args.client_id
+        client_id = args.nd_id
         wb_id = args.wb_id
 
         cr: ComponentRepository = ComponentRepository(session)

@@ -37,10 +37,10 @@ def build_settings_cipher() -> Fernet | None:
 class KeyValueStore(Repository):
     """This is an encrypted storage for data required by the server."""
 
-    def __init__(self, session: AsyncSession, encode: str = "utf8") -> None:
+    def __init__(self, session: AsyncSession, encoding: str = "utf8") -> None:
         super().__init__(session)
         self.cipher: Fernet | None = build_settings_cipher()
-        self.encode: str = encode
+        self.encode: str = encoding
 
     async def put_bytes(self, key: str, value_in: bytes) -> None:
         if self.cipher:

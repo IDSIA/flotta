@@ -47,7 +47,7 @@ class NodeService:
         except NoResultFound:
             LOGGER.info(f"component_id={data.id}: joining new component")
 
-            component = await self.cr.create_component(
+            self.component = await self.cr.create_component(
                 data.id,
                 data.type_name,
                 data.public_key,
@@ -57,13 +57,15 @@ class NodeService:
                 data.url,
             )
 
-            LOGGER.info(f"component_id={component.id}: created new client")
+            self.ss.set_remote_key(data.public_key)
 
-            await self.cr.create_event(component.id, "creation")
+            LOGGER.info(f"component_id={self.component.id}: created new client")
 
-            await self.distribute_add(component)
+            await self.cr.create_event(self.component.id, "creation")
 
-        LOGGER.info(f"component_id={component.id}: created new client")
+            await self.distribute_add(self.component)
+
+        LOGGER.info(f"component_id={self.component.id}: created new client")
 
         self_component = await self.cr.get_self_component()
 

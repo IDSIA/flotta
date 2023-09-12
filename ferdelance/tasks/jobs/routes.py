@@ -2,9 +2,8 @@ from typing import Any
 from abc import ABC, abstractmethod
 
 from ferdelance.logging import get_logger
-from ferdelance.schemas.errors import TaskError
 from ferdelance.schemas.models.metrics import Metrics
-from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
+from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest, TaskError
 from ferdelance.shared.exchange import Exchange
 
 import json

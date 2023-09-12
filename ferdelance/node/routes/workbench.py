@@ -12,7 +12,6 @@ from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
 )
 from ferdelance.shared.checksums import str_checksum
-from ferdelance.shared.decode import decode_from_transfer
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, Response
@@ -54,7 +53,6 @@ async def wb_connect(
     try:
         data_to_sign = f"{data.id}:{data.public_key}"
 
-        data.public_key = decode_from_transfer(data.public_key)
         args.security_service.set_remote_key(data.public_key)
 
         args.security_service.exc.verify(data_to_sign, data.signature)
