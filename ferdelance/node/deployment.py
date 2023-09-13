@@ -21,7 +21,7 @@ class ServerWrapper:
     pass
 
 
-def start_node(configuration: Configuration, name: str = "Ferdelance_server") -> RayServeSyncHandle | None:
+def start_node(configuration: Configuration, name: str = "Ferdelance_node") -> RayServeSyncHandle | None:
     LOGGER.info(f"Creating server at host={configuration.node.interface} port={configuration.node.port}")
 
     return serve.run(

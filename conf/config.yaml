@@ -28,8 +28,6 @@ node:
   
   # the above config will produce http://localhost:1456/
 
-  token_client_expiration: 90 day
-  token_user_expiration: 30 days
   token_project_default: ""
 
 # # join an existing node/network

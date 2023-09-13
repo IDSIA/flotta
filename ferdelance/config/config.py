@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseSettings, BaseModel, root_validator
+from pydantic import BaseSettings, BaseModel, root_validator, validator
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 
 from ferdelance.datasources import DataSourceDB, DataSourceFile
@@ -84,7 +84,7 @@ class NodeConfiguration(BaseModel):
     @root_validator(pre=True)
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
-        return check_for_env_variables(values, "ferdelance_server")
+        return check_for_env_variables(values, "ferdelance_node")
 
     def url_extern(self) -> str:
         """Url that will be sent to other nodes and used to contact this node."""
@@ -175,23 +175,44 @@ class Configuration(BaseSettings):
 
     datasources: list[DataSourceConfiguration] = list()
 
-    mode: str = "node"  # Literal["client", "node", "standalone"] = "node"
+    mode: str = "node"
 
     workdir: str = os.path.join(".", "storage")
 
     file_chunk_size: int = 4096
 
+    @validator("mode")
+    @classmethod
+    def mode_validator(cls, v, values, **kwargs):
+        valid_modes = [
+            "client",
+            "node",
+            "standalone",
+        ]
+
+        # check for valid mode
+        if v not in valid_modes:
+            raise ValueError(f"Invalid mode: expected one of {[valid_modes]}")
+
+        # check for existing join url
+        if v == "client":
+            os.environ["FERDELANCE_MODE"] = "client"
+
+            j: JoinConfiguration = values["join"]
+
+            if j.first or not j.url:
+                raise ValueError("No join node set!")
+
+        return v
+
     @root_validator(pre=True)
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
-        return check_for_env_variables(values, "ferdelance")
+        values = check_for_env_variables(values, "ferdelance")
 
-    @root_validator(pre=False)
-    @classmethod
-    def force_client_mode(cls, values: dict[str, Any]):
-        """Force node url to localhost when mode=client"""
-        if values["mode"] == "client":
-            LOGGER.info("Client mode dtected, forcing api to localhost")
+        # Force node url to localhost when mode=client
+        if "mode" in values and values["mode"] == "client":
+            LOGGER.info("Client mode detected, forcing api to localhost")
             node = values["node"]
             node["protocol"] = "http"
             node["interface"] = "localhost"
