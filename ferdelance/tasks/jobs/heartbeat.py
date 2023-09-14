@@ -3,6 +3,7 @@ from ferdelance.exceptions import ConfigError, ErrorClient, UpdateClient
 from ferdelance.logging import get_logger
 from ferdelance.node.services.scheduling import ScheduleActionService
 from ferdelance.node.services.security import SecurityService
+from ferdelance.schemas.client import ClientUpdate
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.actions import Action
 
@@ -61,13 +62,13 @@ class Heartbeat:
         LOGGER.info(f"client left server {self.remote_url}")
         raise ErrorClient()
 
-    def _update(self, content: dict) -> UpdateData:
+    def _update(self, content: ClientUpdate) -> UpdateData:
         """Heartbeat command to check for an update from the server."""
         LOGGER.debug("requesting update")
 
         headers, payload = self.security_service.create(
             self.client_id,
-            json.dumps(content),
+            content.json(),
         )
 
         res = requests.get(
@@ -106,7 +107,7 @@ class Heartbeat:
                 try:
                     LOGGER.debug("requesting update")
 
-                    update_data = self._update({})
+                    update_data = self._update(ClientUpdate(action=self.status.name))
 
                     LOGGER.debug(f"update: action={update_data.action}")
 
@@ -159,7 +160,7 @@ class Heartbeat:
             self.stop = True
 
         except Exception as e:
-            LOGGER.error("Unknown error")
+            LOGGER.error("unknown error")
             LOGGER.exception(e)
             raise ErrorClient()
 

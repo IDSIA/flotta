@@ -112,7 +112,7 @@ class SignableRequest(Request):
 
                     if self.content_encrypted:
                         # decrypt body
-                        LOGGER.debug("Received not signed request with encrypted data")
+                        LOGGER.debug("received not signed request with encrypted data")
 
                         self.checksum, body = self.security.exc.get_payload(body)
 

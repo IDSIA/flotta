@@ -65,7 +65,7 @@ class DataBase:
 
     def __new__(cls: type[DataBase]) -> DataBase:
         if not hasattr(cls, "instance"):
-            LOGGER.debug("Database singleton creation")
+            LOGGER.debug("database singleton creation")
             cls.instance = super(DataBase, cls).__new__(cls)
 
             conf: Configuration = config_manager.get()
@@ -83,7 +83,7 @@ class DataBase:
                 autoflush=False,
             )
 
-            LOGGER.info("DataBase connection established")
+            LOGGER.info("dataBase connection established")
 
         return cls.instance
 

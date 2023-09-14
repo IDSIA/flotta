@@ -21,19 +21,14 @@ def init_api() -> FastAPI:
     """Initializes the API by adding the routers."""
     api: FastAPI = FastAPI()
 
-    LOGGER.info("Added router for /node")
     api.include_router(node_router)
-
-    LOGGER.info("Added router for /workbench")
     api.include_router(workbench_router)
-
-    LOGGER.info("Added router for /task")
     api.include_router(task_router)
-
-    LOGGER.info("Added router for /client")
     api.include_router(client_router)
 
     api.router.route_class = SignedAPIRoute
+
+    LOGGER.info("API initialization completed")
 
     return api
 

@@ -84,6 +84,7 @@ class ComponentRepository(Repository):
         ip_address: str,
         url: str,
         is_self: bool = False,
+        is_join: bool = False,
         active: bool = True,
         blacklisted: bool = False,
         left: bool = False,
@@ -130,7 +131,9 @@ class ComponentRepository(Repository):
                 A handler to the component object.
         """
 
-        LOGGER.info(f"creating new component_id={component_id} type_name={type_name} version={version} name={name}")
+        LOGGER.info(
+            f"creating new component_id={component_id} type_name={type_name} version={version} name={name} url={url}"
+        )
 
         if type_name == TYPE_USER:
             await self._check_for_existing_user(public_key)
@@ -146,6 +149,7 @@ class ComponentRepository(Repository):
             type_name=type_name,
             name=name,
             is_self=is_self,
+            is_join=is_join,
             url=url,
             active=active,
             blacklisted=blacklisted,
@@ -341,6 +345,18 @@ class ComponentRepository(Repository):
         """
 
         res = await self.session.scalars(select(ComponentDB).where(ComponentDB.is_self == True).limit(1))  # noqa: E712
+
+        component: ComponentDB = res.one()
+
+        return viewComponent(component)
+
+    async def get_join_component(self) -> Component:
+        """Returns:
+        str:
+            The component associated with the node itself.
+        """
+
+        res = await self.session.scalars(select(ComponentDB).where(ComponentDB.is_join == True).limit(1))  # noqa: E712
 
         component: ComponentDB = res.one()
 

@@ -60,6 +60,20 @@ def check_for_env_variables(value_in: dict[str, Any], prefix: str) -> dict[str, 
     return value_out
 
 
+def clean_protocol_port(protocol: str, port: int) -> tuple[str, str]:
+    _protocol, _port = protocol, f":{port}"
+
+    if port == 80:
+        _protocol, _port = "http", ""
+    if port == 443:
+        _protocol, _port = "https", ""
+
+    if not _protocol:
+        _protocol = "http"
+
+    return _protocol, _port
+
+
 class NodeConfiguration(BaseModel):
     name: str = ""
 
@@ -85,14 +99,6 @@ class NodeConfiguration(BaseModel):
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         return check_for_env_variables(values, "ferdelance_node")
-
-    def url_extern(self) -> str:
-        """Url that will be sent to other nodes and used to contact this node."""
-        return f"{self.protocol}://{self.url.rstrip('/')}:{self.port}"
-
-    def url_deploy(self) -> str:
-        """Url to use for deploying the api throug ray serve."""
-        return f"{self.protocol}://{self.interface.rstrip('/')}:{self.port}"
 
 
 class JoinConfiguration(BaseModel):
@@ -212,7 +218,7 @@ class Configuration(BaseSettings):
 
         # Force node url to localhost when mode=client
         if "mode" in values and values["mode"] == "client":
-            LOGGER.info("Client mode detected, forcing api to localhost")
+            LOGGER.info("client mode detected, forcing api to localhost")
             node = values["node"]
             node["protocol"] = "http"
             node["interface"] = "localhost"
@@ -229,6 +235,18 @@ class Configuration(BaseSettings):
             return TYPE_NODE
 
         raise ValueError(f"invalid or unsupported mode={self.mode}")
+
+    def url_extern(self) -> str:
+        """Url that will be sent to other nodes and used to contact this node."""
+        _protocol, _port = clean_protocol_port(self.node.protocol, self.node.port)
+
+        return f"{_protocol}://{self.node.url.rstrip('/')}{_port}"
+
+    def url_deploy(self) -> str:
+        """Url to use for deploying the api throug ray serve."""
+        _protocol, _port = clean_protocol_port(self.node.protocol, self.node.port)
+
+        return f"{_protocol}://{self.node.interface.rstrip('/')}{_port}"
 
     def storage_datasources_dir(self) -> str:
         return os.path.join(self.workdir, "datasources")
@@ -298,20 +316,20 @@ class ConfigManager:
 
         if env_path:
             config_path: str = env_path
-            LOGGER.info(f"Configuration file provided through environment variable path={config_path}")
+            LOGGER.info(f"configuration file provided through environment variable path={config_path}")
 
         # default config path
         if not config_path:
-            LOGGER.info("No configuration file provided")
+            LOGGER.info("no configuration file provided")
             self._set_default_config()
             return
 
         if not os.path.exists(config_path):
-            LOGGER.warn(f"Configuration file not found at {config_path}")
+            LOGGER.warn(f"configuration file not found at {config_path}")
             self._set_default_config()
             return
 
-        LOGGER.info(f"Loading configuration from path={config_path}")
+        LOGGER.info(f"loading configuration from path={config_path}")
 
         with open(config_path, "r") as f:
             try:
@@ -324,7 +342,7 @@ class ConfigManager:
                 self._set_default_config()
 
     def _set_default_config(self) -> None:
-        LOGGER.warning("Using default configuration.")
+        LOGGER.warning("using default configuration.")
         self.config: Configuration = Configuration()
         self.config.dump()
 

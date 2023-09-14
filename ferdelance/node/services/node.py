@@ -112,8 +112,6 @@ class NodeService:
         await dsr.create_or_update_from_metadata(self.component.id, metadata)
         await pr.add_datasources_from_metadata(metadata)
 
-        await self.distribute_metadata(self.component, metadata)
-
         return metadata
 
     async def add(self, new_component: Component) -> None:
@@ -204,8 +202,12 @@ class NodeService:
                 )
 
     async def distribute_metadata(self, component: Component, metadata: Metadata) -> None:
+        # TODO: not used at the moment, how do we want to distribute metadata between NODES? (not clients!)
+
         if component.type_name != TYPE_NODE:
             return
+
+        node_metadata = NodeMetadata(id=component.id, metadata=metadata)
 
         for node in await self.cr.list_nodes():
             if node.id == self.component.id:
@@ -216,7 +218,6 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
-            node_metadata = NodeMetadata(id=component.id, metadata=metadata)
             headers, payload = self.ss.create(self.component.id, node_metadata.json())
 
             res = requests.put(

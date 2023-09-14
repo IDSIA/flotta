@@ -69,7 +69,7 @@ async def node_join(
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
-        LOGGER.exception("Database error")
+        LOGGER.exception("database error")
         raise HTTPException(500, "Internal error")
 
     except ValueError as e:

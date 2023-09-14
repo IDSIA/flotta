@@ -40,4 +40,6 @@ def get_logger(name: str) -> logging.Logger:
     console_handler.setLevel(level)
     logger.addHandler(console_handler)
 
+    logger.propagate = False
+
     return logger

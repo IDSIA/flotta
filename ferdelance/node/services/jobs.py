@@ -219,7 +219,7 @@ class JobManagementService(Repository):
             args = TaskArguments(
                 component_id=self.component_id,
                 private_key=self.ss.get_private_key(),
-                node_url=config_manager.get().node.url_extern(),
+                node_url=config_manager.get().url_extern(),
                 node_public_key=self.ss.get_public_key(),
                 datasources=list(),
                 workdir=".",

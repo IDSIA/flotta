@@ -22,7 +22,7 @@ class ServerWrapper:
 
 
 def start_node(configuration: Configuration, name: str = "Ferdelance_node") -> RayServeSyncHandle | None:
-    LOGGER.info(f"Creating server at host={configuration.node.interface} port={configuration.node.port}")
+    LOGGER.info(f"creating server at host={configuration.node.interface} port={configuration.node.port}")
 
     return serve.run(
         ServerWrapper.bind(),
@@ -37,7 +37,7 @@ def wait_node(config: Configuration, c):
     while True:
         sleep(config.node.healthcheck)
         try:
-            res = requests.get(f"{config.node.url_deploy()}/")
+            res = requests.get(f"{config.url_deploy()}/")
             res.raise_for_status()
         except Exception as e:
             LOGGER.error(e)

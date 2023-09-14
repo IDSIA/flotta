@@ -67,7 +67,7 @@ async def wb_connect(
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
-        LOGGER.exception("Database error")
+        LOGGER.exception("database error")
         raise HTTPException(500, "Internal error")
 
     except ValueError as e:
@@ -133,7 +133,7 @@ async def wb_post_artifact_submit(
         return await wb.submit_artifact(artifact)
 
     except ValueError as e:
-        LOGGER.error("Artifact already exists")
+        LOGGER.error("artifact already exists")
         LOGGER.exception(e)
         raise HTTPException(403)
 

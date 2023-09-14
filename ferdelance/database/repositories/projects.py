@@ -144,14 +144,31 @@ class ProjectRepository(Repository):
             ds: DataSourceDB = res.one()
 
             if not mdds.tokens:
+                LOGGER.warn(f"no tokens assigned to datasource_id={mdds.id}")
                 continue
 
-            res = await self.session.scalars(select(ProjectDB.id).filter(ProjectDB.token.in_(mdds.tokens)))
-            project_ids: list[str] = list(res.all())
+            res = await self.session.scalars(select(ProjectDB).filter(ProjectDB.token.in_(mdds.tokens)))
+            projects: list[ProjectDB] = list(res.all())
+            project_tokens: list[str] = [p.token for p in projects]
+            project_ids: list[str] = [p.id for p in projects]
 
-            if not project_ids:
-                LOGGER.warn(f"No project id found for datasource_id={mdds.id} and datasource_hash={mdds.hash}")
-                continue
+            missing_tokens = []
+            for token in mdds.tokens:
+                if token not in project_tokens:
+                    missing_tokens.append(token)
+
+            if missing_tokens:
+                LOGGER.warn(
+                    f"{len(missing_tokens)} project token(s) not found for "
+                    f"datasource_id={mdds.id} datasource_hash={mdds.hash}"
+                )
+
+                for new_token in missing_tokens:
+                    project_id = await self.create_project("", new_token)
+
+                    LOGGER.info(f"created new project_id={project_id} for unknown token={new_token}")
+
+                    project_ids.append(project_id)
 
             for project_id in project_ids:
                 res = await self.session.scalars(

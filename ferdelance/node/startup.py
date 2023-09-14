@@ -47,11 +47,13 @@ class NodeStartup(Repository):
         """Create teh initial project with the default token given through
         configuration files.
         """
+        p_token = self.config.node.token_project_default
         try:
-            await self.pr.create_project("Project Zero", self.config.node.token_project_default)
+            await self.pr.create_project("Project Zero", p_token)
+            LOGGER.info(f"created project zero with token={p_token}")
 
         except ValueError:
-            LOGGER.warning("Project zero already exists")
+            LOGGER.warning(f"project zero already exists token={p_token}")
 
     async def add_metadata(self) -> None:
         """Add metadata found in the configuration file. The metadata are
@@ -60,7 +62,7 @@ class NodeStartup(Repository):
         metadata = self.data.metadata()
 
         if not metadata.datasources:
-            LOGGER.info("No metadata associated with this node")
+            LOGGER.info("no metadata associated with this node")
             return
 
         ns: NodeService = NodeService(self.session, self.self_component)
@@ -78,10 +80,12 @@ class NodeStartup(Repository):
 
         except NoResultFound:
             # define component id
+            LOGGER.info("creating self component")
+
             component_id = str(
                 uuid.uuid5(
                     uuid.NAMESPACE_URL,
-                    self.config.node.url_extern(),
+                    f"{self.config.node.name}+{self.config.url_extern()}",
                 )
             )
 
@@ -92,10 +96,11 @@ class NodeStartup(Repository):
                 __version__,
                 self.config.node.name,
                 "127.0.0.1",
-                self.config.node.url,
+                self.config.url_extern(),
                 True,
             )
-            LOGGER.info("self component created")
+
+        LOGGER.info(f"this node has component_id={self.self_component.id}")
 
         # projects
         await self.create_project()
@@ -108,6 +113,19 @@ class NodeStartup(Repository):
         if self.config.join.url is None:
             LOGGER.warning("remote node url not set")
             return
+
+        try:
+            join_component = await self.cr.get_join_component()
+            LOGGER.info(
+                f"node already joined to remote node with component_id={join_component.id} url={join_component.url}"
+            )
+            self.remote_key = join_component.public_key
+            self.ss.set_remote_key(self.remote_key)
+
+            return
+
+        except NoResultFound:
+            LOGGER.info("starting join procedure")
 
         remote = self.config.join.url.rstrip("/")
         try:
@@ -134,12 +152,13 @@ class NodeStartup(Repository):
                 type_name=type_name,
                 public_key=self.ss.get_public_key(),
                 version=__version__,
-                url=self.config.node.url_extern(),
+                url=self.config.url_extern(),
                 checksum=checksum,
                 signature=signature,
             )
 
-            headers, join_req_payload = self.ss.create(self.self_component.id, join_req.json())
+            _, join_req_payload = self.ss.exc.create_payload(join_req.json())
+            headers = self.ss.exc.create_header(True)
 
             res = requests.post(
                 f"{remote}/node/join",
@@ -154,8 +173,12 @@ class NodeStartup(Repository):
             # get node list
             join_data = JoinData(**json.loads(payload))
 
+            LOGGER.info(f"joined node with component_id={join_data.component_id}")
+
             for node in join_data.nodes:
                 # insert nodes into database
+                LOGGER.info(f"adding new node with id={node.id} url={node.url}")
+
                 await self.cr.create_component(
                     node.id,
                     node.type_name,
@@ -165,6 +188,7 @@ class NodeStartup(Repository):
                     node.ip_address,
                     node.url,
                     False,
+                    node.id == join_data.component_id,
                 )
 
         except Exception as e:
@@ -173,7 +197,7 @@ class NodeStartup(Repository):
 
     async def start_heartbeat(self):
         if self.config.mode in ("client", "standalone"):
-            LOGGER.info("Start client heartbeat")
+            LOGGER.info("starting client heartbeat")
 
             client = Heartbeat.remote(
                 self.self_component.id,

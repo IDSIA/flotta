@@ -34,6 +34,7 @@ class Component(Base):
 
     name: Mapped[str] = mapped_column(nullable=True)
     is_self: Mapped[bool] = mapped_column(default=False)
+    is_join: Mapped[bool] = mapped_column(default=False)
 
     type_name: Mapped[str] = mapped_column(ForeignKey("component_types.type"))
     type = relationship("ComponentType")
