@@ -97,7 +97,7 @@ class Context:
         if id_path is None:
             id_path = os.path.join(DATA_DIR, "id")
 
-            if os.path.exists(ssh_key_path):
+            if os.path.exists(id_path):
                 with open(id_path, "r") as f:
                     self.id: str = f.read()
             else:
@@ -113,7 +113,7 @@ class Context:
         headers = self.exc.create_header(False)
 
         response_key = requests.get(
-            "/node/key",
+            f"{self.server}/node/key",
             headers=headers,
         )
 
@@ -162,7 +162,7 @@ class Context:
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = self.create(self.id, wpt.json())
+        headers, payload = self.exc.create(self.id, wpt.json())
 
         res = requests.get(
             f"{self.server}/workbench/project",
@@ -188,7 +188,7 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.create(self.id, wpt.json())
+        headers, payload = self.exc.create(self.id, wpt.json())
 
         res = requests.get(
             f"{self.server}/workbench/clients",
@@ -214,7 +214,7 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.create(self.id, wpt.json())
+        headers, payload = self.exc.create(self.id, wpt.json())
 
         res = requests.get(
             f"{self.server}/workbench/datasources",
@@ -245,7 +245,7 @@ class Context:
             estimator=estimate.estimator,
         )
 
-        headers, payload = self.create(self.id, artifact.json())
+        headers, payload = self.exc.create(self.id, artifact.json())
 
         res = requests.post(
             f"{self.server}/workbench/artifact/submit",
@@ -307,7 +307,7 @@ class Context:
             model=query.model,
         )
 
-        headers, payload = self.create(self.id, artifact.json())
+        headers, payload = self.exc.create(self.id, artifact.json())
 
         res = requests.post(
             f"{self.server}/workbench/artifact/submit",
@@ -339,7 +339,7 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.create(self.id, wba.json())
+        headers, payload = self.exc.create(self.id, wba.json())
 
         res = requests.get(
             f"{self.server}/workbench/artifact/status",
@@ -366,7 +366,7 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = self.create(self.id, wba.json())
+        headers, payload = self.exc.create(self.id, wba.json())
 
         res = requests.get(
             f"{self.server}/workbench/artifact",
@@ -397,7 +397,7 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.create(self.id, wba.json())
+        headers, payload = self.exc.create(self.id, wba.json())
 
         with requests.get(
             f"{self.server}/workbench/result",
@@ -431,7 +431,7 @@ class Context:
         if artifact.model is None:
             raise ValueError("no model associated with this artifact")
 
-        headers, _ = self.create(self.id, "")
+        headers, _ = self.exc.create(self.id, "")
 
         with requests.get(
             f"{self.server}/workbench/result/partial/{artifact.id}/{client_id}",

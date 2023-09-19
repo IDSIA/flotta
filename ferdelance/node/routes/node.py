@@ -21,14 +21,12 @@ node_router = APIRouter(prefix="/node", route_class=SignedAPIRoute)
 async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> ValidSessionArgs:
     try:
         if args.component.type_name not in (TYPE_CLIENT, TYPE_NODE):
-            LOGGER.warning(
-                f"component_id={args.component.id}: type={args.component.type_name} cannot access this router"
-            )
+            LOGGER.warning(f"component={args.component.id}: type={args.component.type_name} cannot access this router")
             raise HTTPException(403, "Access Denied")
 
         return args
     except NoResultFound:
-        LOGGER.warning(f"component_id={args.component.id}: not found")
+        LOGGER.warning(f"component={args.component.id}: not found")
         raise HTTPException(403, "Access Denied")
 
 
@@ -86,7 +84,7 @@ async def node_leave(
     args: ValidSessionArgs = Depends(allow_access),
 ) -> None:
     """API for existing client to be removed"""
-    LOGGER.info(f"component_id={args.component.id}: request to leave")
+    LOGGER.info(f"component={args.component.id}: request to leave")
 
     ns: NodeService = NodeService(args.session, args.component)
 
@@ -103,7 +101,7 @@ async def node_metadata(
     - summary (source, data type, min value, max value, standard deviation, ...) of features available
       for each data source
     """
-    LOGGER.info(f"component_id={args.component.id}: update metadata request")
+    LOGGER.info(f"component={args.component.id}: update metadata request")
 
     ns: NodeService = NodeService(args.session, args.component)
 
@@ -115,7 +113,7 @@ async def node_update_add(
     new_component: Component,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component_id={args.component.id}: adding new node component_id={new_component.id}")
+    LOGGER.info(f"component={args.component.id}: adding new node component={new_component.id}")
 
     try:
         ns: NodeService = NodeService(args.session, args.component)
@@ -124,7 +122,7 @@ async def node_update_add(
 
     except Exception as e:
         LOGGER.error(
-            f"Could not add new component with component_id={new_component.id} from component_id={args.component.id}"
+            f"Could not add new component with component={new_component.id} from component={args.component.id}"
         )
         LOGGER.exception(e)
         raise HTTPException(500)
@@ -135,16 +133,14 @@ async def node_update_remove(
     component: Component,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component_id={args.component.id}: removing node")
+    LOGGER.info(f"component={args.component.id}: removing node")
     ns: NodeService = NodeService(args.session, args.component)
 
     try:
         await ns.remove(component)
 
     except Exception as e:
-        LOGGER.error(
-            f"Could not remove component with component_id={component.id} from component_id={args.component.id}"
-        )
+        LOGGER.error(f"Could not remove component with component={component.id} from component={args.component.id}")
         LOGGER.exception(e)
         raise HTTPException(500)
 
@@ -154,7 +150,7 @@ async def node_update_metadata(
     node_metadata: NodeMetadata,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component_id={args.component.id}: updating metadata")
+    LOGGER.info(f"component={args.component.id}: updating metadata")
 
     cr: ComponentRepository = ComponentRepository(args.session)
 

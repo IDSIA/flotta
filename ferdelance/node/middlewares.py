@@ -97,12 +97,12 @@ class SignableRequest(Request):
             try:
                 if self.content_encrypted and self.signed_checksum and self.component:
                     # decrypt body
-                    LOGGER.debug(f"component_id={self.component.id}: Received signed request with encrypted data")
+                    LOGGER.debug(f"component={self.component.id}: Received signed request with encrypted data")
 
                     self.checksum, payload = self.security.exc.get_payload(body)
 
                     if self.signed_checksum != self.checksum:
-                        LOGGER.warning(f"component_id={self.component.id}: Checksum failed")
+                        LOGGER.warning(f"component={self.component.id}: Checksum failed")
                         raise HTTPException(403)
 
                     body = payload
@@ -142,11 +142,11 @@ async def check_signature(db_session: AsyncSession, request: Request) -> Signabl
         component = await cr.get_by_id(component_id)
 
         if not component.active:
-            LOGGER.warning(f"component_id={component.id}: request denied to inactive component")
+            LOGGER.warning(f"component={component.id}: request denied to inactive component")
             raise HTTPException(403, "Inactive component")
 
         if component.blacklisted:
-            LOGGER.warning(f"component_id={component.id}: request denied to blacklisted component")
+            LOGGER.warning(f"component={component.id}: request denied to blacklisted component")
             raise HTTPException(403, "Access Denied")
 
         request.security.set_remote_key(component.public_key)

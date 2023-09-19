@@ -1,7 +1,7 @@
 from ferdelance.const import TYPE_CLIENT
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
-from ferdelance.node.services import ComponentService
+from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.client import ClientUpdate
 from ferdelance.schemas.updates import UpdateData
 
@@ -19,13 +19,13 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
     try:
         if args.component.type_name != TYPE_CLIENT:
             LOGGER.warning(
-                f"component_id={args.component.id}: client of type={args.component.type_name} cannot access this route"
+                f"component={args.component.id}: client of type={args.component.type_name} cannot access this route"
             )
             raise HTTPException(403)
 
         return args
     except NoResultFound:
-        LOGGER.warning(f"client_id={args.component.id} not found")
+        LOGGER.warning(f"client={args.component.id} not found")
         raise HTTPException(403)
 
 
@@ -45,10 +45,10 @@ async def client_update(
     - new client app package
     - nothing (keep alive)
     """
-    LOGGER.debug(f"client_id={args.component.id}: update request")
+    LOGGER.debug(f"client={args.component.id}: update request")
 
-    cs: ComponentService = ComponentService(args.session, args.component)
+    jms: JobManagementService = JobManagementService(args.session, args.component)
 
-    next_action = await cs.update()
+    next_action = await jms.update()
 
     return next_action

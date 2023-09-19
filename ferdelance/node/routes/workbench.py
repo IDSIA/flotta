@@ -32,7 +32,7 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
 
         return args
     except NoResultFound:
-        LOGGER.warning(f"component_id={args.component.id} not found")
+        LOGGER.warning(f"component={args.component.id} not found")
         raise HTTPException(403)
 
 
@@ -84,7 +84,7 @@ async def wb_get_project(
     wpt: WorkbenchProjectToken,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> Project:
-    LOGGER.info(f"user_id={args.component.id}: requested a project given its token")
+    LOGGER.info(f"user={args.component.id}: requested a project given its token")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
@@ -92,7 +92,7 @@ async def wb_get_project(
         return await ws.project(wpt.token)
 
     except NoResultFound:
-        LOGGER.warning(f"user_id={args.component.id}: request project with invalid token={wpt.token}")
+        LOGGER.warning(f"user={args.component.id}: request project with invalid token={wpt.token}")
         raise HTTPException(404)
 
 
@@ -101,7 +101,7 @@ async def wb_get_client_list(
     wpt: WorkbenchProjectToken,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> WorkbenchClientList:
-    LOGGER.info(f"user_id={args.component.id}: requested a list of clients")
+    LOGGER.info(f"user={args.component.id}: requested a list of clients")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
@@ -113,7 +113,7 @@ async def wb_get_datasource_list(
     wpt: WorkbenchProjectToken,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> WorkbenchDataSourceIdList:
-    LOGGER.info(f"user_id={args.component.id}: requested a list of available data source")
+    LOGGER.info(f"user={args.component.id}: requested a list of available data source")
 
     wb: WorkbenchService = WorkbenchService(args.session, args.component)
 
@@ -125,7 +125,7 @@ async def wb_post_artifact_submit(
     artifact: Artifact,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> ArtifactStatus:
-    LOGGER.info(f"user_id={args.component.id}: submitted a new artifact")
+    LOGGER.info(f"user={args.component.id}: submitted a new artifact")
 
     wb: WorkbenchService = WorkbenchService(args.session, args.component)
 
@@ -143,7 +143,7 @@ async def wb_get_artifact_status(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> ArtifactStatus:
-    LOGGER.info(f"user_id={args.component.id}: requested status of artifact")
+    LOGGER.info(f"user={args.component.id}: requested status of artifact")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
@@ -151,7 +151,7 @@ async def wb_get_artifact_status(
         return await ws.get_status_artifact(wba.artifact_id)
 
     except NoResultFound:
-        LOGGER.warning(f"artifact_id={wba.artifact_id} not found in database")
+        LOGGER.warning(f"artifact={wba.artifact_id} not found in database")
         raise HTTPException(404)
 
 
@@ -160,7 +160,7 @@ async def wb_get_artifact(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user_id={args.component.id}: requested details on artifact")
+    LOGGER.info(f"user={args.component.id}: requested details on artifact")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
@@ -177,7 +177,7 @@ async def wb_get_result(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user_id={args.component.id}: requested result with artifact_id={wba.artifact_id}")
+    LOGGER.info(f"user={args.component.id}: requested result with artifact={wba.artifact_id}")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
@@ -191,12 +191,12 @@ async def wb_get_result(
         raise HTTPException(404)
 
     except NoResultFound:
-        LOGGER.warning(f"no aggregated model found for artifact_id={wba.artifact_id}")
+        LOGGER.warning(f"no aggregated model found for artifact={wba.artifact_id}")
         raise HTTPException(404)
 
     except MultipleResultsFound:
         # TODO: do we want to allow this?
-        LOGGER.error(f"multiple aggregated models found for artifact_id={wba.artifact_id}")
+        LOGGER.error(f"multiple aggregated models found for artifact={wba.artifact_id}")
         raise HTTPException(500)
 
 
@@ -207,8 +207,7 @@ async def wb_get_partial_result(
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(
-        f"user_id={args.component.id}: requested partial model for "
-        f"artifact_id={artifact_id} from user_id={builder_user_id}"
+        f"user={args.component.id}: requested partial model for " f"artifact={artifact_id} from user={builder_user_id}"
     )
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
@@ -223,11 +222,11 @@ async def wb_get_partial_result(
         raise HTTPException(404)
 
     except NoResultFound:
-        LOGGER.warning(f"no partial model found for artifact_id={artifact_id} and user_id={builder_user_id}")
+        LOGGER.warning(f"no partial model found for artifact={artifact_id} and user={builder_user_id}")
         raise HTTPException(404)
 
     except MultipleResultsFound:
         LOGGER.error(
-            f"multiple partial models found for artifact_id={artifact_id} and user_id={builder_user_id}"
+            f"multiple partial models found for artifact={artifact_id} and user={builder_user_id}"
         )  # TODO: do we want to allow this?
         raise HTTPException(500)

@@ -55,7 +55,7 @@ class NodeService:
         except Exception as e:
             raise e
 
-        LOGGER.info(f"component_id={data.id}: joining new component")
+        LOGGER.info(f"component={data.id}: joining new component")
 
         self.component = await self.cr.create_component(
             data.id,
@@ -71,7 +71,7 @@ class NodeService:
 
         await self.cr.create_event(self.component.id, "creation")
 
-        LOGGER.info(f"component_id={self.component.id}: created new client")
+        LOGGER.info(f"component={self.component.id}: created new client")
 
         self_component = await self.cr.get_self_component()
 
@@ -117,7 +117,7 @@ class NodeService:
     async def add(self, new_component: Component) -> None:
         try:
             await self.cr.get_by_id(new_component.id)
-            LOGGER.warning(f"component_id={self.component.id}: new component_id={new_component.id} already exists")
+            LOGGER.warning(f"component={self.component.id}: new component={new_component.id} already exists")
             return
         except NoResultFound:
             pass
@@ -125,8 +125,8 @@ class NodeService:
         try:
             c = await self.cr.get_by_key(new_component.public_key)
             LOGGER.warning(
-                f"component_id={self.component.id}: public key already exists for new component_id={new_component.id} "
-                f"under component_id={c.id}"
+                f"component={self.component.id}: public key already exists for new component={new_component.id} "
+                f"under component={c.id}"
             )
             return
         except NoResultFound:
@@ -162,6 +162,10 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
+            LOGGER.info(f"component={self.component.id}: distributing node add to component={node.id}")
+
+            self.ss.set_remote_key(node.public_key)
+
             headers, payload = self.ss.create(self.component.id, new_component.json())
 
             res = requests.put(
@@ -172,7 +176,7 @@ class NodeService:
 
             if res.status_code != 200:
                 LOGGER.error(
-                    f"component_id={self.component.id}: could not add component_id={new_component.id} to node={node.id}"
+                    f"component={self.component.id}: could not add component={new_component.id} to node={node.id}"
                 )
 
     async def distribute_remove(self, component: Component) -> None:
@@ -197,17 +201,13 @@ class NodeService:
             )
             if res.status_code != 200:
                 LOGGER.error(
-                    f"component_id={self.component.id}: could not remove "
-                    f"component_id={component.id} from node={node.id}"
+                    f"component={self.component.id}: could not remove " f"component={component.id} from node={node.id}"
                 )
 
-    async def distribute_metadata(self, component: Component, metadata: Metadata) -> None:
+    async def distribute_metadata(self, metadata: Metadata) -> None:
         # TODO: not used at the moment, how do we want to distribute metadata between NODES? (not clients!)
 
-        if component.type_name != TYPE_NODE:
-            return
-
-        node_metadata = NodeMetadata(id=component.id, metadata=metadata)
+        node_metadata = NodeMetadata(id=self.component.id, metadata=metadata)
 
         for node in await self.cr.list_nodes():
             if node.id == self.component.id:
@@ -218,6 +218,10 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
+            LOGGER.info(f"component={self.component.id}: sending metadata to component={node.id}")
+
+            self.ss.set_remote_key(node.public_key)
+
             headers, payload = self.ss.create(self.component.id, node_metadata.json())
 
             res = requests.put(
@@ -227,7 +231,4 @@ class NodeService:
             )
 
             if res.status_code != 200:
-                LOGGER.error(
-                    f"component_id={self.component.id}: could not send metadata from "
-                    f"component_id={component.id} to node={node.id}"
-                )
+                LOGGER.error(f"component={self.component.id}: could not send metadata from to node={node.id}")

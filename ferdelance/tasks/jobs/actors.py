@@ -31,7 +31,7 @@ class GenericJob(ABC):
         self.job_id: str = job_id
 
     def __repr__(self) -> str:
-        return f"Job artifact_id={self.artifact_id} job_id={self.job_id}"
+        return f"Job artifact={self.artifact_id} job={self.job_id}"
 
     @abstractmethod
     def run(self):
@@ -191,7 +191,7 @@ class AggregatingJob(GenericJob):
             else:
                 base = agg.aggregate(base, partial)
 
-        LOGGER.info(f"artifact_id={artifact.id}: aggregated {len(result_ids)} estimator(s)")
+        LOGGER.info(f"artifact={artifact.id}: aggregated {len(result_ids)} estimator(s)")
 
         return base
 
@@ -209,7 +209,7 @@ class AggregatingJob(GenericJob):
             else:
                 base = agg.aggregate(strategy, base, partial)
 
-        LOGGER.info(f"artifact_id={artifact.id}: aggregated {len(result_ids)} model(s)")
+        LOGGER.info(f"artifact={artifact.id}: aggregated {len(result_ids)} model(s)")
 
         return base
 
@@ -224,6 +224,6 @@ class AggregatingJob(GenericJob):
             base = self.aggregate_model(artifact, result_ids)
 
         else:
-            raise ValueError(f"Unsupported artifact_id={self.job_id}")
+            raise ValueError(f"Unsupported artifact={self.job_id}")
 
         return base

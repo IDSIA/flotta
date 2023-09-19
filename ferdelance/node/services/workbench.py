@@ -66,9 +66,9 @@ class WorkbenchConnectService:
                 "",
             )
 
-            LOGGER.info(f"user_id={user.id}: created new user")
+            LOGGER.info(f"user={user.id}: created new user")
 
-        LOGGER.info(f"user_id={user.id}: new workbench connected")
+        LOGGER.info(f"user={user.id}: new workbench connected")
 
 
 class WorkbenchService:
@@ -85,7 +85,7 @@ class WorkbenchService:
 
         project = await pr.get_by_token(project_token)
 
-        LOGGER.info(f"user_id={self.component.id}: loaded project with project_id={project.id}")
+        LOGGER.info(f"user={self.component.id}: loaded project with project={project.id}")
 
         return project
 
@@ -99,9 +99,7 @@ class WorkbenchService:
 
         client_details = [ClientDetails(**c.dict()) for c in clients]
 
-        LOGGER.info(
-            f"user_id={self.component.id}: found {len(client_details)} datasource(s) with token={project_token}"
-        )
+        LOGGER.info(f"user={self.component.id}: found {len(client_details)} datasource(s) with token={project_token}")
 
         return WorkbenchClientList(clients=client_details)
 
@@ -113,11 +111,11 @@ class WorkbenchService:
 
         datasources = [await dsr.load(ds_id) for ds_id in datasource_ids]
 
-        LOGGER.info(f"user_id={self.component.id}: found {len(datasources)} datasource(s) with token={project_token}")
+        LOGGER.info(f"user={self.component.id}: found {len(datasources)} datasource(s) with token={project_token}")
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        jms: JobManagementService = JobManagementService(self.session, self.component.id)
+        jms: JobManagementService = JobManagementService(self.session, self.component)
         return await jms.submit_artifact(artifact)
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
@@ -129,7 +127,7 @@ class WorkbenchService:
 
         status = await ar.get_status(artifact_id)
 
-        LOGGER.info(f"user_id={self.component.id}: got status of artifact_id={artifact_id} status={status.status}")
+        LOGGER.info(f"user={self.component.id}: got status of artifact={artifact_id} status={status.status}")
 
         return status
 
@@ -138,7 +136,7 @@ class WorkbenchService:
         :raise:
             ValueError if the requested artifact cannot be found.
         """
-        LOGGER.info(f"user_id={self.component.id}: dowloading artifact with artifact_id={artifact_id}")
+        LOGGER.info(f"user={self.component.id}: dowloading artifact with artifact={artifact_id}")
 
         ar: ArtifactRepository = ArtifactRepository(self.session)
 
@@ -160,9 +158,9 @@ class WorkbenchService:
         result: Result = await rr.get_aggregated_result(artifact_id)
 
         if not os.path.exists(result.path):
-            raise ValueError(f"result_id={result.id} not found at path={result.path}")
+            raise ValueError(f"result={result.id} not found at path={result.path}")
 
-        LOGGER.info(f"user_id={self.component.id}: downloaded results for artifact_id={artifact_id}")
+        LOGGER.info(f"user={self.component.id}: downloaded results for artifact={artifact_id}")
 
         return result
 
@@ -181,11 +179,11 @@ class WorkbenchService:
         result: Result = await rr.get_partial_result(artifact_id, builder_user_id)
 
         if not os.path.exists(result.path):
-            raise ValueError(f"partial result_id={result.id} not found at path={result.path}")
+            raise ValueError(f"partial result={result.id} not found at path={result.path}")
 
         LOGGER.info(
-            f"user_id={self.component.id}: downloaded partial result for artifact_id={artifact_id} "
-            f"and builder_user_id={builder_user_id}"
+            f"user={self.component.id}: downloaded partial result for artifact={artifact_id} "
+            f"and builder_user={builder_user_id}"
         )
 
         return result

@@ -131,9 +131,7 @@ class ComponentRepository(Repository):
                 A handler to the component object.
         """
 
-        LOGGER.info(
-            f"creating new component_id={component_id} type_name={type_name} version={version} name={name} url={url}"
-        )
+        LOGGER.info(f"creating new component={component_id} type={type_name} version={version} name={name} url={url}")
 
         if type_name == TYPE_USER:
             await self._check_for_existing_user(public_key)
@@ -168,7 +166,7 @@ class ComponentRepository(Repository):
         existing_id: str | None = res.one_or_none()
 
         if existing_id is not None:
-            LOGGER.warning(f"component_id={existing_id}: already exists")
+            LOGGER.warning(f"component={existing_id}: already exists")
             raise ValueError("Component already exists")
 
     async def _check_for_existing_component(self, component_id: str, public_key: str):
@@ -181,7 +179,7 @@ class ComponentRepository(Repository):
         existing_id: str | None = res.one_or_none()
 
         if existing_id is not None:
-            LOGGER.warning(f"A {TYPE_CLIENT} already exists with component_id={existing_id}")
+            LOGGER.warning(f"A {TYPE_CLIENT} already exists with component={existing_id}")
             raise ValueError("Component already exists")
 
     async def update_component(self, component_id: str, version: str) -> None:
@@ -208,7 +206,7 @@ class ComponentRepository(Repository):
 
         await self.session.commit()
 
-        LOGGER.info(f"client_id={component_id}: updated client version to {version}")
+        LOGGER.info(f"client={component_id}: updated client version to {version}")
 
     async def component_leave(self, component_id: str) -> None:
         """Marks a client as it left the server and it is no more available
@@ -376,7 +374,7 @@ class ComponentRepository(Repository):
                 Just an event handler.
         """
 
-        LOGGER.debug(f'component_id={component_id}: creating new event="{event}"')
+        LOGGER.debug(f'component={component_id}: creating new event="{event}"')
 
         event_db = EventDB(component_id=component_id, event=event)
 

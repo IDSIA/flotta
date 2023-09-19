@@ -70,7 +70,7 @@ class ArtifactRepository(Repository):
                 raise ValueError("artifact already exists!")
 
         if artifact.is_model() and artifact.is_estimation():
-            raise ValueError(f"invalid artifact_id={artifact.id} with both model and estimation")
+            raise ValueError(f"invalid artifact={artifact.id} with both model and estimation")
 
         status = ArtifactJobStatus.SCHEDULED.name
 
@@ -158,14 +158,14 @@ class ArtifactRepository(Repository):
             artifact_path: str = await self.storage_location(artifact_id)
 
             if not await aos.path.exists(artifact_path):
-                raise ValueError(f"artifact_id={artifact_id} not found")
+                raise ValueError(f"artifact={artifact_id} not found")
 
             async with aiofiles.open(artifact_path, "r") as f:
                 content = await f.read()
                 return Artifact(**json.loads(content))
 
         except NoResultFound:
-            raise ValueError(f"artifact_id={artifact_id} not found")
+            raise ValueError(f"artifact={artifact_id} not found")
 
     async def get_artifact(self, artifact_id: str) -> ServerArtifact:
         """Returns the requested artifact handler, not the real artifact. Use the

@@ -30,7 +30,7 @@ class ActionService:
         elif job.is_estimation:
             action = Action.EXECUTE_ESTIMATE
         else:
-            LOGGER.error(f"Invalid action type for job_id={job.id}")
+            LOGGER.error(f"Invalid action type for job={job.id}")
             raise ValueError()
 
         return UpdateData(action=action.name, job_id=job.id, artifact_id=job.artifact_id)

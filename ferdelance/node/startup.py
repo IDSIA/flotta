@@ -50,10 +50,10 @@ class NodeStartup(Repository):
         p_token = self.config.node.token_project_default
         try:
             await self.pr.create_project("Project Zero", p_token)
-            LOGGER.info(f"created project zero with token={p_token}")
+            LOGGER.info(f"component={self.self_component.id}: created project zero with token={p_token}")
 
         except ValueError:
-            LOGGER.warning(f"project zero already exists token={p_token}")
+            LOGGER.warning(f"component={self.self_component.id}: project zero already exists with token={p_token}")
 
     async def add_metadata(self) -> None:
         """Add metadata found in the configuration file. The metadata are
@@ -62,12 +62,13 @@ class NodeStartup(Repository):
         metadata = self.data.metadata()
 
         if not metadata.datasources:
-            LOGGER.info("no metadata associated with this node")
+            LOGGER.info(f"component={self.self_component.id}: no metadata associated with this node")
             return
 
         ns: NodeService = NodeService(self.session, self.self_component)
 
         await ns.metadata(metadata)
+        await ns.distribute_metadata(metadata)
 
     async def populate_database(self) -> None:
         """Add basic information to the database."""
@@ -100,24 +101,25 @@ class NodeStartup(Repository):
                 True,
             )
 
-        LOGGER.info(f"this node has component_id={self.self_component.id}")
+        LOGGER.info(f"component={self.self_component.id}: id assigned")
 
         # projects
         await self.create_project()
 
     async def join(self) -> None:
         if self.config.join.first:
-            LOGGER.info("node defined as first, no join required")
+            LOGGER.info(f"component={self.self_component.id}: node defined as first, no join required")
             return
 
         if self.config.join.url is None:
-            LOGGER.warning("remote node url not set")
+            LOGGER.warning(f"component={self.self_component.id}: remote node url not set")
             return
 
         try:
             join_component = await self.cr.get_join_component()
             LOGGER.info(
-                f"node already joined to remote node with component_id={join_component.id} url={join_component.url}"
+                f"component={self.self_component.id}: node already joined to remote node "
+                f"component={join_component.id} url={join_component.url}"
             )
             self.remote_key = join_component.public_key
             self.ss.set_remote_key(self.remote_key)
@@ -125,7 +127,7 @@ class NodeStartup(Repository):
             return
 
         except NoResultFound:
-            LOGGER.info("starting join procedure")
+            LOGGER.info(f"component={self.self_component.id}: starting join procedure")
 
         remote = self.config.join.url.rstrip("/")
         try:
@@ -173,11 +175,13 @@ class NodeStartup(Repository):
             # get node list
             join_data = JoinData(**json.loads(payload))
 
-            LOGGER.info(f"joined node with component_id={join_data.component_id}")
+            LOGGER.info(f"component={self.self_component.id}: joined node component={join_data.component_id}")
 
             for node in join_data.nodes:
                 # insert nodes into database
-                LOGGER.info(f"adding new node with id={node.id} url={node.url}")
+                LOGGER.info(
+                    f"component={self.self_component.id}: adding new node with component={node.id} url={node.url}"
+                )
 
                 await self.cr.create_component(
                     node.id,
@@ -192,12 +196,12 @@ class NodeStartup(Repository):
                 )
 
         except Exception as e:
-            LOGGER.error(f"could not join remote node at {remote}: {e}")
+            LOGGER.error(f"component={self.self_component.id}: could not join remote node at {remote}: {e}")
             return
 
     async def start_heartbeat(self):
         if self.config.mode in ("client", "standalone"):
-            LOGGER.info("starting client heartbeat")
+            LOGGER.info(f"component={self.self_component.id}: starting client heartbeat")
 
             client = Heartbeat.remote(
                 self.self_component.id,

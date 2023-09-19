@@ -10,7 +10,7 @@ class Backend:
         super().__init__()
 
     def start_aggregation(self, args: TaskArguments) -> None:
-        LOGGER.info(f"artifact_id={args.artifact_id}: scheduling aggregation task with job_id={args.job_id}")
+        LOGGER.info(f"artifact={args.artifact_id}: scheduling aggregation task with job={args.job_id}")
 
         actor_handler = AggregatingJob.remote(
             args.component_id,
@@ -22,12 +22,12 @@ class Backend:
         )
         task_handler = actor_handler.run.remote()  # type: ignore
 
-        LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")
+        LOGGER.info(f"artifact={args.artifact_id}: started task with job={args.job_id}")
 
         return task_handler
 
     def start_training(self, args: TaskArguments) -> None:
-        LOGGER.info(f"artifact_id={args.artifact_id}: scheduling training task with job_id={args.job_id}")
+        LOGGER.info(f"artifact={args.artifact_id}: scheduling training task with job={args.job_id}")
 
         actor_handler = TrainingJob.remote(
             args.component_id,
@@ -41,12 +41,12 @@ class Backend:
         )
         task_handler = actor_handler.run.remote()  # type: ignore
 
-        LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")
+        LOGGER.info(f"artifact={args.artifact_id}: started task with job={args.job_id}")
 
         return task_handler
 
     def start_estimation(self, args: TaskArguments) -> None:
-        LOGGER.info(f"artifact_id={args.artifact_id}: scheduling training task with job_id={args.job_id}")
+        LOGGER.info(f"artifact={args.artifact_id}: scheduling training task with job={args.job_id}")
 
         actor_handler = EstimationJob.remote(
             args.component_id,
@@ -60,6 +60,6 @@ class Backend:
         )
         task_handler = actor_handler.run.remote()  # type: ignore
 
-        LOGGER.info(f"artifact_id={args.artifact_id}: started task with job_id={args.job_id}")
+        LOGGER.info(f"artifact={args.artifact_id}: started task with job={args.job_id}")
 
         return task_handler

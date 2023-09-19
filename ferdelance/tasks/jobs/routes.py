@@ -54,7 +54,7 @@ class EncryptRouteService(RouteService):
         self.exc.set_remote_key(server_public_key)
 
     def get_task_params(self, artifact_id: str, job_id: str) -> TaskParameters:
-        LOGGER.info(f"artifact_id={artifact_id}: requesting task execution parameters for job_id={job_id}")
+        LOGGER.info(f"artifact={artifact_id}: requesting task execution parameters for job={job_id}")
 
         task = TaskParametersRequest(
             artifact_id=artifact_id,
@@ -76,7 +76,7 @@ class EncryptRouteService(RouteService):
         return TaskParameters(**json.loads(data))
 
     def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
-        LOGGER.info(f"artifact_id={artifact_id}: requesting partial result_id={result_id} for job_id={job_id}")
+        LOGGER.info(f"artifact={artifact_id}: requesting partial result={result_id} for job={job_id}")
 
         headers, _ = self.exc.create(self.component_id)
 
@@ -92,7 +92,7 @@ class EncryptRouteService(RouteService):
         return pickle.loads(content)
 
     def post_result(self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None):
-        LOGGER.info(f"artifact_id={artifact_id}: posting result for job_id={job_id}")
+        LOGGER.info(f"artifact={artifact_id}: posting result for job={job_id}")
 
         if path_in is not None:
             path_out = f"{path_in}.enc"
@@ -127,10 +127,10 @@ class EncryptRouteService(RouteService):
         else:
             raise ValueError("No data to send!")
 
-        LOGGER.info(f"artifact_id={artifact_id}: result from source={path_in} for job_id={job_id} upload successful")
+        LOGGER.info(f"artifact={artifact_id}: result from source={path_in} for job={job_id} upload successful")
 
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
-        LOGGER.info(f"artifact_id={artifact_id}: posting metrics for job_id={job_id}")
+        LOGGER.info(f"artifact={artifact_id}: posting metrics for job={job_id}")
 
         headers, payload = self.exc.create(self.component_id, metrics.json())
 
@@ -143,12 +143,12 @@ class EncryptRouteService(RouteService):
         res.raise_for_status()
 
         LOGGER.info(
-            f"artifact_id={metrics.artifact_id}: "
-            f"metrics for job_id={metrics.job_id} from source={metrics.source} upload successful"
+            f"artifact={metrics.artifact_id}: "
+            f"metrics for job={metrics.job_id} from source={metrics.source} upload successful"
         )
 
     def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
-        LOGGER.error(f"artifact_id={artifact_id} job_id={job_id}: error_message={error.message}")
+        LOGGER.error(f"artifact={artifact_id} job={job_id}: error_message={error.message}")
 
         headers, payload = self.exc.create(self.component_id, error.json())
 
