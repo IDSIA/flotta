@@ -40,6 +40,7 @@ class JobManagementService(Repository):
 
         self.component: Component = component
         self.ar: ArtifactRepository = ArtifactRepository(session)
+        self.ax: ActionService = ActionService(self.session)
         self.cr: ComponentRepository = ComponentRepository(session)
         self.dsr: DataSourceRepository = DataSourceRepository(session)
         self.jr: JobRepository = JobRepository(session)
@@ -49,17 +50,12 @@ class JobManagementService(Repository):
         self.ss: SecurityService = SecurityService()
 
     async def update(self) -> UpdateData:
-        cr: ComponentRepository = ComponentRepository(self.session)
-        acs: ActionService = ActionService(self.session)
-
-        await cr.create_event(self.component.id, "update")
-        client = await cr.get_client_by_id(self.component.id)
-
-        next_action = await acs.next(client)
+        await self.cr.create_event(self.component.id, "update")
+        next_action = await self.ax.next(self.component)
 
         LOGGER.debug(f"client={self.component.id}: update action={next_action.action}")
 
-        await cr.create_event(self.component.id, f"action:{next_action.action}")
+        await self.cr.create_event(self.component.id, f"action:{next_action.action}")
 
         return next_action
 
@@ -264,16 +260,15 @@ class JobManagementService(Repository):
             await artifact.get_plan().pre_aggregation_hook(context)
 
         if context.has_failed():
-            LOGGER.error(f"artifact={artifact.id}: " f"aggregation impossile: {context.job_failed} jobs have error")
+            LOGGER.error(f"artifact={artifact.id}: " f"aggregation failed: {context.job_failed} jobs have error")
             await self.ar.update_status(artifact.id, ArtifactJobStatus.ERROR, context.current_iteration)
             return False
 
         if not context.completed():
-            LOGGER.warn(
+            LOGGER.info(
                 f"artifact={artifact.id}: "
-                f"aggregation impossile: {context.job_completed} / {context.job_total} completed job(s)"
+                f"{context.job_completed} / {context.job_total} completed job(s) waiting for others",
             )
-            await self.ar.update_status(artifact.id, ArtifactJobStatus.ERROR, context.current_iteration)
             return False
 
         return True

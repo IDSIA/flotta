@@ -120,6 +120,7 @@ class JobRepository(Repository):
                 select(JobDB).where(
                     JobDB.id == job.id,
                     JobDB.status == JobStatus.SCHEDULED.name,
+                    JobDB.component_id == component_id,
                 )
             )
             job_db: JobDB = res.one()
