@@ -6,6 +6,8 @@ from ferdelance.database import Base, DataBase
 from ferdelance.database.tables import ComponentType
 from ferdelance.shared.exchange import Exchange
 
+from .utils import TEST_PROJECT_TOKEN
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import os
@@ -24,6 +26,7 @@ conf.database.dialect = "sqlite"
 conf.database.host = db_file
 
 conf.node.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
+conf.node.token_project_default = TEST_PROJECT_TOKEN
 conf.workdir = str(os.path.join("tests", "storage"))
 
 conf.dump()

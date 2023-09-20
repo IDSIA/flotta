@@ -10,7 +10,7 @@ from ferdelance.database.repositories import (
     JobRepository,
     ProjectRepository,
 )
-from ferdelance.node.services import ComponentService, TaskService, WorkbenchService
+from ferdelance.node.services import JobManagementService, WorkbenchService
 from ferdelance.node.startup import NodeStartup
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
@@ -58,7 +58,7 @@ class ServerlessClient:
             f"ip-{self.index}",
             "",
         )
-        self.client_service = ComponentService(self.session, self.client)
+        self.jobs_service = JobManagementService(self.session, self.client)
 
     def metadata(self) -> Metadata:
         if self.md is None:
@@ -66,13 +66,13 @@ class ServerlessClient:
         return self.md
 
     async def next_action(self) -> UpdateData:
-        return await self.client_service.update()
+        return await self.jobs_service.update()
 
     async def get_client_task(self, job_id: str) -> TaskParameters:
-        return await self.client_service.get_task(job_id)
+        return await self.jobs_service.task_start(job_id)
 
     async def post_client_results(self, task: TaskParameters, in_result: ExecutionResult | None = None) -> Result:
-        result = await self.client_service.task_completed(task.job_id)
+        result = await self.jobs_service.task_completed(task.job_id)
 
         if in_result is not None:
             async with aiofiles.open(in_result.path, "rb") as src:
@@ -115,15 +115,17 @@ class ServerlessExecution:
         self.jr: JobRepository = JobRepository(session)
 
         self.clients: dict[str, ServerlessClient] = dict()
+        self.self_component: Component
+        self.user_component: Component
 
-        self.worker_service: TaskService
+        self.jobs_service: JobManagementService
         self.workbench_service: WorkbenchService
 
     async def setup(self):
         await NodeStartup(self.session).startup()
 
-        self_component = await self.cr.get_self_component()
-        user_component = await self.cr.create_component(
+        self.self_component = await self.cr.get_self_component()
+        self.user_component = await self.cr.create_component(
             "user-1",
             TYPE_USER,
             "user-1-public_key",
@@ -133,8 +135,8 @@ class ServerlessExecution:
             "",
         )
 
-        self.worker_service = TaskService(self.session, self_component)
-        self.workbench_service = WorkbenchService(self.session, user_component)
+        self.jobs_service = JobManagementService(self.session, self.self_component)
+        self.workbench_service = WorkbenchService(self.session, self.user_component)
 
     async def add_client(self, index: int, data: DataSourceStorage | Metadata) -> ServerlessClient:
         sc = ServerlessClient(self.session, index, data)
@@ -169,22 +171,32 @@ class ServerlessExecution:
         return status.id
 
     async def check_aggregation(self, result: Result) -> bool:
-        return await self.clients[result.client_id].client_service.check(result)
+        js = self.clients[result.client_id].jobs_service
+        args = await js._context(result.job_id)
+        return await js.check_aggregation(*args)
 
     async def aggregate(self, result: Result, start_function: Callable[[TaskArguments], None]) -> Job:
-        return await self.clients[result.client_id].client_service.start_aggregation(result, start_function)
+        return await self.clients[result.client_id].jobs_service.start_aggregation(
+            result.artifact_id,
+            result.is_model,
+            result.is_estimation,
+            start_function,
+        )
 
-    async def get_worker_task(self, job: Job) -> TaskParameters:
-        return await self.worker_service.get_task(job.id)
+    async def get_task(self, job: Job) -> TaskParameters:
+        return await self.jobs_service.task_start(job.id)
 
-    async def post_worker_result(self, job: Job):
-        result = await self.worker_service.aggregation_completed(job.id)
-        await self.worker_service.check_next_iteration(job.id)
+    async def post_result(self, job: Job) -> Result:
+        result = await self.jobs_service.task_completed(job.id)
+
+        if job.component_id in self.clients:
+            js = self.clients[result.client_id].jobs_service
+        elif job.component_id == self.self_component.id:
+            js = self.jobs_service
+        else:
+            raise ValueError(f"Unrecognized job author: {job.component_id}")
+
+        _, a, c = await js._context(job.id)
+
+        await self.jobs_service.check_next_iteration(a, c)
         return result
-
-
-class ServerlessWorker:
-    def __init__(self, session: AsyncSession) -> None:
-        self.session = session
-
-    # TODO:

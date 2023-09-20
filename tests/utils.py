@@ -84,7 +84,7 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
 
     assert len(jd.nodes) == 1
 
-    LOGGER.info(f"client_id={client_id}: successfully created new client")
+    LOGGER.info(f"client={client_id}: successfully created new client")
 
     return cjr.id
 
@@ -157,15 +157,19 @@ def send_metadata(component_id: str, api: TestClient, exc: Exchange, metadata: M
 async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> str:
     ps = ProjectRepository(session)
 
-    await ps.create_project("example", p_token)
+    try:
+        await ps.create_project("example", p_token)
+    except ValueError:
+        # project already exists
+        pass
 
     return p_token
 
 
 class ConnectionArguments(BaseModel):
-    nd_id: str
+    cl_id: str
     wb_id: str
-    nd_exc: Exchange
+    cl_exc: Exchange
     wb_exc: Exchange
     project_token: str
 
@@ -176,14 +180,14 @@ class ConnectionArguments(BaseModel):
 async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> ConnectionArguments:
     await create_project(session, p_token)
 
-    nd_exc = setup_exchange()
+    cl_exc = setup_exchange()
     wb_exc = setup_exchange()
 
     # this is to have a client
-    client_id = create_node(api, nd_exc)
+    client_id = create_node(api, cl_exc)
 
     metadata: Metadata = get_metadata()
-    send_metadata(client_id, api, nd_exc, metadata)
+    send_metadata(client_id, api, cl_exc, metadata)
 
     # this is to connect a new workbench
     headers = wb_exc.create_header(False)
@@ -230,9 +234,9 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     res_connect.raise_for_status()
 
     return ConnectionArguments(
-        nd_id=client_id,
+        cl_id=client_id,
+        cl_exc=cl_exc,
         wb_id=wb_id,
-        nd_exc=nd_exc,
         wb_exc=wb_exc,
         project_token=p_token,
     )

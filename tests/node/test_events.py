@@ -8,4 +8,4 @@ LOGGER = get_logger(__name__)
 
 def test_startup_api():
     with TestClient(api) as _:
-        LOGGER.info("Startup ok")
+        LOGGER.info("startup ok")

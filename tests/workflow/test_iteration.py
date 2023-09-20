@@ -21,7 +21,7 @@ LOGGER = get_logger(__name__)
 def start_function(args: TaskArguments) -> None:
     """Pseudo function to simulate the start of an aggregation job."""
 
-    LOGGER.info(f"artifact_id={args.artifact_id}: new aggregation job_id={args.job_id}")
+    LOGGER.info(f"artifact={args.artifact_id}: new aggregation job={args.job_id}")
 
 
 async def assert_count_it(sse: ServerlessExecution, artifact_id: str, exp_iteration: int, exp_jobs: int) -> None:
@@ -94,11 +94,11 @@ async def test_iteration(session: AsyncSession):
 
     # worker
 
-    await server.get_worker_task(job)
+    await server.get_task(job)
 
     """...simulate worker aggregation..."""
 
-    await server.post_worker_result(job)
+    await server.post_result(job)
 
     # ----------------
     # SECOND ITERATION
@@ -128,11 +128,11 @@ async def test_iteration(session: AsyncSession):
 
     # worker
 
-    await server.get_worker_task(job)
+    await server.get_task(job)
 
     """...simulate worker aggregation..."""
 
-    await server.post_worker_result(job)
+    await server.post_result(job)
 
     await assert_count_it(server, artifact_id, 2, 4)  # train1 agg1 train2 agg2
 

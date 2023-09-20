@@ -56,17 +56,24 @@ async def test_task_task_not_found(session: AsyncSession, exchange: Exchange):
 @pytest.mark.asyncio
 async def test_task_endpoints(session: AsyncSession):
     with TestClient(api) as server:
+        cr: ComponentRepository = ComponentRepository(session)
+
         args = await connect(server, session)
 
+        # workbench: he who submits artifacts
         wb_id = args.wb_id
-        nd_id = args.nd_id
-        nd_exc = args.nd_exc
+        wb = await cr.get_by_id(wb_id)
 
-        cr: ComponentRepository = ComponentRepository(session)
-        self_component: Component = await cr.get_self_component()
-        sc_id = self_component.id
+        # client: he who has the data
+        cl_id = args.cl_id
+        cl_exc = args.cl_exc
+        cl = await cr.get_by_id(cl_id)
+
+        # server: he who aggretates
+        sc: Component = await cr.get_self_component()
+        sc_id = sc.id
         sc_exc = Exchange(config_manager.get().private_key_location())
-        sc_exc.set_remote_key(self_component.public_key)
+        sc_exc.set_remote_key(sc.public_key)
 
         # prepare new artifact
         pr: ProjectRepository = ProjectRepository(session)
@@ -80,7 +87,7 @@ async def test_task_endpoints(session: AsyncSession):
         )
 
         # fake submit of artifact
-        jms: JobManagementService = JobManagementService(session, wb_id)
+        jms: JobManagementService = JobManagementService(session, wb)
 
         status = await jms.submit_artifact(artifact)
 
@@ -101,30 +108,31 @@ async def test_task_endpoints(session: AsyncSession):
         res = await session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact.id,
-                JobDB.component_id == args.nd_id,
+                JobDB.component_id == args.cl_id,
             )
         )
-        job: JobDB = res.one()
+        jobs: list[JobDB] = list(res.all())
 
+        assert len(jobs) == 1
+        job = jobs[0]
         assert JobStatus[job.status] == JobStatus.SCHEDULED
 
         # simulate client train task
-        jm: JobManagementService = JobManagementService(session, nd_id)
+        jm: JobManagementService = JobManagementService(session, cl)
 
-        await jm.client_task_start(job.id, args.nd_id)
-        result = await jm.create_result(job.id, args.nd_id)
-        await jm.client_task_completed(job.id, args.nd_id)
+        await jm.task_start(job.id)
+        result = await jm.task_completed(job.id)
 
         def ignore(task: TaskArguments) -> None:
             return
 
-        await jm._start_aggregation(result, ignore)
+        await jm.check(result.job_id, ignore)
 
         # check status of job completed by the client
         res = await session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact.id,
-                JobDB.component_id == args.nd_id,
+                JobDB.component_id == args.cl_id,
             )
         )
         job: JobDB = res.one()
@@ -212,7 +220,7 @@ async def test_task_endpoints(session: AsyncSession):
         result_id = results[0].id
 
         # test node get aggregated model
-        headers, _ = nd_exc.create(nd_id, "")
+        headers, _ = cl_exc.create(cl_id, "")
 
         res = server.get(
             f"/task/result/{result_id}",
@@ -221,7 +229,7 @@ async def test_task_endpoints(session: AsyncSession):
 
         assert res.status_code == 200
 
-        data, _ = nd_exc.stream_response(res.iter_bytes())
+        data, _ = cl_exc.stream_response(res.iter_bytes())
 
         model_get = pickle.loads(data)
 
@@ -243,8 +251,8 @@ async def test_task_access(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
 
-        nd_id = args.nd_id
-        nd_exc = args.nd_exc
+        nd_id = args.cl_id
+        nd_exc = args.cl_exc
         headers, _ = nd_exc.create(nd_id)
 
         res = server.get(

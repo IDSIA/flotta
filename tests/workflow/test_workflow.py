@@ -42,9 +42,9 @@ LOGGER = get_logger(__name__)
 async def test_workflow_wb_submit_client_get(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
-        client_id = args.nd_id
+        client_id = args.cl_id
         wb_exc = args.wb_exc
-        cl_exc = args.nd_exc
+        cl_exc = args.cl_exc
 
         # workbench part
 
@@ -169,7 +169,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         LOGGER.info("get task for client")
 
-        headers, payload = cl_exc.create(args.nd_id, update_execute.json())
+        headers, payload = cl_exc.create(args.cl_id, update_execute.json())
 
         task_response = server.request(
             method="GET",
