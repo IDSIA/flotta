@@ -2,16 +2,18 @@ from typing import Any
 
 from abc import ABC, abstractmethod
 
-from ferdelance.config import DataSourceConfiguration, DataSourceStorage
+from ferdelance.config import DataSourceConfiguration, DataSourceStorage, config_manager
 from ferdelance.logging import get_logger
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.estimators import GenericEstimator
+from ferdelance.schemas.estimators import GenericEstimator, save_estimator
 from ferdelance.schemas.models import GenericModel
-from ferdelance.schemas.tasks import ExecutionResult, TaskError
+from ferdelance.schemas.tasks import TaskResult, TaskError
 from ferdelance.tasks.jobs.execution import run_estimate, run_training
 from ferdelance.tasks.jobs.routes import EncryptRouteService, RouteService, TaskParameters
 
 import ray
+
+import os
 
 LOGGER = get_logger(__name__)
 
@@ -26,9 +28,16 @@ class GenericJob(ABC):
         private_key: str,
         node_public_key: str,
     ) -> None:
-        self.routes_service: RouteService = EncryptRouteService(component_id, node_url, private_key, node_public_key)
+        self.component_id: str = component_id
         self.artifact_id: str = artifact_id
         self.job_id: str = job_id
+
+        self.routes_service: RouteService = EncryptRouteService(
+            self.component_id,
+            node_url,
+            private_key,
+            node_public_key,
+        )
 
     def __repr__(self) -> str:
         return f"Job artifact={self.artifact_id} job={self.job_id}"
@@ -52,7 +61,7 @@ class LocalJob(GenericJob):
     ) -> None:
         super().__init__(component_id, artifact_id, job_id, server_url, private_key, server_public_key)
 
-        self.wordir: str = workdir
+        self.workdir: str = workdir
 
         self.datasources: list[DataSourceConfiguration] = [DataSourceConfiguration(**d) for d in datasources]
 
@@ -90,7 +99,7 @@ class TrainingJob(LocalJob):
                     m.job_id = res.job_id
                     self.routes_service.post_metrics(self.artifact_id, self.job_id, m)
 
-                self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.path)
+                self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.result_path)
 
             else:
                 raise ValueError("Artifact is not a model!")
@@ -107,8 +116,8 @@ class TrainingJob(LocalJob):
                 ),
             )
 
-    def train(self, task: TaskParameters) -> ExecutionResult:
-        res: ExecutionResult = run_training(self.data, task)
+    def train(self, task: TaskParameters) -> TaskResult:
+        res: TaskResult = run_training(self.data, task)
         return res
 
 
@@ -138,7 +147,7 @@ class EstimationJob(LocalJob):
         if task.artifact.is_estimation():
             res = self.estimate(task)
 
-            self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.path)
+            self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.result_path)
 
         else:
             self.routes_service.post_error(
@@ -150,8 +159,8 @@ class EstimationJob(LocalJob):
                 ),
             )
 
-    def estimate(self, task: TaskParameters) -> ExecutionResult:
-        res: ExecutionResult = run_estimate(self.data, task)
+    def estimate(self, task: TaskParameters) -> TaskResult:
+        res: TaskResult = run_estimate(self.data, task)
         return res
 
 
@@ -174,9 +183,9 @@ class AggregatingJob(GenericJob):
     def run(self):
         task: TaskParameters = self.routes_service.get_task_params(self.artifact_id, self.job_id)
 
-        content = self.aggregate(task)
+        res = self.aggregate(task)
 
-        self.routes_service.post_result(self.artifact_id, self.job_id, content=content)
+        self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.result_path)
 
     def aggregate_estimator(self, artifact: Artifact, result_ids: list[str]) -> GenericEstimator:
         agg = artifact.get_estimator()
@@ -213,17 +222,58 @@ class AggregatingJob(GenericJob):
 
         return base
 
-    def aggregate(self, task: TaskParameters) -> Any:
+    def destination_path(self, artifact: Artifact, task: TaskParameters) -> str:
+        config = config_manager.get()
+
+        working_folder = os.path.join(config.storage_artifact(artifact.id, task.iteration), f"{task.job_id}")
+
+        os.makedirs(working_folder, exist_ok=True)
+
+        path = os.path.join(working_folder, "aggregate.bin")
+
+        return path
+
+    def aggregate(self, task: TaskParameters) -> TaskResult:
         artifact: Artifact = task.artifact
         result_ids: list[str] = task.content_ids
 
-        if artifact.is_estimation():
+        is_estimation = artifact.is_estimation()
+        is_model = artifact.is_model()
+
+        path: str = config_manager.get().store(
+            artifact.id,
+            task.iteration,
+            self.component_id,
+            False,
+            True,
+            is_model,
+            is_estimation,
+        )
+
+        base: GenericEstimator | GenericModel
+
+        if is_estimation:
             base = self.aggregate_estimator(artifact, result_ids)
 
-        elif artifact.is_model():
+            save_estimator(base, path)
+
+            return TaskResult(
+                job_id=task.job_id,
+                result_path=None,
+                is_estimate=True,
+                is_aggregation=True,
+            )
+
+        if is_model:
             base = self.aggregate_model(artifact, result_ids)
 
-        else:
-            raise ValueError(f"Unsupported artifact={self.job_id}")
+            base.save(path)
 
-        return base
+            return TaskResult(
+                job_id=task.job_id,
+                result_path=None,
+                is_model=True,
+                is_aggregation=True,
+            )
+
+        raise ValueError(f"Unsupported artifact={self.job_id}")

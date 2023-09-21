@@ -3,9 +3,9 @@ from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.database import get_session, AsyncSession
 from ferdelance.exceptions import ArtifactDoesNotExists
 from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, valid_session_args
+from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
 from ferdelance.node.services.scheduling import ScheduleActionService
-from ferdelance.node.services import SecurityService, JobManagementService
+from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.database import Result
 from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest, TaskError
@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 
 from sqlalchemy.exc import NoResultFound
 
+import os
 
 LOGGER = get_logger(__name__)
 
@@ -23,7 +24,7 @@ LOGGER = get_logger(__name__)
 task_router = APIRouter(prefix="/task", route_class=SignedAPIRoute)
 
 
-async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> SessionArgs:
+async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> ValidSessionArgs:
     try:
         if args.component.type_name not in (TYPE_CLIENT, TYPE_NODE):
             LOGGER.warning(f"component={args.component.id}: type={args.component.type_name} cannot access this route")
@@ -121,27 +122,39 @@ async def get_result(
         raise HTTPException(500)
 
 
-@task_router.post("/result/{job_id}")
+@task_router.post("/result")
 async def post_result(
     request: Request,
-    job_id: str,
     session: AsyncSession = Depends(get_session),
-    args: SessionArgs = Depends(allow_access),
+    args: ValidSessionArgs = Depends(allow_access),
 ):
+    job_id = args.extra_headers["job_id"]
     component = args.self_component
 
     LOGGER.info(f"component={component.id}: completed work on job={job_id}")
 
-    ss: SecurityService = SecurityService(component.public_key)
     jms: JobManagementService = JobManagementService(session, component)
 
     try:
         result = await jms.task_completed(job_id)
-        await ss.stream_decrypt_file(request, result.path)
+
+        if "file" in args.extra_headers and args.extra_headers["file"] == "attached":
+            LOGGER.info(f"component={component.id}: decrypting result file to path={result.path}")
+            await args.security_service.stream_decrypt_file(request, result.path)
+
+        elif os.path.exists(result.path):
+            LOGGER.info(f"component={component.id}: found local result file at path={result.path}")
+
+        else:
+            LOGGER.error(f"component={component.id}: expected file at path={result.path} not found")
+            raise HTTPException(404)
 
         await jms.check(result.job_id)
 
         return {}
+
+    except HTTPException as e:
+        raise e
 
     except Exception as e:
         LOGGER.error(f"component={component.id}: could not save result to disk for job={job_id}")

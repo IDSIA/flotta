@@ -285,7 +285,13 @@ class Exchange:
             "Accept-Encoding": accept_encoding,
         }
 
-    def create_signed_header(self, component_id: str, checksum: str, set_encryption: bool = True) -> dict[str, str]:
+    def create_signed_header(
+        self,
+        component_id: str,
+        checksum: str,
+        set_encryption: bool = True,
+        extra_headers: dict[str, str] = dict(),
+    ) -> dict[str, str]:
         if self.remote_key is None:
             raise ValueError("No public remote key available")
 
@@ -296,7 +302,7 @@ class Exchange:
             "id": component_id,
             "checksum": checksum,
             "signature": signature,
-        }
+        } | extra_headers
 
         enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
 
@@ -309,7 +315,7 @@ class Exchange:
             "Signature": data,
         }
 
-    def get_header(self, content: str) -> tuple[str, str, str]:
+    def get_headers(self, content: str) -> tuple[str, str, str, dict[str, str]]:
         if self.private_key is None:
             raise ValueError("No public remote key available")
 
@@ -318,11 +324,13 @@ class Exchange:
         token = content.encode(self.encoding)
         data_b64 = base64.b64decode(token)
         data_enc = dec.decrypt(data_b64)
-        data = json.loads(data_enc)
+        data: dict = json.loads(data_enc)
 
         component_id, checksum, signature = data["id"], data["checksum"], data["signature"]
 
-        return component_id, checksum, signature
+        extra = {k: v for k, v in data.items() if k not in ("id", "checksum", "signature")}
+
+        return component_id, checksum, signature, extra
 
     def create_payload(self, content: str | bytes) -> tuple[str, bytes]:
         """Convert a dictionary of a JSON object in string format, then
@@ -379,9 +387,10 @@ class Exchange:
         component_id: str,
         content: str | bytes = "",
         set_encryption: bool = True,
+        extra_headers: dict[str, str] = dict(),
     ) -> tuple[dict[str, str], bytes]:
         checksum, payload = self.create_payload(content)
-        headers = self.create_signed_header(component_id, checksum, set_encryption)
+        headers = self.create_signed_header(component_id, checksum, set_encryption, extra_headers)
 
         return headers, payload
 

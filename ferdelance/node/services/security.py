@@ -2,6 +2,7 @@ from typing import Iterator
 
 from ferdelance.config import config_manager
 from ferdelance.logging import get_logger
+from ferdelance.shared.checksums import file_checksum
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.decode import HybridDecrypter
 
@@ -65,8 +66,8 @@ class SecurityService:
     def decrypt(self, content: str) -> str:
         return self.exc.decrypt(content)
 
-    def get_headers(self, signature_data: str) -> tuple[str, str, str]:
-        return self.exc.get_header(signature_data)
+    def get_headers(self, signature_data: str) -> tuple[str, str, str, dict[str, str]]:
+        return self.exc.get_headers(signature_data)
 
     def create(
         self,
@@ -96,6 +97,10 @@ class SecurityService:
         """Used to stream decrypt data to a file, using less memory."""
         if self.exc.private_key is None:
             raise ValueError("Missing local private key, i exchange object initialized?")
+
+        if os.path.exists(path):
+            LOGGER.info("destination path already exists")
+            return file_checksum(path)
 
         dec = HybridDecrypter(self.exc.private_key)
 

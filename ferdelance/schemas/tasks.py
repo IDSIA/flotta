@@ -41,9 +41,10 @@ class TaskError(BaseModel):
     stack_trace: str = ""
 
 
-class ExecutionResult(BaseModel):
+class TaskResult(BaseModel):
     job_id: str
-    path: str
-    metrics: list[Metrics]
+    result_path: str | None = None
+    metrics: list[Metrics] = list()
     is_model: bool = False
     is_estimate: bool = False
+    is_aggregation: bool = False

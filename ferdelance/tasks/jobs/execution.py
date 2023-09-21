@@ -3,7 +3,7 @@ from ferdelance.logging import get_logger
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.estimators import apply_estimator
 from ferdelance.schemas.transformers import apply_transformer
-from ferdelance.schemas.tasks import TaskParameters, ExecutionResult
+from ferdelance.schemas.tasks import TaskParameters, TaskResult
 
 import pandas as pd
 
@@ -83,7 +83,7 @@ def apply_transform(
     return df_dataset
 
 
-def run_training(data: DataSourceStorage, task: TaskParameters) -> ExecutionResult:
+def run_training(data: DataSourceStorage, task: TaskParameters) -> TaskResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
 
@@ -107,15 +107,15 @@ def run_training(data: DataSourceStorage, task: TaskParameters) -> ExecutionResu
     if plan.path_model is None:
         raise ValueError("Model path not set!")  # TODO: manage this!
 
-    return ExecutionResult(
+    return TaskResult(
         job_id=job_id,
-        path=plan.path_model,
+        result_path=plan.path_model,
         metrics=metrics,
         is_model=True,
     )
 
 
-def run_estimate(data: DataSourceStorage, task: TaskParameters) -> ExecutionResult:
+def run_estimate(data: DataSourceStorage, task: TaskParameters) -> TaskResult:
     job_id = task.job_id
     artifact: Artifact = task.artifact
     artifact.id = artifact.id
@@ -131,9 +131,8 @@ def run_estimate(data: DataSourceStorage, task: TaskParameters) -> ExecutionResu
 
     path_estimator = apply_estimator(artifact.estimator, df_dataset, working_folder, artifact.id)
 
-    return ExecutionResult(
+    return TaskResult(
         job_id=job_id,
-        path=path_estimator,
-        metrics=[],
+        result_path=path_estimator,
         is_estimate=True,
     )

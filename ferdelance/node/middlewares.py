@@ -37,6 +37,8 @@ class ValidSessionArgs(SessionArgs):
     checksum: str
     component: Component
 
+    extra_headers: dict[str, str]
+
 
 class SignableRequest(Request):
     def __init__(
@@ -63,6 +65,8 @@ class SignableRequest(Request):
         self.self_component: Component = self_component
         self.component: Component | None = None
 
+        self.extra_headers: dict[str, str] = dict()
+
     def args(self) -> SessionArgs:
         return SessionArgs(
             session=self.db_session,
@@ -88,6 +92,7 @@ class SignableRequest(Request):
             identity=self.component is not None,
             checksum=self.checksum,
             component=self.component,
+            extra_headers=self.extra_headers,
         )
 
     async def body(self) -> bytes:
@@ -136,7 +141,7 @@ async def check_signature(db_session: AsyncSession, request: Request) -> Signabl
         LOGGER.debug("checking authentication header")
 
         # decrypt header
-        component_id, request.signed_checksum, signature = request.security.get_headers(given_signature)
+        component_id, request.signed_checksum, signature, extra = request.security.get_headers(given_signature)
 
         # get request's component
         component = await cr.get_by_id(component_id)
@@ -155,6 +160,8 @@ async def check_signature(db_session: AsyncSession, request: Request) -> Signabl
 
         # verify signature data
         request.security.verify_signature_data(component_id, request.signed_checksum, signature)
+
+        request.extra_headers |= extra
 
     return request
 

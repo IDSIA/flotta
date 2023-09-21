@@ -260,6 +260,69 @@ class Configuration(BaseSettings):
     def storage_artifact(self, artifact_id: str, iteration: int = 0) -> str:
         return os.path.join(self.storage_artifact_dir(), artifact_id, str(iteration))
 
+    def store(
+        self,
+        artifact_id: str,
+        iteration: int = 0,
+        producer_id: str = "",
+        is_error: bool = False,
+        is_aggregation: bool = False,
+        is_model: bool = False,
+        is_estimation: bool = False,
+    ) -> str:
+        """Creates a local path that can beuse to save a result to disk.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact.
+            iteration (int, optional):
+                Iteration reached.
+                Defaults to 0.
+            producer_id (str, optional):
+                Id of the component that produced the result.
+                Defaults to "".
+            is_error (bool, optional):
+                If it is an error, set to True.
+                Defaults to False.
+            is_aggregation (bool, optional):
+                If it is a result of an aggregation, set to True.
+                Defaults to False.
+            is_model (bool, optional):
+                If it is a trained model, set to True.
+                Defaults to False.
+            is_estimation (bool, optional):
+                If it is a partial estimation, set to True.
+                Defaults to False.
+
+        Returns:
+            str:
+                The path to use to save the result on disk.
+        """
+
+        out_dir: str = self.storage_artifact(artifact_id, iteration)
+        os.makedirs(out_dir, exist_ok=True)
+
+        chunks: list[str] = [artifact_id, str(iteration)]
+
+        if producer_id:
+            chunks.append(producer_id)
+
+        if is_error:
+            chunks.append("ERROR")
+        elif is_aggregation:
+            chunks.append("AGGREGATED")
+        else:
+            chunks.append("PARTIAL")
+
+        if is_model:
+            chunks.append("model")
+        elif is_estimation:
+            chunks.append("estimator")
+
+        filename = ".".join(chunks)
+
+        return os.path.join(out_dir, filename)
+
     def storage_clients_dir(self) -> str:
         return os.path.join(self.workdir, "clients")
 

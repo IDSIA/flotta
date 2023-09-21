@@ -98,7 +98,14 @@ class EncryptRouteService(RouteService):
             path_out = f"{path_in}.enc"
 
             checksum = self.exc.encrypt_file_for_remote(path_in, path_out)
-            headers = self.exc.create_signed_header(self.component_id, checksum)
+            headers = self.exc.create_signed_header(
+                self.component_id,
+                checksum,
+                extra_headers={
+                    "job_id": job_id,
+                    "file": "attached",
+                },
+            )
 
             res = requests.post(
                 f"{self.server}/task/result/{job_id}",
@@ -111,8 +118,17 @@ class EncryptRouteService(RouteService):
 
             res.raise_for_status()
 
+            LOGGER.info(f"artifact={artifact_id}: result for job={job_id} from source={path_in} upload successful")
+
         elif content is not None:
-            headers, payload = self.exc.create(self.component_id, content)
+            headers, payload = self.exc.create(
+                self.component_id,
+                content,
+                extra_headers={
+                    "job_id": job_id,
+                    "file": "attached",
+                },
+            )
 
             _, data = self.exc.stream(payload)
 
@@ -124,10 +140,29 @@ class EncryptRouteService(RouteService):
 
             res.raise_for_status()
 
-        else:
-            raise ValueError("No data to send!")
+            LOGGER.info(f"artifact={artifact_id}: result for job={job_id} upload successful")
 
-        LOGGER.info(f"artifact={artifact_id}: result from source={path_in} for job={job_id} upload successful")
+        else:
+            headers, payload = self.exc.create(
+                self.component_id,
+                content,
+                extra_headers={
+                    "job_id": job_id,
+                    "file": "local",
+                },
+            )
+
+            _, data = self.exc.stream(payload)
+
+            res = requests.post(
+                f"{self.server}/task/result/{job_id}",
+                headers=headers,
+                data=data,
+            )
+
+            res.raise_for_status()
+
+            LOGGER.info(f"artifact={artifact_id}: result for job={job_id} upload successful")
 
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
         LOGGER.info(f"artifact={artifact_id}: posting metrics for job={job_id}")
