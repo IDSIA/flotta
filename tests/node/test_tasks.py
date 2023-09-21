@@ -202,10 +202,17 @@ async def test_task_endpoints(session: AsyncSession):
             pickle.dump(model, f)
 
         checksum = sc_exc.encrypt_file_for_remote(model_path_in, model_path_out)
-        headers = sc_exc.create_signed_header(sc_id, checksum)
+        headers = sc_exc.create_signed_header(
+            sc_id,
+            checksum,
+            extra_headers={
+                "job_id": job_aggregate.id,
+                "file": "attached",
+            },
+        )
 
         res = server.post(
-            f"/task/result/{job_aggregate.id}",
+            "/task/result",
             headers=headers,
             content=open(model_path_out, "rb"),
         )

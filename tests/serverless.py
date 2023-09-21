@@ -20,7 +20,7 @@ from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.schemas.updates import UpdateData
-from ferdelance.tasks.jobs.actors import ExecutionResult, run_estimate, run_training
+from ferdelance.tasks.jobs.actors import TaskResult, run_estimate, run_training
 
 from tests.utils import create_project
 
@@ -71,18 +71,18 @@ class ServerlessClient:
     async def get_client_task(self, job_id: str) -> TaskParameters:
         return await self.jobs_service.task_start(job_id)
 
-    async def post_client_results(self, task: TaskParameters, in_result: ExecutionResult | None = None) -> Result:
+    async def post_client_results(self, task: TaskParameters, in_result: TaskResult | None = None) -> Result:
         result = await self.jobs_service.task_completed(task.job_id)
 
         if in_result is not None:
-            async with aiofiles.open(in_result.path, "rb") as src:
+            async with aiofiles.open(in_result.result_path, "rb") as src:
                 async with aiofiles.open(result.path, "wb") as dst:
                     while (chunk := await src.read()) != b"":
                         await dst.write(chunk)
 
         return result
 
-    async def execute(self, task: TaskParameters) -> ExecutionResult:
+    async def execute(self, task: TaskParameters) -> TaskResult:
         if self.data is None:
             raise ValueError("Cannot execute job without local data configuration.")
 
