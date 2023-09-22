@@ -35,58 +35,54 @@ services:
   server: 
     image: idsia.ferdelance
     container_name: server
+    restart: unless-stopped
     environment:
-      - FERDELANCE_DATABASE_HOST=database
-      - FERDELANCE_DATABASE_PORT=5432
-      - FERDELANCE_DATABASE_USERNAME=${DATABASE_USER?Missing DATABASE_USER for server}
-      - FERDELANCE_DATABASE_PASSWORD=${DATABASE_PASS?Missing DATABASE_PASS for server}
-      - FERDELANCE_DATABASE_SCHEME=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
-      - FERDELANCE_SERVER_MAIN_PASSWORD=${SERVER_MAIN_PASSWORD?Missing SERVER_MAIN_PASSWORD for server}
-      - FERDELANCE_SERVER_TOKEN_PROJECT_DEFAULT=${PROJECT_ID}
-      - FERDELANCE_SERVER_healthcheck=3600
+      - FERDELANCE_NODE_HOST=server
+      - DATABASE_HOST=database
+      - DATABASE_PORT=5432
+      - DATABASE_USER=${DATABASE_USER?Missing DATABASE_USER for server}
+      - DATABASE_PASSWORD=${DATABASE_PASS?Missing DATABASE_PASS for server}
+      - DATABASE_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
     volumes:
       - server-data:/ferdelance/storage
-      - /dev/shm:/dev/shm
+      - ./conf/config.0.yaml:/ferdelance/config.yaml
+      - /dev/shm:/dev/shm # this is for ray
     networks:
       - ferdelance
     ports:
       - 1456:1456
-    command: --target server
     depends_on:
       - database
-      - repository
 
   client1:
     image: idsia.ferdelance
     container_name: client1
+    restart: unless-stopped
     environment:
-      - FERDELANCE_SERVER_HOST=server
-      - REPOSITORY_HOST=repository
+      - FERDELANCE_NODE_HOST=server
     volumes: 
       - client-1-data:/ferdelance/storage
       - ./conf/config.1.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
-      - /dev/shm:/dev/shm
+      - /dev/shm:/dev/shm # this is for ray
     networks:
       - ferdelance
-    command: --target client -c /ferdelance/config.yaml
     depends_on:
       - server
 
   client2:
     image: idsia.ferdelance
     container_name: client2
+    restart: unless-stopped
     environment:
-      - FERDELANCE_SERVER_HOST=server
-      - REPOSITORY_HOST=repository
+      - FERDELANCE_NODE_HOST=server
     volumes: 
       - client-2-data:/ferdelance/storage
       - ./conf/config.2.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
-      - /dev/shm:/dev/shm
+      - /dev/shm:/dev/shm # this is for ray
     networks:
       - ferdelance
-    command: --target client -c /ferdelance/config.yaml
     depends_on:
       - server
 
@@ -104,6 +100,7 @@ services:
     networks:
       - ferdelance
     depends_on:
+      - repository
       - server
       - client1
       - client2

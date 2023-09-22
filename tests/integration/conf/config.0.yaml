@@ -1,0 +1,31 @@
+workdir: ./storage
+mode: node
+
+node:
+  name: AggregationNode
+  healthcheck: 3600.0
+  token_project_default: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
+
+  protocol: http
+  interface: 0.0.0.0
+  url: "${FERDELANCE_NODE_HOST}"
+  port: 1456
+
+join:
+  first: True
+
+database:
+  username: "${DATABASE_USER}"
+  password: "${DATABASE_PASSWORD}"
+  scheme: "${DATABASE_SCHEMA}"
+  dialect: postgresql
+  host: "${DATABASE_HOST}"
+  port: ${DATABASE_PORT}
+  memory: False
+
+  # username: ""
+  # password: ""
+  # scheme: ferdelance
+  # dialect: sqlite
+  # host: ./sqlite.db
+  # memory: False
