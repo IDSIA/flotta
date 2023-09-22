@@ -84,7 +84,7 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
 
     assert len(jd.nodes) == 1
 
-    LOGGER.info(f"client={client_id}: successfully created new client")
+    LOGGER.info(f"component={client_id}: successfully created new client")
 
     return cjr.id
 

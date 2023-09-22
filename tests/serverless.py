@@ -74,7 +74,7 @@ class ServerlessClient:
     async def post_client_results(self, task: TaskParameters, in_result: TaskResult | None = None) -> Result:
         result = await self.jobs_service.task_completed(task.job_id)
 
-        if in_result is not None:
+        if in_result is not None and in_result.result_path is not None:
             async with aiofiles.open(in_result.result_path, "rb") as src:
                 async with aiofiles.open(result.path, "wb") as dst:
                     while (chunk := await src.read()) != b"":

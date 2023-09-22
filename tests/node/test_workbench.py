@@ -11,6 +11,7 @@ from ferdelance.workbench.interface import (
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.queries import Query
 from ferdelance.schemas.workbench import (
+    WorkbenchArtifactPartial,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchProjectToken,
@@ -292,6 +293,56 @@ async def test_get_results(session: AsyncSession):
         res = server.request(
             "GET",
             "/workbench/result",
+            headers=headers,
+            content=payload,
+        )
+
+        res.raise_for_status()
+
+        assert res.status_code == 200
+
+        _, res_data = wb_exc.get_payload(res.content)
+
+        data = json.loads(res_data)
+
+        assert "message" in data
+        assert data["message"] == "results!"
+
+
+@pytest.mark.asyncio
+async def test_get_partial_results(session: AsyncSession):
+    with TestClient(api) as server:
+        args = await connect(server, session)
+
+        cl_id = args.cl_id
+        wb_exc = args.wb_exc
+
+        ar: ArtifactRepository = ArtifactRepository(session)
+        jr: JobRepository = JobRepository(session)
+        rr: ResultRepository = ResultRepository(session)
+
+        artifact = await ar.create_artifact(Artifact(project_id=TEST_PROJECT_TOKEN, transform=Query()))
+
+        job = await jr.schedule_job(artifact.id, cl_id, iteration=artifact.iteration)
+        job = await jr.start_execution(job)
+        job = await jr.mark_completed(job.id, cl_id)
+
+        await ar.update_status(artifact.id, ArtifactJobStatus.COMPLETED)
+
+        content = '{"message": "results!"}'
+        result = await rr.create_result(job.id, artifact.id, cl_id, artifact.iteration, is_aggregation=False)
+
+        os.makedirs(os.path.dirname(result.path), exist_ok=True)
+        with open(result.path, "w") as f:
+            f.write(content)
+
+        wbap = WorkbenchArtifactPartial(artifact_id=artifact.id, producer_id=cl_id, iteration=0)
+
+        headers, payload = wb_exc.create(args.wb_id, wbap.json())
+
+        res = server.request(
+            "GET",
+            "/workbench/result/partial",
             headers=headers,
             content=payload,
         )
