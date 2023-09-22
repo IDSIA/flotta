@@ -55,7 +55,7 @@ class NodeService:
         except Exception as e:
             raise e
 
-        LOGGER.info(f"component={data.id}: joining new component")
+        LOGGER.info(f"component={data.id}: joining procedure start")
 
         self.component = await self.cr.create_component(
             data.id,
@@ -71,7 +71,7 @@ class NodeService:
 
         await self.cr.create_event(self.component.id, "creation")
 
-        LOGGER.info(f"component={self.component.id}: created new client")
+        LOGGER.info(f"component={self.component.id}: created as new {data.type_name}")
 
         self_component = await self.cr.get_self_component()
 
@@ -87,6 +87,8 @@ class NodeService:
         await self.distribute_add(self.component, nodes)
 
         nodes.append(self_component)
+
+        LOGGER.info(f"component={data.id}: joining procedure done")
 
         return JoinData(
             component_id=self_component.id,

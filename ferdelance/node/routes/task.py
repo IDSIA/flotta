@@ -129,7 +129,7 @@ async def post_result(
     args: ValidSessionArgs = Depends(allow_access),
 ):
     job_id = args.extra_headers["job_id"]
-    component = args.self_component
+    component = args.component
 
     LOGGER.info(f"component={component.id}: completed work on job={job_id}")
 

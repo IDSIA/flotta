@@ -18,6 +18,7 @@ def view(result: ResultDB) -> Result:
         is_model=result.is_model,
         is_estimation=result.is_estimation,
         is_aggregation=result.is_aggregation,
+        iteration=result.iteration,
     )
 
 
@@ -72,8 +73,8 @@ class ResultRepository(Repository):
 
         out_path = config_manager.get().store(
             artifact_id,
+            job_id,
             iteration,
-            producer_id,
             is_error,
             is_aggregation,
             is_model,
@@ -270,7 +271,7 @@ class ResultRepository(Repository):
         )
         return view(res.one())
 
-    async def get_partial_result(self, artifact_id: str, client_id: str) -> Result:
+    async def get_partial_result(self, artifact_id: str, client_id: str, iteration: int) -> Result:
         """Get the result, considered as a partial model or estimation, given
         the artifact_id it belongs to and the client_id that produced the result.
 
@@ -296,6 +297,7 @@ class ResultRepository(Repository):
                 ResultDB.artifact_id == artifact_id,
                 ResultDB.component_id == client_id,
                 ResultDB.is_aggregation == False,  # noqa: E712
+                ResultDB.iteration == iteration,
             )
         )
         return view(res.one())

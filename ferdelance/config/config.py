@@ -263,8 +263,8 @@ class Configuration(BaseSettings):
     def store(
         self,
         artifact_id: str,
+        job_id: str,
         iteration: int = 0,
-        producer_id: str = "",
         is_error: bool = False,
         is_aggregation: bool = False,
         is_model: bool = False,
@@ -302,10 +302,7 @@ class Configuration(BaseSettings):
         out_dir: str = self.storage_artifact(artifact_id, iteration)
         os.makedirs(out_dir, exist_ok=True)
 
-        chunks: list[str] = [artifact_id, str(iteration)]
-
-        if producer_id:
-            chunks.append(producer_id)
+        chunks: list[str] = [job_id]
 
         if is_error:
             chunks.append("ERROR")

@@ -242,8 +242,8 @@ class AggregatingJob(GenericJob):
 
         path: str = config_manager.get().store(
             artifact.id,
+            self.job_id,
             task.iteration,
-            self.component_id,
             False,
             True,
             is_model,

@@ -53,7 +53,7 @@ class JobManagementService(Repository):
         await self.cr.create_event(self.component.id, "update")
         next_action = await self.ax.next(self.component)
 
-        LOGGER.debug(f"client={self.component.id}: update action={next_action.action}")
+        LOGGER.debug(f"component={self.component.id}: update action={next_action.action}")
 
         await self.cr.create_event(self.component.id, f"action:{next_action.action}")
 
@@ -97,7 +97,7 @@ class JobManagementService(Repository):
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
 
-        LOGGER.info(f"artifact={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration #{iteration}")
+        LOGGER.info(f"artifact={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration={iteration}")
 
         for datasource_id in datasources_ids:
             client: Component = await self.dsr.get_client_by_datasource_id(datasource_id)
@@ -125,7 +125,7 @@ class JobManagementService(Repository):
             # check that the artifact exists on idsk
             if not os.path.exists(artifact_path):
                 LOGGER.warning(
-                    f"client={self.component.id}: artifact={artifact_id} does not exist with path={artifact_path}"
+                    f"component={self.component.id}: artifact={artifact_id} does not exist with path={artifact_path}"
                 )
                 raise ArtifactDoesNotExists()
 
@@ -137,7 +137,7 @@ class JobManagementService(Repository):
             if job.is_aggregation:
                 if ArtifactJobStatus[artifact_db.status] != ArtifactJobStatus.AGGREGATING:
                     LOGGER.error(
-                        f"client={self.component.id}: aggregating"
+                        f"component={self.component.id}: aggregating"
                         f"task job={job_id} for artifact={artifact_id} is in an unexpected state={artifact_db.status}"
                     )
                     raise ValueError(f"Wrong status for job={job_id}")
@@ -151,11 +151,11 @@ class JobManagementService(Repository):
                     await self.ar.update_status(artifact_id, ArtifactJobStatus.TRAINING)
 
                 elif ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.TRAINING:
-                    LOGGER.warning(f"client={self.component.id}: requested task already in training status?")
+                    LOGGER.warning(f"component={self.component.id}: requested task already in training status?")
 
                 else:
                     LOGGER.error(
-                        f"client={self.component.id}: "
+                        f"component={self.component.id}: "
                         f"task job={job_id} for artifact={artifact_id} is in an unexpected state={artifact_db.status}"
                     )
                     raise ValueError(f"Wrong status for job={job_id}")
@@ -166,13 +166,13 @@ class JobManagementService(Repository):
 
                 if len(content) == 0:
                     LOGGER.warning(
-                        f"client={self.component.id}: "
+                        f"component={self.component.id}: "
                         f"task with job={job_id} has no datasources with artifact={artifact_id}"
                     )
                     raise ValueError("TaskDoesNotExists")
 
             else:
-                LOGGER.error(f"client={self.component.id}: invalid type for job={job.id}")
+                LOGGER.error(f"component={self.component.id}: invalid type for job={job.id}")
                 raise ValueError(f"Invalid type for job={job_id}")
 
             # TODO: for complex training, filter based on artifact.load field
@@ -187,7 +187,7 @@ class JobManagementService(Repository):
             )
 
         except NoResultFound:
-            LOGGER.warning(f"client={self.component.id}: task with job={job_id} does not exists")
+            LOGGER.warning(f"component={self.component.id}: task with job={job_id} does not exists")
             raise ValueError("TaskDoesNotExists")
 
     async def _create_result(self, job_id: str) -> Result:
@@ -240,27 +240,42 @@ class JobManagementService(Repository):
         artifact: Artifact,
         context: TaskAggregationContext,
     ) -> bool:
-        # aggregations checks
+        # aggregations checks for
+        context.aggregations = await self.jr.count_jobs_by_artifact_id(
+            artifact.id,
+            job.iteration,
+            True,
+        )
+        context.aggregations_failed = await self.jr.count_jobs_by_artifact_status(
+            artifact.id,
+            JobStatus.ERROR,
+            job.iteration,
+            True,
+        )
+
         context.job_total = await self.jr.count_jobs_by_artifact_id(
             artifact.id,
             job.iteration,
+            False,
         )
         context.job_completed = await self.jr.count_jobs_by_artifact_status(
             artifact.id,
             JobStatus.COMPLETED,
             job.iteration,
+            False,
         )
         context.job_failed = await self.jr.count_jobs_by_artifact_status(
             artifact.id,
             JobStatus.ERROR,
             job.iteration,
+            False,
         )
 
         if artifact.has_plan():
             await artifact.get_plan().pre_aggregation_hook(context)
 
         if context.has_failed():
-            LOGGER.error(f"artifact={artifact.id}: " f"aggregation failed: {context.job_failed} jobs have error")
+            LOGGER.error(f"artifact={artifact.id}: aggregation failed: {context.job_failed} jobs have error")
             await self.ar.update_status(artifact.id, ArtifactJobStatus.ERROR, context.current_iteration)
             return False
 
@@ -269,6 +284,10 @@ class JobManagementService(Repository):
                 f"artifact={artifact.id}: "
                 f"{context.job_completed} / {context.job_total} completed job(s) waiting for others",
             )
+            return False
+
+        if context.has_aggregations_failed():
+            LOGGER.warning(f"artifact={artifact.id}: ")
             return False
 
         return True
@@ -298,7 +317,7 @@ class JobManagementService(Repository):
 
         if context.schedule_next_iteration:
             # schedule next iteration
-            LOGGER.info(f"artifact={artifact.id}: scheduling next iteration #{context.next_iteration}")
+            LOGGER.info(f"artifact={artifact.id}: scheduling next iteration={context.next_iteration}")
 
             await self.ar.update_status(artifact.id, ArtifactJobStatus.SCHEDULED, context.next_iteration)
             await self.schedule_tasks_for_iteration(artifact, context.next_iteration)
@@ -312,7 +331,15 @@ class JobManagementService(Repository):
     async def check(self, job_id: str, start_function: Callable[[TaskArguments], None] | None = None) -> None:
         job, artifact, context = await self._context(job_id)
 
-        if job.is_estimation or job.is_model:
+        if job.is_aggregation:
+            if job.status == JobStatus.ERROR:
+                LOGGER.warn(f"artifact={artifact.id}: aggregation failed")
+                await self.ar.update_status(artifact.id, ArtifactJobStatus.ERROR, context.current_iteration)
+                return
+
+            await self.check_next_iteration(artifact, context)
+
+        elif job.is_estimation or job.is_model:
             aggregate = await self.check_aggregation(job, artifact, context)
 
             if aggregate:
@@ -321,14 +348,6 @@ class JobManagementService(Repository):
                 )
 
                 await self.start_aggregation(artifact.id, job.is_model, job.is_estimation, start_function)
-
-        if job.is_aggregation:
-            if job.status == JobStatus.ERROR:
-                LOGGER.warn(f"artifact={artifact.id}: aggregation failed")
-                await self.ar.update_status(artifact.id, ArtifactJobStatus.ERROR, context.current_iteration)
-                return
-
-            await self.check_next_iteration(artifact, context)
 
     async def start_aggregation(
         self,
@@ -357,7 +376,7 @@ class JobManagementService(Repository):
             )
 
             args = TaskArguments(
-                component_id=self.component.id,
+                component_id=worker.id,
                 private_key=self.ss.get_private_key(),
                 node_url=config_manager.get().url_extern(),
                 node_public_key=self.ss.get_public_key(),

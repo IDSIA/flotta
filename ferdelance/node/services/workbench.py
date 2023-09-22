@@ -127,7 +127,7 @@ class WorkbenchService:
 
         status = await ar.get_status(artifact_id)
 
-        LOGGER.info(f"user={self.component.id}: got status of artifact={artifact_id} status={status.status}")
+        LOGGER.info(f"user={self.component.id}: got status={status.status} for artifact={artifact_id} ")
 
         return status
 
@@ -164,7 +164,7 @@ class WorkbenchService:
 
         return result
 
-    async def get_partial_result(self, artifact_id: str, builder_user_id: str) -> Result:
+    async def get_partial_result(self, artifact_id: str, builder_id: str, iteration: int) -> Result:
         """
         :raise:
             ValueError when the requested partial result exists on the database but not on disk.
@@ -176,14 +176,14 @@ class WorkbenchService:
 
         rr: ResultRepository = ResultRepository(self.session)
 
-        result: Result = await rr.get_partial_result(artifact_id, builder_user_id)
+        result: Result = await rr.get_partial_result(artifact_id, builder_id, iteration)
 
         if not os.path.exists(result.path):
             raise ValueError(f"partial result={result.id} not found at path={result.path}")
 
         LOGGER.info(
             f"user={self.component.id}: downloaded partial result for artifact={artifact_id} "
-            f"and builder_user={builder_user_id}"
+            f"and builder_user={builder_id}"
         )
 
         return result

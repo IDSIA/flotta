@@ -14,6 +14,7 @@ from ferdelance.workbench.interface import (
 from ferdelance.schemas.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
+    WorkbenchArtifactPartial,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
@@ -265,7 +266,7 @@ class Context:
             ArtifactJobStatus.ERROR.name,
             ArtifactJobStatus.COMPLETED.name,
         ):
-            print(".", end="")
+            LOGGER.info(".")
             sleep(wait_interval)
 
             art_status = self.status(art_status)
@@ -413,7 +414,7 @@ class Context:
 
             return obj
 
-    def get_partial_result(self, artifact: Artifact, client_id: str) -> Any:
+    def get_partial_result(self, artifact: Artifact, client_id: str, iteration: int) -> Any:
         """Get the trained partial model from the artifact and save it to disk.
 
         :param artifact:
@@ -431,11 +432,15 @@ class Context:
         if artifact.model is None:
             raise ValueError("no model associated with this artifact")
 
-        headers, _ = self.exc.create(self.id, "")
+        wap = WorkbenchArtifactPartial(artifact_id=artifact.id, producer_id=client_id, iteration=iteration)
 
-        with requests.get(
-            f"{self.server}/workbench/result/partial/{artifact.id}/{client_id}",
+        headers, payload = self.exc.create(self.id, wap.json())
+
+        with requests.request(
+            "GET",
+            f"{self.server}/workbench/result/partial",
             headers=headers,
+            data=payload,
             stream=True,
         ) as res:
             res.raise_for_status()

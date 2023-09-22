@@ -5,6 +5,7 @@ from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
 from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
+    WorkbenchArtifactPartial,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
@@ -200,20 +201,25 @@ async def wb_get_result(
         raise HTTPException(500)
 
 
-@workbench_router.get("/result/partial/{artifact_id}/{builder_user_id}", response_class=FileResponse)
+@workbench_router.get("/result/partial", response_class=FileResponse)
 async def wb_get_partial_result(
-    artifact_id: str,
-    builder_user_id: str,
+    part: WorkbenchArtifactPartial,
     args: ValidSessionArgs = Depends(allow_access),
 ):
+    component = args.component
+    artifact_id = part.artifact_id
+    producer_id = part.producer_id
+    iteration = part.iteration
+
     LOGGER.info(
-        f"user={args.component.id}: requested partial model for " f"artifact={artifact_id} from user={builder_user_id}"
+        f"user={component.id}: requested partial model for artifact={artifact_id} "
+        f"from builder={producer_id} iteration={iteration}"
     )
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, component)
 
     try:
-        result = await ws.get_partial_result(artifact_id, builder_user_id)
+        result = await ws.get_partial_result(artifact_id, producer_id, iteration)
 
         return FileResponse(result.path)
 
@@ -222,11 +228,16 @@ async def wb_get_partial_result(
         raise HTTPException(404)
 
     except NoResultFound:
-        LOGGER.warning(f"no partial model found for artifact={artifact_id} and user={builder_user_id}")
+        LOGGER.warning(
+            f"user={component.id}: no partial model found for artifact={artifact_id} "
+            f"builder={producer_id} iteration={iteration}"
+        )
         raise HTTPException(404)
 
     except MultipleResultsFound:
+        # TODO: do we want to allow this?
         LOGGER.error(
-            f"multiple partial models found for artifact={artifact_id} and user={builder_user_id}"
-        )  # TODO: do we want to allow this?
+            f"user={component.id}: multiple partial models found for artifact={artifact_id} "
+            f"builder={producer_id} iteration={iteration}"
+        )
         raise HTTPException(500)

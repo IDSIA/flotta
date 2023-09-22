@@ -64,7 +64,7 @@ class DataSourceRepository(Repository):
             await self.create_or_update_datasource(client_id, ds, False)
         await self.session.commit()
 
-        LOGGER.info(f"client={client_id}: added {len(metadata.datasources)} new datasources")
+        LOGGER.info(f"component={client_id}: added {len(metadata.datasources)} new datasources")
 
     async def create_or_update_datasource(
         self, client_id: str, meta_ds: MetaDataSource, commit: bool = True
@@ -106,7 +106,7 @@ class DataSourceRepository(Repository):
 
         if ds_db is None:
             # create a new data source for this client
-            LOGGER.info(f"client={client_id}: creating new data source={meta_ds.name}")
+            LOGGER.info(f"component={client_id}: creating new data source={meta_ds.name}")
 
             meta_ds.id = str(uuid4())
 
@@ -128,7 +128,7 @@ class DataSourceRepository(Repository):
         else:
             if meta_ds.removed:
                 # remove data source info and from disk, keep placeholder
-                LOGGER.info(f"client={client_id}: removing data source={ds_db.name}")
+                LOGGER.info(f"component={client_id}: removing data source={ds_db.name}")
 
                 ds_db.removed = True
                 ds_db.n_records = None
@@ -139,7 +139,7 @@ class DataSourceRepository(Repository):
 
             else:
                 # update data source info
-                LOGGER.info(f"client={client_id}: updating data source={ds_db.name}")
+                LOGGER.info(f"component={client_id}: updating data source={ds_db.name}")
 
                 meta_ds.id = ds_db.id
                 ds_db.n_records = meta_ds.n_records

@@ -131,7 +131,7 @@ class ComponentRepository(Repository):
                 A handler to the component object.
         """
 
-        LOGGER.info(f"creating new component={component_id} type={type_name} version={version} name={name} url={url}")
+        LOGGER.info(f"component={component_id}: creating new type={type_name} version={version} name={name} url={url}")
 
         if type_name == TYPE_USER:
             await self._check_for_existing_user(public_key)
@@ -206,7 +206,7 @@ class ComponentRepository(Repository):
 
         await self.session.commit()
 
-        LOGGER.info(f"client={component_id}: updated client version to {version}")
+        LOGGER.info(f"component={component_id}: updated client version to {version}")
 
     async def component_leave(self, component_id: str) -> None:
         """Marks a client as it left the server and it is no more available

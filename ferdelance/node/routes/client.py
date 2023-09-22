@@ -25,7 +25,7 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
 
         return args
     except NoResultFound:
-        LOGGER.warning(f"client={args.component.id} not found")
+        LOGGER.warning(f"component={args.component.id} not found")
         raise HTTPException(403)
 
 
@@ -45,7 +45,7 @@ async def client_update(
     - new client app package
     - nothing (keep alive)
     """
-    LOGGER.debug(f"client={args.component.id}: update request")
+    LOGGER.debug(f"component={args.component.id}: update request")
 
     jms: JobManagementService = JobManagementService(args.session, args.component)
 

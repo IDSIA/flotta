@@ -161,7 +161,7 @@ class DataSource(BaseDataSource):
         raise ValueError(f'Feature "{str(key)}" not found in this datasource')
 
     def __str__(self) -> str:
-        return super().__str__() + f"client={self.component_id} features=[{self.features}]"
+        return super().__str__() + f"component={self.component_id} features=[{self.features}]"
 
     def extract(self) -> Query:
         """Proceeds on extracting all the features and creating a transformation

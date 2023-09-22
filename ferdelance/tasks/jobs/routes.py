@@ -108,7 +108,7 @@ class EncryptRouteService(RouteService):
             )
 
             res = requests.post(
-                f"{self.server}/task/result/{job_id}",
+                f"{self.server}/task/result",
                 headers=headers,
                 data=open(path_out, "rb"),
             )
@@ -117,8 +117,6 @@ class EncryptRouteService(RouteService):
                 os.remove(path_out)
 
             res.raise_for_status()
-
-            LOGGER.info(f"artifact={artifact_id}: result for job={job_id} from source={path_in} upload successful")
 
         elif content is not None:
             headers, payload = self.exc.create(
@@ -133,36 +131,30 @@ class EncryptRouteService(RouteService):
             _, data = self.exc.stream(payload)
 
             res = requests.post(
-                f"{self.server}/task/result/{job_id}",
+                f"{self.server}/task/result",
                 headers=headers,
                 data=data,
             )
 
             res.raise_for_status()
 
-            LOGGER.info(f"artifact={artifact_id}: result for job={job_id} upload successful")
-
         else:
-            headers, payload = self.exc.create(
+            headers, _ = self.exc.create(
                 self.component_id,
-                content,
                 extra_headers={
                     "job_id": job_id,
                     "file": "local",
                 },
             )
 
-            _, data = self.exc.stream(payload)
-
             res = requests.post(
-                f"{self.server}/task/result/{job_id}",
+                f"{self.server}/task/result",
                 headers=headers,
-                data=data,
             )
 
             res.raise_for_status()
 
-            LOGGER.info(f"artifact={artifact_id}: result for job={job_id} upload successful")
+        LOGGER.info(f"artifact={artifact_id}: result for job={job_id} upload successful")
 
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
         LOGGER.info(f"artifact={artifact_id}: posting metrics for job={job_id}")

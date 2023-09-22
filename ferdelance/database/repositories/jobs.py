@@ -91,6 +91,11 @@ class JobRepository(Repository):
         await self.session.commit()
         await self.session.refresh(job)
 
+        LOGGER.info(
+            f"component={component_id}: scheduled job={job.id} for artifact={artifact_id} "
+            f"iteration={iteration} component={component_id}"
+        )
+
         return view(job)
 
     async def start_execution(self, job: Job) -> Job:
@@ -347,7 +352,9 @@ class JobRepository(Repository):
         res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
         return [view(j) for j in res.all()]
 
-    async def count_jobs_by_artifact_id(self, artifact_id: str, iteration: int = -1) -> int:
+    async def count_jobs_by_artifact_id(
+        self, artifact_id: str, iteration: int = -1, is_aggregation: bool | None = None
+    ) -> int:
         """Counts the number of jobs created for the given artifact_id.
 
         Args:
@@ -363,11 +370,15 @@ class JobRepository(Repository):
         conditions = [JobDB.artifact_id == artifact_id]
         if iteration > -1:
             conditions.append(JobDB.iteration == iteration)
+        if is_aggregation is not None:
+            conditions.append(JobDB.is_aggregation == is_aggregation)
 
         res = await self.session.scalars(select(func.count()).select_from(JobDB).where(*conditions))
         return res.one()
 
-    async def count_jobs_by_artifact_status(self, artifact_id: str, status: JobStatus, iteration: int = -1) -> int:
+    async def count_jobs_by_artifact_status(
+        self, artifact_id: str, status: JobStatus, iteration: int = -1, is_aggregation: bool | None = None
+    ) -> int:
         """Counts the number of jobs created for the given artifact_id and in
         the given status.
 
@@ -384,6 +395,8 @@ class JobRepository(Repository):
         conditions = [JobDB.artifact_id == artifact_id, JobDB.status == status.name]
         if iteration > -1:
             conditions.append(JobDB.iteration == iteration)
+        if is_aggregation is not None:
+            conditions.append(JobDB.is_aggregation == is_aggregation)
 
         res = await self.session.scalars(select(func.count()).select_from(JobDB).where(*conditions))
         return res.one()
