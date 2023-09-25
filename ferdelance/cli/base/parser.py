@@ -19,8 +19,8 @@ class CLIParser:
         self.parser.add_argument("command", metavar="C", type=str, help="Which command to execute")
 
         self.suites: list[CLICommandSuite] = []
-        self.selected_suite: CLICommandSuite = None
-        self.selected_command: CLICommand = None
+        self.selected_suite: CLICommandSuite = None  # type: ignore
+        self.selected_command: CLICommand = None  # type: ignore
         self.args = dict[str, Any]
 
         self.avail_args_set: set = set()

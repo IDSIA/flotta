@@ -7,12 +7,12 @@ from ferdelance.schemas.models.metrics import Metrics
 
 
 class TaskArguments(BaseModel):
-    """Used to launch a new task"""
+    """Used to launch a new local task."""
 
+    component_id: str
     private_key: str
-    server_url: str
-    server_public_key: str
-    token: str
+    node_url: str
+    node_public_key: str
     workdir: str
     datasources: list[dict[str, Any]]
     job_id: str
@@ -20,23 +20,31 @@ class TaskArguments(BaseModel):
 
 
 class TaskParametersRequest(BaseModel):
-    """Sent to a get_task_param request."""
+    """Sent to a server's get_task_param request."""
 
     artifact_id: str
     job_id: str
 
 
 class TaskParameters(BaseModel):
-    """Returned to a get_task_params request."""
+    """Returned from a server's get_task_params request."""
 
     artifact: Artifact
     job_id: str
+    iteration: int
     content_ids: list[str]
 
 
-class ExecutionResult(BaseModel):
+class TaskError(BaseModel):
+    job_id: str = ""
+    message: str = ""
+    stack_trace: str = ""
+
+
+class TaskResult(BaseModel):
     job_id: str
-    path: str
-    metrics: list[Metrics]
+    result_path: str | None = None
+    metrics: list[Metrics] = list()
     is_model: bool = False
     is_estimate: bool = False
+    is_aggregation: bool = False

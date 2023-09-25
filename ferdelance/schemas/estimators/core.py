@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any
-from abc import ABC, abstractclassmethod
+from abc import ABC, abstractmethod
 
 from ferdelance.schemas.queries.features import QueryFeature
 from ferdelance.schemas.utils import convert_features_in_to_list
@@ -42,15 +42,15 @@ class GenericEstimator(ABC):
             params=self.params(),
         )
 
-    @abstractclassmethod
+    @abstractmethod
     def fit(self, df: pd.DataFrame) -> None:
         raise NotImplementedError()
 
-    @abstractclassmethod
+    @abstractmethod
     def estimate(self, df: pd.DataFrame) -> Any:
         raise NotImplementedError()
 
-    @abstractclassmethod
+    @abstractmethod
     def aggregate(self, estimator_a: GenericEstimator, estimator_b: GenericEstimator) -> Estimator:
         """Merge two estimators together. A new estimator need to be created.
         If an issue occurs, raise ValueError exception.

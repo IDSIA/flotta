@@ -36,24 +36,24 @@ class Artifact(BaseModel):
 
     def get_plan(self) -> GenericPlan:
         if self.plan is None:
-            raise ValueError(f"No plan available with artifact_id={self.id}")
+            raise ValueError(f"No plan available with artifact={self.id}")
 
         return rebuild_plan(self.plan)
 
     def get_model(self) -> GenericModel:
         if self.model is None:
-            raise ValueError(f"No model available with artifact_id={self.id}")
+            raise ValueError(f"No model available with artifact={self.id}")
 
         return rebuild_model(self.model)
 
     def get_strategy(self) -> str:
         if self.model is None:
-            raise ValueError(f"No model available with artifact_id={self.id}")
+            raise ValueError(f"No model available with artifact={self.id}")
 
         return self.model.strategy
 
     def get_estimator(self) -> GenericEstimator:
         if self.estimator is None:
-            raise ValueError(f"No estimator available with artifact_id={self.id}")
+            raise ValueError(f"No estimator available with artifact={self.id}")
 
         return rebuild_estimator(self.estimator)

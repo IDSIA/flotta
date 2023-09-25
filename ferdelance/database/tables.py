@@ -25,7 +25,7 @@ class ComponentType(Base):
 
 
 class Component(Base):
-    """Table used to keep track of current components."""
+    """Table used to keep track of components in the network."""
 
     __tablename__ = "components"
 
@@ -33,48 +33,30 @@ class Component(Base):
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
 
     name: Mapped[str] = mapped_column(nullable=True)
+    is_self: Mapped[bool] = mapped_column(default=False)
+    is_join: Mapped[bool] = mapped_column(default=False)
 
     type_name: Mapped[str] = mapped_column(ForeignKey("component_types.type"))
     type = relationship("ComponentType")
 
+    blacklisted: Mapped[bool] = mapped_column(default=False)
     active: Mapped[bool] = mapped_column(default=True)
     left: Mapped[bool] = mapped_column(default=False)
 
     # this is b64+utf8 encoded bytes
     public_key: Mapped[str] = mapped_column(nullable=False)
 
-    # --- ds-client only part ---
-    blacklisted: Mapped[bool] = mapped_column(default=False)
-    version: Mapped[str | None] = mapped_column(String, nullable=True)
-    # platform.system()
-    machine_system: Mapped[str | None] = mapped_column(String, nullable=True)
-    # from getmac import get_mac_address; get_mac_address()
-    machine_mac_address: Mapped[str | None] = mapped_column(String, nullable=True)
-    # uuid.getnode()
-    machine_node: Mapped[str | None] = mapped_column(String, nullable=True)
-    # client ip address
-    ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    # fdl component's version
+    version: Mapped[str | None] = mapped_column(String)
 
-
-class Token(Base):
-    """Table that collects all used access tokens for the components.
-    If an invalid token is reused, a client could be blacklisted (or updated).
-    """
-
-    __tablename__ = "tokens"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    expiration_time: Mapped[float] = mapped_column(nullable=True)
-    token: Mapped[str] = mapped_column(nullable=False, index=True, unique=True)
-    valid: Mapped[bool] = mapped_column(default=True)
-
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
-    component = relationship("Component")
+    # node component ip addresss (for indirect communication)
+    ip_address: Mapped[str | None] = mapped_column(String)
+    # node component complete url (for direct communication)
+    url: Mapped[str | None] = mapped_column(String)
 
 
 class Event(Base):
-    """Table that collects all the event from the components."""
+    """Table that collects all the event on the components."""
 
     __tablename__ = "events"
 
@@ -84,21 +66,6 @@ class Event(Base):
 
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
     component = relationship("Component")
-
-
-class Application(Base):
-    """Table that keeps track of the available client app version."""
-
-    __tablename__ = "applications"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    version: Mapped[str] = mapped_column(String)
-    active: Mapped[bool] = mapped_column(default=False)
-    path: Mapped[str] = mapped_column(String)
-    name: Mapped[str] = mapped_column(String)
-    description: Mapped[str | None] = mapped_column(String)
-    checksum: Mapped[str] = mapped_column(String)
 
 
 class Artifact(Base):

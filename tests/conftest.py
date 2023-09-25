@@ -1,10 +1,12 @@
 from typing import AsyncGenerator
 
 from ferdelance.config import config_manager
+from ferdelance.const import COMPONENT_TYPES
 from ferdelance.database import Base, DataBase
-from ferdelance.database.data import COMPONENT_TYPES
 from ferdelance.database.tables import ComponentType
 from ferdelance.shared.exchange import Exchange
+
+from .utils import TEST_PROJECT_TOKEN
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +25,13 @@ conf.database.memory = False
 conf.database.dialect = "sqlite"
 conf.database.host = db_file
 
-conf.server.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
-conf.private_key_location = str(os.path.join("tests", "private_key.pem"))
+conf.node.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
+conf.node.token_project_default = TEST_PROJECT_TOKEN
+conf.workdir = str(os.path.join("tests", "storage"))
+
+conf.dump()
+
+config_manager.setup()
 
 
 def create_dirs() -> None:
@@ -43,7 +50,8 @@ def delete_dirs() -> None:
     shutil.rmtree(conf.storage_clients_dir())
     shutil.rmtree(conf.storage_results_dir())
 
-    os.remove(db_path)
+    if os.path.exists(db_path):
+        os.remove(db_path)
 
 
 @pytest_asyncio.fixture()
@@ -56,10 +64,15 @@ async def session() -> AsyncGenerator[AsyncSession, None]:
         await conn.run_sync(Base.metadata.create_all)
         try:
             async with inst.session() as session:
-                for t in COMPONENT_TYPES:
-                    session.add(ComponentType(type=t))
-                await session.commit()
+                try:
+                    for t in COMPONENT_TYPES:
+                        session.add(ComponentType(type=t))
+                    await session.commit()
+                except Exception:
+                    pass
                 yield session
+        except Exception as e:
+            print(e)
         finally:
             await conn.run_sync(Base.metadata.drop_all)
             delete_dirs()

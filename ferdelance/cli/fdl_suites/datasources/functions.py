@@ -49,5 +49,5 @@ async def describe_datasource(datasource_id: str | None) -> DataSource | None:
             datasource: DataSource = await datasource_repository.get_datasource_by_id(datasource_id)
             show_one(datasource)
             return datasource
-        except NoResultFound as e:
+        except NoResultFound:
             print(f"No Datasource found with id {datasource_id}")

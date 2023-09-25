@@ -46,5 +46,5 @@ async def describe_artifact(artifact_id: str) -> ServerArtifact | None:
             show_one(artifact)
             return artifact
 
-        except NoResultFound as e:
+        except NoResultFound:
             print(f"No artifact found with id {artifact_id}")

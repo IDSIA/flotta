@@ -21,7 +21,7 @@ import pandas as pd
 import pickle
 
 
-def save(obj: GenericEstimator, path: str) -> None:
+def save_estimator(obj: GenericEstimator, path: str) -> None:
     with open(path, "wb") as f:
         pickle.dump(obj, f)
 
@@ -88,6 +88,6 @@ def apply_estimator(estimator: Estimator, df: pd.DataFrame, working_folder: str,
 
     path_estimator = os.path.join(working_folder, f"{artifact_id}_Estimator_{estimator.name}.pkl")
 
-    save(e, path_estimator)
+    save_estimator(e, path_estimator)
 
     return path_estimator

@@ -1,21 +1,43 @@
+# /!\ all paths are relative to the workdir (except for datasources)
+
 workdir: ./storage
-private_key_location: ./storage/private_key.pem
 
-server:
-  main_password: "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
+# can be node, client, or standalone
+mode: node 
 
-  # wait in seconds
-  healthcheck: 120
 
+# descriptor for the node setup
+node:
+  name: FerdelanceNode
+
+  main_password: "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1" # TODO: remove?
+
+  # self-check in seconds when in mode=node
+  healthcheck: 120.0
+  # concact server node each interval in second for update when in mode=client
+  heartbeat: 2.0
+
+  # describe how the node can be contacted from the extern
   protocol: http
-  interface: localhost # use 0.0.0.0 in prod, 127.0.0.1 in dev
+  # use 0.0.0.0 in prod, 127.0.0.1 in dev
+  # note: mode=client will force to use localhost!
+  interface: localhost
   port: 1456
-  # this will produce http://localhost:1456/
+  # FQDN, if empty (default) use ip
+  url: ""
+  
+  # the above config will produce http://localhost:1456/
 
-  token_client_expiration: 90 day
-  token_user_expiration: 30 days
   token_project_default: ""
 
+# # join an existing node/network
+# join:
+#   # if first=true, then it will be the first node in the FDL network
+#   first: False
+#   url: http://localhost:1456
+# TODO: enable the block above
+
+# configure database to use (default local sqlite file)
 database:
   username: ""
   password: ""
@@ -24,18 +46,17 @@ database:
   # in memory db (True)
   memory: False
 
-  # sqlite (local/dev)
+  # sqlite (default, for local/dev)
   dialect: sqlite
-  host: ./storage/sqlite.db
+   # path relative to the workdir
+  host: ./sqlite.db
 
-  # postgres (prod)
+  # config with postgres (for prod)
   # dialect: postresql
   # port: 5432
   # host: ""
 
-client:
-  heartbeat: 2.0
-
+# configure datasource files to use
 datasources:
   # - name: source1
   #   type: csv
@@ -52,6 +73,7 @@ datasources:
 
   - name: iris
     type: csv
+    # this path is external to the workdir
     path: data/iris.csv
     kind: file
     token: 

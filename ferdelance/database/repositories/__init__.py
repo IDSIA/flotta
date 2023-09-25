@@ -7,7 +7,6 @@ __all__ = [
     "DataSourceRepository",
     "ResultRepository",
     "ProjectRepository",
-    "setup_settings",
     "KeyValueStore",
 ]
 
@@ -18,4 +17,4 @@ from .datasource import DataSourceRepository
 from .jobs import JobRepository
 from .result import ResultRepository
 from .projects import ProjectRepository
-from .settings import KeyValueStore, setup_settings
+from .settings import KeyValueStore

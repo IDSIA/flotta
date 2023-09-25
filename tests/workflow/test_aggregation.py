@@ -1,10 +1,7 @@
 from typing import Any
 
-from ferdelance.config import DataSourceConfiguration
-from ferdelance.client.state import DataConfig
+from ferdelance.config import DataSourceConfiguration, DataSourceStorage
 from ferdelance.database import AsyncSession
-from ferdelance.schemas.updates import UpdateNothing
-
 from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.models import (
     GenericModel,
@@ -14,6 +11,7 @@ from ferdelance.schemas.models import (
 )
 from ferdelance.schemas.plans import TrainTestSplit
 from ferdelance.schemas.tasks import TaskArguments
+from ferdelance.schemas.updates import UpdateData
 
 from tests.serverless import ServerlessExecution
 from tests.utils import TEST_PROJECT_TOKEN
@@ -24,7 +22,7 @@ import pytest
 
 
 def aggregation_job(args: TaskArguments) -> None:
-    print(f"artifact_id={args.artifact_id}: aggregation start for job_id={args.job_id}")
+    print(f"artifact={args.artifact_id}: aggregation start for job={args.job_id}")
 
 
 @pytest.mark.asyncio
@@ -35,20 +33,18 @@ async def test_aggregation(session: AsyncSession):
     assert os.path.exists(DATA_PATH_1)
     assert os.path.exists(DATA_PATH_2)
 
-    data1 = DataConfig(
-        "./storage/data",
+    data1 = DataSourceStorage(
         [
             DataSourceConfiguration(
                 name="california1",
+                token=[TEST_PROJECT_TOKEN],
                 kind="file",
                 type="csv",
                 path=DATA_PATH_1,
-                token=[TEST_PROJECT_TOKEN],
             )
         ],
     )
-    data2 = DataConfig(
-        "./storage/data",
+    data2 = DataSourceStorage(
         [
             DataSourceConfiguration(
                 name="california2",
@@ -109,7 +105,7 @@ async def test_aggregation(session: AsyncSession):
     job_id = await server.aggregate(result2, aggregation_job)
 
     # worker
-    worker_task = await server.get_worker_task(job_id)
+    worker_task = await server.get_task(job_id)
 
     artifact = worker_task.artifact
 
@@ -121,7 +117,7 @@ async def test_aggregation(session: AsyncSession):
     strategy: str = artifact.get_strategy()
 
     for result_id in worker_task.content_ids:
-        result = await server.worker_service.get_result(result_id)
+        result = await server.jobs_service.get_result(result_id)
 
         with open(result.path, "rb") as f:
             partial: GenericModel = pickle.load(f)
@@ -131,7 +127,7 @@ async def test_aggregation(session: AsyncSession):
         else:
             base = agg.aggregate(strategy, base, partial)
 
-    await server.post_worker_result(job_id)
+    await server.post_result(job_id)
 
     jobs = await server.jr.list_jobs_by_artifact_id(artifact.id)
 
@@ -140,8 +136,8 @@ async def test_aggregation(session: AsyncSession):
     # check
     next_action = await client1.next_action()
 
-    assert isinstance(next_action, UpdateNothing)
+    assert isinstance(next_action, UpdateData)
 
     next_action = await client2.next_action()
 
-    assert isinstance(next_action, UpdateNothing)
+    assert isinstance(next_action, UpdateData)

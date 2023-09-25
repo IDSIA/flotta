@@ -1,5 +1,5 @@
 from ferdelance.cli.fdl_suites.models.functions import describe_model, list_models
-from ferdelance.database.data import TYPE_CLIENT
+from ferdelance.const import TYPE_CLIENT
 from ferdelance.schemas.database import Result
 from ferdelance.database.tables import Artifact, Component, Result as ResultDB
 
@@ -21,12 +21,11 @@ async def test_models_list(session: AsyncSession):
     session.add(
         Component(
             id="cid1",
+            name="client1",
             version="test",
             public_key="1",
-            machine_system="1",
-            machine_mac_address="1",
-            machine_node="1",
             ip_address="1",
+            url="",
             type_name=TYPE_CLIENT,
         )
     )
@@ -66,13 +65,12 @@ async def test_describe_client(session: AsyncSession):
     session.add(
         Component(
             id="cid1",
+            name="client1",
             version="test",
             public_key="1",
-            machine_system="1",
-            machine_mac_address="1",
-            machine_node="1",
             ip_address="1",
-            type_name="CLIENT",
+            url="",
+            type_name=TYPE_CLIENT,
         )
     )
 

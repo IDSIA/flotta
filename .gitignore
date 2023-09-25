@@ -22,6 +22,7 @@ __pycache__
 *.gz
 
 *.pem
+*.pub
 
 storage/
 logs/
@@ -33,3 +34,6 @@ experiments/
 data/
 *sqlite.db
 *.bin
+*.enc
+*.pem
+*.pub
