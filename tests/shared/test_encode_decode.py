@@ -1,4 +1,4 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.shared.generate import generate_asymmetric_key, RSAPrivateKey, RSAPublicKey
 from ferdelance.shared.encode import (
     encode_to_transfer,
@@ -120,6 +120,6 @@ def test_hybrid_encryption():
     dec = HybridDecrypter(private_key)
 
     secret: bytes = enc.encrypt(content)
-    message: str = dec.decrypt(secret)
+    message: str = dec.decrypt(secret).decode()
 
     assert content == message

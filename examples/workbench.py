@@ -121,7 +121,7 @@ m = FederatedRandomForestClassifier(
 
 q = q.add_model(m)
 
-# %% submit the task to the server, it will be converted to an Artifact
+# %% submit the task to the node, it will be converted to an Artifact
 
 a: Artifact = ctx.submit(project, q)
 

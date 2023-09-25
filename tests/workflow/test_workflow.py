@@ -1,6 +1,7 @@
-from ferdelance.config import config_manager, get_logger
+from ferdelance.config import config_manager
+from ferdelance.logging import get_logger
 from ferdelance.database.tables import Job
-from ferdelance.server.api import api
+from ferdelance.node.api import api
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
     Project,
@@ -8,7 +9,7 @@ from ferdelance.workbench.interface import (
     ArtifactStatus,
 )
 from ferdelance.schemas.models import Model
-from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.schemas.updates import UpdateData
 from ferdelance.schemas.plans import TrainTestSplit
 from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
@@ -29,6 +30,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import json
 import os
 import pytest
 import shutil
@@ -40,7 +42,7 @@ LOGGER = get_logger(__name__)
 async def test_workflow_wb_submit_client_get(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
-        client_id = args.client_id
+        client_id = args.cl_id
         wb_exc = args.wb_exc
         cl_exc = args.cl_exc
 
@@ -48,16 +50,19 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
+        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+
         res = server.request(
             "GET",
             "/workbench/project",
-            headers=wb_exc.headers(),
-            content=wb_exc.create_payload(wpt.dict()),
+            headers=headers,
+            content=payload,
         )
 
         assert res.status_code == 200
 
-        project = Project(**wb_exc.get_payload(res.content))
+        _, res_payload = wb_exc.get_payload(res.content)
+        project = Project(**json.loads(res_payload))
 
         datasource: AggregatedDataSource = project.data
 
@@ -82,15 +87,18 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
             ).build(),
         )
 
+        headers, payload = wb_exc.create(args.wb_id, artifact.json())
+
         res = server.post(
             "/workbench/artifact/submit",
-            content=wb_exc.create_payload(artifact.dict()),
-            headers=wb_exc.headers(),
+            headers=headers,
+            content=payload,
         )
 
         assert res.status_code == 200
 
-        status = ArtifactStatus(**wb_exc.get_payload(res.content))
+        _, res_payload = wb_exc.get_payload(res.content)
+        status = ArtifactStatus(**json.loads(res_payload))
 
         artifact_id = status.id
 
@@ -100,32 +108,38 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
+        headers, payload = wb_exc.create(args.wb_id, wba.json())
+
         res = server.request(
             "GET",
             "/workbench/artifact/status",
-            content=wb_exc.create_payload(wba.dict()),
-            headers=wb_exc.headers(),
+            headers=headers,
+            content=payload,
         )
 
         assert res.status_code == 200
 
-        status = ArtifactStatus(**wb_exc.get_payload(res.content))
+        _, res_payload = wb_exc.get_payload(res.content)
+        status = ArtifactStatus(**json.loads(res_payload))
 
         assert status.status is not None
         assert status.id is not None
 
         assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
 
+        headers, payload = wb_exc.create(args.wb_id, wba.json())
+
         res = server.request(
             "GET",
             "/workbench/artifact",
-            content=wb_exc.create_payload(wba.dict()),
-            headers=wb_exc.headers(),
+            headers=headers,
+            content=payload,
         )
 
         assert res.status_code == 200
 
-        downloaded_artifact = Artifact(**wb_exc.get_payload(res.content))
+        _, res_payload = wb_exc.get_payload(res.content)
+        downloaded_artifact = Artifact(**json.loads(res_payload))
 
         assert downloaded_artifact.id is not None
         assert len(downloaded_artifact.transform.stages) == 1
@@ -144,28 +158,29 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         LOGGER.info("update client")
 
-        status_code, action, data = client_update(server, cl_exc)
+        status_code, action, data = client_update(client_id, server, cl_exc)
 
         assert status_code == 200
         assert Action[action] == Action.EXECUTE_TRAINING
 
-        update_execute = UpdateExecute(**data)
+        update_execute = UpdateData(**data)
 
         assert update_execute.job_id == job.id
 
         LOGGER.info("get task for client")
 
+        headers, payload = cl_exc.create(args.cl_id, update_execute.json())
+
         task_response = server.request(
             method="GET",
             url="/task/params",
-            headers=cl_exc.headers(),
-            content=cl_exc.create_payload(update_execute.dict()),
+            headers=headers,
+            content=payload,
         )
         assert task_response.status_code == 200
 
-        content = cl_exc.get_payload(task_response.content)
-
-        task = TaskParameters(**content)
+        _, res_payload = cl_exc.get_payload(task_response.content)
+        task = TaskParameters(**json.loads(res_payload))
 
         assert TEST_DATASOURCE_HASH in task.content_ids
 

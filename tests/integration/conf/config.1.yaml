@@ -1,5 +1,23 @@
-client:
+workdir: ./storage
+mode: client
+
+node:
+  name: Client1
+  healthcheck: 120.0
   heartbeat: 10.0
+  token_project_default: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
+
+join:
+  first: False
+  url: http://${FERDELANCE_NODE_HOST}:1456
+
+database:
+  username: ""
+  password: ""
+  scheme: ferdelance
+  memory: False
+  dialect: sqlite
+  host: ./sqlite.db
 
 datasources:
   - name: california1

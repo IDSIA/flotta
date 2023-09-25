@@ -37,12 +37,10 @@ RUN mkdir -p \
     /ferdelance/storage/datasources \ 
     /ferdelance/storage/artifacts \ 
     /ferdelance/storage/clients \ 
-    /ferdelance/storage/results
-
-COPY --chown=ferdelance ./script/init.sh .
-
-RUN chmod +x ./init.sh
+    /ferdelance/storage/results \
+    /ferdelance/logs && \
+    chown -R ferdelance:ferdelance /ferdelance/
 
 EXPOSE 1456
 
-ENTRYPOINT ["/bin/bash", "init.sh"]
+ENTRYPOINT ["python3", "-m", "ferdelance", "-c", "/ferdelance/config.yaml"]

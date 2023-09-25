@@ -1,12 +1,12 @@
 from typing import Any
 from abc import ABC, abstractmethod
 
-from ferdelance.config import get_logger
-from ferdelance.schemas.errors import TaskError
+from ferdelance.logging import get_logger
 from ferdelance.schemas.models.metrics import Metrics
-from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest
+from ferdelance.schemas.tasks import TaskParameters, TaskParametersRequest, TaskError
 from ferdelance.shared.exchange import Exchange
 
+import json
 import os
 import pickle
 import requests
@@ -41,42 +41,48 @@ class EncryptRouteService(RouteService):
 
     def __init__(
         self,
+        component_id: str,
         server_url: str,
-        token: str,
         private_key: str,
         server_public_key: str,
     ) -> None:
         self.server: str = server_url
 
+        self.component_id: str = component_id
         self.exc: Exchange = Exchange()
         self.exc.set_private_key(private_key)
-        self.exc.set_token(token)
         self.exc.set_remote_key(server_public_key)
 
     def get_task_params(self, artifact_id: str, job_id: str) -> TaskParameters:
-        LOGGER.info(f"artifact_id={artifact_id}: requesting task execution parameters for job_id={job_id}")
+        LOGGER.info(f"artifact={artifact_id}: requesting task execution parameters for job={job_id}")
 
         task = TaskParametersRequest(
             artifact_id=artifact_id,
             job_id=job_id,
         )
 
+        headers, payload = self.exc.create(self.component_id, task.json())
+
         res = requests.get(
             f"{self.server}/task/params",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(task.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        return TaskParameters(**self.exc.get_payload(res.content))
+        _, data = self.exc.get_payload(res.content)
+
+        return TaskParameters(**json.loads(data))
 
     def get_result(self, artifact_id: str, job_id: str, result_id: str) -> Any:
-        LOGGER.info(f"artifact_id={artifact_id}: requesting partial result_id={result_id} for job_id={job_id}")
+        LOGGER.info(f"artifact={artifact_id}: requesting partial result={result_id} for job={job_id}")
+
+        headers, _ = self.exc.create(self.component_id)
 
         with requests.get(
             f"{self.server}/task/result/{result_id}",
-            headers=self.exc.headers(),
+            headers=headers,
             stream=True,
         ) as res:
             res.raise_for_status()
@@ -86,16 +92,24 @@ class EncryptRouteService(RouteService):
         return pickle.loads(content)
 
     def post_result(self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None):
-        LOGGER.info(f"artifact_id={artifact_id}: posting result for job_id={job_id}")
+        LOGGER.info(f"artifact={artifact_id}: posting result for job={job_id}")
 
         if path_in is not None:
             path_out = f"{path_in}.enc"
 
-            self.exc.encrypt_file_for_remote(path_in, path_out)
+            checksum = self.exc.encrypt_file_for_remote(path_in, path_out)
+            headers = self.exc.create_signed_header(
+                self.component_id,
+                checksum,
+                extra_headers={
+                    "job_id": job_id,
+                    "file": "attached",
+                },
+            )
 
             res = requests.post(
-                f"{self.server}/task/result/{job_id}",
-                headers=self.exc.headers(),
+                f"{self.server}/task/result",
+                headers=headers,
                 data=open(path_out, "rb"),
             )
 
@@ -105,42 +119,70 @@ class EncryptRouteService(RouteService):
             res.raise_for_status()
 
         elif content is not None:
-            data = pickle.dumps(content)
+            headers, payload = self.exc.create(
+                self.component_id,
+                content,
+                extra_headers={
+                    "job_id": job_id,
+                    "file": "attached",
+                },
+            )
+
+            _, data = self.exc.stream(payload)
 
             res = requests.post(
-                f"{self.server}/task/result/{job_id}",
-                headers=self.exc.headers(),
-                data=self.exc.stream(data),
+                f"{self.server}/task/result",
+                headers=headers,
+                data=data,
             )
 
             res.raise_for_status()
 
         else:
-            raise ValueError("No data to send!")
+            headers, _ = self.exc.create(
+                self.component_id,
+                extra_headers={
+                    "job_id": job_id,
+                    "file": "local",
+                },
+            )
 
-        LOGGER.info(f"artifact_id={artifact_id}: result from source={path_in} for job_id={job_id} upload successful")
+            res = requests.post(
+                f"{self.server}/task/result",
+                headers=headers,
+            )
+
+            res.raise_for_status()
+
+        LOGGER.info(f"artifact={artifact_id}: result for job={job_id} upload successful")
 
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
-        LOGGER.info(f"artifact_id={artifact_id}: posting metrics for job_id={job_id}")
+        LOGGER.info(f"artifact={artifact_id}: posting metrics for job={job_id}")
+
+        headers, payload = self.exc.create(self.component_id, metrics.json())
+
         res = requests.post(
             f"{self.server}/task/metrics",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(metrics.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
         LOGGER.info(
-            f"artifact_id={metrics.artifact_id}: "
-            f"metrics for job_id={metrics.job_id} from source={metrics.source} upload successful"
+            f"artifact={metrics.artifact_id}: "
+            f"metrics for job={metrics.job_id} from source={metrics.source} upload successful"
         )
 
     def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
-        LOGGER.error(f"artifact_id={artifact_id} job_id={job_id}: error_message={error.message}")
+        LOGGER.error(f"artifact={artifact_id} job={job_id}: error_message={error.message}")
+
+        headers, payload = self.exc.create(self.component_id, error.json())
+
         res = requests.post(
             f"{self.server}/task/error",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(error.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()

@@ -1,4 +1,4 @@
-from ferdelance.config import get_logger
+from ferdelance.logging import get_logger
 from ferdelance.database.tables import Job as JobDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.jobs import Job
@@ -72,9 +72,7 @@ class JobRepository(Repository):
             Job:
                 An handler to the scheduled job.
         """
-        LOGGER.info(
-            f"component_id={component_id}: scheduling new job for artifact_id={artifact_id} iteration={iteration}"
-        )
+        LOGGER.info(f"component={component_id}: scheduling new job for artifact={artifact_id} iteration={iteration}")
 
         # TODO: what happen if we submit again the same artifact?
 
@@ -92,6 +90,11 @@ class JobRepository(Repository):
         self.session.add(job)
         await self.session.commit()
         await self.session.refresh(job)
+
+        LOGGER.info(
+            f"component={component_id}: scheduled job={job.id} for artifact={artifact_id} "
+            f"iteration={iteration} component={component_id}"
+        )
 
         return view(job)
 
@@ -122,6 +125,7 @@ class JobRepository(Repository):
                 select(JobDB).where(
                     JobDB.id == job.id,
                     JobDB.status == JobStatus.SCHEDULED.name,
+                    JobDB.component_id == component_id,
                 )
             )
             job_db: JobDB = res.one()
@@ -132,20 +136,18 @@ class JobRepository(Repository):
             await self.session.commit()
             await self.session.refresh(job_db)
 
-            LOGGER.info(
-                f"component_id={job_db.component_id}: started execution of artifact_id={artifact_id} job_id={job_id}"
-            )
+            LOGGER.info(f"component={job_db.component_id}: started execution of artifact={artifact_id} job={job_id}")
 
             return view(job_db)
 
         except NoResultFound:
             LOGGER.error(
-                f"job_id={job_id}: Could not start a job that does not exists in the SCHEDULED state with "
-                f"artifact_id={artifact_id} component_id={component_id}"
+                f"job={job_id}: Could not start a job that does not exists in the SCHEDULED state with "
+                f"artifact={artifact_id} component={component_id}"
             )
             raise ValueError(
-                f"Job in status SCHEDULED not found for job_id={job_id} "
-                f"artifact_id={artifact_id} component_id={component_id}"
+                f"Job in status SCHEDULED not found for job={job_id} "
+                f"artifact={artifact_id} component={component_id}"
             )
 
     async def mark_completed(self, job_id: str, component_id: str) -> Job:
@@ -185,22 +187,20 @@ class JobRepository(Repository):
             await self.session.commit()
             await self.session.refresh(job)
 
-            LOGGER.info(
-                f"component_id={job.component_id}: completed execution of job_id={job.id} artifact_id={job.artifact_id}"
-            )
+            LOGGER.info(f"component={job.component_id}: completed execution of job={job.id} artifact={job.artifact_id}")
 
             return view(job)
 
         except NoResultFound:
             LOGGER.error(
                 f"Could not terminate a job that does not exists or has not "
-                f"started yet with job_id={job_id} component_id={component_id}"
+                f"started yet with job={job_id} component={component_id}"
             )
-            raise ValueError(f"Job in status RUNNING not found for job_id={job_id} component_id={component_id}")
+            raise ValueError(f"Job in status RUNNING not found for job={job_id} component={component_id}")
 
         except MultipleResultsFound:
-            LOGGER.error(f"Multiple jobs have been started for job_id={job_id} component_id={component_id}")
-            raise ValueError(f"Multiple job in status RUNNING found for job_id={job_id} component_id={component_id}")
+            LOGGER.error(f"Multiple jobs have been started for job={job_id} component={component_id}")
+            raise ValueError(f"Multiple job in status RUNNING found for job={job_id} component={component_id}")
 
     async def mark_error(self, job_id: str, component_id: str) -> Job:
         """Changes the state of a job to JobStatus.ERROR. The job is identified
@@ -238,17 +238,17 @@ class JobRepository(Repository):
             await self.session.refresh(job)
 
             LOGGER.warn(
-                f"component_id={job.component_id}: failed execution of job_id={job.id} "
-                f"artifact_id={job.artifact_id} component_id={component_id}"
+                f"component={job.component_id}: failed execution of job={job.id} "
+                f"artifact={job.artifact_id} component={component_id}"
             )
 
             return view(job)
 
         except NoResultFound:
             LOGGER.error(
-                f"component_id={component_id}: could not mark error a job that does not exists with job_id={job_id} "
+                f"component={component_id}: could not mark error a job that does not exists with job={job_id} "
             )
-            raise ValueError(f"Job not found with job_id={job_id} component_id={component_id}")
+            raise ValueError(f"Job not found with job={job_id} component={component_id}")
 
     async def get_by_id(self, job_id: str) -> Job:
         """Gets the data on the job associated with the given job_id.
@@ -266,6 +266,16 @@ class JobRepository(Repository):
                 The handler of the job.
         """
         res = await self.session.scalars(select(JobDB).where(JobDB.id == job_id))
+        return view(res.one())
+
+    async def get_by_artifact(self, artifact_id: str, component_id: str, iteration: int) -> Job:
+        res = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.artifact_id == artifact_id,
+                JobDB.component_id == component_id,
+                JobDB.iteration == iteration,
+            )
+        )
         return view(res.one())
 
     async def get(self, job: Job) -> Job:
@@ -342,7 +352,9 @@ class JobRepository(Repository):
         res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
         return [view(j) for j in res.all()]
 
-    async def count_jobs_by_artifact_id(self, artifact_id: str, iteration: int = -1) -> int:
+    async def count_jobs_by_artifact_id(
+        self, artifact_id: str, iteration: int = -1, is_aggregation: bool | None = None
+    ) -> int:
         """Counts the number of jobs created for the given artifact_id.
 
         Args:
@@ -358,11 +370,15 @@ class JobRepository(Repository):
         conditions = [JobDB.artifact_id == artifact_id]
         if iteration > -1:
             conditions.append(JobDB.iteration == iteration)
+        if is_aggregation is not None:
+            conditions.append(JobDB.is_aggregation == is_aggregation)
 
         res = await self.session.scalars(select(func.count()).select_from(JobDB).where(*conditions))
         return res.one()
 
-    async def count_jobs_by_artifact_status(self, artifact_id: str, status: JobStatus, iteration: int = -1) -> int:
+    async def count_jobs_by_artifact_status(
+        self, artifact_id: str, status: JobStatus, iteration: int = -1, is_aggregation: bool | None = None
+    ) -> int:
         """Counts the number of jobs created for the given artifact_id and in
         the given status.
 
@@ -379,6 +395,8 @@ class JobRepository(Repository):
         conditions = [JobDB.artifact_id == artifact_id, JobDB.status == status.name]
         if iteration > -1:
             conditions.append(JobDB.iteration == iteration)
+        if is_aggregation is not None:
+            conditions.append(JobDB.is_aggregation == is_aggregation)
 
         res = await self.session.scalars(select(func.count()).select_from(JobDB).where(*conditions))
         return res.one()

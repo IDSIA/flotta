@@ -32,6 +32,7 @@ class Result(BaseModel):
     client_id: str
     creation_time: datetime | None
     path: str
+    iteration: int
     is_model: bool = False
     is_estimation: bool = False
     is_aggregation: bool = False

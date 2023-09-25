@@ -5,13 +5,19 @@ from pydantic import BaseModel
 class Component(BaseModel):
     id: str
 
-    type_name: str
     name: str = ""
+    type_name: str
 
     public_key: str
 
     active: bool
+    blacklisted: bool
     left: bool
+
+    version: str
+
+    url: str
+    ip_address: str
 
 
 dummy = Component(
@@ -21,27 +27,11 @@ dummy = Component(
     public_key="",
     active=False,
     left=False,
+    version="0.0",
+    blacklisted=False,
+    ip_address="127.0.0.1",
+    url="http://localhost/",
 )
-
-
-class Client(Component):
-    version: str
-
-    machine_system: str
-    machine_mac_address: str
-    machine_node: str
-
-    blacklisted: bool
-    ip_address: str
-
-
-class Token(BaseModel):
-    id: int
-    component_id: str
-    token: str
-    creation_time: datetime
-    expiration_time: float
-    valid: bool
 
 
 class Event(BaseModel):
@@ -49,14 +39,3 @@ class Event(BaseModel):
     component_id: str
     time: datetime
     event: str
-
-
-class Application(BaseModel):
-    id: str
-    creation_time: datetime
-    version: str
-    active: bool
-    path: str
-    name: str
-    description: str | None
-    checksum: str

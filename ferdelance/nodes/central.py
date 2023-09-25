@@ -1,2 +1,0 @@
-class CentralNode:
-    pass

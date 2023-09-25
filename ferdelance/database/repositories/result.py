@@ -6,8 +6,6 @@ from ferdelance.database.repositories.core import AsyncSession, Repository
 from sqlalchemy import select
 from uuid import uuid4
 
-import os
-
 
 def view(result: ResultDB) -> Result:
     return Result(
@@ -20,6 +18,7 @@ def view(result: ResultDB) -> Result:
         is_model=result.is_model,
         is_estimation=result.is_estimation,
         is_aggregation=result.is_aggregation,
+        iteration=result.iteration,
     )
 
 
@@ -31,22 +30,6 @@ class ResultRepository(Repository):
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
-
-    def storage_directory(self, artifact_id: str, iteration: int) -> str:
-        """Checks that the output directory for this result exists. If not it
-        will be created.
-
-        Args:
-            artifact_id (str):
-                Id of the artifact that the result belongs to.
-
-        Returns:
-            str:
-                A valid path to the directory where a result can be saved to or loaded from.
-        """
-        out_dir = config_manager.get().storage_artifact(artifact_id, iteration)
-        os.makedirs(out_dir, exist_ok=True)
-        return out_dir
 
     async def create_result(
         self,
@@ -88,22 +71,15 @@ class ResultRepository(Repository):
 
         result_id: str = str(uuid4())
 
-        # name creation
-        filename = f"{artifact_id}.{producer_id}.{result_id}.{iteration}"
-
-        if is_error:
-            filename += ".ERROR"
-        elif is_aggregation:
-            filename += ".AGGREGATED"
-        else:
-            filename += ".PARTIAL"
-
-        if is_model:
-            filename += ".model"
-        elif is_estimation:
-            filename += ".estimator"
-
-        out_path = os.path.join(self.storage_directory(artifact_id, iteration), filename)
+        out_path = config_manager.get().store(
+            artifact_id,
+            job_id,
+            iteration,
+            is_error,
+            is_aggregation,
+            is_model,
+            is_estimation,
+        )
 
         result_db = ResultDB(
             id=result_id,
@@ -231,7 +207,7 @@ class ResultRepository(Repository):
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
-                ResultDB.is_model == True,
+                ResultDB.is_model == True,  # noqa: E712
             )
         )
         result_list = [view(m) for m in res.all()]
@@ -290,12 +266,12 @@ class ResultRepository(Repository):
         res = await self.session.scalars(
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
-                ResultDB.is_aggregation == True,
+                ResultDB.is_aggregation == True,  # noqa: E712
             )
         )
         return view(res.one())
 
-    async def get_partial_result(self, artifact_id: str, client_id: str) -> Result:
+    async def get_partial_result(self, artifact_id: str, client_id: str, iteration: int) -> Result:
         """Get the result, considered as a partial model or estimation, given
         the artifact_id it belongs to and the client_id that produced the result.
 
@@ -320,7 +296,8 @@ class ResultRepository(Repository):
             select(ResultDB).where(
                 ResultDB.artifact_id == artifact_id,
                 ResultDB.component_id == client_id,
-                ResultDB.is_aggregation == False,
+                ResultDB.is_aggregation == False,  # noqa: E712
+                ResultDB.iteration == iteration,
             )
         )
         return view(res.one())

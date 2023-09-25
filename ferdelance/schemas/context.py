@@ -1,12 +1,15 @@
 from pydantic import BaseModel
 
 
-class AggregationContext(BaseModel):
+class TaskAggregationContext(BaseModel):
     artifact_id: str
 
     job_total: int = 0
     job_completed: int = 0
     job_failed: int = 0
+
+    aggregations: int = 0
+    aggregations_failed: int = 0
 
     completed_threshold: float = 1.0
 
@@ -27,3 +30,8 @@ class AggregationContext(BaseModel):
         if self.allow_errors:
             return True
         return self.job_failed > 0
+
+    def has_aggregations_failed(self) -> bool:
+        if self.aggregations_failed > 0:
+            return True
+        return False

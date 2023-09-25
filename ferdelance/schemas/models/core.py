@@ -7,6 +7,8 @@ from .metrics import Metrics
 
 from pydantic import BaseModel
 
+from numpy.typing import ArrayLike
+
 import numpy as np
 import pickle
 
@@ -71,7 +73,7 @@ class GenericModel(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def aggregate(self, strategy: str, model_a: GenericModel, model_b: GenericModel):
+    def aggregate(self, strategy: str, model_a: GenericModel, model_b: GenericModel) -> GenericModel:
         """Aggregates two models and produces a new one, following the given strategy. This aggregation
         function is called from the workers on the server that perform aggregations.
         Aggregations are done between two partial models, producing a new aggregated model. This
@@ -90,8 +92,17 @@ class GenericModel(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def predict(self, x) -> np.ndarray:
+    def predict(self, x) -> np.ndarray | ArrayLike:
         """Predict the probabilities for the given instances of features.
+
+        :param x:
+            Values with features to predict the target labels.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def classify(self, x) -> np.ndarray | ArrayLike:
+        """Predict the classes for the given instances of features.
 
         :param x:
             Values with features to predict the target labels.
@@ -107,7 +118,7 @@ class GenericModel(ABC):
             True target labels values aligned with the feature values.
         """
         y_prob = self.predict(x)
-        y_pred = y_prob > 0.5
+        y_pred = self.classify(x)
 
         cf = confusion_matrix(y, y_pred)
 
@@ -115,7 +126,7 @@ class GenericModel(ABC):
             accuracy_score=float(accuracy_score(y, y_pred)),
             precision_score=float(precision_score(y, y_pred)),
             recall_score=float(recall_score(y, y_pred)),
-            auc_score=float(roc_auc_score(y, y_prob)),
+            auc_score=float(roc_auc_score(y, y_prob[:, 1])),
             confusion_matrix_TP=cf[0, 0],
             confusion_matrix_FN=cf[0, 1],
             confusion_matrix_FP=cf[1, 0],

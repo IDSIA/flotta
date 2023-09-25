@@ -1,7 +1,8 @@
-from ferdelance.config import config_manager, get_logger
+from ferdelance.config import config_manager
+from ferdelance.logging import get_logger
 from ferdelance.schemas.models import Model
 from ferdelance.schemas.plans import TrainTestSplit, IterativePlan
-from ferdelance.schemas.updates import UpdateExecute
+from ferdelance.schemas.updates import UpdateData
 from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.workbench.interface import Artifact
 
@@ -20,7 +21,7 @@ LOGGER = get_logger(__name__)
 def start_function(args: TaskArguments) -> None:
     """Pseudo function to simulate the start of an aggregation job."""
 
-    LOGGER.info(f"artifact_id={args.artifact_id}: new aggregation job_id={args.job_id} with token={args.token}")
+    LOGGER.info(f"artifact={args.artifact_id}: new aggregation job={args.job_id}")
 
 
 async def assert_count_it(sse: ServerlessExecution, artifact_id: str, exp_iteration: int, exp_jobs: int) -> None:
@@ -74,7 +75,7 @@ async def test_iteration(session: AsyncSession):
     # client
     next_action = await client.next_action()
 
-    assert isinstance(next_action, UpdateExecute)
+    assert isinstance(next_action, UpdateData)
 
     task = await client.get_client_task(next_action.job_id)
 
@@ -93,11 +94,11 @@ async def test_iteration(session: AsyncSession):
 
     # worker
 
-    await server.get_worker_task(job)
+    await server.get_task(job)
 
     """...simulate worker aggregation..."""
 
-    await server.post_worker_result(job)
+    await server.post_result(job)
 
     # ----------------
     # SECOND ITERATION
@@ -108,7 +109,7 @@ async def test_iteration(session: AsyncSession):
     # client
     next_action = await client.next_action()
 
-    assert isinstance(next_action, UpdateExecute)
+    assert isinstance(next_action, UpdateData)
 
     task = await client.get_client_task(next_action.job_id)
 
@@ -127,11 +128,11 @@ async def test_iteration(session: AsyncSession):
 
     # worker
 
-    await server.get_worker_task(job)
+    await server.get_task(job)
 
     """...simulate worker aggregation..."""
 
-    await server.post_worker_result(job)
+    await server.post_result(job)
 
     await assert_count_it(server, artifact_id, 2, 4)  # train1 agg1 train2 agg2
 

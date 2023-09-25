@@ -1,6 +1,9 @@
 from typing import Any
 
-from ferdelance.config import get_logger
+from ferdelance import __version__
+from ferdelance.logging import get_logger
+from ferdelance.schemas.node import NodePublicKey
+from ferdelance.shared.checksums import str_checksum
 from ferdelance.workbench.interface import (
     Project,
     Client,
@@ -11,16 +14,17 @@ from ferdelance.workbench.interface import (
 from ferdelance.schemas.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
+    WorkbenchArtifactPartial,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
-    WorkbenchJoinData,
     WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus
 
 from time import sleep, time
+from uuid import uuid4
 
 import json
 import pickle
@@ -38,7 +42,14 @@ CACHE_DIR = os.environ.get("CACHE_HOME", os.path.join(HOME, ".cache", "ferdelanc
 class Context:
     """Main point of contact between the workbench and the server."""
 
-    def __init__(self, server: str, ssh_key_path: str | None = None, generate_keys: bool = True) -> None:
+    def __init__(
+        self,
+        server: str,
+        ssh_key_path: str | None = None,
+        generate_keys: bool = True,
+        name: str = "",
+        id_path: str | None = None,
+    ) -> None:
         """Connect to the given server, and establish all the requirements for a secure interaction.
 
         :param server:
@@ -84,18 +95,61 @@ class Context:
 
             self.exc.load_key(ssh_key_path)
 
-        wjr = WorkbenchJoinRequest(public_key=self.exc.transfer_public_key())
+        if id_path is None:
+            id_path = os.path.join(DATA_DIR, "id")
 
-        res = requests.post(f"{self.server}/workbench/connect", data=json.dumps(wjr.dict()))
+            if os.path.exists(id_path):
+                with open(id_path, "r") as f:
+                    self.id: str = f.read()
+            else:
+                self.id: str = str(uuid4())
+
+                with open(id_path, "w") as f:
+                    f.write(self.id)
+        else:
+            with open(id_path, "r") as f:
+                self.id: str = f.read()
+
+        # connecting to server
+        headers = self.exc.create_header(False)
+
+        response_key = requests.get(
+            f"{self.server}/node/key",
+            headers=headers,
+        )
+
+        response_key.raise_for_status()
+
+        spk = NodePublicKey(**response_key.json())
+
+        self.exc.set_remote_key(spk.public_key)
+
+        public_key = self.exc.transfer_public_key()
+
+        data_to_sign = f"{self.id}:{public_key}"
+
+        checksum = str_checksum(data_to_sign)
+        signature = self.exc.sign(data_to_sign)
+
+        wjr = WorkbenchJoinRequest(
+            id=self.id,
+            public_key=self.exc.transfer_public_key(),
+            version=__version__,
+            name=name,
+            checksum=checksum,
+            signature=signature,
+        )
+
+        _, payload = self.exc.create_payload(wjr.json())
+        headers = self.exc.create_header(True)
+
+        res = requests.post(
+            f"{self.server}/workbench/connect",
+            headers=headers,
+            data=payload,
+        )
 
         res.raise_for_status()
-
-        data = WorkbenchJoinData(**self.exc.get_payload(res.content))
-
-        self.workbench_id: str = data.id
-
-        self.exc.set_token(data.token)
-        self.exc.set_remote_key(data.public_key)
 
     def project(self, token: str | None = None) -> Project:
         if token is None:
@@ -109,15 +163,19 @@ class Context:
 
         wpt = WorkbenchProjectToken(token=token)
 
+        headers, payload = self.exc.create(self.id, wpt.json())
+
         res = requests.get(
             f"{self.server}/workbench/project",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(wpt.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        data = Project(**self.exc.get_payload(res.content))
+        _, res_payload = self.exc.get_payload(res.content)
+
+        data = Project(**json.loads(res_payload))
 
         return data
 
@@ -131,15 +189,19 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
+        headers, payload = self.exc.create(self.id, wpt.json())
+
         res = requests.get(
             f"{self.server}/workbench/clients",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(wpt.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        data = WorkbenchClientList(**self.exc.get_payload(res.content))
+        _, data = self.exc.get_payload(res.content)
+
+        data = WorkbenchClientList(**json.loads(data))
 
         return data.clients
 
@@ -153,15 +215,19 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
+        headers, payload = self.exc.create(self.id, wpt.json())
+
         res = requests.get(
             f"{self.server}/workbench/datasources",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(wpt.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        data = WorkbenchDataSourceIdList(**self.exc.get_payload(res.content))
+        _, data = self.exc.get_payload(res.content)
+
+        data = WorkbenchDataSourceIdList(**json.loads(data))
 
         return data.datasources
 
@@ -180,28 +246,40 @@ class Context:
             estimator=estimate.estimator,
         )
 
+        headers, payload = self.exc.create(self.id, artifact.json())
+
         res = requests.post(
             f"{self.server}/workbench/artifact/submit",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(artifact.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        art_status = ArtifactStatus(**self.exc.get_payload(res.content))
+        _, data = self.exc.get_payload(res.content)
+
+        art_status = ArtifactStatus(**json.loads(data))
         artifact.id = art_status.id
 
         start_time = time()
+        last_state = ""
+
         while art_status.status not in (
             ArtifactJobStatus.ERROR.name,
             ArtifactJobStatus.COMPLETED.name,
         ):
-            print(".", end="")
-            sleep(wait_interval)
+            if art_status.status == last_state:
+                LOGGER.info(".")
+            else:
+                last_state = art_status.status
+                LOGGER.info(last_state)
 
             art_status = self.status(art_status)
 
+            sleep(wait_interval)
+
             if time() > start_time + max_time:
+                LOGGER.warning("reached max wait time")
                 raise ValueError("Timeout exceeded")
 
         if not art_status.id:
@@ -209,15 +287,14 @@ class Context:
 
         estimate = self.get_result(artifact)
 
-        if art_status.status == ArtifactJobStatus.COMPLETED.name:
-            return estimate
-
         if art_status.status == ArtifactJobStatus.ERROR.name:
             LOGGER.error(f"Error on artifact {art_status.id}")
             LOGGER.error(estimate)
             raise ValueError(f"Error on artifact {art_status.id}")
 
-        raise NotImplementedError()
+        if art_status.status == ArtifactJobStatus.COMPLETED.name:
+            LOGGER.info("Completed")
+            return estimate
 
     def submit(self, project: Project, query: QueryModel) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
@@ -238,15 +315,19 @@ class Context:
             model=query.model,
         )
 
+        headers, payload = self.exc.create(self.id, artifact.json())
+
         res = requests.post(
             f"{self.server}/workbench/artifact/submit",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(artifact.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        status = ArtifactStatus(**self.exc.get_payload(res.content))
+        _, data = self.exc.get_payload(res.content)
+
+        status = ArtifactStatus(**json.loads(data))
         artifact.id = status.id
 
         return artifact
@@ -266,15 +347,19 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
+        headers, payload = self.exc.create(self.id, wba.json())
+
         res = requests.get(
             f"{self.server}/workbench/artifact/status",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(wba.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        return ArtifactStatus(**self.exc.get_payload(res.content))
+        _, data = self.exc.get_payload(res.content)
+
+        return ArtifactStatus(**json.loads(data))
 
     def get_artifact(self, artifact_id: str) -> Artifact:
         """Get the specified artifact from the server.
@@ -289,15 +374,19 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
+        headers, payload = self.exc.create(self.id, wba.json())
+
         res = requests.get(
             f"{self.server}/workbench/artifact",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(wba.dict()),
+            headers=headers,
+            data=payload,
         )
 
         res.raise_for_status()
 
-        return Artifact(**self.exc.get_payload(res.content))
+        _, data = self.exc.get_payload(res.content)
+
+        return Artifact(**json.loads(data))
 
     def get_result(self, artifact: Artifact) -> Any:
         """Get the trained and aggregated result for the the artifact and save it
@@ -316,10 +405,12 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
+        headers, payload = self.exc.create(self.id, wba.json())
+
         with requests.get(
             f"{self.server}/workbench/result",
-            headers=self.exc.headers(),
-            data=self.exc.create_payload(wba.dict()),
+            headers=headers,
+            data=payload,
             stream=True,
         ) as res:
             res.raise_for_status()
@@ -330,7 +421,7 @@ class Context:
 
             return obj
 
-    def get_partial_result(self, artifact: Artifact, client_id: str) -> Any:
+    def get_partial_result(self, artifact: Artifact, client_id: str, iteration: int) -> Any:
         """Get the trained partial model from the artifact and save it to disk.
 
         :param artifact:
@@ -348,9 +439,15 @@ class Context:
         if artifact.model is None:
             raise ValueError("no model associated with this artifact")
 
-        with requests.get(
-            f"{self.server}/workbench/result/partial/{artifact.id}/{client_id}",
-            headers=self.exc.headers(),
+        wap = WorkbenchArtifactPartial(artifact_id=artifact.id, producer_id=client_id, iteration=iteration)
+
+        headers, payload = self.exc.create(self.id, wap.json())
+
+        with requests.request(
+            "GET",
+            f"{self.server}/workbench/result/partial",
+            headers=headers,
+            data=payload,
             stream=True,
         ) as res:
             res.raise_for_status()
