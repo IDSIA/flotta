@@ -3,11 +3,11 @@
 echo Server:     ${SERVER}
 echo Repository: ${REPOSITORY_HOST}
 
-pip install --upgrade pip
-
 python -m venv /venv
 
 PATH="/venv/bin:${PATH}"
+
+pip install --upgrade pip
 
 pip install --index-url http://${REPOSITORY_HOST}/simple/ --trusted-host ${REPOSITORY_HOST} ferdelance[workbench]
 

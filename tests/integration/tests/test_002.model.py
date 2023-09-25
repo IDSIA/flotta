@@ -21,7 +21,7 @@ LOGGER = get_logger(__name__)
 
 def evaluate(model: FederatedRandomForestClassifier, x, y):
     pred = model.predict(x)
-    y_pred = (pred > 0.5).astype("int")
+    y_pred = (pred > 0.5).astype("int")  # type: ignore
 
     f1 = f1_score(y, y_pred)
     ac = accuracy_score(y, y_pred)
@@ -33,7 +33,7 @@ def evaluate(model: FederatedRandomForestClassifier, x, y):
     LOGGER.info(f"F1:       {f1}")
     LOGGER.info(f"ROC AUC:  {ra}")
 
-    LOGGER.info(cm)
+    LOGGER.info(f"\n{cm}")
 
 
 if __name__ == "__main__":
