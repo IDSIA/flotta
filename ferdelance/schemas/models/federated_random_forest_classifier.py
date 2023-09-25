@@ -103,12 +103,11 @@ class FederatedRandomForestClassifier(GenericModel):
 
     def merge(self, model_a: RandomForestClassifier, model_b: RandomForestClassifier) -> RandomForestClassifier:
         """Solution adapted from: https://stackoverflow.com/a/28508619/1419058"""
-        estimators = model_a.estimators_ + model_b.estimators_
 
-        model = RandomForestClassifier(len(estimators))
-        model.estimators_ = estimators
+        model_a.estimators_ += model_b.estimators_
+        model_a.n_estimators = len(model_a.estimators_)  # type: ignore
 
-        return model
+        return model_a
 
     def majority_vote(
         self, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier

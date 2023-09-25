@@ -262,16 +262,24 @@ class Context:
         artifact.id = art_status.id
 
         start_time = time()
+        last_state = ""
+
         while art_status.status not in (
             ArtifactJobStatus.ERROR.name,
             ArtifactJobStatus.COMPLETED.name,
         ):
-            LOGGER.info(".")
-            sleep(wait_interval)
+            if art_status.status == last_state:
+                LOGGER.info(".")
+            else:
+                last_state = art_status.status
+                LOGGER.info(last_state)
 
             art_status = self.status(art_status)
 
+            sleep(wait_interval)
+
             if time() > start_time + max_time:
+                LOGGER.warning("reached max wait time")
                 raise ValueError("Timeout exceeded")
 
         if not art_status.id:
@@ -279,15 +287,14 @@ class Context:
 
         estimate = self.get_result(artifact)
 
-        if art_status.status == ArtifactJobStatus.COMPLETED.name:
-            return estimate
-
         if art_status.status == ArtifactJobStatus.ERROR.name:
             LOGGER.error(f"Error on artifact {art_status.id}")
             LOGGER.error(estimate)
             raise ValueError(f"Error on artifact {art_status.id}")
 
-        raise NotImplementedError()
+        if art_status.status == ArtifactJobStatus.COMPLETED.name:
+            LOGGER.info("Completed")
+            return estimate
 
     def submit(self, project: Project, query: QueryModel) -> Artifact:
         """Submit the query, model, and strategy and start a training task on the remote server.
