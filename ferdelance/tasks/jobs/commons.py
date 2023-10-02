@@ -1,9 +1,8 @@
 from ferdelance.config import config_manager, DataSourceStorage
 from ferdelance.logging import get_logger
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.estimators import apply_estimator
+from ferdelance.schemas.tasks import TaskParameters
 from ferdelance.schemas.transformers import apply_transformer
-from ferdelance.schemas.tasks import TaskParameters, TaskResult
 
 import pandas as pd
 
@@ -81,58 +80,3 @@ def apply_transform(
     LOGGER.info(f"artifact={artifact.id}: saved data to {path_datasource}")
 
     return df_dataset
-
-
-def run_training(data: DataSourceStorage, task: TaskParameters) -> TaskResult:
-    job_id = task.job_id
-    artifact: Artifact = task.artifact
-
-    working_folder = setup(artifact, job_id, task.iteration)
-
-    df_dataset = apply_transform(artifact, task, data, working_folder)
-
-    if artifact.model is not None and artifact.plan is None:
-        raise ValueError("Invalid artifact training")  # TODO: manage this!
-
-    LOGGER.info(f"artifact={artifact.id}: executing model training")
-
-    # model preparation
-    local_model = artifact.get_model()
-
-    # LOAD execution plan
-    plan = artifact.get_plan()
-
-    metrics = plan.run(df_dataset, local_model, working_folder, artifact.id)
-
-    if plan.path_model is None:
-        raise ValueError("Model path not set!")  # TODO: manage this!
-
-    return TaskResult(
-        job_id=job_id,
-        result_path=plan.path_model,
-        metrics=metrics,
-        is_model=True,
-    )
-
-
-def run_estimate(data: DataSourceStorage, task: TaskParameters) -> TaskResult:
-    job_id = task.job_id
-    artifact: Artifact = task.artifact
-    artifact.id = artifact.id
-
-    working_folder = setup(artifact, job_id, task.iteration)
-
-    df_dataset = apply_transform(artifact, task, data, working_folder)
-
-    if artifact.estimator is None:
-        raise ValueError("Artifact is not an estimation!")  # TODO: manage this!
-
-    LOGGER.info(f"artifact={artifact.id}: executing estimation")
-
-    path_estimator = apply_estimator(artifact.estimator, df_dataset, working_folder, artifact.id)
-
-    return TaskResult(
-        job_id=job_id,
-        result_path=path_estimator,
-        is_estimate=True,
-    )
