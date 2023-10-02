@@ -6,7 +6,11 @@ from sqlalchemy.orm import relationship, mapped_column, Mapped
 
 from datetime import datetime
 
-from . import Base
+from sqlalchemy.orm import DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Setting(Base):
