@@ -1,3 +1,5 @@
+from typing import AsyncGenerator
+
 from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.const import TYPE_USER
@@ -6,6 +8,7 @@ from ferdelance.database.repositories import (
     ComponentRepository,
     DataSourceRepository,
     ProjectRepository,
+    ResourceRepository,
     ResultRepository,
 )
 from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
@@ -22,6 +25,7 @@ from ferdelance.node.services import JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 
+import aiofiles
 import os
 
 LOGGER = get_logger(__name__)
@@ -117,6 +121,16 @@ class WorkbenchService:
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         jms: JobManagementService = JobManagementService(self.session, self.component)
         return await jms.submit_artifact(artifact)
+
+    async def store_resource(self, request_stream: AsyncGenerator[bytes, None]) -> str:
+        rr: ResourceRepository = ResourceRepository(self.session)
+        res = await rr.create_resource(self.component.id)
+
+        async with aiofiles.open(res.path, "wb") as f:
+            async for content in request_stream:
+                await f.write(content)
+
+        return res.id
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """

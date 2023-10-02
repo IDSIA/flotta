@@ -117,6 +117,9 @@ class Job(Base):
     # Zero-based counter for iterations
     iteration: Mapped[int] = mapped_column(default=0)
 
+    # This counter keeps track of how many other jobs this job is waiting for, when 0 it can be set to scheduled
+    lock_counter: Mapped[int] = mapped_column(default=0)
+
     # Id of the component executing the job
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
     component = relationship("Component")
@@ -132,6 +135,21 @@ class Job(Base):
     termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (UniqueConstraint("artifact_id", "component_id", "iteration", name="_jobs_ids_unique"),)
+
+
+class JobUnlock(Base):
+    """Jobs are related to each other through a Directed Acyclic Graph (DAG). Each time a job is completed
+    successfully, it can unlock other jobs. This table keeps track of which jobs are unlocked.
+    """
+
+    __tablename__ = "job_unlocks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
+    next_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
+
+    job = relationship("Job")
+    next_job = relationship("Job")
 
 
 class Result(Base):
@@ -210,3 +228,16 @@ class DataSource(Base):
     component = relationship("Component")
 
     projects: Mapped[list[Project]] = relationship(secondary=project_datasource, back_populates="datasources")
+
+
+class Resource(Base):
+    """Table that collect all the model uploaded by workbenches."""
+
+    __tablename__ = "resources"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
+    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    path: Mapped[str] = mapped_column(String)
+
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
+    component = relationship("Component")

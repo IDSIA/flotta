@@ -9,12 +9,13 @@ from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
+    WorkbenchResource,
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
 from ferdelance.shared.checksums import str_checksum
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
@@ -119,6 +120,18 @@ async def wb_get_datasource_list(
     wb: WorkbenchService = WorkbenchService(args.session, args.component)
 
     return await wb.get_datasource_list(wpt.token)
+
+
+@workbench_router.post("/resource", response_model=WorkbenchResource)
+async def wb_post_model(
+    request: Request,
+    args: ValidSessionArgs = Depends(allow_access),
+):
+    wb: WorkbenchService = WorkbenchService(args.session, args.component)
+
+    resource_id = await wb.store_resource(request.stream())
+
+    return WorkbenchResource(resource_id=resource_id)
 
 
 @workbench_router.post("/artifact/submit", response_model=ArtifactStatus)

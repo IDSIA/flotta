@@ -36,3 +36,12 @@ class Result(BaseModel):
     is_model: bool = False
     is_estimation: bool = False
     is_aggregation: bool = False
+
+
+class Resource(BaseModel):
+    """Model, estimation, or aggregation data stored in the database."""
+
+    id: str
+    creation_time: datetime | None
+    path: str
+    component_id: str

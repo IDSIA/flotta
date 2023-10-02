@@ -71,7 +71,7 @@ class ResultRepository(Repository):
 
         result_id: str = str(uuid4())
 
-        out_path = config_manager.get().store(
+        out_path = config_manager.get().store_result(
             artifact_id,
             job_id,
             iteration,

@@ -260,7 +260,13 @@ class Configuration(BaseSettings):
     def storage_artifact(self, artifact_id: str, iteration: int = 0) -> str:
         return os.path.join(self.storage_artifact_dir(), artifact_id, str(iteration))
 
-    def store(
+    def storage_resources_dir(self) -> str:
+        return os.path.join(self.workdir, "resources")
+
+    def storage_resources(self, resource_id: str) -> str:
+        return os.path.join(self.storage_resources_dir(), resource_id)
+
+    def store_result(
         self,
         artifact_id: str,
         job_id: str,
@@ -270,7 +276,7 @@ class Configuration(BaseSettings):
         is_model: bool = False,
         is_estimation: bool = False,
     ) -> str:
-        """Creates a local path that can beuse to save a result to disk.
+        """Creates a local path that can be used to save a result to disk.
 
         Args:
             artifact_id (str):
