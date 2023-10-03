@@ -1,5 +1,5 @@
 from ferdelance.logging import get_logger
-from ferdelance.database.tables import Job as JobDB
+from ferdelance.database.tables import Job as JobDB, JobUnlock
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.jobs import Job
 from ferdelance.shared.status import JobStatus
@@ -40,7 +40,7 @@ class JobRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def schedule_job(
+    async def add_job(
         self,
         artifact_id: str,
         component_id: str,
@@ -48,6 +48,9 @@ class JobRepository(Repository):
         is_estimation: bool = False,
         is_aggregation: bool = False,
         iteration: int = 0,
+        counter: int = 0,
+        work_type: str = "",
+        status=JobStatus.WAITING,
     ) -> Job:
         """Starts a job by inserting it into the database. The insertion works
         as a scheduling the new work to do. The initial state of the job will
@@ -80,11 +83,13 @@ class JobRepository(Repository):
             id=str(uuid4()),
             artifact_id=artifact_id,
             component_id=component_id,
-            status=JobStatus.SCHEDULED.name,
+            status=status.name,
             is_model=is_model,
             is_estimation=is_estimation,
             is_aggregation=is_aggregation,
             iteration=iteration,
+            lock_counter=counter,
+            work_type=work_type,
         )
 
         self.session.add(job)
@@ -98,7 +103,20 @@ class JobRepository(Repository):
 
         return view(job)
 
+    async def add_unlocks(self, job: Job, unlocks: list[Job]) -> None:
+        for unlock in unlocks:
+            ju: JobUnlock = JobUnlock(job_id=job.id, next_id=unlock.id)
+            self.session.add(ju)
+
+        await self.session.commit()
+
+    async def schedule_job(self, job: Job) -> Job:
+        return await self.update_job_status(job, JobStatus.WAITING, JobStatus.SCHEDULED)
+
     async def start_execution(self, job: Job) -> Job:
+        return await self.update_job_status(job, JobStatus.SCHEDULED, JobStatus.RUNNING)
+
+    async def update_job_status(self, job: Job, previous_status: JobStatus, next_status: JobStatus) -> Job:
         """Changes the state of the given job to JobStatus.RUNNING. An exception
         is raised if the job is not in JobStatus.SCHEDULED state, or if the job
         does not exists.
@@ -124,19 +142,29 @@ class JobRepository(Repository):
             res = await self.session.scalars(
                 select(JobDB).where(
                     JobDB.id == job.id,
-                    JobDB.status == JobStatus.SCHEDULED.name,
+                    JobDB.status == previous_status.name,
                     JobDB.component_id == component_id,
                 )
             )
             job_db: JobDB = res.one()
 
-            job_db.status = JobStatus.RUNNING.name
-            job_db.execution_time = datetime.now(tz=job.creation_time.tzinfo)
+            job_db.status = next_status.name
+            now = datetime.now(tz=job.creation_time.tzinfo)
+
+            if next_status == JobStatus.SCHEDULED:
+                job_db.scheduling_time = now
+            if next_status == JobStatus.RUNNING:
+                job_db.execution_time = now
+            if next_status == JobStatus.COMPLETED or next_status == JobStatus.ERROR:
+                job_db.termination_time = now
 
             await self.session.commit()
             await self.session.refresh(job_db)
 
-            LOGGER.info(f"component={job_db.component_id}: started execution of artifact={artifact_id} job={job_id}")
+            LOGGER.info(
+                f"component={job_db.component_id}: changed state from={previous_status} to={next_status} "
+                f"for artifact={artifact_id} job={job_id}"
+            )
 
             return view(job_db)
 

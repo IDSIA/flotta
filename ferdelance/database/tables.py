@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, String, DateTime, Integer, Table, Column, UniqueConstraint
+from sqlalchemy import (
+    ForeignKey,
+    String,
+    DateTime,
+    Integer,
+    Table,
+    Column,
+    UniqueConstraint,
+    Boolean,
+)
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
@@ -119,6 +128,7 @@ class Job(Base):
 
     # This counter keeps track of how many other jobs this job is waiting for, when 0 it can be set to scheduled
     lock_counter: Mapped[int] = mapped_column(default=0)
+    work_type: Mapped[str] = mapped_column(String())
 
     # Id of the component executing the job
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
@@ -127,8 +137,10 @@ class Job(Base):
     # Last known status of the job
     status: Mapped[str] = mapped_column(nullable=True)
 
-    # When the job has been submitted
+    # When the job has been created in waiting state
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    # When the job has been scheduled
+    scheduling_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     # When the job started
     execution_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # When the job terminated
@@ -147,6 +159,7 @@ class JobUnlock(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
     next_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
+    locked: Mapped[bool] = mapped_column(Boolean, default=True)
 
     job = relationship("Job")
     next_job = relationship("Job")

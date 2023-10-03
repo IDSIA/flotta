@@ -1,8 +1,24 @@
 from pydantic import BaseModel
 
+from ferdelance.schemas.artifacts import Artifact
+from ferdelance.schemas.components import Component
 
-class TaskAggregationContext(BaseModel):
-    artifact_id: str
+
+class JobFromContext(BaseModel):
+    id: int  # to keep track of the job's id
+    worker: Component  # id of the worker
+    artifact: Artifact
+    iteration: int  # current iteration (0-based)
+    counter: int
+    unlocks: list[int]
+    work_type: str
+
+
+class TaskContext(BaseModel):
+    artifact: Artifact
+
+    initiator: Component  # component_id of the initiator
+    workers: list[Component]  # list of component_ids of the involved clients
 
     job_total: int = 0
     job_completed: int = 0

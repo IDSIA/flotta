@@ -1,6 +1,6 @@
 from ferdelance.schemas.queries import Query
 from ferdelance.schemas.models import Model, GenericModel, rebuild_model
-from ferdelance.schemas.plans import Plan, GenericPlan, rebuild_plan
+from ferdelance.schemas.plans import Plan, FusionPlan, rebuild_plan
 from ferdelance.schemas.estimators import Estimator, GenericEstimator, rebuild_estimator
 
 from pydantic import BaseModel
@@ -34,11 +34,16 @@ class Artifact(BaseModel):
     def has_plan(self) -> bool:
         return self.plan is not None
 
-    def get_plan(self) -> GenericPlan:
+    def get_plan(self) -> FusionPlan:
         if self.plan is None:
             raise ValueError(f"No plan available with artifact={self.id}")
 
-        return rebuild_plan(self.plan)
+        plan = rebuild_plan(self.plan)
+
+        if not isinstance(plan, FusionPlan):
+            raise ValueError(f"An artifact's plan must be of type FusionPlan, for artifact={self.id}")
+
+        return plan
 
     def get_model(self) -> GenericModel:
         if self.model is None:

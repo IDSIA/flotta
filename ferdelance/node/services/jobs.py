@@ -16,7 +16,7 @@ from ferdelance.logging import get_logger
 from ferdelance.node.services import SecurityService, ActionService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.context import TaskAggregationContext
+from ferdelance.schemas.context import TaskContext, JobFromContext
 from ferdelance.schemas.database import ServerArtifact, Result
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics
@@ -81,8 +81,6 @@ class JobManagementService(Repository):
                 Handler to manage artifact.
         """
         try:
-            # TODO: manage for estimates
-
             artifact_db: ServerArtifact = await self.ar.create_artifact(artifact)
 
             artifact.id = artifact_db.id
@@ -97,18 +95,53 @@ class JobManagementService(Repository):
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
 
-        LOGGER.info(f"artifact={artifact.id}: scheduling {len(datasources_ids)} job(s) for iteration={iteration}")
-
+        workers: list[Component] = []
         for datasource_id in datasources_ids:
-            client: Component = await self.dsr.get_client_by_datasource_id(datasource_id)
+            worker: Component = await self.dsr.get_client_by_datasource_id(datasource_id)
+            workers.append(worker)
 
-            await self.jr.schedule_job(
-                artifact.id,
-                client.id,
-                is_model=artifact.is_model(),
-                is_estimation=artifact.is_estimation(),
-                iteration=iteration,
+        LOGGER.info(f"artifact={artifact.id}: creating jobs with {len(workers)} worker(s) for it={iteration}")
+
+        context = TaskContext(
+            artifact=artifact,
+            initiator=self.component,
+            workers=workers,
+            current_iteration=iteration,
+        )
+
+        jobs: list[JobFromContext] = artifact.get_plan().get_jobs(context)
+
+        LOGGER.info(f"artifact={artifact.id}: planned to schedule {len(jobs)} job(s) for it={iteration}")
+
+        job_map: dict[int, Job] = dict()
+
+        # insert jobs in database
+        for job in jobs:
+            j = await self.jr.add_job(
+                job.artifact.id,
+                job.worker.id,
+                is_model=job.artifact.is_model(),
+                is_estimation=job.artifact.is_estimation(),
+                iteration=job.iteration,
+                counter=job.counter,
+                work_type=job.work_type,
             )
+            job_map[job.id] = j
+
+        # insert unlocks in database
+        for job in jobs:
+            j = job_map[job.id]
+            unlocks = [job_map[i] for i in job.unlocks]
+
+            await self.jr.add_unlocks(j, unlocks)
+
+        # set first (init) job to scheduled
+        if iteration == 0:
+            job = job_map[0]
+            LOGGER.info(f"component={self.component.id}: starting initialization job={job}")
+            await self.jr.schedule_job(job)
+
+            get_jobs_backend().start_init()
 
     async def task_start(self, job_id: str) -> TaskParameters:
         try:
@@ -238,7 +271,7 @@ class JobManagementService(Repository):
         self,
         job: Job,
         artifact: Artifact,
-        context: TaskAggregationContext,
+        context: TaskContext,
     ) -> bool:
         # aggregations checks for
         context.aggregations = await self.jr.count_jobs_by_artifact_id(
@@ -292,13 +325,13 @@ class JobManagementService(Repository):
 
         return True
 
-    async def _context(self, job_id: str) -> tuple[Job, Artifact, TaskAggregationContext]:
+    async def _context(self, job_id: str) -> tuple[Job, Artifact, TaskContext]:
         job: Job = await self.jr.get_by_id(job_id)
         it = job.iteration
 
         artifact: Artifact = await self.ar.load(job.artifact_id)
 
-        context = TaskAggregationContext(
+        context = TaskContext(
             artifact_id=artifact.id,
             current_iteration=it,
             next_iteration=it + 1,
@@ -309,7 +342,7 @@ class JobManagementService(Repository):
     async def check_next_iteration(
         self,
         artifact: Artifact,
-        context: TaskAggregationContext,
+        context: TaskContext,
     ):
         # check for next iteration
         if artifact.has_plan():
@@ -366,7 +399,7 @@ class JobManagementService(Repository):
             # schedule an aggregation
             worker = await self.cr.get_self_component()
 
-            agg_job: Job = await self.jr.schedule_job(
+            agg_job: Job = await self.jr.add_job(
                 artifact_id,
                 worker.id,
                 is_model=is_model,

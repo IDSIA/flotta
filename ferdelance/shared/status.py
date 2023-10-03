@@ -2,6 +2,7 @@ from enum import Enum, auto
 
 
 class JobStatus(Enum):
+    WAITING = auto()
     SCHEDULED = auto()
     RUNNING = auto()
     COMPLETED = auto()

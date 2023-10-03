@@ -12,7 +12,7 @@ from ferdelance.schemas.estimators import (
 )
 from ferdelance.schemas.transformers import Transformer, FederatedFilter
 from ferdelance.schemas.models import Model, GenericModel
-from ferdelance.schemas.plans import Plan, GenericPlan
+from ferdelance.schemas.plans import Plan, LocalPlan
 
 from datetime import datetime
 from pydantic import BaseModel
@@ -89,7 +89,7 @@ class Query(BaseModel):
             )
         )
 
-    def add_plan(self, plan: GenericPlan) -> QueryPlan:
+    def add_plan(self, plan: LocalPlan) -> QueryPlan:
         return QueryPlan(
             transform=self,
             plan=plan.build(),
