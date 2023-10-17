@@ -260,13 +260,7 @@ class Configuration(BaseSettings):
     def storage_artifact(self, artifact_id: str, iteration: int = 0) -> str:
         return os.path.join(self.storage_artifact_dir(), artifact_id, str(iteration))
 
-    def storage_resources_dir(self) -> str:
-        return os.path.join(self.workdir, "resources")
-
-    def storage_resources(self, resource_id: str) -> str:
-        return os.path.join(self.storage_resources_dir(), resource_id)
-
-    def store_result(
+    def store_resource(
         self,
         artifact_id: str,
         job_id: str,
@@ -276,7 +270,7 @@ class Configuration(BaseSettings):
         is_model: bool = False,
         is_estimation: bool = False,
     ) -> str:
-        """Creates a local path that can be used to save a result to disk.
+        """Creates a local path that can be used to save a resource to disk.
 
         Args:
             artifact_id (str):
@@ -285,13 +279,13 @@ class Configuration(BaseSettings):
                 Iteration reached.
                 Defaults to 0.
             producer_id (str, optional):
-                Id of the component that produced the result.
+                Id of the component that produced the resource.
                 Defaults to "".
             is_error (bool, optional):
                 If it is an error, set to True.
                 Defaults to False.
             is_aggregation (bool, optional):
-                If it is a result of an aggregation, set to True.
+                If it is a resource of an aggregation, set to True.
                 Defaults to False.
             is_model (bool, optional):
                 If it is a trained model, set to True.
@@ -302,7 +296,7 @@ class Configuration(BaseSettings):
 
         Returns:
             str:
-                The path to use to save the result on disk.
+                The path to use to save the resource on disk.
         """
 
         out_dir: str = self.storage_artifact(artifact_id, iteration)
@@ -332,11 +326,11 @@ class Configuration(BaseSettings):
     def storage_clients(self, client_id: str) -> str:
         return os.path.join(self.storage_clients_dir(), client_id)
 
-    def storage_results_dir(self) -> str:
-        return os.path.join(self.workdir, "results")
+    def storage_resource_dir(self) -> str:
+        return os.path.join(self.workdir, "resources")
 
-    def storage_results(self, result_id: str) -> str:
-        return os.path.join(self.storage_results_dir(), result_id)
+    def storage_resources(self, resource_id: str) -> str:
+        return os.path.join(self.storage_resource_dir(), resource_id)
 
     def storage_config(self) -> str:
         return os.path.join(self.workdir, "config.yaml")
@@ -435,7 +429,7 @@ class ConfigManager:
         # create required directories
         os.makedirs(self.config.storage_artifact_dir(), exist_ok=True)
         os.makedirs(self.config.storage_clients_dir(), exist_ok=True)
-        os.makedirs(self.config.storage_results_dir(), exist_ok=True)
+        os.makedirs(self.config.storage_resource_dir(), exist_ok=True)
         # os.chmod(self.config.workdir, 0o700)
 
         LOGGER.info("directory initialization completed")

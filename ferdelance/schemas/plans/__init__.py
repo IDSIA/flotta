@@ -2,7 +2,8 @@ __all__ = [
     "rebuild_plan",
     "Plan",
     "GenericPlan",
-    "TrainAll",
+    "PlanResult",
+    "Train",
     "TrainTestSplit",
     "LocalCrossValidation",
     "IterativePlan",
@@ -11,11 +12,11 @@ __all__ = [
     "ParallelPlan",
 ]
 
-from .plan import GenericPlan, Plan
+from .plan import GenericPlan, Plan, PlanResult
 
 from .local import (
     LocalPlan,
-    TrainAll,
+    Train,
     TrainTestSplit,
     LocalCrossValidation,
 )

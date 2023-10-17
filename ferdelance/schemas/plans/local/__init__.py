@@ -3,13 +3,13 @@ node on how to train and evaluate a model."""
 
 __all__ = [
     "LocalPlan",
-    "TrainAll",
+    "Train",
     "TrainTestSplit",
     "LocalCrossValidation",
 ]
 
 
 from .core import LocalPlan
-from .train import TrainAll
+from .train import Train
 from .split import TrainTestSplit
 from .cross_validation import LocalCrossValidation

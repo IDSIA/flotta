@@ -1,11 +1,11 @@
 from ferdelance.logging import get_logger
-from ferdelance.database.tables import Job as JobDB, JobUnlock
+from ferdelance.database.tables import Job as JobDB, JobLock as JobLockDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
-from ferdelance.schemas.jobs import Job
+from ferdelance.schemas.jobs import Job, JobLock
 from ferdelance.shared.status import JobStatus
 
-from sqlalchemy import func, select
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import NoResultFound
 
 from datetime import datetime
 from uuid import uuid4
@@ -30,6 +30,15 @@ def view(job: JobDB) -> Job:
     )
 
 
+def view_lock(lock: JobLockDB):
+    return JobLock(
+        id=lock.id,
+        job_id=lock.job_id,
+        next_id=lock.next_id,
+        locked=lock.locked,
+    )
+
+
 class JobRepository(Repository):
     """A repository used to manage and store jobs.
 
@@ -40,7 +49,7 @@ class JobRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def add_job(
+    async def create_job(
         self,
         artifact_id: str,
         component_id: str,
@@ -51,6 +60,7 @@ class JobRepository(Repository):
         counter: int = 0,
         work_type: str = "",
         status=JobStatus.WAITING,
+        job_id: str | None = None,
     ) -> Job:
         """Starts a job by inserting it into the database. The insertion works
         as a scheduling the new work to do. The initial state of the job will
@@ -79,8 +89,11 @@ class JobRepository(Repository):
 
         # TODO: what happen if we submit again the same artifact?
 
+        if job_id is None:
+            job_id = str(uuid4())
+
         job = JobDB(
-            id=str(uuid4()),
+            id=job_id,
             artifact_id=artifact_id,
             component_id=component_id,
             status=status.name,
@@ -103,18 +116,112 @@ class JobRepository(Repository):
 
         return view(job)
 
-    async def add_unlocks(self, job: Job, unlocks: list[Job]) -> None:
-        for unlock in unlocks:
-            ju: JobUnlock = JobUnlock(job_id=job.id, next_id=unlock.id)
-            self.session.add(ju)
+    async def add_locks(self, job: Job, locked_jobs: list[Job]) -> None:
+        """Adds constraint between the current job and the jobs that depends on
+        the successfull completion of it. Locked jobs need to have the same
+        artifact_id. Jobs from different artifact will be ignored.
+
+        Args:
+            job (Job):
+                Handler of the current job.
+            locks (list[Job]):
+                List of handlers to all jobs that are locked by this job.
+        """
+        for locked_job in locked_jobs:
+            if locked_job.artifact_id != job.artifact_id:
+                LOGGER.warn(f"job={job.id}: cannot lock locked_job={locked_job.id}, different artifacts!")
+                continue
+
+            lock: JobLockDB = JobLockDB(
+                artifact_id=job.artifact_id,
+                job_id=job.id,
+                next_id=locked_job.id,
+            )
+            self.session.add(lock)
 
         await self.session.commit()
 
+    async def unlock_job(self, job: Job) -> None:
+        """Removes constraints that are locked by the given job.
+
+        Args:
+            job (Job):
+                Handler to the job that has completed successfully.
+        """
+        await self.session.execute(update(JobLockDB).where(JobLockDB.job_id == job.id).values(locked=False))
+        await self.session.commit()
+
+    async def check_job_is_locked(self, job: Job) -> bool:
+        """Checks if the given job is still locked or not.
+
+        Args:
+            job (Job):
+                Handler to the job to check.
+
+        Returns:
+            bool:
+                True if the job is still locked and cannot be scheduled,
+                otherwise False.
+        """
+        res = await self.session.scalars(select(JobLockDB.locked).where(JobLockDB.job_id == job.id))
+
+        return any(res.all())
+
     async def schedule_job(self, job: Job) -> Job:
+        """Change the state of a job from WAITING to SCHEDULED.
+
+        Args:
+            job (Job):
+                Handler to the job to update.
+
+        Returns:
+            Job:
+                The updated handler.
+        """
+        LOGGER.info(f"component={job.component_id}: scheduled execution of job={job.id} artifact={job.artifact_id}")
         return await self.update_job_status(job, JobStatus.WAITING, JobStatus.SCHEDULED)
 
     async def start_execution(self, job: Job) -> Job:
+        """Change the state of a job from SCHEDULED to RUNNING.
+
+        Args:
+            job (Job):
+                Handler to the job to update.
+
+        Returns:
+            Job:
+                The updated handler.
+        """
+        LOGGER.info(f"component={job.component_id}: started execution of job={job.id} artifact={job.artifact_id}")
         return await self.update_job_status(job, JobStatus.SCHEDULED, JobStatus.RUNNING)
+
+    async def complete_execution(self, job: Job) -> Job:
+        """Change the state of a job from RUNNING to COMPLETED.
+
+        Args:
+            job (Job):
+                Handler to the job to update.
+
+        Returns:
+            Job:
+                The updated handler.
+        """
+        LOGGER.info(f"component={job.component_id}: completed execution of job={job.id} artifact={job.artifact_id}")
+        return await self.update_job_status(job, JobStatus.RUNNING, JobStatus.COMPLETED)
+
+    async def failed_execution(self, job: Job) -> Job:
+        """Change the state of a job from RUNNING to ERROR.
+
+        Args:
+            job (Job):
+                Handler to the job to update.
+
+        Returns:
+            Job:
+                The updated handler.
+        """
+        LOGGER.error(f"component={job.component_id}: failed execution of job={job.id} artifact={job.artifact_id}")
+        return await self.update_job_status(job, JobStatus.RUNNING, JobStatus.ERROR)
 
     async def update_job_status(self, job: Job, previous_status: JobStatus, next_status: JobStatus) -> Job:
         """Changes the state of the given job to JobStatus.RUNNING. An exception
@@ -169,117 +276,15 @@ class JobRepository(Repository):
             return view(job_db)
 
         except NoResultFound:
-            LOGGER.error(
-                f"job={job_id}: Could not start a job that does not exists in the SCHEDULED state with "
-                f"artifact={artifact_id} component={component_id}"
+            message = (
+                f"component={component_id}: artifact={artifact_id} with job={job_id} in status "
+                f"{previous_status} not found"
             )
-            raise ValueError(
-                f"Job in status SCHEDULED not found for job={job_id} "
-                f"artifact={artifact_id} component={component_id}"
-            )
-
-    async def mark_completed(self, job_id: str, component_id: str) -> Job:
-        """Changes the state of a job to JobStatus.COMPLETED. The job is identified
-        by the artifact_id and the component_id that have completed the required
-        operations. An exception is raised if there are no job in the JobStatus.RUNNING
-        state or if there are multiple jobs available (this should never happen).
-
-        Args:
-            artifact_id (str):
-                Id of the artifact that has been completed.
-            component_id (str):
-                Id of the component that has completed the job.
-
-        Raises:
-            ValueError:
-                If there are no jobs in the RUNNING state given the input arguments.
-            ValueError:
-                If there are multiple jobs in the correct state given the input arguments.
-
-        Returns:
-            Job:
-                Updated handler of the job.
-        """
-        try:
-            res = await self.session.scalars(
-                select(JobDB).where(
-                    JobDB.id == job_id,
-                    JobDB.status == JobStatus.RUNNING.name,
-                )
-            )
-            job: JobDB = res.one()
-
-            job.status = JobStatus.COMPLETED.name
-            job.termination_time = datetime.now(tz=job.creation_time.tzinfo)
-
-            await self.session.commit()
-            await self.session.refresh(job)
-
-            LOGGER.info(f"component={job.component_id}: completed execution of job={job.id} artifact={job.artifact_id}")
-
-            return view(job)
-
-        except NoResultFound:
-            LOGGER.error(
-                f"Could not terminate a job that does not exists or has not "
-                f"started yet with job={job_id} component={component_id}"
-            )
-            raise ValueError(f"Job in status RUNNING not found for job={job_id} component={component_id}")
-
-        except MultipleResultsFound:
-            LOGGER.error(f"Multiple jobs have been started for job={job_id} component={component_id}")
-            raise ValueError(f"Multiple job in status RUNNING found for job={job_id} component={component_id}")
-
-    async def mark_error(self, job_id: str, component_id: str) -> Job:
-        """Changes the state of a job to JobStatus.ERROR. The job is identified
-        by the job_id given in the handler. An exception is raised if no jobs
-        are found.
-
-        Args:
-            artifact_id (str):
-                Id of the artifact that has been completed.
-            component_id (str):
-                Id of the component that has completed the job.
-
-        Raises:
-            ValueError:
-                If no job has been found.
-
-        Returns:
-            Job:
-                Updated handler of the job.
-        """
-
-        try:
-            res = await self.session.scalars(
-                select(JobDB).where(
-                    JobDB.id == job_id,
-                    JobDB.status == JobStatus.RUNNING.name,
-                )
-            )
-            job: JobDB = res.one()
-
-            job.status = JobStatus.ERROR.name
-            job.termination_time = datetime.now(tz=job.creation_time.tzinfo)
-
-            await self.session.commit()
-            await self.session.refresh(job)
-
-            LOGGER.warn(
-                f"component={job.component_id}: failed execution of job={job.id} "
-                f"artifact={job.artifact_id} component={component_id}"
-            )
-
-            return view(job)
-
-        except NoResultFound:
-            LOGGER.error(
-                f"component={component_id}: could not mark error a job that does not exists with job={job_id} "
-            )
-            raise ValueError(f"Job not found with job={job_id} component={component_id}")
+            LOGGER.error(message)
+            raise ValueError(message)
 
     async def get_by_id(self, job_id: str) -> Job:
-        """Gets the data on the job associated with the given job_id.
+        """Gets an handler to the job associated with the given job_id.
 
         Args:
             job_id (str):
@@ -297,6 +302,22 @@ class JobRepository(Repository):
         return view(res.one())
 
     async def get_by_artifact(self, artifact_id: str, component_id: str, iteration: int) -> Job:
+        """Gets an handler to the job associated with the given job_id.
+
+        Args:
+            job_id (str):
+                Id of the job to retrieve.
+
+        Raises:
+            NoResultsFound:
+                If the job does not exists.
+
+        Returns:
+            Job:
+                The handler of the job.
+        """
+        # TODO: since we don't have the unique constraint anymore, this can be removed?
+
         res = await self.session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact_id,
@@ -323,6 +344,66 @@ class JobRepository(Repository):
         """
         res = await self.session.scalars(select(JobDB).where(JobDB.id == job.id))
         return view(res.one())
+
+    async def list_jobs_locked(self, job: Job) -> list[JobLock]:
+        """Returns a list of all the jobs locked by the given job.
+
+        Args:
+            job (Job):
+                Handler to the current job.
+
+        Returns:
+            list[JobLock]:
+                A list of locks that are the constraint on the execution
+                of the next jobs.
+        """
+        locks = await self.session.scalars(select(JobLockDB).where(JobLockDB.job_id == job.id))
+
+        return [view_lock(lock) for lock in locks.all()]
+
+    async def list_job_locks_for(self, job: Job) -> list[JobLock]:
+        """Lists all the jobs that are locking (not completed succesfully) the
+        given job.
+
+        Args:
+            job (Job):
+                An handler to the jobs that is still locked.
+
+        Returns:
+            list[JobLock]:
+
+        """
+        locks = await self.session.scalars(select(JobLockDB).where(JobLockDB.next_id == job.id))
+
+        return [view_lock(lock) for lock in locks.all()]
+
+    async def list_unlocked_jobs(self, artifact_id: str) -> list[Job]:
+        """Lists all jobs that are not locked by any constraint for the given
+        artifact_id. Jobs can be in different states.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to get the jobs for.
+
+        Returns:
+            list[Job]:
+                A list of jobs that are not locked by any constraint.
+        """
+        jobs = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.artifact_id == artifact_id,
+                JobDB.id.not_in(
+                    select(JobLockDB.next_id)
+                    .where(
+                        JobLockDB.locked.is_(True),
+                        JobLockDB.artifact_id == artifact_id,
+                    )
+                    .distinct()
+                ),
+            )
+        )
+
+        return [view(j) for j in jobs.all()]
 
     async def list_jobs_by_component_id(self, component_id: str) -> list[Job]:
         """Returns a list of jobs assigned to the given component_id.

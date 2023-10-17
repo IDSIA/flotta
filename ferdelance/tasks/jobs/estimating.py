@@ -1,40 +1,17 @@
 from typing import Any
 
-from ferdelance.config.config import DataSourceStorage
 from ferdelance.logging import get_logger
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.estimators import apply_estimator
-from ferdelance.schemas.tasks import TaskParameters, TaskResult, TaskError
+from ferdelance.schemas.estimators import save_estimator
+from ferdelance.schemas.tasks import TaskDone, TaskError, TaskParameters
 from ferdelance.tasks.jobs.commons import setup, apply_transform
 from ferdelance.tasks.jobs.local import LocalJob
 
+import os
 import ray
 
 
 LOGGER = get_logger(__name__)
-
-
-def run_estimate(data: DataSourceStorage, task: TaskParameters) -> TaskResult:
-    job_id = task.job_id
-    artifact: Artifact = task.artifact
-    artifact.id = artifact.id
-
-    working_folder = setup(artifact, job_id, task.iteration)
-
-    df_dataset = apply_transform(artifact, task, data, working_folder)
-
-    if artifact.estimator is None:
-        raise ValueError("Artifact is not an estimation!")  # TODO: manage this!
-
-    LOGGER.info(f"artifact={artifact.id}: executing estimation")
-
-    path_estimator = apply_estimator(artifact.estimator, df_dataset, working_folder, artifact.id)
-
-    return TaskResult(
-        job_id=job_id,
-        result_path=path_estimator,
-        is_estimate=True,
-    )
 
 
 @ray.remote
@@ -47,34 +24,51 @@ class EstimationJob(LocalJob):
         server_url: str,
         private_key: str,
         server_public_key: str,
-        workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
-        super().__init__(
-            component_id, artifact_id, job_id, server_url, private_key, server_public_key, workdir, datasources
-        )
+        super().__init__(component_id, artifact_id, job_id, server_url, private_key, server_public_key, datasources)
 
     def __repr__(self) -> str:
         return f"Estimation{super().__repr__()}"
 
     def run(self):
-        task: TaskParameters = self.routes_service.get_task_params(self.artifact_id, self.job_id)
+        context: TaskParameters = self.routes_service.get_params(self.artifact_id, self.job_id)
 
-        if task.artifact.is_estimation():
-            res = self.estimate(task)
+        if context.artifact.is_estimation():
+            job_id = context.job_id
+            artifact: Artifact = context.artifact
 
-            self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.result_path)
+            working_folder = setup(artifact, job_id, context.iteration)
+
+            hashes = context.data["datasource_hashes"]
+
+            df_dataset = apply_transform(artifact, hashes, self.data, working_folder)
+
+            LOGGER.info(f"artifact={artifact.id}: executing estimation")
+
+            # TODO: use plan!!!
+
+            local_estimator = artifact.get_estimator()
+            local_estimator.fit(df_dataset)
+
+            path_estimator = os.path.join(working_folder, f"{artifact.id}_Estimator_{local_estimator.name}.pkl")
+
+            save_estimator(local_estimator, path_estimator)
+
+            res = TaskDone(
+                job_id=job_id,
+                resource_path=path_estimator,
+                is_estimate=True,
+            )
+
+            self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.resource_path)
 
         else:
             self.routes_service.post_error(
-                task.job_id,
-                task.artifact.id,
+                context.job_id,
+                context.artifact.id,
                 TaskError(
-                    job_id=task.job_id,
+                    job_id=context.job_id,
                     message="Malformed artifact",
                 ),
             )
-
-    def estimate(self, task: TaskParameters) -> TaskResult:
-        res: TaskResult = run_estimate(self.data, task)
-        return res

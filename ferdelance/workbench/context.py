@@ -408,7 +408,7 @@ class Context:
         headers, payload = self.exc.create(self.id, wba.json())
 
         with requests.get(
-            f"{self.server}/workbench/result",
+            f"{self.server}/workbench/resource",
             headers=headers,
             data=payload,
             stream=True,
@@ -445,7 +445,7 @@ class Context:
 
         with requests.request(
             "GET",
-            f"{self.server}/workbench/result/partial",
+            f"{self.server}/workbench/resource/partial",
             headers=headers,
             data=payload,
             stream=True,

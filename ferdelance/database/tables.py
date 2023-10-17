@@ -7,7 +7,6 @@ from sqlalchemy import (
     Integer,
     Table,
     Column,
-    UniqueConstraint,
     Boolean,
 )
 from sqlalchemy.sql.functions import now
@@ -146,35 +145,38 @@ class Job(Base):
     # When the job terminated
     termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (UniqueConstraint("artifact_id", "component_id", "iteration", name="_jobs_ids_unique"),)
 
-
-class JobUnlock(Base):
+class JobLock(Base):
     """Jobs are related to each other through a Directed Acyclic Graph (DAG). Each time a job is completed
     successfully, it can unlock other jobs. This table keeps track of which jobs are unlocked.
+
+    When the job designed by `job_id` is completed without error, the entries in this table will be updated
+    to have their `locked` state to be False.
     """
 
-    __tablename__ = "job_unlocks"
+    __tablename__ = "job_locks"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
     job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
     next_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
     locked: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    job = relationship("Job")
-    next_job = relationship("Job")
+    artifat = relationship("Artifact", foreign_keys=[artifact_id])
+    job = relationship("Job", foreign_keys=[job_id])
+    next_job = relationship("Job", foreign_keys=[next_id])
 
 
-class Result(Base):
-    """Table that keep track of all the results produced by each job and stored on the server."""
+class Resource(Base):
+    """Table that keep track of all the resources produced by each job and stored on the server."""
 
-    __tablename__ = "results"
+    __tablename__ = "resources"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     path: Mapped[str] = mapped_column(String)
 
-    # TODO: if both is no, then it is a plain result?
+    # TODO: if both is no, then it is a plain resource?
     is_model: Mapped[bool] = mapped_column(default=False)
     is_estimation: Mapped[bool] = mapped_column(default=False)
     is_aggregation: Mapped[bool] = mapped_column(default=False)
@@ -241,16 +243,3 @@ class DataSource(Base):
     component = relationship("Component")
 
     projects: Mapped[list[Project]] = relationship(secondary=project_datasource, back_populates="datasources")
-
-
-class Resource(Base):
-    """Table that collect all the model uploaded by workbenches."""
-
-    __tablename__ = "resources"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    path: Mapped[str] = mapped_column(String)
-
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
-    component = relationship("Component")

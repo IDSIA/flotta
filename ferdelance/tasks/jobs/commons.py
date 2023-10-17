@@ -1,7 +1,6 @@
 from ferdelance.config import config_manager, DataSourceStorage
 from ferdelance.logging import get_logger
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.tasks import TaskParameters
 from ferdelance.schemas.transformers import apply_transformer
 
 import pandas as pd
@@ -36,13 +35,11 @@ def setup(artifact: Artifact, job_id: str, iteration: int) -> str:
 
 def apply_transform(
     artifact: Artifact,
-    task: TaskParameters,
+    datasource_hashes: list[str],
     data: DataSourceStorage,
     working_folder: str,
 ) -> pd.DataFrame:
     dfs: list[pd.DataFrame] = []
-
-    datasource_hashes: list[str] = task.content_ids
 
     LOGGER.debug(f"artifact={artifact.id}: number of transformation queries={len(datasource_hashes)}")
 

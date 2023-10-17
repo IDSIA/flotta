@@ -17,12 +17,9 @@ class LocalJob(GenericJob):
         server_url: str,
         private_key: str,
         server_public_key: str,
-        workdir: str,
         datasources: list[dict[str, Any]],
     ) -> None:
         super().__init__(component_id, artifact_id, job_id, server_url, private_key, server_public_key)
-
-        self.workdir: str = workdir
 
         self.datasources: list[DataSourceConfiguration] = [DataSourceConfiguration(**d) for d in datasources]
 

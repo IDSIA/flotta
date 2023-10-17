@@ -23,25 +23,16 @@ class ServerArtifact(BaseModel):
         )
 
 
-class Result(BaseModel):
-    """Model, estimation, or aggregation data stored in the database."""
-
-    id: str
-    job_id: str
-    artifact_id: str
-    client_id: str
-    creation_time: datetime | None
-    path: str
-    iteration: int
-    is_model: bool = False
-    is_estimation: bool = False
-    is_aggregation: bool = False
-
-
 class Resource(BaseModel):
     """Model, estimation, or aggregation data stored in the database."""
 
     id: str
+    artifact_id: str
+    iteration: int
+    job_id: str
+    component_id: str
     creation_time: datetime | None
     path: str
-    component_id: str
+    is_model: bool = False
+    is_estimation: bool = False
+    is_aggregation: bool = False

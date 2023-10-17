@@ -16,8 +16,6 @@ from .groups import GroupEstimator, GroupCountEstimator, GroupMeanEstimator
 
 from inspect import signature
 
-import os
-import pandas as pd
 import pickle
 
 
@@ -26,7 +24,7 @@ def save_estimator(obj: GenericEstimator, path: str) -> None:
         pickle.dump(obj, f)
 
 
-def load(path: str) -> GenericEstimator:
+def load_estimator(path: str) -> GenericEstimator:
     with open(path, "rb") as f:
         return pickle.load(f)
 
@@ -61,33 +59,3 @@ def rebuild_estimator(estimator: Estimator) -> GenericEstimator:
         return c(feature_in=estimator.features_in[0])
 
     return c(features_in=estimator.features_in)
-
-
-def apply_estimator(estimator: Estimator, df: pd.DataFrame, working_folder: str, artifact_id: str) -> str:
-    """Fits an estimator on the given data, then saves it to a path in the
-    current working folder, and returns the path.
-
-    Args:
-        estimator (Estimator):
-            Estimator to be fitted.
-        df (pd.DataFrame):
-            Data to fit the estimator on.
-        working_folder (str):
-            Current working directory.
-        artifact_id (str):
-            Id of the current artifact that has been executed.
-
-    Returns:
-        str:
-            The path on local disk with the fitted estimator.
-    """
-
-    e = rebuild_estimator(estimator)
-
-    e.fit(df)
-
-    path_estimator = os.path.join(working_folder, f"{artifact_id}_Estimator_{estimator.name}.pkl")
-
-    save_estimator(e, path_estimator)
-
-    return path_estimator

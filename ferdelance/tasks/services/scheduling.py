@@ -1,10 +1,11 @@
 from ferdelance.config.config import DataSourceConfiguration
 from ferdelance.exceptions import InvalidAction
 from ferdelance.logging import get_logger
-from ferdelance.schemas.tasks import TaskArguments
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.actions import Action
-from ferdelance.tasks.backends import get_jobs_backend
+
+from ferdelance.tasks.jobs.estimating import EstimationJob
+from ferdelance.tasks.jobs.training import TrainingJob
 
 LOGGER = get_logger(__name__)
 
@@ -14,11 +15,9 @@ class ScheduleActionService:
         self,
         component_id: str,
         private_key: str,
-        workdir: str = "",
     ) -> None:
         self.component_id: str = component_id
         self.private_key: str = private_key
-        self.workdir: str = workdir
 
     def do_nothing(self) -> Action:
         LOGGER.debug("nothing new from the server node")
@@ -32,20 +31,17 @@ class ScheduleActionService:
         job_id: str,
         dsc: list[DataSourceConfiguration],
     ) -> Action:
-        backend = get_jobs_backend()
-
-        backend.start_training(
-            TaskArguments(
-                component_id=self.component_id,
-                private_key=self.private_key,
-                node_url=remote_url,
-                node_public_key=remote_public_key,
-                datasources=[d.dict() for d in dsc],
-                workdir=self.workdir,
-                job_id=job_id,
-                artifact_id=artifact_id,
-            )
+        actor_handler = TrainingJob.remote(
+            self.component_id,
+            artifact_id,
+            job_id,
+            remote_url,
+            self.private_key,
+            remote_public_key,
+            [d.dict() for d in dsc],
         )
+        _ = actor_handler.run.remote()  # type: ignore
+
         return Action.DO_NOTHING
 
     def start_estimate(
@@ -56,20 +52,17 @@ class ScheduleActionService:
         job_id: str,
         dsc: list[DataSourceConfiguration],
     ) -> Action:
-        backend = get_jobs_backend()
-
-        backend.start_estimation(
-            TaskArguments(
-                component_id=self.component_id,
-                private_key=self.private_key,
-                node_url=remote_url,
-                node_public_key=remote_public_key,
-                datasources=[d.dict() for d in dsc],
-                workdir=self.workdir,
-                job_id=job_id,
-                artifact_id=artifact_id,
-            )
+        actor_handler = EstimationJob.remote(
+            self.component_id,
+            artifact_id,
+            job_id,
+            remote_url,
+            self.private_key,
+            remote_public_key,
+            [d.dict() for d in dsc],
         )
+        _ = actor_handler.run.remote()  # type: ignore
+
         return Action.DO_NOTHING
 
     def schedule(

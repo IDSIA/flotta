@@ -2,9 +2,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Any
 
-from ferdelance.schemas.context import TaskContext, JobFromContext
-from ferdelance.schemas.models import GenericModel, Metrics
-from ferdelance.schemas.plans.plan import GenericPlan, Plan
+from ferdelance.schemas.context import SchedulerContext, SchedulableJob
+from ferdelance.schemas.models import GenericModel
+from ferdelance.schemas.plans.plan import GenericPlan, Plan, PlanResult
 
 import pandas as pd
 
@@ -43,8 +43,8 @@ class FusionPlan(GenericPlan):
         )
 
     @abstractmethod
-    def get_jobs(self, context: TaskContext) -> list[JobFromContext]:
+    def get_jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         raise NotImplementedError()
 
-    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> list[Metrics]:
+    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> PlanResult:
         return self.get_fusion_plan().run(df, local_model, working_folder, artifact_id)

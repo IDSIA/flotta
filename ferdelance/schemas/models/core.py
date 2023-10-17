@@ -60,6 +60,14 @@ class GenericModel(ABC):
         with open(path, "wb") as f:
             pickle.dump(self.model, f)
 
+    def bin(self) -> bytes:
+        return pickle.dumps(self.model)
+
+    @abstractmethod
+    def initialize(self) -> None:
+        """Recreate a new instance of the internal model. Existing model will be lost if not saved."""
+        raise NotImplementedError()
+
     @abstractmethod
     def train(self, x, y) -> None:
         """Perform a training using local data produced with a Query, a Pipeline, or a Dataset.
@@ -92,7 +100,7 @@ class GenericModel(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def predict(self, x) -> np.ndarray | ArrayLike:
+    def predict(self, x) -> np.ndarray:
         """Predict the probabilities for the given instances of features.
 
         :param x:
@@ -136,6 +144,6 @@ class GenericModel(ABC):
     @abstractmethod
     def build(self) -> Model:
         """Convert this GenericModel to a Model that can be sent to the aggregation server
-        for the federate learning training procedure.
+        for the federate learning training procedure attached to an Artifact.
         """
         raise NotImplementedError()

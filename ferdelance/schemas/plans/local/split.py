@@ -1,7 +1,7 @@
 from typing import Any
 
 from ferdelance.logging import get_logger
-from ferdelance.schemas.plans.local.core import LocalPlan, GenericModel, Metrics
+from ferdelance.schemas.plans.local.core import LocalPlan, GenericModel, Metrics, PlanResult
 
 from sklearn.model_selection import train_test_split
 
@@ -35,7 +35,7 @@ class TrainTestSplit(LocalPlan):
             "source": self.source,
         }
 
-    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> list[Metrics]:
+    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> PlanResult:
         test_p = self.test_percentage
 
         self.validate_input(df)
@@ -63,7 +63,7 @@ class TrainTestSplit(LocalPlan):
                 )
 
         # model training
-        self.local_plan.run(
+        res = self.local_plan.run(
             df_tr,
             local_model,
             working_folder,
@@ -84,4 +84,7 @@ class TrainTestSplit(LocalPlan):
 
             metrics_list.append(metrics)
 
-        return metrics_list
+        return PlanResult(
+            path=res.path,
+            metrics=metrics_list,
+        )

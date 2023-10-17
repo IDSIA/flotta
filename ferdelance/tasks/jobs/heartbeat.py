@@ -1,11 +1,11 @@
 from ferdelance.config import config_manager
 from ferdelance.exceptions import ConfigError, ErrorClient, UpdateClient
 from ferdelance.logging import get_logger
-from ferdelance.node.services.scheduling import ScheduleActionService
 from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.client import ClientUpdate
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.actions import Action
+from ferdelance.tasks.services.scheduling import ScheduleActionService
 
 from time import sleep
 
@@ -100,7 +100,6 @@ class Heartbeat:
             scheduler = ScheduleActionService(
                 self.client_id,
                 self.security_service.exc.transfer_private_key(),
-                self.config.workdir,
             )
 
             while self.status != Action.CLIENT_EXIT and not self.stop:

@@ -3,31 +3,30 @@
 from sqlalchemy.exc import NoResultFound
 
 from ferdelance.database import DataBase
-from ferdelance.schemas.database import Result
-from ferdelance.database.repositories import ResultRepository
+from ferdelance.schemas.database import Resource
+from ferdelance.database.repositories import ResourceRepository
 from ferdelance.cli.visualization import show_many, show_one
 
 
-async def list_models(artifact_id: str | None = None) -> list[Result]:
+async def list_models(artifact_id: str | None = None) -> list[Resource]:
     """Print model list, with or without filters on ARTIFACT_ID, MODEL_ID"""
     # TODO depending on 1:1, 1:n relations with artifacts arguments change or disappear
 
     db = DataBase()
     async with db.async_session() as session:
-
-        result_repository = ResultRepository(session)
+        resource_repository = ResourceRepository(session)
 
         if artifact_id is not None:
-            models: list[Result] = await result_repository.list_models_by_artifact_id(artifact_id)
+            models: list[Resource] = await resource_repository.list_models_by_artifact_id(artifact_id)
         else:
-            models: list[Result] = await result_repository.list_models()
+            models: list[Resource] = await resource_repository.list_models()
 
         show_many(models)
 
         return models
 
 
-async def describe_model(task_id: str | None = None) -> Result | None:
+async def describe_model(task_id: str | None = None) -> Resource | None:
     """Describe single model by printing its db record.
 
     Args:
@@ -45,11 +44,10 @@ async def describe_model(task_id: str | None = None) -> Result | None:
 
     db = DataBase()
     async with db.async_session() as session:
-
-        task_repository = ResultRepository(session)
+        task_repository = ResourceRepository(session)
 
         try:
-            model: Result = await task_repository.get_model_by_id(task_id)
+            model: Resource = await task_repository.get_model_by_id(task_id)
             show_one(model)
 
             return model

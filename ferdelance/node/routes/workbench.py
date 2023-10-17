@@ -186,19 +186,19 @@ async def wb_get_artifact(
         raise HTTPException(404)
 
 
-@workbench_router.get("/result", response_class=FileResponse)
-async def wb_get_result(
+@workbench_router.get("/resource", response_class=FileResponse)
+async def wb_get_resource(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user={args.component.id}: requested result with artifact={wba.artifact_id}")
+    LOGGER.info(f"user={args.component.id}: requested resource with artifact={wba.artifact_id}")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        result = await ws.get_result(wba.artifact_id)
+        resource = await ws.get_resource(wba.artifact_id)
 
-        return FileResponse(result.path)
+        return FileResponse(resource.path)
 
     except ValueError as e:
         LOGGER.warning(str(e))
@@ -214,11 +214,12 @@ async def wb_get_result(
         raise HTTPException(500)
 
 
-@workbench_router.get("/result/partial", response_class=FileResponse)
-async def wb_get_partial_result(
+@workbench_router.get("/resource/partial", response_class=FileResponse)
+async def wb_get_partial_resource(
     part: WorkbenchArtifactPartial,
     args: ValidSessionArgs = Depends(allow_access),
 ):
+    # TODO: do we want this?
     component = args.component
     artifact_id = part.artifact_id
     producer_id = part.producer_id
@@ -232,9 +233,9 @@ async def wb_get_partial_result(
     ws: WorkbenchService = WorkbenchService(args.session, component)
 
     try:
-        result = await ws.get_partial_result(artifact_id, producer_id, iteration)
+        resource = await ws.get_partial_resource(artifact_id, producer_id, iteration)
 
-        return FileResponse(result.path)
+        return FileResponse(resource.path)
 
     except ValueError as e:
         LOGGER.warning(str(e))

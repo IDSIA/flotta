@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ferdelance.logging import get_logger
-from .core import GenericModel, Model
+from ferdelance.schemas.models.core import GenericModel, Model
 
 from enum import Enum
 from pydantic import BaseModel
@@ -68,9 +68,12 @@ class FederatedRandomForestClassifier(GenericModel):
         if load:
             self.load(load)
 
+    def initialize(self) -> None:
+        self.model = RandomForestClassifier(**self.parameters.dict())
+
     def train(self, x, y) -> None:
         if self.model is None:
-            self.model = RandomForestClassifier(**self.parameters.dict())
+            raise ValueError("Model not defined!")
 
         self.model.fit(x, y)
 
@@ -135,7 +138,7 @@ class FederatedRandomForestClassifier(GenericModel):
 
         return vc
 
-    def predict(self, x) -> np.ndarray | ArrayLike:
+    def predict(self, x) -> np.ndarray:
         if self.model is None:
             raise ValueError("No model has been loaded or created")
         return self.model.predict_proba(x)

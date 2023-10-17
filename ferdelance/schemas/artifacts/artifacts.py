@@ -11,7 +11,7 @@ class ArtifactStatus(BaseModel):
 
     id: str
     status: str | None
-    results: str | None = None
+    resource: str | None = None
     iteration: int = 0
 
 
@@ -24,6 +24,9 @@ class Artifact(BaseModel):
     plan: Plan | None = None
     model: Model | None = None
     estimator: Estimator | None = None
+
+    # extra resource to use, must concorde with model/estimator type
+    resource_id: str | None = None
 
     def is_estimation(self):
         return self.estimator is not None

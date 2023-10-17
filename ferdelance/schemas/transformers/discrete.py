@@ -20,7 +20,8 @@ class FederatedKBinsDiscretizer(Transformer):
     forces the ordinal encoding of the categories and works on a single features.
     For one-hot-encoding check the FederatedOneHotEncoder transformer.
 
-    Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.KBinsDiscretizer.html#sklearn.preprocessing.KBinsDiscretizer"""
+    Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.KBinsDiscretizer.html#sklearn.preprocessing.KBinsDiscretizer
+    """
 
     def __init__(
         self,
@@ -57,7 +58,8 @@ class FederatedBinarizer(Transformer):
     """Wrapper of scikit-learn Binarizer. The difference is that this version forces
     to work with a single features.
 
-    Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.Binarizer.html#sklearn.preprocessing.Binarizer"""
+    Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.Binarizer.html#sklearn.preprocessing.Binarizer
+    """
 
     def __init__(self, features_in: QueryFeature, features_out: QueryFeature | str, threshold: float = 0) -> None:
         """

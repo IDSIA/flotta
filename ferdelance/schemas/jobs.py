@@ -15,3 +15,10 @@ class Job(BaseModel):
     is_estimation: bool = False
     is_aggregation: bool = False
     iteration: int
+
+
+class JobLock(BaseModel):
+    id: int
+    job_id: str
+    next_id: str
+    locked: bool

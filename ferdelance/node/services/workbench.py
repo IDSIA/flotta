@@ -9,12 +9,11 @@ from ferdelance.database.repositories import (
     DataSourceRepository,
     ProjectRepository,
     ResourceRepository,
-    ResultRepository,
 )
 from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.database import Result
+from ferdelance.schemas.database import Resource
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
     WorkbenchClientList,
@@ -25,7 +24,6 @@ from ferdelance.node.services import JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 
-import aiofiles
 import os
 
 LOGGER = get_logger(__name__)
@@ -119,18 +117,16 @@ class WorkbenchService:
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        jms: JobManagementService = JobManagementService(self.session, self.component)
+        jms: JobManagementService = JobManagementService(
+            self.session, self.component
+        )  # TODO: pass pub/priv key from args
         return await jms.submit_artifact(artifact)
 
     async def store_resource(self, request_stream: AsyncGenerator[bytes, None]) -> str:
-        rr: ResourceRepository = ResourceRepository(self.session)
-        res = await rr.create_resource(self.component.id)
-
-        async with aiofiles.open(res.path, "wb") as f:
-            async for content in request_stream:
-                await f.write(content)
-
-        return res.id
+        jms: JobManagementService = JobManagementService(
+            self.session, self.component
+        )  # TODO: pass pub/priv key from args
+        return await jms.store_resource(request_stream)
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """
@@ -158,46 +154,46 @@ class WorkbenchService:
 
         return artifact
 
-    async def get_result(self, artifact_id: str) -> Result:
+    async def get_resource(self, artifact_id: str) -> Resource:
         """
         :raise:
-            ValueError when the requested result exists on the database but not on disk.
+            ValueError when the requested resource exists on the database but not on disk.
 
-            NoResultFound when there are no results.
+            NoResultFound when there are no resources.
 
-            MultipleResultsFound when the result is not unique (database error).
+            MultipleResultsFound when the resource is not unique (database error).
         """
-        rr: ResultRepository = ResultRepository(self.session)
+        rr: ResourceRepository = ResourceRepository(self.session)
 
-        result: Result = await rr.get_aggregated_result(artifact_id)
+        resource: Resource = await rr.get_aggregated_resource(artifact_id)
 
-        if not os.path.exists(result.path):
-            raise ValueError(f"result={result.id} not found at path={result.path}")
+        if not os.path.exists(resource.path):
+            raise ValueError(f"resource={resource.id} not found at path={resource.path}")
 
-        LOGGER.info(f"user={self.component.id}: downloaded results for artifact={artifact_id}")
+        LOGGER.info(f"user={self.component.id}: downloaded resources for artifact={artifact_id}")
 
-        return result
+        return resource
 
-    async def get_partial_result(self, artifact_id: str, builder_id: str, iteration: int) -> Result:
+    async def get_partial_resource(self, artifact_id: str, builder_id: str, iteration: int) -> Resource:
         """
         :raise:
-            ValueError when the requested partial result exists on the database but not on disk.
+            ValueError when the requested partial resource exists on the database but not on disk.
 
-            NoResultFound when there are no results.
+            NoResultFound when there are no resources.
 
-            MultipleResultsFound when the result is not unique (database error).
+            MultipleResultsFound when the resource is not unique (database error).
         """
 
-        rr: ResultRepository = ResultRepository(self.session)
+        rr: ResourceRepository = ResourceRepository(self.session)
 
-        result: Result = await rr.get_partial_result(artifact_id, builder_id, iteration)
+        resource: Resource = await rr.get_partial_resource(artifact_id, builder_id, iteration)
 
-        if not os.path.exists(result.path):
-            raise ValueError(f"partial result={result.id} not found at path={result.path}")
+        if not os.path.exists(resource.path):
+            raise ValueError(f"partial resource={resource.id} not found at path={resource.path}")
 
         LOGGER.info(
-            f"user={self.component.id}: downloaded partial result for artifact={artifact_id} "
+            f"user={self.component.id}: downloaded partial resource for artifact={artifact_id} "
             f"and builder_user={builder_id}"
         )
 
-        return result
+        return resource

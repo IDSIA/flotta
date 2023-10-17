@@ -1,21 +1,20 @@
-from pydantic import BaseModel
-
-from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
 
+from pydantic import BaseModel
 
-class JobFromContext(BaseModel):
+
+class SchedulableJob(BaseModel):
     id: int  # to keep track of the job's id
     worker: Component  # id of the worker
-    artifact: Artifact
+    artifact_id: str
     iteration: int  # current iteration (0-based)
-    counter: int
-    unlocks: list[int]
+    counter: int  # number of jobs unlocked needed to start this
+    unlocks: list[int]  # list of jobs unlocked by this job
     work_type: str
 
 
-class TaskContext(BaseModel):
-    artifact: Artifact
+class SchedulerContext(BaseModel):  # this is internal to the server
+    artifact_id: str
 
     initiator: Component  # component_id of the initiator
     workers: list[Component]  # list of component_ids of the involved clients

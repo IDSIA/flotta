@@ -1,50 +1,43 @@
 from typing import Any
 
-from pydantic import BaseModel
-
 from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.models.metrics import Metrics
 
-
-class TaskArguments(BaseModel):
-    """Used to launch a new local task."""
-
-    component_id: str
-    private_key: str
-    node_url: str
-    node_public_key: str
-    workdir: str
-    datasources: list[dict[str, Any]]
-    job_id: str
-    artifact_id: str
+from pydantic import BaseModel
 
 
 class TaskParametersRequest(BaseModel):
-    """Sent to a server's get_task_param request."""
+    """Schema to request the current context to use."""
 
     artifact_id: str
-    job_id: str
+    job_id: str  # current job
 
 
 class TaskParameters(BaseModel):
-    """Returned from a server's get_task_params request."""
+    """Schema containing the current context to use in a job."""
 
-    artifact: Artifact
-    job_id: str
+    job_id: str  # current job
+
+    artifact_id: str
     iteration: int
-    content_ids: list[str]
+
+    data: dict[str, Any] = dict()
+
+    next_url: str  # if next is client, then url is the server itself
+    next_public_key: str  # always the final receiver
+
+
+class Task(BaseModel):
+    artifact: Artifact
+    params: TaskParameters
+
+
+class TaskDone(BaseModel):
+    artifact_id: str
+    job_id: str
+    resource_id: str
 
 
 class TaskError(BaseModel):
     job_id: str = ""
     message: str = ""
     stack_trace: str = ""
-
-
-class TaskResult(BaseModel):
-    job_id: str
-    result_path: str | None = None
-    metrics: list[Metrics] = list()
-    is_model: bool = False
-    is_estimate: bool = False
-    is_aggregation: bool = False

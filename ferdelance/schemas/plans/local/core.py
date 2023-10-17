@@ -2,8 +2,8 @@ from __future__ import annotations
 from typing import Any
 
 from ferdelance.logging import get_logger
-from ferdelance.schemas.models import Metrics
-from ferdelance.schemas.plans.plan import Plan, GenericPlan
+from ferdelance.schemas.models import GenericModel, Metrics
+from ferdelance.schemas.plans.plan import Plan, GenericPlan, PlanResult
 
 
 import pandas as pd
@@ -59,3 +59,6 @@ class LocalPlan(GenericPlan):
         with open(path, "w") as f:
             content = json.dumps(metrics)
             f.write(content)
+
+    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> PlanResult:
+        return super().run(df, local_model, working_folder, artifact_id)

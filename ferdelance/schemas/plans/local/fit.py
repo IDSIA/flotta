@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any
 
 from ferdelance.logging import get_logger
-from ferdelance.schemas.models import GenericModel
+from ferdelance.schemasmodels import GenericModel
 from ferdelance.schemas.plans.local.core import LocalPlan, PlanResult
 
 import os
@@ -11,13 +11,13 @@ import pandas as pd
 LOGGER = get_logger(__name__)
 
 
-class Train(LocalPlan):
+class Fit(LocalPlan):
     """Execution plan that train a model over all the available data.
     No evaluation step is performed.
     """
 
     def __init__(self, label: str, random_seed: float | None = None) -> None:
-        super().__init__(Train.__name__, label, random_seed)
+        super().__init__(Fit.__name__, label, random_seed)
 
     def params(self) -> dict[str, Any]:
         return super().params() | {}

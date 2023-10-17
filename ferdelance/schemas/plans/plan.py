@@ -2,7 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from ferdelance.schemas.models import GenericModel, Metrics
+from ferdelance.schemas.models import Metrics
 
 from pydantic import BaseModel
 
@@ -13,6 +13,11 @@ class Plan(BaseModel):
     name: str
     params: dict[str, Any]
     plan: Plan | None = None
+
+
+class PlanResult(BaseModel):
+    path: str
+    metrics: list[Metrics]
 
 
 class GenericPlan(ABC):
@@ -39,7 +44,7 @@ class GenericPlan(ABC):
         )
 
     @abstractmethod
-    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> list[Metrics]:
+    def run(self, df: pd.DataFrame, context: TaskContext, resources: LocalResources) -> PlanResult:
         """Method executed by each client. Implement this method to specify what a client need to do to build and
         evaluate a local model.
 

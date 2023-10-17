@@ -1,7 +1,8 @@
 from typing import Any
 
 from ferdelance.logging import get_logger
-from ferdelance.schemas.plans.local.core import LocalPlan, GenericModel, Metrics
+from ferdelance.schemas.models import GenericModel
+from ferdelance.schemas.plans.local.core import LocalPlan, Metrics, PlanResult
 
 from sklearn.model_selection import StratifiedKFold, KFold
 
@@ -39,7 +40,7 @@ class LocalCrossValidation(LocalPlan):
             "source": self.source,
         }
 
-    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> list[Metrics]:
+    def run(self, df: pd.DataFrame, local_model: GenericModel, working_folder: str, artifact_id: str) -> PlanResult:
         self.validate_input(df)
 
         if self.local_plan is None:
@@ -80,4 +81,7 @@ class LocalCrossValidation(LocalPlan):
 
             fold += 1
 
-        return metrics_list
+        return PlanResult(
+            path="",
+            metrics=metrics_list,
+        )

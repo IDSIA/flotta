@@ -16,13 +16,13 @@ class FederatedDrop(Transformer):
         if isinstance(features_in, str):
             features_in = [QueryFeature(name=features_in, dtype=None)]
         if isinstance(features_in, list):
-            l = list()
+            li = list()
             for f in features_in:
                 if isinstance(f, QueryFeature):
-                    l.append(f)
+                    li.append(f)
                 else:
-                    l.append(QueryFeature(name=f, dtype=None))
-            features_in = l
+                    li.append(QueryFeature(name=f, dtype=None))
+            features_in = li
 
         super().__init__(FederatedDrop.__name__, features_in, [], False)
 
@@ -37,7 +37,6 @@ class FederatedDrop(Transformer):
 
 
 def convert_list(features: str | list[str] | QueryFeature | list[QueryFeature]) -> list[QueryFeature]:
-
     if isinstance(features, str):
         return [QueryFeature(name=features, dtype=None)]
 
