@@ -3,16 +3,6 @@ from ferdelance.schemas.components import Component
 from pydantic import BaseModel
 
 
-class SchedulableJob(BaseModel):
-    id: int  # to keep track of the job's id
-    worker: Component  # id of the worker
-    artifact_id: str
-    iteration: int  # current iteration (0-based)
-    counter: int  # number of jobs unlocked needed to start this
-    unlocks: list[int]  # list of jobs unlocked by this job
-    work_type: str
-
-
 class SchedulerContext(BaseModel):  # this is internal to the server
     artifact_id: str
 
