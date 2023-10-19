@@ -2,17 +2,33 @@ from __future__ import annotations
 from abc import ABC
 from typing import Any
 
-from ferdelance.schemas.plans.steps import Step
+from ferdelance.schemas.plans.steps import Step, SchedulableJob, SchedulerContext
 
-from pydantic import BaseModel
+# from pydantic import BaseModel
+
+from itertools import pairwise
 
 
-class Plan(BaseModel):
+# class Plan(BaseModel):
+#     """This is the JSON that will be exchanged within an Artifact."""
+
+#     name: str
+#     params: dict[str, Any]
+#     steps: list[Step]
+
+
+class Plan:
     """This is the JSON that will be exchanged within an Artifact."""
 
-    name: str
-    params: dict[str, Any]
-    steps: list[Step]
+    def __init__(
+        self,
+        name: str,
+        params: dict[str, Any],
+        steps: list[Step],
+    ) -> None:
+        self.params = params
+        self.name = name
+        self.steps = steps
 
 
 class GenericPlan(ABC):
@@ -41,12 +57,17 @@ class GenericPlan(ABC):
             steps=self.steps,
         )
 
-    def jobs(self) -> list:
-        # TODO: set correct return type
+    def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         jobs = []
 
-        for step in self.steps:
-            jobs += step.jobs()
+        for step0, step1 in pairwise(self.steps):
+            jobs0 = step0.jobs(context)
+            jobs1 = step1.jobs(context)
+
+            step0.bind(jobs0, jobs1)
+
+            jobs += jobs0
+            jobs += jobs1
 
         return jobs
 
