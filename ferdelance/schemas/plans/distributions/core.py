@@ -2,8 +2,29 @@ from typing import Any
 
 from abc import ABC, abstractmethod
 
+from pydantic import BaseModel
+
+
+class Distr(BaseModel):
+    name: str
+    params: dict[str, Any]
+
 
 class Distribution(ABC):
+    def __init__(self, name: str) -> None:
+        super().__init__()
+
+        self.name = name
+
+    def params(self) -> dict[str, Any]:
+        return {}
+
+    def build(self) -> Distr:
+        return Distr(
+            name=self.name,
+            params=self.params(),
+        )
+
     @abstractmethod
     def distribute(self, env: dict[str, Any]) -> None:
         raise NotImplementedError()
@@ -34,6 +55,9 @@ class Distribution(ABC):
 
 
 class Arrange(Distribution):
+    def __init__(self) -> None:
+        super().__init__(Arrange.__name__)
+
     def distribute(self, env: dict[str, Any]) -> None:
         return super().distribute(env)
 
@@ -47,6 +71,10 @@ class Arrange(Distribution):
 
 
 class Distribute(Arrange):
+    def __init__(self) -> None:
+        super().__init__()
+        self.name = Distribute.__name__
+
     def distribute(self, env: dict[str, Any]) -> None:
         return super().distribute(env)
 
@@ -58,6 +86,10 @@ class Distribute(Arrange):
 
 
 class Collect(Arrange):
+    def __init__(self) -> None:
+        super().__init__()
+        self.name = Collect.__name__
+
     def distribute(self, env: dict[str, Any]) -> None:
         return super().distribute(env)
 

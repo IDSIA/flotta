@@ -15,7 +15,7 @@ class SchedulableJob(BaseModel):
     id: int  # to keep track of the job's id
     worker: Component  # id of the worker
     iteration: int
-    step: BaseStep
+    step: GenericStep
     locks: list[int]  # list of jobs unlocked by this job
 
 
@@ -35,10 +35,29 @@ class SchedulerContext(BaseModel):  # this is internal to the server
         return i
 
 
-class BaseStep(ABC):
-    def __init__(self, iteration: int = 1) -> None:
+class Step(BaseModel):
+    name: str
+    params: dict[str, Any]
+
+
+class GenericStep(ABC):
+    def __init__(self, name: str, iteration: int = 1) -> None:
         super().__init__()
+
+        self.name: str = name
         self.iteration: int = iteration
+
+    def params(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "iteration": self.iteration,
+        }
+
+    def build(self) -> Step:
+        return Step(
+            name=self.name,
+            params=self.params(),
+        )
 
     @abstractmethod
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
@@ -81,9 +100,10 @@ class BaseStep(ABC):
         raise NotImplementedError()
 
 
-class Step(BaseStep):
+class BlockStep(GenericStep):
     def __init__(
         self,
+        name: str,
         # TODO: add here extraction and transformation queries?
         operation: Operation,
         distribution: Distribution | None = None,
@@ -91,13 +111,21 @@ class Step(BaseStep):
         outputs: list[str] = list(),
         iteration: int = 1,
     ) -> None:
-        super().__init__(iteration)
+        super().__init__(name, iteration)
 
         self.operation: Operation = operation
         self.distribution: Distribution | None = distribution
 
         self.inputs: list[str] = inputs
         self.outputs: list[str] = outputs
+
+    def params(self) -> dict[str, Any]:
+        return super().params() | {
+            "operation": self.operation.build(),
+            "distribution": self.distribution.build() if self.distribution else None,
+            "inputs": self.inputs,
+            "outputs": self.outputs,
+        }
 
     def step(self, env: dict[str, Any]) -> dict[str, Any]:
         env = self.operation.exec(env)
@@ -118,8 +146,17 @@ class Step(BaseStep):
                 job.locks += lock
 
 
-class Initialize(Step):
+class Initialize(BlockStep):
     """Initial step performend by an initiator."""
+
+    def __init__(
+        self,
+        operation: Operation,
+        distribution: Distribution,
+        outputs: list[str] = list(),
+        iteration: int = 1,
+    ) -> None:
+        super().__init__(Initialize.__name__, operation, distribution, list(), outputs, iteration)
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         return [
@@ -133,8 +170,18 @@ class Initialize(Step):
         ]
 
 
-class Parallel(Step):
+class Parallel(BlockStep):
     """Jobs are executed in parallel."""
+
+    def __init__(
+        self,
+        operation: Operation,
+        distribution: Distribution,
+        inputs: list[str] = list(),
+        outputs: list[str] = list(),
+        iteration: int = 1,
+    ) -> None:
+        super().__init__(Parallel.__name__, operation, distribution, inputs, outputs, iteration)
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         return [
@@ -149,8 +196,18 @@ class Parallel(Step):
         ]
 
 
-class Sequential(Step):
+class Sequential(BlockStep):
     """Jobs are executed in sequential order"""
+
+    def __init__(
+        self,
+        operation: Operation,
+        distribution: Distribution,
+        inputs: list[str] = list(),
+        outputs: list[str] = list(),
+        iteration: int = 1,
+    ) -> None:
+        super().__init__(Sequential.__name__, operation, distribution, inputs, outputs, iteration)
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         job_list: list[SchedulableJob] = []
@@ -172,7 +229,17 @@ class Sequential(Step):
         return job_list
 
 
-class Finalize(Step):
+class Finalize(BlockStep):
+    def __init__(
+        self,
+        operation: Operation,
+        distribution: Distribution | None = None,
+        inputs: list[str] = list(),
+        outputs: list[str] = list(),
+        iteration: int = 1,
+    ) -> None:
+        super().__init__(Finalize.__name__, operation, distribution, inputs, outputs, iteration)
+
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         return [
             SchedulableJob(
@@ -186,15 +253,21 @@ class Finalize(Step):
         ]
 
 
-class Iterate(BaseStep):
+class Iterate(GenericStep):
     def __init__(
         self,
         iterations: int,
-        steps: list[Step],
+        steps: list[BlockStep],
     ) -> None:
-        super().__init__(0)
+        super().__init__(Iterate.__name__, 0)
         self.iterations: int = iterations
-        self.steps: list[Step] = steps
+        self.steps: list[BlockStep] = steps
+
+    def params(self) -> dict[str, Any]:
+        return super().params() | {
+            "iterations": self.iterations,
+            "steps": [step.build() for step in self.steps],  # TODO: check if this makes sense
+        }
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         job_list = []

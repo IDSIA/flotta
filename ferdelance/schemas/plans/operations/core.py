@@ -1,5 +1,11 @@
 from abc import abstractmethod
 from typing import Any
+from pydantic import BaseModel
+
+
+class Op(BaseModel):
+    name: str
+    params: dict[str, Any]
 
 
 class Operation:
@@ -25,6 +31,12 @@ class Operation:
             "data_names": self.data_names,
             "env_names": self.env_names,
         }
+
+    def build(self) -> Op:
+        return Op(
+            name=self.name,
+            params=self.params(),
+        )
 
     @abstractmethod
     def exec(self, env: dict[str, Any]) -> dict[str, Any]:
