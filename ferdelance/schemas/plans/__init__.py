@@ -2,43 +2,22 @@ __all__ = [
     "rebuild_plan",
     "Plan",
     "GenericPlan",
-    "PlanResult",
-    "Train",
-    "TrainTestSplit",
-    "LocalCrossValidation",
-    "IterativePlan",
-    "SequencePlan",
-    "IterativePlan",
-    "ParallelPlan",
 ]
 
-from .plan import GenericPlan, Plan, PlanResult
-
-from .local import (
-    LocalPlan,
-    Train,
-    TrainTestSplit,
-    LocalCrossValidation,
-)
-from .fusion import (
-    FusionPlan,
-    IterativePlan,
-    SequencePlan,
-    ParallelPlan,
-)
+from .plan import GenericPlan, Plan
 
 from inspect import signature
 
 
-def rebuild_plan(plan: Plan) -> LocalPlan | FusionPlan:
+def rebuild_plan(plan: Plan) -> GenericPlan:
     c = globals()[plan.name]
 
     p = plan.params
     params = dict()
 
     for v in signature(c).parameters:
-        if v == "local_plan" and plan.plan is not None:
-            params["local_plan"] = rebuild_plan(plan.plan)
+        if v == "steps" and plan.steps:
+            params["steps"] = [rebuild_plan(step) for step in plan.steps]
         else:
             params[v] = p[v]
 

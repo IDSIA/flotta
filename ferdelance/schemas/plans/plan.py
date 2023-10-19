@@ -1,29 +1,26 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any
 
-from ferdelance.schemas.models import Metrics
+from ferdelance.schemas.plans.steps import Step
 
 from pydantic import BaseModel
 
-import pandas as pd
-
 
 class Plan(BaseModel):
+    """This is the JSON that will be exchanged within an Artifact."""
+
     name: str
     params: dict[str, Any]
-    plan: Plan | None = None
-
-
-class PlanResult(BaseModel):
-    path: str
-    metrics: list[Metrics]
+    steps: list[Step]
 
 
 class GenericPlan(ABC):
-    def __init__(self, name: str, random_seed: Any = None) -> None:
+    def __init__(self, name: str, *steps: Step, random_seed: Any = None) -> None:
         self.name: str = name
         self.random_seed: Any = random_seed
+
+        self.steps: list[Step] = list(steps)
 
     def params(self) -> dict[str, Any]:
         return {
@@ -41,25 +38,20 @@ class GenericPlan(ABC):
         return Plan(
             name=self.name,
             params=self.params(),
+            steps=self.steps,
         )
 
-    @abstractmethod
-    def run(self, df: pd.DataFrame, context: TaskContext, resources: LocalResources) -> PlanResult:
-        """Method executed by each client. Implement this method to specify what a client need to do to build and
-        evaluate a local model.
+    def jobs(self) -> list:
+        # TODO: set correct return type
+        jobs = []
 
-        Args:
-            df (pd.DataFrame):
-                Data to work on from the previous extraction query.
-            local_model (GenericModel):
-                Description of the local model to build.
-            working_folder (str):
-                Working folder to use
-            artifact_id (str):
-                Id of the artifact that will be executed
+        for step in self.steps:
+            jobs += step.jobs()
 
-        Raises:
-            NotImplementedError:
-                If the plan does not implement this method.
-        """
-        raise NotImplementedError()
+        return jobs
+
+
+# TODO: this should be the new artifact
+class SimplePlan(GenericPlan):
+    def __init__(self, *steps: Step, random_seed: Any = None) -> None:
+        super().__init__(SimplePlan.__name__, *steps, random_seed)
