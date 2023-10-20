@@ -2,29 +2,10 @@ from typing import Any
 
 from abc import ABC, abstractmethod
 
-from pydantic import BaseModel
+from ferdelance.schemas.plans.entity import Entity
 
 
-class Distr(BaseModel):
-    name: str
-    params: dict[str, Any]
-
-
-class Distribution(ABC):
-    def __init__(self, name: str) -> None:
-        super().__init__()
-
-        self.name = name
-
-    def params(self) -> dict[str, Any]:
-        return {}
-
-    def build(self) -> Distr:
-        return Distr(
-            name=self.name,
-            params=self.params(),
-        )
-
+class Distribution(ABC, Entity):
     @abstractmethod
     def distribute(self, env: dict[str, Any]) -> None:
         raise NotImplementedError()
@@ -55,9 +36,6 @@ class Distribution(ABC):
 
 
 class Arrange(Distribution):
-    def __init__(self) -> None:
-        super().__init__(Arrange.__name__)
-
     def distribute(self, env: dict[str, Any]) -> None:
         return super().distribute(env)
 
@@ -71,30 +49,22 @@ class Arrange(Distribution):
 
 
 class Distribute(Arrange):
-    def __init__(self) -> None:
-        super().__init__()
-        self.name = Distribute.__name__
-
     def distribute(self, env: dict[str, Any]) -> None:
         return super().distribute(env)
 
     def bind(self, jobs0: list[int], jobs1: list[int]) -> list[list[int]]:
         if len(jobs0) != 1:
-            raise ValueError("Cannot distribute from multiple sources, use Arrange!")
+            raise ValueError("Cannot distribute from multiple sources, use Arrange instead")
 
         return super().bind(jobs0, jobs1)
 
 
 class Collect(Arrange):
-    def __init__(self) -> None:
-        super().__init__()
-        self.name = Collect.__name__
-
     def distribute(self, env: dict[str, Any]) -> None:
         return super().distribute(env)
 
     def bind(self, jobs0: list[int], jobs1: list[int]) -> list[list[int]]:
         if len(jobs1) != 1:
-            raise ValueError("Cannot collect to multiple sinks, use Arrange!")
+            raise ValueError("Cannot collect to multiple sinks, use Arrange instead")
 
         return super().bind(jobs0, jobs1)

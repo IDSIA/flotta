@@ -5,18 +5,23 @@ from abc import abstractmethod, ABC
 from itertools import pairwise
 
 from ferdelance.schemas.plans.distributions import Distribution
+from ferdelance.schemas.plans.entity import Entity, create_entities
 from ferdelance.schemas.plans.operations import Operation
 from ferdelance.schemas.components import Component
 
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 
 
 class SchedulableJob(BaseModel):
     id: int  # to keep track of the job's id
     worker: Component  # id of the worker
     iteration: int
-    step: GenericStep
+    step: Step
     locks: list[int]  # list of jobs unlocked by this job
+
+    @root_validator
+    def create_subclass_entities(cls, values) -> dict[str, Any]:
+        return create_entities(values)
 
 
 class SchedulerContext(BaseModel):  # this is internal to the server
@@ -35,29 +40,8 @@ class SchedulerContext(BaseModel):  # this is internal to the server
         return i
 
 
-class Step(BaseModel):
-    name: str
-    params: dict[str, Any]
-
-
-class GenericStep(ABC):
-    def __init__(self, name: str, iteration: int = 1) -> None:
-        super().__init__()
-
-        self.name: str = name
-        self.iteration: int = iteration
-
-    def params(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "iteration": self.iteration,
-        }
-
-    def build(self) -> Step:
-        return Step(
-            name=self.name,
-            params=self.params(),
-        )
+class Step(ABC, Entity):
+    iteration: int = 1
 
     @abstractmethod
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
@@ -100,32 +84,12 @@ class GenericStep(ABC):
         raise NotImplementedError()
 
 
-class BlockStep(GenericStep):
-    def __init__(
-        self,
-        name: str,
-        # TODO: add here extraction and transformation queries?
-        operation: Operation,
-        distribution: Distribution | None = None,
-        inputs: list[str] = list(),
-        outputs: list[str] = list(),
-        iteration: int = 1,
-    ) -> None:
-        super().__init__(name, iteration)
-
-        self.operation: Operation = operation
-        self.distribution: Distribution | None = distribution
-
-        self.inputs: list[str] = inputs
-        self.outputs: list[str] = outputs
-
-    def params(self) -> dict[str, Any]:
-        return super().params() | {
-            "operation": self.operation.build(),
-            "distribution": self.distribution.build() if self.distribution else None,
-            "inputs": self.inputs,
-            "outputs": self.outputs,
-        }
+class BlockStep(Step):
+    operation: Operation
+    distribution: Distribution | None = None
+    inputs: list[str] = list()
+    outputs: list[str] = list()
+    iteration: int = 1
 
     def step(self, env: dict[str, Any]) -> dict[str, Any]:
         env = self.operation.exec(env)
@@ -149,14 +113,8 @@ class BlockStep(GenericStep):
 class Initialize(BlockStep):
     """Initial step performend by an initiator."""
 
-    def __init__(
-        self,
-        operation: Operation,
-        distribution: Distribution,
-        outputs: list[str] = list(),
-        iteration: int = 1,
-    ) -> None:
-        super().__init__(Initialize.__name__, operation, distribution, list(), outputs, iteration)
+    def __init__(self, operation: Operation, distribution: Distribution | None, **kwargs) -> None:
+        super(Initialize, self).__init__(operation=operation, distribution=distribution, **kwargs)
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         return [
@@ -173,15 +131,8 @@ class Initialize(BlockStep):
 class Parallel(BlockStep):
     """Jobs are executed in parallel."""
 
-    def __init__(
-        self,
-        operation: Operation,
-        distribution: Distribution,
-        inputs: list[str] = list(),
-        outputs: list[str] = list(),
-        iteration: int = 1,
-    ) -> None:
-        super().__init__(Parallel.__name__, operation, distribution, inputs, outputs, iteration)
+    def __init__(self, operation: Operation, distribution: Distribution | None, **kwargs) -> None:
+        super(Parallel, self).__init__(operation=operation, distribution=distribution, **kwargs)
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         return [
@@ -199,15 +150,8 @@ class Parallel(BlockStep):
 class Sequential(BlockStep):
     """Jobs are executed in sequential order"""
 
-    def __init__(
-        self,
-        operation: Operation,
-        distribution: Distribution,
-        inputs: list[str] = list(),
-        outputs: list[str] = list(),
-        iteration: int = 1,
-    ) -> None:
-        super().__init__(Sequential.__name__, operation, distribution, inputs, outputs, iteration)
+    def __init__(self, operation: Operation, distribution: Distribution | None, **kwargs) -> None:
+        super(Sequential, self).__init__(operation=operation, distribution=distribution, **kwargs)
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         job_list: list[SchedulableJob] = []
@@ -230,44 +174,24 @@ class Sequential(BlockStep):
 
 
 class Finalize(BlockStep):
-    def __init__(
-        self,
-        operation: Operation,
-        distribution: Distribution | None = None,
-        inputs: list[str] = list(),
-        outputs: list[str] = list(),
-        iteration: int = 1,
-    ) -> None:
-        super().__init__(Finalize.__name__, operation, distribution, inputs, outputs, iteration)
+    def __init__(self, operation: Operation, distribution: Distribution | None = None, **kwargs) -> None:
+        super(Finalize, self).__init__(operation=operation, distribution=distribution, **kwargs)
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         return [
             SchedulableJob(
                 id=context.get_id(),
-                worker=worker,
+                worker=context.initiator,
                 iteration=context.iteration,
                 locks=[],
                 step=self,
             )
-            for worker in context.workers
         ]
 
 
-class Iterate(GenericStep):
-    def __init__(
-        self,
-        iterations: int,
-        steps: list[BlockStep],
-    ) -> None:
-        super().__init__(Iterate.__name__, 0)
-        self.iterations: int = iterations
-        self.steps: list[BlockStep] = steps
-
-    def params(self) -> dict[str, Any]:
-        return super().params() | {
-            "iterations": self.iterations,
-            "steps": [step.build() for step in self.steps],  # TODO: check if this makes sense
-        }
+class Iterate(Step):
+    iterations: int
+    steps: list[BlockStep]
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         job_list = []
@@ -278,3 +202,6 @@ class Iterate(GenericStep):
                 job_list += step.jobs(context)
 
         return job_list
+
+
+SchedulableJob.update_forward_refs()

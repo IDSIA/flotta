@@ -1,58 +1,42 @@
 from __future__ import annotations
 from abc import ABC
 from typing import Any
+from ferdelance.schemas.plans.entity import Entity, create_entities
 
-from ferdelance.schemas.plans.steps import GenericStep, Step, SchedulableJob, SchedulerContext
-
-from pydantic import BaseModel
+from ferdelance.schemas.plans.steps import Step, SchedulableJob, SchedulerContext
 
 from itertools import pairwise
 
 
-class Plan(BaseModel):
-    """This is the JSON that will be exchanged within an Artifact."""
+class Plan(ABC, Entity):
+    """This is a plan that can produce jobs given a list of steps."""
 
-    name: str
-    params: dict[str, Any]
     steps: list[Step]
-
-
-class GenericPlan(ABC):
-    def __init__(self, name: str, *steps: GenericStep, random_seed: Any = None) -> None:
-        self.name: str = name
-        self.random_seed: Any = random_seed
-
-        self.steps: list[GenericStep] = list(steps)
-
-    def params(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "random_seed": self.random_seed,
-        }
-
-    def build(self) -> Plan:
-        """Converts the GenericPlan instance to a Plan exchange object.
-
-        Returns:
-            Plan:
-                Object that can be sent to a server or a client in JSON format.
-        """
-        return Plan(
-            name=self.name,
-            params=self.params(),
-            steps=[step.build() for step in self.steps],
-        )
+    random_seed: Any = None
 
     def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
         jobs = []
 
+        jobs0 = self.steps[0].jobs(context)
+
         for step0, step1 in pairwise(self.steps):
-            jobs0 = step0.jobs(context)
             jobs1 = step1.jobs(context)
 
             step0.bind(jobs0, jobs1)
 
             jobs += jobs0
-            jobs += jobs1
+            jobs0 = jobs1
+
+        jobs += jobs0
 
         return jobs
+
+
+class Artifact(Plan):
+    """Standard implementation of a generic plan."""
+
+    id: str
+    project_id: str
+
+    # def __init__(self, steps: list[Step], id: str, project_id: str, random_seed: Any = None, **kwargs) -> None:
+    #     super(Artifact, self).__init__(steps=steps, id=id, project_id=project_id, random_seed=random_seed)

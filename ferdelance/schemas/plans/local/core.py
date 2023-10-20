@@ -3,7 +3,7 @@ from typing import Any
 
 from ferdelance.logging import get_logger
 from ferdelance.schemas.models import GenericModel, Metrics
-from ferdelance.schemas.plans.plan import Plan, GenericPlan, PlanResult
+from ferdelance.schemas.plans.plan import Plan, Plan, PlanResult
 
 
 import pandas as pd
@@ -13,7 +13,7 @@ import json
 LOGGER = get_logger(__name__)
 
 
-class LocalPlan(GenericPlan):
+class LocalPlan(Plan):
     """Describe how to train and evaluate a model based on the input data source."""
 
     def __init__(self, name: str, label: str, random_seed: Any = None, local_plan: LocalPlan | None = None) -> None:
