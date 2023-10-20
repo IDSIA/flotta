@@ -1,11 +1,13 @@
 from __future__ import annotations
 from abc import ABC
 from typing import Any
-from ferdelance.schemas.plans.entity import Entity, create_entities
 
+from ferdelance.schemas.plans.entity import Entity
 from ferdelance.schemas.plans.steps import Step, SchedulableJob, SchedulerContext
 
 from itertools import pairwise
+
+from pydantic import BaseModel
 
 
 class Plan(ABC, Entity):
@@ -38,5 +40,11 @@ class Artifact(Plan):
     id: str
     project_id: str
 
-    # def __init__(self, steps: list[Step], id: str, project_id: str, random_seed: Any = None, **kwargs) -> None:
-    #     super(Artifact, self).__init__(steps=steps, id=id, project_id=project_id, random_seed=random_seed)
+
+class ArtifactStatus(BaseModel):
+    """Details on the artifact status."""
+
+    id: str
+    status: str | None
+    resource: str | None = None
+    iteration: int = 0

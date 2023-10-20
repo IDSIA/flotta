@@ -1,16 +1,32 @@
 from __future__ import annotations
+from enum import Enum, auto
 
 from ferdelance.schemas.queries import (
     Query,
     QueryFeature,
     QueryStage,
 )
-from ferdelance.schemas.artifacts.dtypes import DataType
-
 from pydantic import BaseModel
 from hashlib import sha256
 
 import pandas as pd
+
+
+class DataType(Enum):
+    """Mapping of pandas data types.
+
+    - BOOLEAN: `bool`
+    - CATEGORICAL: `category`
+    - DATETIME: `datetime64` or `timedelta[ns]`
+    - NUMERIC: `int64` or `float64`
+    - STRING: `object`
+    """
+
+    BOOLEAN = auto()
+    CATEGORICAL = auto()
+    DATETIME = auto()
+    NUMERIC = auto()
+    STRING = auto()
 
 
 class BaseFeature(BaseModel):
