@@ -1,4 +1,4 @@
-from ferdelance.schemas.queries import QueryFeature
+from ferdelance.core.queries import QueryFeature
 
 
 def convert_features_in_to_list(features_in: QueryFeature | list[QueryFeature] | None = None) -> list[QueryFeature]:

@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any
 
 from ferdelance.schemas.estimators.core import GenericEstimator
-from ferdelance.schemas.queries import QueryFeature
+from ferdelance.core.queries import QueryFeature
 
 import numpy as np
 import pandas as pd

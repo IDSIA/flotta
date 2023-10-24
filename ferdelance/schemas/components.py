@@ -10,14 +10,14 @@ class Component(BaseModel):
 
     public_key: str
 
-    active: bool
-    blacklisted: bool
-    left: bool
+    active: bool = True
+    blacklisted: bool = False
+    left: bool = False
 
-    version: str
+    version: str = ""
 
-    url: str
-    ip_address: str
+    url: str = ""
+    ip_address: str = ""
 
 
 dummy = Component(
