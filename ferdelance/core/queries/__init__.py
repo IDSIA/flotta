@@ -3,7 +3,6 @@ __all__ = [
     "QueryEstimate",
     "QueryFeature",
     "QueryFilter",
-    "QueryModel",
     "QueryStage",
     "QueryTransformer",
     "Operations",
@@ -13,4 +12,4 @@ from .operations import Operations
 from .features import QueryFeature, QueryFilter
 from .transformers import QueryTransformer
 from .stages import QueryStage
-from .core import Query, QueryModel, QueryEstimate
+from .core import Query, QueryEstimate

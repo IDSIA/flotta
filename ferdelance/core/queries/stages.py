@@ -1,12 +1,12 @@
-from typing import Any
+from ferdelance.core.entity import Entity
 
 from ferdelance.core.queries.transformers import QueryTransformer
 from ferdelance.core.queries.features import QueryFeature
 
-from pydantic import BaseModel
+from pydantic import validator
 
 
-class QueryStage(BaseModel):
+class QueryStage(Entity):
     """A stage is a single transformation applied to a list of features."""
 
     features: list[QueryFeature]  # list of available features (after the transformation below)
@@ -14,16 +14,16 @@ class QueryStage(BaseModel):
 
     _features: dict[str, QueryFeature] = dict()
 
-    def __init__(
-        self,
-        features: list[QueryFeature],
-        transformer: QueryTransformer | None = None,
-        **data: Any,
-    ) -> None:
-        super().__init__(features=features, transformer=transformer, **data)
+    @validator("features")
+    def features_dict(cls, values):
+        values["_features"] = dict()
 
-        for f in self.features:
-            self._features[f.name] = f
+        for f in values["features"]:
+            if isinstance(f, QueryFeature):
+                key = f.name
+            else:
+                key = f["name"]
+            values["_features"][key] = f
 
     def __getitem__(self, key: str | QueryFeature) -> QueryFeature:
         if isinstance(key, QueryFeature):

@@ -10,11 +10,10 @@ from ferdelance.schemas.estimators import (
     GroupCountEstimator,
     GroupMeanEstimator,
 )
-from ferdelance.schemas.transformers import Transformer, FederatedFilter
-from ferdelance.schemas.models import Model
+from ferdelance.core.transformers import Transformer, FederatedFilter
+from ferdelance.core.entity import Entity
 
 from datetime import datetime
-from pydantic import BaseModel
 
 
 def is_numeric(other) -> bool:
@@ -29,7 +28,7 @@ def is_time(other) -> bool:
     return isinstance(other, datetime)
 
 
-class Query(BaseModel):
+class Query(Entity):
     """A query is just a list of stages applied to the input data. It keeps track
     of the available features and all the transformation that need to be applied
     to the data.
@@ -201,14 +200,7 @@ class GroupingQuery:
         )
 
 
-class QueryModel(BaseModel):
-    """A query with an attached plan and model."""
-
-    transform: Query
-    model: Model
-
-
-class QueryEstimate(BaseModel):
+class QueryEstimate(Entity):
     """A query with an attached estimator."""
 
     transform: Query

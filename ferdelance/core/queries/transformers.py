@@ -1,24 +1,17 @@
 from __future__ import annotations
 from typing import Any
 
+from ferdelance.core.entity import Entity
 from ferdelance.core.queries.features import QueryFeature
 
-from pydantic import BaseModel
 
-
-class QueryTransformer(BaseModel):
+class QueryTransformer(Entity):
     """Query transformation to apply to the features from the workbench."""
 
     features_in: list[QueryFeature]
     features_out: list[QueryFeature]
     name: str
     parameters: dict[str, Any]
-
-    def params(self) -> dict[str, Any]:
-        return {
-            "features_in": self.features_in,
-            "features_out": self.features_out,
-        } | self.parameters
 
     def __eq__(self, other: QueryTransformer) -> bool:
         if not isinstance(other, QueryTransformer):

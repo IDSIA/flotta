@@ -1,11 +1,10 @@
 from __future__ import annotations
-from typing import Any
 
+from ferdelance.core.entity import Entity
 from ferdelance.core.queries.operations import Operations
 
 from pandas import DataFrame, to_datetime
 from datetime import datetime
-from pydantic import BaseModel
 
 
 def is_numeric(other) -> bool:
@@ -20,15 +19,11 @@ def is_time(other) -> bool:
     return isinstance(other, datetime)
 
 
-class QueryFeature(BaseModel):
+class QueryFeature(Entity):
     """Query feature to use in a query from the workbench."""
 
     name: str
-
     dtype: str | None = None
-
-    def __init__(self, name: str, dtype: str | None = None, **data: Any) -> None:
-        super().__init__(name=name, dtype=dtype, **data)
 
     def _filter(self, operation: Operations, value) -> QueryFilter:
         return QueryFilter(
@@ -110,7 +105,7 @@ class QueryFeature(BaseModel):
         return f"{self.name}"
 
 
-class QueryFilter(BaseModel):
+class QueryFilter(Entity):
     """Query filter to apply to the feature from the workbench."""
 
     feature: QueryFeature

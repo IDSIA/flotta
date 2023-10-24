@@ -67,34 +67,6 @@ def run(path: str) -> Transformer:
         return pickle.load(f)
 
 
-def rebuild_transformer(transformer: QueryTransformer) -> Transformer:
-    LOGGER.info(f"apply transformer {transformer.name}")
-    c = globals()[transformer.name]
-
-    p = transformer.params()
-    params = {v: p[v] for v in signature(c).parameters}
-
-    return c(**params)
-
-
-def rebuild_pipeline(query_transformer: QueryTransformer) -> FederatedPipeline:
-    stages = []
-
-    params = query_transformer.params()
-
-    for stage in params["stages"]:
-        qt = QueryTransformer(**stage)
-
-        if stage["name"] == "FederatedPipeline":
-            transformer = rebuild_pipeline(qt)
-        else:
-            transformer = rebuild_transformer(qt)
-
-        stages.append(transformer)
-
-    return FederatedPipeline(stages)
-
-
 def apply_transformer(
     query_transformer: QueryTransformer,
     df: pd.DataFrame,
