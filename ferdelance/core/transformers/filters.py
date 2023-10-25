@@ -1,83 +1,103 @@
 from typing import Any
 
-from ferdelance.schemas.transformers.core import Transformer
-from ferdelance.core.queries import QueryFeature, Operations
+from ferdelance.core.transformers.core import QueryTransformer
+from ferdelance.core.queries import QueryFeature, FilterOperation
+
+from pydantic import validator
 
 import pandas as pd
 
 
-class FederatedFilter(Transformer):
-    def __init__(self, feature: QueryFeature | str, operation: Operations | str, value) -> None:
-        """This is a special case of transformer where a set of feature will not
-        be changed but it will be used to reduce the amount of data by the
-        application of a filter.
-        :param feature:
-            Feature to apply the filter to.
-        :param op:
-            Operation to be performed by the filter.
-        :param value:
-            Parameter of the filter to be applied to the feature. This can be a
-            float, an integer, or a date in string format.
-        """
-        super().__init__(FederatedFilter.__name__)
+class FederatedFilter(QueryTransformer):
+    feature: QueryFeature
+    operation: FilterOperation
+    value: str | Any
+
+    @validator("feature")
+    def validate_feature(cls, values):
+        feature = values["feature"]
 
         if isinstance(feature, QueryFeature):
-            self.feature: str = feature.name
+            values["feature"] = feature.name
         else:
-            self.feature: str = feature
+            values["feature"] = feature
 
-        if isinstance(operation, Operations):
-            self.operation: str = operation.name
+        return values
+
+    @validator("operation")
+    def validate_operation(cls, values):
+        operation = values["operation"]
+
+        if isinstance(operation, FilterOperation):
+            values["operation"] = operation.name
         else:
-            self.operation = operation
+            values["operation"] = operation
 
-        self.value: str = f"{value}"
+        return values
 
-    def params(self) -> dict[str, Any]:
-        return super().params() | {
-            "feature": self.feature,
-            "operation": self.operation,
-            "value": self.value,
-        }
+    @validator("value")
+    def validate_value(cls, values):
+        values["value"] = f"{values['value']}"
+        return values
 
-    def aggregate(self) -> None:
-        # TODO: no aggregation required?
-        return super().aggregate()
+    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+        # TODO
+        return super().aggregate(env)
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        feature: str = self.feature
-        op: Operations = Operations[self.operation]
+    def apply(self, df: pd.DataFrame) -> pd.Series:
+        feature: str = self.feature.name
+        op: FilterOperation = self.operation
         parameter: str = self.value
 
         if feature not in df.columns:
             # no change applied
-            return df
+            return pd.Series([True for _ in range(df.shape[0])])
 
-        if op == Operations.NUM_LESS_THAN:
-            return df[df[feature] < float(parameter)]
-        if op == Operations.NUM_LESS_EQUAL:
-            return df[df[feature] <= float(parameter)]
-        if op == Operations.NUM_GREATER_THAN:
-            return df[df[feature] > float(parameter)]
-        if op == Operations.NUM_GREATER_EQUAL:
-            return df[df[feature] >= float(parameter)]
-        if op == Operations.NUM_EQUALS:
-            return df[df[feature] == float(parameter)]
-        if op == Operations.NUM_NOT_EQUALS:
-            return df[df[feature] != float(parameter)]
+        if op == FilterOperation.NUM_LESS_THAN:
+            return df[feature] < float(parameter)
+        if op == FilterOperation.NUM_LESS_EQUAL:
+            return df[feature] <= float(parameter)
+        if op == FilterOperation.NUM_GREATER_THAN:
+            return df[feature] > float(parameter)
+        if op == FilterOperation.NUM_GREATER_EQUAL:
+            return df[feature] >= float(parameter)
+        if op == FilterOperation.NUM_EQUALS:
+            return df[feature] == float(parameter)
+        if op == FilterOperation.NUM_NOT_EQUALS:
+            return df[feature] != float(parameter)
 
-        if op == Operations.OBJ_LIKE:
-            return df[df[feature] == parameter]
-        if op == Operations.OBJ_NOT_LIKE:
-            return df[df[feature] != parameter]
+        if op == FilterOperation.OBJ_LIKE:
+            return df[feature] == parameter
+        if op == FilterOperation.OBJ_NOT_LIKE:
+            return df[feature] != parameter
 
-        if op == Operations.TIME_BEFORE:
-            return df[df[feature] < pd.to_datetime(parameter)]
-        if op == Operations.TIME_AFTER:
-            return df[df[feature] > pd.to_datetime(parameter)]
-        if op == Operations.TIME_EQUALS:
-            return df[df[feature] == pd.to_datetime(parameter)]
-        if op == Operations.TIME_NOT_EQUALS:
-            return df[df[feature] != pd.to_datetime(parameter)]
+        if op == FilterOperation.TIME_BEFORE:
+            return df[feature] < pd.to_datetime(parameter)
+        if op == FilterOperation.TIME_AFTER:
+            return df[feature] > pd.to_datetime(parameter)
+        if op == FilterOperation.TIME_EQUALS:
+            return df[feature] == pd.to_datetime(parameter)
+        if op == FilterOperation.TIME_NOT_EQUALS:
+            return df[feature] != pd.to_datetime(parameter)
 
         raise ValueError(f'Unsupported operation "{self.operation}" ')
+
+    def transform(
+        self,
+        X_tr: pd.DataFrame | None = None,
+        y_tr: pd.DataFrame | None = None,
+        X_ts: pd.DataFrame | None = None,
+        y_ts: pd.DataFrame | None = None,
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+        if X_tr:
+            mask = self.apply(X_tr[self.feature])
+            X_tr = X_tr[mask]
+            if y_tr:
+                y_tr = y_tr[mask]
+        if X_ts:
+            mask = self.apply(X_ts[self.feature])
+            X_ts = X_ts[mask]
+            if y_ts:
+                y_ts = y_ts[mask]
+
+        return X_tr, y_tr, X_ts, y_ts, None

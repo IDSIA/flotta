@@ -2,7 +2,7 @@ __all__ = [
     "apply_transformer",
     "save",
     "run",
-    "Transformer",
+    "QueryTransformer",
     "FederatedPipeline",
     "FederatedFilter",
     "FederatedMinMaxScaler",
@@ -18,10 +18,9 @@ __all__ = [
 ]
 
 from ferdelance.logging import get_logger
-from ferdelance.core.queries import QueryTransformer
 
 from .core import (
-    Transformer,
+    QueryTransformer,
 )
 from .filters import (
     FederatedFilter,
@@ -47,8 +46,6 @@ from .utils import (
     FederatedDrop,
     FederatedRename,
 )
-
-from inspect import signature
 
 import os
 import pickle

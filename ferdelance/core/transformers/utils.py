@@ -1,13 +1,14 @@
-from ferdelance.schemas.transformers.core import Transformer
+from typing import Any
+from ferdelance.core.transformers.core import QueryTransformer
 from ferdelance.core.queries import QueryFeature
 
 import pandas as pd
 
 
-class FederatedDrop(Transformer):
+class FederatedDrop(QueryTransformer):
     """Drop a features by deleting the column(s) in the input data."""
 
-    def __init__(self, features_in: QueryFeature | list[QueryFeature] | list[str] | str) -> None:
+    def __init__(self, features_in: list[QueryFeature]) -> None:
         """
         :param features_in:
             List of feature to be dropped by this transformer. Only a feature that exists
@@ -24,16 +25,30 @@ class FederatedDrop(Transformer):
                     li.append(QueryFeature(name=f, dtype=None))
             features_in = li
 
-        super().__init__(FederatedDrop.__name__, features_in, [], False)
+        super().__init__(features_in=features_in, features_out=[])
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        columns_to_drop = [c for c in self._columns_in if c in df.columns]
-        df.drop(columns_to_drop, axis=1, inplace=True)
-        return df
+    def transform(
+        self,
+        X_tr: pd.DataFrame | None = None,
+        y_tr: pd.DataFrame | None = None,
+        X_ts: pd.DataFrame | None = None,
+        y_ts: pd.DataFrame | None = None,
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+        c_in = self._columns_in()
 
-    def aggregate(self) -> None:
-        # TODO: do we need this?
-        return super().aggregate()
+        if X_tr is not None:
+            columns_to_drop = [c for c in c_in if c in X_tr.columns]
+            X_tr = X_tr.drop(columns_to_drop, axis=1, inplace=False)
+
+        if X_ts is not None:
+            columns_to_drop = [c for c in c_in if c in X_ts.columns]
+            X_ts = X_ts.drop(columns_to_drop, axis=1, inplace=False)
+
+        return X_tr, y_tr, X_ts, y_ts, None
+
+    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+        # TODO
+        return super().aggregate(env)
 
 
 def convert_list(features: str | list[str] | QueryFeature | list[QueryFeature]) -> list[QueryFeature]:
@@ -55,28 +70,29 @@ def convert_list(features: str | list[str] | QueryFeature | list[QueryFeature]) 
         return ret
 
 
-class FederatedRename(Transformer):
+class FederatedRename(QueryTransformer):
     """Renames the input feature to the output features."""
 
-    def __init__(
+    def transform(
         self,
-        features_in: QueryFeature | list[QueryFeature] | str | list[str],
-        features_out: QueryFeature | list[QueryFeature] | str | list[str],
-    ) -> None:
-        """
-        :param features_in:
-            Feature name or list of feature names that will be used as input of this transformer.
-        :param features_out:
-            Name of the output features. This can be a single name or a list of features. The list
-            of features as input will be renamed to these names. This is a one-to-one mapping: the
-            length of `features_in` and `features_out` must be the same.
-        """
-        super().__init__(FederatedRename.__name__, convert_list(features_in), convert_list(features_out))
+        X_tr: pd.DataFrame | None = None,
+        y_tr: pd.DataFrame | None = None,
+        X_ts: pd.DataFrame | None = None,
+        y_ts: pd.DataFrame | None = None,
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+        c_in = self._columns_in()
+        c_out = self._columns_out()
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        df.rename({f_in: f_out for f_in, f_out in zip(self._columns_in, self._columns_out)}, axis=1, inplace=True)
-        return df
+        rename_dict = {f_in: f_out for f_in, f_out in zip(c_in, c_out)}
 
-    def aggregate(self) -> None:
-        # TODO: do we need this?
-        return super().aggregate()
+        if X_tr is not None:
+            X_tr = X_tr.rename(rename_dict, axis=1, inplace=False)
+
+        if X_ts is not None:
+            X_ts = X_ts.rename(rename_dict, axis=1, inplace=False)
+
+        return X_tr, y_tr, X_ts, y_ts, None
+
+    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+        # TODO
+        return super().aggregate(env)

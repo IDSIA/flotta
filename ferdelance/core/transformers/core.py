@@ -1,14 +1,14 @@
+from __future__ import annotations
 from typing import Any
 from abc import ABC, abstractmethod
 
 from ferdelance.core.entity import Entity
 from ferdelance.core.queries import QueryFeature
-from ferdelance.schemas.utils import convert_features_in_to_list, convert_features_out_to_list
 
-from pydantic import validator
+import pandas as pd
 
 
-class Transformer(ABC, Entity):
+class QueryTransformer(ABC, Entity):
     """Basic class that defines a transformer. A transformer is an object that can transform
     input data. This transformation is used as a pre-processing that need to be applied
     before the input data can be used by a FederatedModel.
@@ -16,41 +16,36 @@ class Transformer(ABC, Entity):
     For a pipeline, a sequence of transformations, check the FederatedPipeline class.
     """
 
-    features_in: list[QueryFeature] | None = None
-    features_out: list[QueryFeature] | None = None
+    features_in: list[QueryFeature] = list()
+    features_out: list[QueryFeature] = list()
 
-    _columns_in: list[str]
-    _columns_out: list[str]
+    random_state: Any = None
 
-    transformer: Any = None
+    def _columns_in(self) -> list[str]:
+        if self.features_in:
+            return [f.name for f in self.features_in]
+        return list()
 
-    @validator("features_in")
-    def convert_features_in_to_list(cls, values):
-        features_in: list[QueryFeature] = convert_features_in_to_list(values["features_in"])
-        _columns_in: list[str] = [f.name for f in features_in]
+    def _columns_out(self) -> list[str]:
+        if self.features_out:
+            return [f.name for f in self.features_out]
+        return list()
 
-        values["features_in"] = features_in
-        values["_columns_in"] = _columns_in
+    def __eq__(self, other: QueryTransformer) -> bool:
+        if not isinstance(other, QueryTransformer):
+            return False
 
-        return values
+        return (
+            self.features_in == other.features_in
+            and self.features_out == other.features_out
+            and self._name == other._name
+        )
 
-    @validator("features_out")
-    def convert_features_out_to_list(cls, values):
-        features_out: list[QueryFeature] = convert_features_out_to_list(values["features_in"])
-        _columns_out: list[str] = [f.name for f in features_out]
+    def __hash__(self) -> int:
+        return hash((self.features_in, self.features_out, self._name))
 
-        values["features_out"] = features_out
-        values["_columns_out"] = _columns_out
-
-        return values
-
-    @abstractmethod
-    def get_transformer(self) -> Any:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def fit(self, env: dict[str, Any]) -> dict[str, Any]:
-        raise NotImplementedError()
+    def __str__(self) -> str:
+        return f"{self._name}({self.features_in} -> {self.features_out})"
 
     @abstractmethod
     def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
@@ -60,18 +55,28 @@ class Transformer(ABC, Entity):
             NotImplementedError:
                 This method need to be implemented (also as empty) by all transformers.
         """
+
+        # TODO: think how to implement this across all transfomers...
+
         raise NotImplementedError()
 
-    def transform(self, env: dict[str, Any]) -> dict[str, Any]:
+    @abstractmethod
+    def transform(
+        self,
+        X_tr: pd.DataFrame | None = None,
+        y_tr: pd.DataFrame | None = None,
+        X_ts: pd.DataFrame | None = None,
+        y_ts: pd.DataFrame | None = None,
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
         """Method used to transform input data in output data. The transformation need to
         be applied on the data, this is always an inplace transformation.
 
-        This basic method of all transformers will both fit and then use the transformer.
+        This basic method for all transformers will both fit and then use the transformer.
         The fitting part will be executed only once. Multiple call to the same transformer
         will apply the already fitted transformer.
 
         If a transformer need to override this method, remember to check for and assign
-        the `self.fitted` field to distingue between the first call to this method and
+        the `self.fitted` field to distinguish between the first call to this method and
         other future calls.
 
         Args:
@@ -83,19 +88,4 @@ class Transformer(ABC, Entity):
                 The transformed data. The transformation is inplace: in the input `df` param
                 and the returned object are are the same.
         """
-        df = env["df"]
-        transformer = env.get("transformer", self.get_transformer())
-
-        if not self.fitted:
-            transformer.fit(df[self._columns_in])
-            env["transformer"] = transformer
-            self.fitted = True
-
-        df[self._columns_out] = transformer.transform(df[self._columns_in])
-
-        env["df"] = df
-
-        return env
-
-    def __call__(self, env: dict[str, Any]) -> dict[str, Any]:
-        return self.transform(env)
+        raise NotImplementedError()

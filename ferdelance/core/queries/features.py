@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ferdelance.core.entity import Entity
-from ferdelance.core.queries.operations import Operations
+from ferdelance.core.queries.operations import FilterOperation
 
 from pandas import DataFrame, to_datetime
 from datetime import datetime
@@ -25,7 +25,7 @@ class QueryFeature(Entity):
     name: str
     dtype: str | None = None
 
-    def _filter(self, operation: Operations, value) -> QueryFilter:
+    def _filter(self, operation: FilterOperation, value) -> QueryFilter:
         return QueryFilter(
             feature=self,
             operation=operation.name,
@@ -38,34 +38,34 @@ class QueryFeature(Entity):
     def __lt__(self, other) -> QueryFilter:
         if self._dtype_numeric():
             if is_numeric(other):
-                return self._filter(Operations.NUM_LESS_THAN, other)
+                return self._filter(FilterOperation.NUM_LESS_THAN, other)
 
             if is_time(other):
-                return self._filter(Operations.TIME_BEFORE, other)
+                return self._filter(FilterOperation.TIME_BEFORE, other)
 
         raise ValueError('operator less than "<" can be used only for int, float, or time values')
 
     def __le__(self, other) -> QueryFilter:
         if self._dtype_numeric():
             if is_numeric(other):
-                return self._filter(Operations.NUM_LESS_EQUAL, other)
+                return self._filter(FilterOperation.NUM_LESS_EQUAL, other)
 
         raise ValueError('operator less equal "<=" can be used only for int or float values')
 
     def __gt__(self, other) -> QueryFilter:
         if self._dtype_numeric():
             if is_numeric(other):
-                return self._filter(Operations.NUM_GREATER_THAN, other)
+                return self._filter(FilterOperation.NUM_GREATER_THAN, other)
 
             if is_time(other):
-                return self._filter(Operations.TIME_AFTER, other)
+                return self._filter(FilterOperation.TIME_AFTER, other)
 
         raise ValueError('operator greater than ">" can be used only for int, float, or time values')
 
     def __ge__(self, other) -> QueryFilter:
         if self._dtype_numeric():
             if is_numeric(other):
-                return self._filter(Operations.NUM_GREATER_EQUAL, other)
+                return self._filter(FilterOperation.NUM_GREATER_EQUAL, other)
 
         raise ValueError('operator greater equal ">=" can be used only for int or float values')
 
@@ -75,26 +75,26 @@ class QueryFeature(Entity):
 
         if self._dtype_numeric():
             if is_numeric(other):
-                return self._filter(Operations.NUM_EQUALS, other)
+                return self._filter(FilterOperation.NUM_EQUALS, other)
 
             if is_time(other):
-                return self._filter(Operations.TIME_EQUALS, other)
+                return self._filter(FilterOperation.TIME_EQUALS, other)
 
         if is_string(other):
-            return self._filter(Operations.OBJ_LIKE, other)
+            return self._filter(FilterOperation.OBJ_LIKE, other)
 
         raise ValueError('operator equals "==" can be used only for int, float, str, or time values')
 
     def __ne__(self, other) -> QueryFilter:
         if self._dtype_numeric():
             if is_numeric(other):
-                return self._filter(Operations.NUM_NOT_EQUALS, other)
+                return self._filter(FilterOperation.NUM_NOT_EQUALS, other)
 
             if is_time(other):
-                return self._filter(Operations.TIME_NOT_EQUALS, other)
+                return self._filter(FilterOperation.TIME_NOT_EQUALS, other)
 
         if is_string(other):
-            return self._filter(Operations.OBJ_NOT_LIKE, other)
+            return self._filter(FilterOperation.OBJ_NOT_LIKE, other)
 
         raise ValueError('operator not equals "!=" can be used only for int, float, str, or time values')
 
@@ -114,34 +114,34 @@ class QueryFilter(Entity):
 
     def __call__(self, df: DataFrame) -> DataFrame:
         feature: str = self.feature.name
-        op: Operations = Operations[self.operation]
+        op: FilterOperation = FilterOperation[self.operation]
         parameter: str = self.value
 
-        if op == Operations.NUM_LESS_THAN:
+        if op == FilterOperation.NUM_LESS_THAN:
             return df[df[feature] < float(parameter)]
-        if op == Operations.NUM_LESS_EQUAL:
+        if op == FilterOperation.NUM_LESS_EQUAL:
             return df[df[feature] <= float(parameter)]
-        if op == Operations.NUM_GREATER_THAN:
+        if op == FilterOperation.NUM_GREATER_THAN:
             return df[df[feature] > float(parameter)]
-        if op == Operations.NUM_GREATER_EQUAL:
+        if op == FilterOperation.NUM_GREATER_EQUAL:
             return df[df[feature] >= float(parameter)]
-        if op == Operations.NUM_EQUALS:
+        if op == FilterOperation.NUM_EQUALS:
             return df[df[feature] == float(parameter)]
-        if op == Operations.NUM_NOT_EQUALS:
+        if op == FilterOperation.NUM_NOT_EQUALS:
             return df[df[feature] != float(parameter)]
 
-        if op == Operations.OBJ_LIKE:
+        if op == FilterOperation.OBJ_LIKE:
             return df[df[feature] == parameter]
-        if op == Operations.OBJ_NOT_LIKE:
+        if op == FilterOperation.OBJ_NOT_LIKE:
             return df[df[feature] != parameter]
 
-        if op == Operations.TIME_BEFORE:
+        if op == FilterOperation.TIME_BEFORE:
             return df[df[feature] < to_datetime(parameter)]
-        if op == Operations.TIME_AFTER:
+        if op == FilterOperation.TIME_AFTER:
             return df[df[feature] > to_datetime(parameter)]
-        if op == Operations.TIME_EQUALS:
+        if op == FilterOperation.TIME_EQUALS:
             return df[df[feature] == to_datetime(parameter)]
-        if op == Operations.TIME_NOT_EQUALS:
+        if op == FilterOperation.TIME_NOT_EQUALS:
             return df[df[feature] != to_datetime(parameter)]
 
         raise ValueError(f'Unsupported operation "{self.operation}" ')

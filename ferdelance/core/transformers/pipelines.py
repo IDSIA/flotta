@@ -1,34 +1,31 @@
-from typing import Any
+from typing import Any, Sequence
 
-from ferdelance.schemas.transformers.core import Transformer
+from ferdelance.core.transformers.core import QueryTransformer
 
 import pandas as pd
 
 
-class FederatedPipeline(Transformer):
+class FederatedPipeline(QueryTransformer):
     """A pipeline that can be used to group sequence of Transformers.
     The stages of the pipeline will be applied in sequence to the input data.
 
     A pipeline can also be nested inside another pipeline.
     """
 
-    def __init__(self, stages: list[Transformer]) -> None:
-        """
-        :param stages:
-            List of all the stages that will be used by this pipeline.
-        """
-        super().__init__(FederatedPipeline.__name__)
+    stages: Sequence[QueryTransformer] = list()
 
-        self.stages: list[Transformer] = stages
-
-    def params(self) -> dict[str, Any]:
-        return super().params() | {"stages": [stage.dict() for stage in self.stages]}
-
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform(
+        self,
+        X_tr: pd.DataFrame | None = None,
+        y_tr: pd.DataFrame | None = None,
+        X_ts: pd.DataFrame | None = None,
+        y_ts: pd.DataFrame | None = None,
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
         for stage in self.stages:
-            df = stage.transform(df)
-        return df
+            X_tr, y_tr, X_ts, y_ts, _ = stage.transform(X_tr, y_tr, X_ts, y_ts)
 
-    def aggregate(self) -> None:
+        return X_tr, y_tr, X_ts, y_ts, None
+
+    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
         # TODO
-        return super().aggregate()
+        return super().aggregate(env)

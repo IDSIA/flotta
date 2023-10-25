@@ -1,7 +1,7 @@
 from enum import Enum, auto
 
 
-class Operations(Enum):
+class FilterOperation(Enum, str):
     NUM_LESS_THAN = auto()
     NUM_LESS_EQUAL = auto()
     NUM_GREATER_THAN = auto()
