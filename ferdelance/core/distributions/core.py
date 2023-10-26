@@ -1,13 +1,12 @@
-from typing import Any
-
 from abc import ABC, abstractmethod
 
 from ferdelance.core.entity import Entity
+from ferdelance.core.environment.core import Environment
 
 
 class Distribution(ABC, Entity):
     @abstractmethod
-    def distribute(self, env: dict[str, Any]) -> None:
+    def distribute(self, env: Environment) -> None:
         raise NotImplementedError()
 
     @abstractmethod
@@ -36,7 +35,7 @@ class Distribution(ABC, Entity):
 
 
 class Arrange(Distribution):
-    def distribute(self, env: dict[str, Any]) -> None:
+    def distribute(self, env: Environment) -> None:
         return super().distribute(env)
 
     def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
@@ -49,7 +48,7 @@ class Arrange(Distribution):
 
 
 class Distribute(Arrange):
-    def distribute(self, env: dict[str, Any]) -> None:
+    def distribute(self, env: Environment) -> None:
         return super().distribute(env)
 
     def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
@@ -60,7 +59,7 @@ class Distribute(Arrange):
 
 
 class Collect(Arrange):
-    def distribute(self, env: dict[str, Any]) -> None:
+    def distribute(self, env: Environment) -> None:
         return super().distribute(env)
 
     def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:

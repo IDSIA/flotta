@@ -5,6 +5,7 @@ __all__ = [
     "QueryTransformer",
     "FederatedPipeline",
     "FederatedFilter",
+    "FederatedSplitter",
     "FederatedMinMaxScaler",
     "FederatedStandardScaler",
     "FederatedKBinsDiscretizer",
@@ -27,6 +28,9 @@ from .filters import (
 )
 from .pipelines import (
     FederatedPipeline,
+)
+from .splitters import (
+    FederatedSplitter,
 )
 from .scaling import (
     FederatedMinMaxScaler,

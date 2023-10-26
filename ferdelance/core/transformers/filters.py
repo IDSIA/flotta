@@ -1,5 +1,6 @@
 from typing import Any
 
+from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 from ferdelance.core.queries import QueryFeature, FilterOperation
 
@@ -51,7 +52,7 @@ class FederatedFilter(QueryTransformer):
         values["value"] = f"{values['value']}"
         return values
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)
 
@@ -93,22 +94,17 @@ class FederatedFilter(QueryTransformer):
 
         raise ValueError(f'Unsupported operation "{self.operation}" ')
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
-        if X_tr:
-            mask = self.apply(X_tr)
-            X_tr = X_tr[mask]
-            if y_tr:
-                y_tr = y_tr[mask]
-        if X_ts:
-            mask = self.apply(X_ts)
-            X_ts = X_ts[mask]
-            if y_ts:
-                y_ts = y_ts[mask]
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
+        if env.X_tr:
+            mask = self.apply(env.X_tr)
+            env.X_tr = env.X_tr[mask]
+            if env.y_tr:
+                env.y_tr = env.y_tr[mask]
 
-        return X_tr, y_tr, X_ts, y_ts, None
+        if env.X_ts:
+            mask = self.apply(env.X_ts)
+            env.X_ts = env.X_ts[mask]
+            if env.y_ts:
+                env.y_ts = env.y_ts[mask]
+
+        return env, None

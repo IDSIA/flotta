@@ -1,6 +1,5 @@
-from typing import Any
 from ferdelance.core.entity import Entity
-
+from ferdelance.core.environment import Environment
 from ferdelance.core.queries.features import QueryFeature
 from ferdelance.core.transformers import QueryTransformer
 
@@ -28,24 +27,14 @@ class QueryStage(Entity):
                 key = f["name"]
             values["_features"][key] = f
 
-    def apply(self, env: dict[str, Any]) -> dict[str, Any]:
-        X_tr = env.get("X_tr", None)
-        y_tr = env.get("y_tr", None)
-        X_ts = env.get("X_ts", None)
-        y_ts = env.get("y_tr", None)
-
-        X_tr, y_tr, X_ts, y_ts, tr = self.transformer.transform(X_tr, y_tr, X_ts, y_ts)
-
-        env["X_tr"] = X_tr
-        env["y_tr"] = y_tr
-        env["X_ts"] = X_ts
-        env["y_tr"] = y_ts
+    def apply(self, env: Environment) -> Environment:
+        env, tr = self.transformer.transform(env)
 
         env[f"stage_{self.index}"] = tr
 
         return env
 
-    def __call__(self, env: dict[str, Any]) -> dict[str, Any]:
+    def __call__(self, env: Environment) -> Environment:
         return self.apply(env)
 
     def __getitem__(self, key: str | QueryFeature) -> QueryFeature:

@@ -1,14 +1,13 @@
 from __future__ import annotations
 from typing import Sequence
+from ferdelance.core.distributions.core import Collect
 
 from ferdelance.logging import get_logger
-from ferdelance.core.distributions.core import Collect, Distribute
-from ferdelance.core.model_operations.train import Train
-from ferdelance.core.models.core import Model
-from ferdelance.core.operations.aggregations import Aggregation
-from ferdelance.core.operations.core import DoNothing
+from ferdelance.core.models import Model
+from ferdelance.core.model_operations import Train
+from ferdelance.core.operations import Aggregation
 from ferdelance.core.queries import Query
-from ferdelance.core.steps import Finalize, Initialize, Step, Parallel
+from ferdelance.core.steps import Finalize, Step, Parallel
 
 from enum import Enum
 
@@ -41,7 +40,7 @@ class FederatedRandomForestClassifier(Model):
 
     strategy: StrategyRandomForestClassifier = StrategyRandomForestClassifier.MERGE
 
-    query: Query | None
+    query: Query
 
     n_estimators: int = 100
     criterion: str = "gini"
@@ -62,9 +61,18 @@ class FederatedRandomForestClassifier(Model):
 
     def get_steps(self) -> Sequence[Step]:
         return [
-            Initialize(DoNothing(), Distribute()),
-            Parallel(Train(self.query, self), Collect()),
-            Finalize(Aggregation(self)),
+            Parallel(
+                Train(
+                    query=self.query,
+                    model=self,
+                ),
+                Collect(),
+            ),
+            Finalize(
+                Aggregation(
+                    model=self,
+                )
+            ),
         ]
 
     def train(self, x, y) -> RandomForestClassifier:
@@ -73,9 +81,9 @@ class FederatedRandomForestClassifier(Model):
         return model
 
     def aggregate(
-        self, strategy_str: str, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier
+        self, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier
     ) -> RandomForestClassifier | VotingClassifier:
-        LOGGER.info(f"AggregatorRandomForestClassifier: using strategy={strategy_str}")
+        LOGGER.info(f"AggregatorRandomForestClassifier: using strategy={self.strategy}")
 
         if self.strategy == StrategyRandomForestClassifier.MERGE:
             if not isinstance(model_a, RandomForestClassifier):
@@ -89,7 +97,7 @@ class FederatedRandomForestClassifier(Model):
             model = self.majority_vote(model_a, model_b)
 
         else:
-            raise ValueError(f"Unsupported strategy: {strategy_str}")
+            raise ValueError(f"Unsupported strategy: {self.strategy}")
 
         return model
 

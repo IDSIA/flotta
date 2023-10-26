@@ -1,11 +1,11 @@
 from typing import Any
 
+from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 
 from pydantic import validator
 from sklearn.impute import SimpleImputer
 
-import pandas as pd
 import numpy as np
 
 
@@ -20,32 +20,27 @@ class FederatedSimpleImputer(QueryTransformer):
             values["strategy"] = "constant"
         return values
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         tr = SimpleImputer(
             missing_values=self.missing_values,
             strategy=self.strategy,
             fill_value=self.fill_value,
         )
 
-        if X_tr is None:
+        if env.X_tr is None:
             raise ValueError("X_tr required!")
 
-        if X_ts is None:
-            X_ts = X_tr
+        tr.fit(env.X_tr[self._columns_in()], env.y_tr)
+
+        if env.X_ts is None:
+            X = env.X_tr
         else:
-            X_ts = X_ts
+            X = env.X_ts
 
-        tr.fit(X_tr[self._columns_in()], y_tr)
-        X_ts[self._columns_out()] = tr.transform(X_ts[self._columns_in()])
+        X[self._columns_out()] = tr.transform(X[self._columns_in()])
 
-        return X_tr, y_tr, X_ts, y_ts, tr
+        return env, tr
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)

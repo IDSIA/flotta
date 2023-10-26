@@ -1,8 +1,7 @@
 from typing import Any, Sequence
 
+from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
-
-import pandas as pd
 
 
 class FederatedPipeline(QueryTransformer):
@@ -14,18 +13,14 @@ class FederatedPipeline(QueryTransformer):
 
     stages: Sequence[QueryTransformer] = list()
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
+        trs = list()
         for stage in self.stages:
-            X_tr, y_tr, X_ts, y_ts, _ = stage.transform(X_tr, y_tr, X_ts, y_ts)
+            env, tr = stage.transform(env)
+            trs.append(tr)
 
-        return X_tr, y_tr, X_ts, y_ts, None
+        return env, trs
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)

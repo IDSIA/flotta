@@ -1,7 +1,7 @@
 from typing import Any
 
-from pydantic import validator
 
+from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 
 from sklearn.preprocessing import (
@@ -9,7 +9,7 @@ from sklearn.preprocessing import (
     StandardScaler,
 )
 
-import pandas as pd
+from pydantic import validator
 
 
 class FederatedMinMaxScaler(QueryTransformer):
@@ -20,13 +20,7 @@ class FederatedMinMaxScaler(QueryTransformer):
 
     feature_range: tuple[int, int] = (0, 1)
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         tr = MinMaxScaler(
             feature_range=self.feature_range,
         )
@@ -34,20 +28,21 @@ class FederatedMinMaxScaler(QueryTransformer):
         c_in = self._columns_in()
         c_out = self._columns_out()
 
-        if X_tr is None:
+        if env.X_tr is None:
             raise ValueError("X_tr required!")
 
-        if X_ts is None:
-            X_ts = X_tr
+        tr.fit(env.X_tr[c_in])
+
+        if env.X_ts is None:
+            X = env.X_tr
         else:
-            X_ts = X_ts
+            X = env.X_ts
 
-        tr.fit(X_tr[c_in])
-        X_ts[c_out] = tr.transform(X_ts[c_in])
+        X[c_out] = tr.transform(X[c_in])
 
-        return X_tr, y_tr, X_ts, y_ts, tr
+        return env, tr
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)
 
@@ -61,32 +56,27 @@ class FederatedStandardScaler(QueryTransformer):
     with_mean: bool = True
     with_std: bool = True
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         tr = StandardScaler(
             with_mean=self.with_mean,
             with_std=self.with_std,
         )
 
-        if X_tr is None:
+        if env.X_tr is None:
             raise ValueError("X_tr required!")
 
-        if X_ts is None:
-            X_ts = X_tr
+        tr.fit(env.X_tr[self._columns_in()])
+
+        if env.X_ts is None:
+            X = env.X_tr
         else:
-            X_ts = X_ts
+            X = env.X_ts
 
-        tr.fit(X_tr[self._columns_in()])
-        X_ts[self._columns_out()] = tr.transform(X_ts[self._columns_in()])
+        X[self._columns_out()] = tr.transform(X[self._columns_in()])
 
-        return X_tr, y_tr, X_ts, y_ts, tr
+        return env, tr
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)
 
@@ -111,30 +101,24 @@ class FederatedClamp(QueryTransformer):
         values["max_value"] = max_value
         return values
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         c_in = self._columns_in()
         c_out = self._columns_out()
 
         if self.min_value is not None:
-            if X_tr is not None:
-                X_tr[c_out] = X_tr[c_in].where(X_tr[c_in] < self.min_value, self.min_value)
-            if X_ts is not None:
-                X_ts[c_out] = X_ts[c_in].where(X_ts[c_in] < self.min_value, self.min_value)
+            if env.X_tr is not None:
+                env.X_tr[c_out] = env.X_tr[c_in].where(env.X_tr[c_in] < self.min_value, self.min_value)
+            if env.X_ts is not None:
+                env.X_ts[c_out] = env.X_ts[c_in].where(env.X_ts[c_in] < self.min_value, self.min_value)
 
         if self.max_value is not None:
-            if X_tr is not None:
-                X_tr[c_out] = X_tr[c_in].where(X_tr[c_in] > self.max_value, self.max_value)
-            if X_ts is not None:
-                X_ts[c_out] = X_ts[c_in].where(X_ts[c_in] > self.max_value, self.max_value)
+            if env.X_tr is not None:
+                env.X_tr[c_out] = env.X_tr[c_in].where(env.X_tr[c_in] > self.max_value, self.max_value)
+            if env.X_ts is not None:
+                env.X_ts[c_out] = env.X_ts[c_in].where(env.X_ts[c_in] > self.max_value, self.max_value)
 
-        return X_tr, y_tr, X_ts, y_ts, None
+        return env, None
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)

@@ -55,6 +55,10 @@ class Model(ABC, Entity):
         raise NotImplementedError()
 
     @abstractmethod
+    def aggregate(self, model_a, model_b) -> Any:
+        raise NotImplementedError()
+
+    @abstractmethod
     def predict(self, x) -> np.ndarray:
         """Predict the probabilities for the given instances of features.
 

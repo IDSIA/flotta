@@ -1,5 +1,6 @@
 from typing import Any, Literal
 
+from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 
 from sklearn.preprocessing import (
@@ -8,8 +9,6 @@ from sklearn.preprocessing import (
     LabelBinarizer,
     OneHotEncoder,
 )
-
-import pandas as pd
 
 
 class FederatedKBinsDiscretizer(QueryTransformer):
@@ -23,13 +22,7 @@ class FederatedKBinsDiscretizer(QueryTransformer):
     n_bins: int = 5
     strategy: Literal["uniform", "quantile", "kmeans"] = "uniform"
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         tr = KBinsDiscretizer(
             n_bins=self.n_bins,
             encode="ordinal",
@@ -37,20 +30,21 @@ class FederatedKBinsDiscretizer(QueryTransformer):
             random_state=self.random_state,
         )
 
-        if X_tr is None:
+        if env.X_tr is None:
             raise ValueError("X_tr required!")
 
-        if X_ts is None:
-            X_ts = X_tr
+        tr.fit(env.X_tr[self._columns_in()])
+
+        if env.X_ts is None:
+            X = env.X_tr
         else:
-            X_ts = X_ts
+            X = env.X_tr
 
-        tr.fit(X_tr[self._columns_in()])
-        X_ts[self._columns_out()] = tr.transform(X_ts[self._columns_in()])
+        X[self._columns_out()] = tr.transform(X[self._columns_in()])
 
-        return X_tr, y_tr, X_ts, y_ts, tr
+        return env, tr
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)
 
@@ -64,35 +58,29 @@ class FederatedBinarizer(QueryTransformer):
 
     threshold: float = 0
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         tr = Binarizer(
             threshold=self.threshold,
         )
 
-        if X_tr is None:
+        if env.X_tr is None:
             raise ValueError("X_tr required!")
 
         if self.threshold == 0:
-            self.threshold = X_tr[self._columns_in()].mean()[0]
+            self.threshold = env.X_tr[self._columns_in()].mean()[0]
 
-        tr.fit(X_tr[self._columns_in()])
+        tr.fit(env.X_tr[self._columns_in()])
 
-        if X_ts is None:
-            X_ts = X_tr
+        if env.X_ts is None:
+            X = env.X_tr
         else:
-            X_ts = X_ts
+            X = env.X_ts
 
-        X_ts[self._columns_out()] = tr.transform(X_ts[self._columns_in()])
+        X[self._columns_out()] = tr.transform(X[self._columns_in()])
 
-        return X_tr, y_tr, X_ts, y_ts, tr
+        return env, tr
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)
 
@@ -103,33 +91,27 @@ class FederatedLabelBinarizer(QueryTransformer):
     neg_label: int = 0
     pos_label: int = 1
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         tr = LabelBinarizer(
             neg_label=self.neg_label,
             pos_label=self.pos_label,
         )
 
-        if y_tr is None:
+        if env.y_tr is None:
             raise ValueError("No label column given!")
 
-        tr.fit(y_tr)
+        tr.fit(env.y_tr)
 
-        if y_ts is None:
-            y_ts = y_tr
+        if env.y_ts is None:
+            Y = env.y_tr
         else:
-            y_ts = y_ts
+            Y = env.y_ts
 
-        y_ts = tr.transform(y_ts)  # type: ignore # TODO: check this
+        Y = tr.transform(Y)  # type: ignore # TODO: check this
 
-        return X_tr, y_tr, X_ts, y_ts, tr
+        return env, tr
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)
 
@@ -144,13 +126,7 @@ class FederatedOneHotEncoder(QueryTransformer):
     max_categories: int | None = None
     sparse: bool = False
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         tr = OneHotEncoder(
             categories=self.categories,
             drop=self.drop,
@@ -163,10 +139,10 @@ class FederatedOneHotEncoder(QueryTransformer):
         c_in = self._columns_in()
         c_out = self._columns_out()
 
-        if X_tr is None:
+        if env.X_tr is None:
             raise ValueError("X_tr required!")
 
-        tr.fit(X_tr[self._columns_in()])
+        tr.fit(env.X_tr[self._columns_in()])
 
         cats_found = tr.categories_[0]
         n_cats = len(cats_found)  # type: ignore # TODO: check this
@@ -176,15 +152,15 @@ class FederatedOneHotEncoder(QueryTransformer):
         elif len(self.categories) < n_cats:
             c_out += [f"{c_in[0]}_{c}" for c in range(len(self.categories), n_cats)]
 
-        if X_ts is None:
-            X_ts = X_tr
+        if env.X_ts is None:
+            X = env.X_tr
         else:
-            X_ts = X_ts
+            X = env.X_ts
 
-        X_tr[c_out] = tr.transform(X_tr[c_in])
+        X[c_out] = tr.transform(X[c_in])
 
-        return X_tr, y_tr, X_ts, y_ts, tr
+        return env, tr
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)

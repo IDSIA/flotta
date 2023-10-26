@@ -1,8 +1,8 @@
 from typing import Any
+
+from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 from ferdelance.core.queries import QueryFeature
-
-import pandas as pd
 
 
 class FederatedDrop(QueryTransformer):
@@ -27,26 +27,20 @@ class FederatedDrop(QueryTransformer):
 
         super().__init__(features_in=features_in, features_out=[])
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         c_in = self._columns_in()
 
-        if X_tr is not None:
-            columns_to_drop = [c for c in c_in if c in X_tr.columns]
-            X_tr = X_tr.drop(columns_to_drop, axis=1, inplace=False)
+        if env.X_tr is not None:
+            columns_to_drop = [c for c in c_in if c in env.X_tr.columns]
+            env.X_tr = env.X_tr.drop(columns_to_drop, axis=1, inplace=False)
 
-        if X_ts is not None:
-            columns_to_drop = [c for c in c_in if c in X_ts.columns]
-            X_ts = X_ts.drop(columns_to_drop, axis=1, inplace=False)
+        if env.X_ts is not None:
+            columns_to_drop = [c for c in c_in if c in env.X_ts.columns]
+            env.X_ts = env.X_ts.drop(columns_to_drop, axis=1, inplace=False)
 
-        return X_tr, y_tr, X_ts, y_ts, None
+        return env, None
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)
 
@@ -54,26 +48,20 @@ class FederatedDrop(QueryTransformer):
 class FederatedRename(QueryTransformer):
     """Renames the input feature to the output features."""
 
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         c_in = self._columns_in()
         c_out = self._columns_out()
 
         rename_dict = {f_in: f_out for f_in, f_out in zip(c_in, c_out)}
 
-        if X_tr is not None:
-            X_tr = X_tr.rename(rename_dict, axis=1, inplace=False)
+        if env.X_tr is not None:
+            env.X_tr = env.X_tr.rename(rename_dict, axis=1, inplace=False)
 
-        if X_ts is not None:
-            X_ts = X_ts.rename(rename_dict, axis=1, inplace=False)
+        if env.X_ts is not None:
+            env.X_ts = env.X_ts.rename(rename_dict, axis=1, inplace=False)
 
-        return X_tr, y_tr, X_ts, y_ts, None
+        return env, None
 
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)

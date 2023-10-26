@@ -1,9 +1,9 @@
-from typing import Any
 from ferdelance.core.distributions.core import Distribution
+from ferdelance.core.environment.core import Environment
 
 
 class Sequential(Distribution):
-    def distribute(self, env: dict[str, Any]) -> None:
+    def distribute(self, env: Environment) -> None:
         return super().distribute(env)
 
     def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:

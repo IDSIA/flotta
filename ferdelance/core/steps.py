@@ -7,6 +7,7 @@ from itertools import pairwise
 from ferdelance.core.distributions import Distribution
 from ferdelance.core.entity import Entity, create_entities
 from ferdelance.core.operations import Operation
+from ferdelance.core.environment import Environment
 from ferdelance.schemas.components import Component
 
 from pydantic import BaseModel, root_validator
@@ -91,7 +92,7 @@ class BlockStep(Step):
     outputs: list[str] = list()
     iteration: int = 1
 
-    def step(self, env: dict[str, Any]) -> dict[str, Any]:
+    def step(self, env: Environment) -> Environment:
         env = self.operation.exec(env)
 
         if self.distribution:

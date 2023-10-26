@@ -1,5 +1,4 @@
-from typing import Any
-
+from ferdelance.core.environment import Environment
 from ferdelance.core.operations.core import Operation
 
 from pydantic import validator
@@ -17,7 +16,7 @@ class UniformMatrix(Operation):
     def set_data_names(cls, _) -> list[str]:
         return list()
 
-    def exec(self, env: dict[str, Any]) -> dict[str, Any]:
+    def exec(self, env: Environment) -> Environment:
         r = np.random.default_rng(self.random_seed)
 
         for e_out in self.env_names:
@@ -27,7 +26,7 @@ class UniformMatrix(Operation):
 
 
 class SumMatrix(Operation):
-    def exec(self, env: dict[str, Any]) -> dict[str, Any]:
+    def exec(self, env: Environment) -> Environment:
         for d_in, e_out in zip(self.data_names, self.env_names):
             env[e_out] = env[e_out] + env[d_in]
 
@@ -37,7 +36,7 @@ class SumMatrix(Operation):
 class SubtractMatrix(Operation):
     use_persisted: bool = False
 
-    def exec(self, env: dict[str, Any]) -> dict[str, Any]:
+    def exec(self, env: Environment) -> Environment:
         for d_in, e_out in zip(self.data_names, self.env_names):
             env[e_out] = env[e_out] - env[d_in]
 

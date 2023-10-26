@@ -3,10 +3,9 @@ from typing import Any
 from abc import ABC, abstractmethod
 
 from ferdelance.core.entity import Entity
+from ferdelance.core.environment import Environment
 from ferdelance.core.queries import QueryFeature
 from ferdelance.core.utils import convert_features_in_to_list, convert_features_out_to_list
-
-import pandas as pd
 
 
 class QueryTransformer(ABC, Entity):
@@ -61,7 +60,7 @@ class QueryTransformer(ABC, Entity):
         return f"{self._name}({self.features_in} -> {self.features_out})"
 
     @abstractmethod
-    def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
+    def aggregate(self, env: Environment) -> Environment:
         """Method used to aggregate multiple transformers trained on different clients.
 
         Raises:
@@ -74,13 +73,7 @@ class QueryTransformer(ABC, Entity):
         raise NotImplementedError()
 
     @abstractmethod
-    def transform(
-        self,
-        X_tr: pd.DataFrame | None = None,
-        y_tr: pd.DataFrame | None = None,
-        X_ts: pd.DataFrame | None = None,
-        y_ts: pd.DataFrame | None = None,
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
+    def transform(self, env: Environment) -> tuple[Environment, Any]:
         """Method used to transform input data in output data. The transformation need to
         be applied on the data, this is always an inplace transformation.
 

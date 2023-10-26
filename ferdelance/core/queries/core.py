@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import Any
 
+from ferdelance.core.environment import Environment
 from ferdelance.core.queries.features import QueryFeature, QueryFilter, FilterOperation
 from ferdelance.core.queries.stages import QueryStage, QueryTransformer
 
@@ -38,7 +38,7 @@ class Query(Entity):
 
     stages: list[QueryStage] = list()
 
-    def apply(self, env: dict[str, Any]) -> dict[str, Any]:
+    def apply(self, env: Environment) -> Environment:
         for stage in self.stages:
             env = stage.apply(env)
 
