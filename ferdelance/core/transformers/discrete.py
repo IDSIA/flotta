@@ -138,10 +138,10 @@ class FederatedOneHotEncoder(QueryTransformer):
     """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html#sklearn.preprocessing.OneHotEncoder"""
 
     categories: str | list = "auto"
-    drop = None
+    drop: list | None = None
     handle_unknown: Literal["error", "ignore", "infrequent_if_exist"] = "error"
-    min_frequency = None
-    max_categories = None
+    min_frequency: float | int | None = None
+    max_categories: int | None = None
     sparse: bool = False
 
     def transform(

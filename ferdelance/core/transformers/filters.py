@@ -9,9 +9,20 @@ import pandas as pd
 
 
 class FederatedFilter(QueryTransformer):
-    feature: QueryFeature
+    feature: str
     operation: FilterOperation
-    value: str | Any
+    value: str
+
+    def __init__(self, feature: str | QueryFeature, operation: FilterOperation, value: Any, **data) -> None:
+        super().__init__(**data)
+
+        if isinstance(feature, QueryFeature):
+            self.feature: str = feature.name
+        else:
+            self.feature: str = feature
+
+        self.operation = operation
+        self.value = value
 
     @validator("feature")
     def validate_feature(cls, values):
@@ -45,7 +56,7 @@ class FederatedFilter(QueryTransformer):
         return super().aggregate(env)
 
     def apply(self, df: pd.DataFrame) -> pd.Series:
-        feature: str = self.feature.name
+        feature: str = self.feature
         op: FilterOperation = self.operation
         parameter: str = self.value
 
@@ -90,12 +101,12 @@ class FederatedFilter(QueryTransformer):
         y_ts: pd.DataFrame | None = None,
     ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, Any]:
         if X_tr:
-            mask = self.apply(X_tr[self.feature])
+            mask = self.apply(X_tr)
             X_tr = X_tr[mask]
             if y_tr:
                 y_tr = y_tr[mask]
         if X_ts:
-            mask = self.apply(X_ts[self.feature])
+            mask = self.apply(X_ts)
             X_ts = X_ts[mask]
             if y_ts:
                 y_ts = y_ts[mask]

@@ -15,14 +15,14 @@ class FederatedDrop(QueryTransformer):
             in the underling DataFrame will be dropped, otherwise it will be ignored:
         """
         if isinstance(features_in, str):
-            features_in = [QueryFeature(name=features_in, dtype=None)]
+            features_in = [QueryFeature(features_in)]
         if isinstance(features_in, list):
             li = list()
             for f in features_in:
                 if isinstance(f, QueryFeature):
                     li.append(f)
                 else:
-                    li.append(QueryFeature(name=f, dtype=None))
+                    li.append(QueryFeature(f))
             features_in = li
 
         super().__init__(features_in=features_in, features_out=[])
@@ -49,25 +49,6 @@ class FederatedDrop(QueryTransformer):
     def aggregate(self, env: dict[str, Any]) -> dict[str, Any]:
         # TODO
         return super().aggregate(env)
-
-
-def convert_list(features: str | list[str] | QueryFeature | list[QueryFeature]) -> list[QueryFeature]:
-    if isinstance(features, str):
-        return [QueryFeature(name=features, dtype=None)]
-
-    if isinstance(features, QueryFeature):
-        return [features]
-
-    if isinstance(features, list):
-        ret: list[QueryFeature] = list()
-
-        for f in features:
-            if isinstance(f, QueryFeature):
-                ret.append(f)
-            else:
-                ret.append(QueryFeature(name=f, dtype=None))
-
-        return ret
 
 
 class FederatedRename(QueryTransformer):

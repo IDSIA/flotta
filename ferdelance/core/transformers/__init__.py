@@ -42,7 +42,7 @@ from .discrete import (
 from .imputation import (
     FederatedSimpleImputer,
 )
-from .utils import (
+from .utilities import (
     FederatedDrop,
     FederatedRename,
 )
@@ -53,7 +53,7 @@ import pandas as pd
 
 LOGGER = get_logger(__name__)
 
-
+"""
 def save(obj: Transformer, path: str) -> None:
     with open(path, "wb") as f:
         pickle.dump(obj, f)
@@ -83,3 +83,4 @@ def apply_transformer(
         save(transformer, path_transformer)
 
     return transformer.transform(df)
+"""

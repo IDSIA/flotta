@@ -1,12 +1,34 @@
 from ferdelance.core.queries import QueryFeature
 
 
-def convert_features_in_to_list(features_in: QueryFeature | list[QueryFeature] | None = None) -> list[QueryFeature]:
+def convert_list(features: str | list[str] | QueryFeature | list[QueryFeature]) -> list[QueryFeature]:
+    if isinstance(features, str):
+        return [QueryFeature(features)]
+
+    if isinstance(features, QueryFeature):
+        return [features]
+
+    if isinstance(features, list):
+        ret: list[QueryFeature] = list()
+
+        for f in features:
+            if isinstance(f, QueryFeature):
+                ret.append(f)
+            else:
+                ret.append(QueryFeature(f))
+
+        return ret
+
+
+def convert_features_in_to_list(
+    features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+) -> list[QueryFeature]:
     """Sanitize the input list of features in a list of QueryFeature.
 
     Args:
-        features_in (QueryFeature | list[QueryFeature] | None, optional):
-            List of features. These can be a QueryFeature, a list of QueryFeature, or None.
+        features_in (QueryFeature | list[QueryFeature] |str | list[str] | None, optional):
+            List of features. These can be a QueryFeature, a list of QueryFeature, a string,
+            a list of strings, or None.
             Defaults to None.
 
     Returns:
@@ -16,8 +38,21 @@ def convert_features_in_to_list(features_in: QueryFeature | list[QueryFeature] |
     if features_in is None:
         return list()
 
+    if isinstance(features_in, str):
+        return [QueryFeature(features_in)]
+
     if isinstance(features_in, QueryFeature):
-        features_in = [features_in]
+        return [features_in]
+
+    if isinstance(features_in, list):
+        ret: list[QueryFeature] = list()
+
+        for f_in in features_in:
+            if isinstance(f_in, str):
+                f_in = QueryFeature(f_in)
+            ret.append(f_in)
+
+        features_in = ret
 
     return features_in
 
@@ -25,7 +60,7 @@ def convert_features_in_to_list(features_in: QueryFeature | list[QueryFeature] |
 def convert_features_out_to_list(
     features_in: list[QueryFeature],
     features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
-    check_len: bool = True,
+    check_len: bool = False,
 ) -> list[QueryFeature]:
     """Sanitize the output list of features in a list of QueryFeature.
 
@@ -52,7 +87,7 @@ def convert_features_out_to_list(
     if isinstance(features_out, str):
         if len(features_in) != 1:
             raise ValueError("Multiple input features but only one feature as output.")
-        return [QueryFeature(name=features_out, dtype=features_in[0].name)]
+        return [QueryFeature(features_out, features_in[0].name)]
 
     if isinstance(features_out, QueryFeature):
         return [features_out]
@@ -67,10 +102,9 @@ def convert_features_out_to_list(
         ret: list[QueryFeature] = list()
 
         for f_in, f_out in zip(features_in, features_out):
-            if isinstance(f_out, QueryFeature):
-                ret.append(f_out)
-            else:
-                ret.append(QueryFeature(name=f_out, dtype=f_in.dtype))
+            if isinstance(f_out, str):
+                f_out = QueryFeature(f_out, f_in.dtype)
+            ret.append(f_out)
 
         return ret
 

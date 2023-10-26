@@ -12,7 +12,7 @@ import numpy as np
 class FederatedSimpleImputer(QueryTransformer):
     missing_values: float = np.nan
     strategy: str = "mean"
-    fill_value = None
+    fill_value: Any = None
 
     @validator("fill_value")
     def set_strategy_from_fill_value(cls, values: dict[str, Any]):

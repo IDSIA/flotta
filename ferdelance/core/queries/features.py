@@ -25,6 +25,9 @@ class QueryFeature(Entity):
     name: str
     dtype: str | None = None
 
+    def __init__(self, name: str, dtype: str | None = None, **data):
+        super(QueryFeature, self).__init__(name=name, dtype=dtype, data=data)  # type: ignore
+
     def _filter(self, operation: FilterOperation, value) -> QueryFilter:
         return QueryFilter(
             feature=self,

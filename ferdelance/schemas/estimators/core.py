@@ -3,7 +3,7 @@ from typing import Any
 from abc import ABC, abstractmethod
 
 from ferdelance.core.queries.features import QueryFeature
-from ferdelance.schemas.utils import convert_features_in_to_list
+from ferdelance.core.utils import convert_features_in_to_list
 
 from pydantic import BaseModel
 

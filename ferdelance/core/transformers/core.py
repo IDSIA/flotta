@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 from ferdelance.core.entity import Entity
 from ferdelance.core.queries import QueryFeature
+from ferdelance.core.utils import convert_features_in_to_list, convert_features_out_to_list
 
 import pandas as pd
 
@@ -20,6 +21,18 @@ class QueryTransformer(ABC, Entity):
     features_out: list[QueryFeature] = list()
 
     random_state: Any = None
+
+    def __init__(
+        self,
+        features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+        features_out: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
+        random_state: Any = None,
+        **data,
+    ):
+        super(QueryTransformer, self).__init__(random_state=random_state, **data)  # type: ignore
+
+        self.features_in = convert_features_in_to_list(features_in)
+        self.features_out = convert_features_out_to_list(self.features_in, features_out)
 
     def _columns_in(self) -> list[str]:
         if self.features_in:
