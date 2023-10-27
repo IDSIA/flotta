@@ -10,6 +10,5 @@ __all__ = [
 
 
 from .core import ModelOperation
-from .train import Train
-from .split import TrainTest
+from .train import Train, TrainTest
 from .cross_validation import LocalCrossValidation

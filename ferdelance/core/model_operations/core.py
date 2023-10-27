@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any
 
 from ferdelance.logging import get_logger
 from ferdelance.core.metrics import Metrics
@@ -18,8 +17,6 @@ class ModelOperation(Operation):
 
     query: Query
     model: Model
-
-    random_seed: Any = None
 
     def store_metrics(self, metrics: Metrics, path: str) -> None:
         with open(path, "w") as f:
