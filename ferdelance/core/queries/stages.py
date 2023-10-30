@@ -12,7 +12,7 @@ class QueryStage(Entity):
     index: int = -1
 
     features: list[QueryFeature]  # list of available features (after a transformation is applied)
-    transformer: QueryTransformer  # transformation to apply
+    transformer: QueryTransformer | None = None  # transformation to apply
 
     _features: dict[str, QueryFeature] = PrivateAttr(dict())
 
@@ -28,9 +28,9 @@ class QueryStage(Entity):
             values["_features"][key] = f
 
     def apply(self, env: Environment) -> Environment:
-        env, tr = self.transformer.transform(env)
-
-        env[f"stage_{self.index}"] = tr
+        if self.transformer is not None:
+            env, tr = self.transformer.transform(env)
+            env[f"stage_{self.index}"] = tr
 
         return env
 

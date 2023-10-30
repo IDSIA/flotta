@@ -1,22 +1,23 @@
 from __future__ import annotations
-from abc import ABC
 from typing import Any, Sequence
 
 from ferdelance.core.entity import Entity
-from ferdelance.core.steps import Step, SchedulerJob, SchedulerContext
+from ferdelance.core.interfaces import Step, SchedulerJob, SchedulerContext
 
 from itertools import pairwise
 
 from pydantic import BaseModel
 
 
-class BaseArtifact(ABC, Entity):
+class Artifact(Entity):
     """This is a plan that can produce jobs given a list of steps."""
 
+    id: str
+    project_id: str
     steps: Sequence[Step]
     random_seed: Any = None
 
-    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
+    def jobs(self, context: SchedulerContext) -> Sequence[SchedulerJob]:
         jobs = []
 
         jobs0 = self.steps[0].jobs(context)
@@ -32,13 +33,6 @@ class BaseArtifact(ABC, Entity):
         jobs += jobs0
 
         return jobs
-
-
-class Artifact(BaseArtifact):
-    """Standard implementation of a generic plan."""
-
-    id: str
-    project_id: str
 
 
 class ArtifactStatus(BaseModel):

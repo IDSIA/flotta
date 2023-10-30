@@ -1,16 +1,14 @@
 from __future__ import annotations
-from typing import Sequence, TYPE_CHECKING
+from typing import Sequence
 
 from ferdelance.logging import get_logger
 from ferdelance.core.distributions.core import Collect
+from ferdelance.core.interfaces import Step
 from ferdelance.core.models import Model
 from ferdelance.core.model_operations import Train
 from ferdelance.core.operations import Aggregation
 from ferdelance.core.queries import Query
 from ferdelance.core.steps import Finalize, Parallel
-
-if TYPE_CHECKING:
-    from ferdelance.core.steps import Step
 
 
 from enum import Enum

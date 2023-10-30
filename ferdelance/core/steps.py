@@ -1,88 +1,12 @@
 from __future__ import annotations
-from typing import Any
 
-from abc import abstractmethod, ABC
 from itertools import pairwise
 
 from ferdelance.core.distributions import Distribution
-from ferdelance.core.entity import Entity, create_entities
 from ferdelance.core.operations import Operation
 from ferdelance.core.environment import Environment
-from ferdelance.schemas.components import Component
 
-from pydantic import BaseModel, root_validator
-
-
-class SchedulerJob(BaseModel):
-    id: int  # to keep track of the job's id
-    worker: Component  # id of the worker
-    iteration: int
-    step: Step
-    locks: list[int]  # list of jobs unlocked by this job
-
-    @root_validator
-    def create_subclass_entities(cls, values) -> dict[str, Any]:
-        return create_entities(values)
-
-
-class SchedulerContext(BaseModel):  # this is internal to the server
-    artifact_id: str
-
-    initiator: Component  # component_id of the initiator
-    workers: list[Component]  # list of component_ids of the involved clients
-
-    iteration: int = 0
-
-    current_id: int = 0
-
-    def get_id(self) -> int:
-        i = self.current_id
-        self.current_id += 1
-        return i
-
-
-class Step(ABC, Entity):
-    iteration: int = 1
-
-    @abstractmethod
-    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
-        """Returns a list of all the jobs that this step will create. These jobs
-        are not connected to the next. To create a bound, use the bind() method
-        between two sets of jobs.
-
-        Args:
-            context (SchedulerContext):
-                The topology to use.
-
-        Raises:
-            NotImplementedError:
-                When this method is not implemented.
-
-        Returns:
-            list[SchedulableJob]:
-                A list of schedulable jobs without the bound to the next jobs.
-        """
-        raise NotImplementedError()
-
-    @abstractmethod
-    def bind(self, jobs0: list[SchedulerJob], jobs1: list[SchedulerJob]) -> None:
-        """Assign the locks to the jobs0 list consideing the distribution used and the jobs1 list.
-
-        Args:
-            jobs0 (list[SchedulableJob]):
-                Jobs created with the previous step
-            jobs1 (list[SchedulableJob]):
-                Jobs created with the next step
-
-        Raises:
-            NotImplementedError:
-                If this method is not implemented.
-
-        Returns:
-            list[SchedulableJob]:
-                A list of schedulabe jobs taht can be used to start the computations.
-        """
-        raise NotImplementedError()
+from ferdelance.core.interfaces import Step, SchedulerJob, SchedulerContext
 
 
 class BlockStep(Step):
@@ -112,7 +36,7 @@ class BlockStep(Step):
 
 
 class Initialize(BlockStep):
-    """Initial step performend by an initiator."""
+    """Initial step performed by an initiator."""
 
     def __init__(
         self,
@@ -121,6 +45,7 @@ class Initialize(BlockStep):
         inputs: list[str] = list(),
         outputs: list[str] = list(),
         iteration: int = 1,
+        **data,
     ) -> None:
         super(Initialize, self).__init__(
             operation=operation,
@@ -128,6 +53,7 @@ class Initialize(BlockStep):
             inputs=inputs,
             outputs=outputs,
             iteration=iteration,
+            **data,
         )
 
     def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
@@ -152,6 +78,7 @@ class Parallel(BlockStep):
         inputs: list[str] = list(),
         outputs: list[str] = list(),
         iteration: int = 1,
+        **data,
     ) -> None:
         super(Parallel, self).__init__(
             operation=operation,
@@ -159,6 +86,7 @@ class Parallel(BlockStep):
             inputs=inputs,
             outputs=outputs,
             iteration=iteration,
+            **data,
         )
 
     def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
@@ -184,6 +112,7 @@ class Sequential(BlockStep):
         inputs: list[str] = list(),
         outputs: list[str] = list(),
         iteration: int = 1,
+        **data,
     ) -> None:
         super(Sequential, self).__init__(
             operation=operation,
@@ -191,6 +120,7 @@ class Sequential(BlockStep):
             inputs=inputs,
             outputs=outputs,
             iteration=iteration,
+            **data,
         )
 
     def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
@@ -221,6 +151,7 @@ class Finalize(BlockStep):
         inputs: list[str] = list(),
         outputs: list[str] = list(),
         iteration: int = 1,
+        **data,
     ) -> None:
         super(Finalize, self).__init__(
             operation=operation,
@@ -228,6 +159,7 @@ class Finalize(BlockStep):
             inputs=inputs,
             outputs=outputs,
             iteration=iteration,
+            **data,
         )
 
     def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
@@ -255,6 +187,3 @@ class Iterate(Step):
                 job_list += step.jobs(context)
 
         return job_list
-
-
-SchedulerJob.update_forward_refs()

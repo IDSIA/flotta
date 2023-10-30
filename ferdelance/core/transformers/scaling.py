@@ -1,6 +1,5 @@
 from typing import Any
 
-
 from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 

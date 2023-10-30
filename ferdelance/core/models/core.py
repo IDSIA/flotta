@@ -1,12 +1,10 @@
 from __future__ import annotations
-from typing import Any, Sequence, TYPE_CHECKING
+from typing import Any, Sequence
 from abc import ABC, abstractmethod
 
 from ferdelance.core.entity import Entity
 from ferdelance.core.metrics import Metrics
-
-if TYPE_CHECKING:
-    from ferdelance.core.steps import Step
+from ferdelance.core.interfaces import Step
 
 from numpy.typing import ArrayLike
 
