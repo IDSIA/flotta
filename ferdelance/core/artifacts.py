@@ -3,20 +3,20 @@ from abc import ABC
 from typing import Any, Sequence
 
 from ferdelance.core.entity import Entity
-from ferdelance.core.steps import Step, SchedulableJob, SchedulerContext
+from ferdelance.core.steps import Step, SchedulerJob, SchedulerContext
 
 from itertools import pairwise
 
 from pydantic import BaseModel
 
 
-class Plan(ABC, Entity):
+class BaseArtifact(ABC, Entity):
     """This is a plan that can produce jobs given a list of steps."""
 
     steps: Sequence[Step]
     random_seed: Any = None
 
-    def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
+    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
         jobs = []
 
         jobs0 = self.steps[0].jobs(context)
@@ -34,7 +34,7 @@ class Plan(ABC, Entity):
         return jobs
 
 
-class Artifact(Plan):
+class Artifact(BaseArtifact):
     """Standard implementation of a generic plan."""
 
     id: str

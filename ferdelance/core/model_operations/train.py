@@ -15,7 +15,8 @@ class Train(ModelOperation):
     """
 
     def exec(self, env: Environment) -> Environment:
-        env = self.query.apply(env)
+        if self.query is not None:
+            env = self.query.apply(env)
 
         if env.X_tr is None or env.y_tr is None:
             raise ValueError("Cannot train a model without X_tr and y_tr")
@@ -37,7 +38,8 @@ class TrainTest(ModelOperation):
     def exec(self, env: Environment) -> Environment:
         artifact_id: str = env.artifact_id
 
-        env = self.query.apply(env)
+        if self.query is not None:
+            env = self.query.apply(env)
 
         if env.X_tr is None or env.y_tr is None:
             raise ValueError("Cannot train without train data")

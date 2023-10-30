@@ -2,6 +2,7 @@ from typing import Any
 
 from ferdelance import __version__
 from ferdelance.logging import get_logger
+from ferdelance.core.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.node import NodePublicKey
 from ferdelance.shared.checksums import str_checksum
 from ferdelance.workbench.interface import (
@@ -11,7 +12,6 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
     WorkbenchArtifactPartial,

@@ -14,7 +14,7 @@ from ferdelance.logging import get_logger
 from ferdelance.node.services import ActionService, TaskManagementService
 from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.scheduling import SchedulerContext, SchedulableJob
+from ferdelance.schemas.scheduling import SchedulerContext
 from ferdelance.schemas.database import ServerArtifact, Resource
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.models import Metrics

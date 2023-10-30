@@ -15,7 +15,7 @@ LOGGER = get_logger(__name__)
 class ModelOperation(Operation):
     """Describe how to train and evaluate a model based on the input data source."""
 
-    query: Query
+    query: Query | None = None
     model: Model
 
     def store_metrics(self, metrics: Metrics, path: str) -> None:

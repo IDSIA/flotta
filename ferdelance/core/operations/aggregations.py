@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from ferdelance.core.environment import Environment
-from ferdelance.core.models.core import Model
 from ferdelance.core.operations.core import Operation
+from ferdelance.core.models.core import Model
 
 
 class Aggregation(Operation):
@@ -16,3 +18,6 @@ class Aggregation(Operation):
 
         env["aggregated_model"] = base
         return env
+
+
+Aggregation.update_forward_refs()

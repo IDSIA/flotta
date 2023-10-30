@@ -1,10 +1,12 @@
 from __future__ import annotations
-from typing import Any, Sequence
+from typing import Any, Sequence, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
 from ferdelance.core.entity import Entity
 from ferdelance.core.metrics import Metrics
-from ferdelance.core.steps import Step
+
+if TYPE_CHECKING:
+    from ferdelance.core.steps import Step
 
 from numpy.typing import ArrayLike
 
@@ -23,9 +25,6 @@ from sklearn.metrics import (
 class Model(ABC, Entity):
     """This is the class that can manipulate real models. The client and the
     server will run the code implemented by classes that extends this one."""
-
-    def __init__(self) -> None:
-        self.model: Any = None
 
     def load(self, path: str) -> None:
         """Load a trained model from a path on the local disk to the internal

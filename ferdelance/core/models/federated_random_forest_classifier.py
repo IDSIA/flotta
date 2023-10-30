@@ -1,13 +1,17 @@
 from __future__ import annotations
-from typing import Sequence
-from ferdelance.core.distributions.core import Collect
+from typing import Sequence, TYPE_CHECKING
 
 from ferdelance.logging import get_logger
+from ferdelance.core.distributions.core import Collect
 from ferdelance.core.models import Model
 from ferdelance.core.model_operations import Train
 from ferdelance.core.operations import Aggregation
 from ferdelance.core.queries import Query
-from ferdelance.core.steps import Finalize, Step, Parallel
+from ferdelance.core.steps import Finalize, Parallel
+
+if TYPE_CHECKING:
+    from ferdelance.core.steps import Step
+
 
 from enum import Enum
 
@@ -40,7 +44,7 @@ class FederatedRandomForestClassifier(Model):
 
     strategy: StrategyRandomForestClassifier = StrategyRandomForestClassifier.MERGE
 
-    query: Query
+    query: Query | None = None
 
     n_estimators: int = 100
     criterion: str = "gini"
@@ -71,7 +75,7 @@ class FederatedRandomForestClassifier(Model):
             Finalize(
                 Aggregation(
                     model=self,
-                )
+                ),
             ),
         ]
 

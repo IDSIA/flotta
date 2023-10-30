@@ -13,7 +13,7 @@ from ferdelance.schemas.components import Component
 from pydantic import BaseModel, root_validator
 
 
-class SchedulableJob(BaseModel):
+class SchedulerJob(BaseModel):
     id: int  # to keep track of the job's id
     worker: Component  # id of the worker
     iteration: int
@@ -45,7 +45,7 @@ class Step(ABC, Entity):
     iteration: int = 1
 
     @abstractmethod
-    def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
+    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
         """Returns a list of all the jobs that this step will create. These jobs
         are not connected to the next. To create a bound, use the bind() method
         between two sets of jobs.
@@ -65,7 +65,7 @@ class Step(ABC, Entity):
         raise NotImplementedError()
 
     @abstractmethod
-    def bind(self, jobs0: list[SchedulableJob], jobs1: list[SchedulableJob]) -> None:
+    def bind(self, jobs0: list[SchedulerJob], jobs1: list[SchedulerJob]) -> None:
         """Assign the locks to the jobs0 list consideing the distribution used and the jobs1 list.
 
         Args:
@@ -100,7 +100,7 @@ class BlockStep(Step):
 
         return env
 
-    def bind(self, jobs0: list[SchedulableJob], jobs1: list[SchedulableJob]) -> None:
+    def bind(self, jobs0: list[SchedulerJob], jobs1: list[SchedulerJob]) -> None:
         if self.distribution:
             jobs_id0 = [j.id for j in jobs0]
             jobs_id1 = [j.id for j in jobs1]
@@ -130,9 +130,9 @@ class Initialize(BlockStep):
             iteration=iteration,
         )
 
-    def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
+    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
         return [
-            SchedulableJob(
+            SchedulerJob(
                 id=context.get_id(),
                 worker=context.initiator,
                 iteration=context.iteration,
@@ -161,9 +161,9 @@ class Parallel(BlockStep):
             iteration=iteration,
         )
 
-    def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
+    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
         return [
-            SchedulableJob(
+            SchedulerJob(
                 id=context.get_id(),
                 worker=worker,
                 iteration=context.iteration,
@@ -193,12 +193,12 @@ class Sequential(BlockStep):
             iteration=iteration,
         )
 
-    def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
-        job_list: list[SchedulableJob] = []
+    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
+        job_list: list[SchedulerJob] = []
 
         for worker in context.workers:
             job_list.append(
-                SchedulableJob(
+                SchedulerJob(
                     id=context.get_id(),
                     worker=worker,
                     iteration=context.iteration,
@@ -230,9 +230,9 @@ class Finalize(BlockStep):
             iteration=iteration,
         )
 
-    def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
+    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
         return [
-            SchedulableJob(
+            SchedulerJob(
                 id=context.get_id(),
                 worker=context.initiator,
                 iteration=context.iteration,
@@ -246,7 +246,7 @@ class Iterate(Step):
     iterations: int
     steps: list[BlockStep]
 
-    def jobs(self, context: SchedulerContext) -> list[SchedulableJob]:
+    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
         job_list = []
 
         for it in range(self.iterations):
@@ -257,4 +257,4 @@ class Iterate(Step):
         return job_list
 
 
-SchedulableJob.update_forward_refs()
+SchedulerJob.update_forward_refs()
