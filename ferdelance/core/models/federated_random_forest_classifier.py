@@ -1,17 +1,14 @@
 from __future__ import annotations
 from typing import Sequence
+from enum import Enum
 
 from ferdelance.logging import get_logger
 from ferdelance.core.distributions import Collect
 from ferdelance.core.interfaces import Step
-from ferdelance.core.models import Model
+from ferdelance.core.model import Model
 from ferdelance.core.model_operations import Train
 from ferdelance.core.operations import Aggregation
-from ferdelance.core.queries import Query
 from ferdelance.core.steps import Finalize, Parallel
-
-
-from enum import Enum
 
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.preprocessing import LabelEncoder
@@ -41,8 +38,6 @@ class FederatedRandomForestClassifier(Model):
     """
 
     strategy: StrategyRandomForestClassifier = StrategyRandomForestClassifier.MERGE
-
-    query: Query | None = None
 
     n_estimators: int = 100
     criterion: str = "gini"

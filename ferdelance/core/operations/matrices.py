@@ -17,7 +17,7 @@ class UniformMatrix(Operation):
         return list()
 
     def exec(self, env: Environment) -> Environment:
-        r = np.random.default_rng(self.random_seed)
+        r = np.random.default_rng(self.random_state)
 
         for e_out in self.env_names:
             env[e_out] = r.uniform(size=self.size)

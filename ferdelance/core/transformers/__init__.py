@@ -18,20 +18,10 @@ __all__ = [
     "FederatedRename",
 ]
 
-from ferdelance.logging import get_logger
-
-from .core import (
-    QueryTransformer,
-)
-from .filters import (
-    FederatedFilter,
-)
-from .pipelines import (
-    FederatedPipeline,
-)
-from .splitters import (
-    FederatedSplitter,
-)
+from .core import QueryTransformer
+from .filters import FederatedFilter
+from .pipelines import FederatedPipeline
+from .splitters import FederatedSplitter
 from .scaling import (
     FederatedMinMaxScaler,
     FederatedStandardScaler,
@@ -43,19 +33,12 @@ from .discrete import (
     FederatedLabelBinarizer,
     FederatedOneHotEncoder,
 )
-from .imputation import (
-    FederatedSimpleImputer,
-)
+from .imputation import FederatedSimpleImputer
 from .utilities import (
     FederatedDrop,
     FederatedRename,
 )
 
-import os
-import pickle
-import pandas as pd
-
-LOGGER = get_logger(__name__)
 
 """
 def save(obj: Transformer, path: str) -> None:
@@ -66,25 +49,4 @@ def save(obj: Transformer, path: str) -> None:
 def run(path: str) -> Transformer:
     with open(path, "rb") as f:
         return pickle.load(f)
-
-
-def apply_transformer(
-    query_transformer: QueryTransformer,
-    df: pd.DataFrame,
-    working_folder: str | None = None,
-    artifact_id: str | None = None,
-    i: int | None = None,
-) -> pd.DataFrame:
-    if query_transformer.name == "FederatedPipeline":
-        transformer = rebuild_pipeline(query_transformer)
-
-    else:
-        transformer = rebuild_transformer(query_transformer)
-
-    if working_folder is not None and artifact_id is not None and i is not None:
-        path_transformer = os.path.join(working_folder, f"{artifact_id}_{i:04}_Transformer_{transformer.name}.pkl")
-
-        save(transformer, path_transformer)
-
-    return transformer.transform(df)
 """

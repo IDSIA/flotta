@@ -12,7 +12,7 @@ import numpy as np
 
 class InitMean(Operation):
     def exec(self, env: Environment) -> Environment:
-        r = np.random.default_rng(self.random_seed)
+        r = np.random.default_rng(self.random_state)
 
         shape = (2,)
         vals = r.integers(-(2**31), 2**31, size=shape)
@@ -55,7 +55,7 @@ class MeanEstimator(Estimator):
         return [
             Sequential(
                 init_operation=InitMean(),
-                operation=Mean(),
+                operation=Mean(query=self.query),
                 final_operation=CleanMean(),
             )
         ]

@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-from itertools import pairwise
 from typing import Sequence
+from itertools import pairwise
 
-from ferdelance.core.distributions import Distribution
-from ferdelance.core.distributions.sequentials import DirectToNext
-from ferdelance.core.operations import Operation
+from ferdelance.core.distributions import Distribution, DirectToNext
 from ferdelance.core.environment import Environment
-
 from ferdelance.core.interfaces import Step, SchedulerJob, SchedulerContext
+from ferdelance.core.operations import Operation
 
 
 class BaseStep(Step):

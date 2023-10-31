@@ -1,4 +1,4 @@
-from ferdelance.core.environment.core import Environment
+from ferdelance.core.environment import Environment
 from ferdelance.core.metrics import Metrics
 from ferdelance.core.model_operations.core import ModelOperation
 from ferdelance.logging import get_logger
@@ -19,9 +19,9 @@ class LocalCrossValidation(ModelOperation):
 
     def exec(self, env: Environment) -> Environment:
         if self.stratified:
-            kf = StratifiedKFold(self.folds, shuffle=True, random_state=self.random_seed)
+            kf = StratifiedKFold(self.folds, shuffle=True, random_state=self.random_state)
         else:
-            kf = KFold(self.folds, shuffle=self.shuffle, random_state=self.random_seed)
+            kf = KFold(self.folds, shuffle=self.shuffle, random_state=self.random_state)
 
         x = env.X_tr
         y = env.y_tr

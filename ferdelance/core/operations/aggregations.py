@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 from ferdelance.core.environment import Environment
-from ferdelance.core.operations.core import Operation
-from ferdelance.core.models.core import Model
+from ferdelance.core.model_operations import ModelOperation
 
 
-class Aggregation(Operation):
-    model: Model
-
+class Aggregation(ModelOperation):
     def exec(self, env: Environment) -> Environment:
         models = env["models"]
 

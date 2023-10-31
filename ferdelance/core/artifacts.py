@@ -1,10 +1,9 @@
 from __future__ import annotations
 from typing import Any, Sequence
+from itertools import pairwise
 
 from ferdelance.core.entity import Entity
 from ferdelance.core.interfaces import Step, SchedulerJob, SchedulerContext
-
-from itertools import pairwise
 
 from pydantic import BaseModel
 
@@ -15,7 +14,7 @@ class Artifact(Entity):
     id: str
     project_id: str
     steps: Sequence[Step]
-    random_seed: Any = None
+    random_state: Any = None
 
     def jobs(self, context: SchedulerContext) -> Sequence[SchedulerJob]:
         jobs = []

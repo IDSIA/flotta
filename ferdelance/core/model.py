@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from ferdelance.core.entity import Entity
 from ferdelance.core.metrics import Metrics
 from ferdelance.core.interfaces import Step
+from ferdelance.core.queries import Query
 
 from numpy.typing import ArrayLike
 
@@ -23,6 +24,8 @@ from sklearn.metrics import (
 class Model(ABC, Entity):
     """This is the class that can manipulate real models. The client and the
     server will run the code implemented by classes that extends this one."""
+
+    query: Query | None = None
 
     def load(self, path: str) -> None:
         """Load a trained model from a path on the local disk to the internal

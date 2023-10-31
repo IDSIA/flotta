@@ -12,7 +12,7 @@ import numpy as np
 
 class InitCounter(Operation):
     def exec(self, env: Environment) -> Environment:
-        r = np.random.default_rng(self.random_seed)
+        r = np.random.default_rng(self.random_state)
 
         rand_value = r.integers(-(2**31), 2**31, size=1)[0]
 
@@ -49,7 +49,7 @@ class CountEstimator(Estimator):
         return [
             Sequential(
                 init_operation=InitCounter(),
-                operation=Count(),
+                operation=Count(query=self.query),
                 final_operation=CleanCounter(),
             ),
         ]

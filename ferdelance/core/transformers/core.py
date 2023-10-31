@@ -19,8 +19,6 @@ class QueryTransformer(ABC, Entity):
     features_in: list[QueryFeature] = list()
     features_out: list[QueryFeature] = list()
 
-    random_state: Any = None
-
     def __init__(
         self,
         features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
@@ -68,7 +66,7 @@ class QueryTransformer(ABC, Entity):
                 This method need to be implemented (also as empty) by all transformers.
         """
 
-        # TODO: think how to implement this across all transfomers...
+        # TODO: think how to implement this across all transformers...
 
         raise NotImplementedError()
 

@@ -76,7 +76,7 @@ class Query(Entity):
 
         Returns:
             QueryFeature:
-                The requested features if it exits, otherwise it riases an exception.
+                The requested features if it exits, otherwise it raises an exception.
         """
         if isinstance(key, QueryFeature):
             key = key.name

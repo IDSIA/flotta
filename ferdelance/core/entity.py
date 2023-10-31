@@ -7,6 +7,7 @@ class_registry: dict[str, Any] = dict()
 
 class Entity(BaseModel):
     _name: str = ""
+    random_state: Any = None
 
     # register subclasses when created
     def __init_subclass__(cls, **kwargs: Any) -> None:
