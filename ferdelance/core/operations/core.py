@@ -3,6 +3,7 @@ from typing import Any
 
 from ferdelance.core.entity import Entity
 from ferdelance.core.environment.core import Environment
+from ferdelance.core.queries import Query
 
 
 class Operation(Entity):
@@ -14,6 +15,10 @@ class Operation(Entity):
     @abstractmethod
     def exec(self, env: Environment) -> Environment:
         raise NotImplementedError()
+
+
+class QueryOperation(Operation):
+    query: Query | None = None
 
 
 class DoNothing(Operation):

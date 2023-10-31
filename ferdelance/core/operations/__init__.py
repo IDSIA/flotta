@@ -1,5 +1,6 @@
 __all__ = [
     "Operation",
+    "QueryOperation",
     "DoNothing",
     "SubtractMatrix",
     "SumMatrix",
@@ -8,7 +9,7 @@ __all__ = [
     "Define",
 ]
 
-from .core import Operation, DoNothing
+from .core import Operation, QueryOperation, DoNothing
 from .matrices import SubtractMatrix, SumMatrix, UniformMatrix
 from .aggregations import Aggregation
 from .models import Define

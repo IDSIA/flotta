@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from ferdelance.logging import get_logger
 from ferdelance.core.metrics import Metrics
-from ferdelance.core.models.core import Model
-from ferdelance.core.operations.core import Operation
-from ferdelance.core.queries.core import Query
+from ferdelance.core.models import Model
+from ferdelance.core.operations import QueryOperation
 
 import json
 
@@ -12,10 +11,9 @@ import json
 LOGGER = get_logger(__name__)
 
 
-class ModelOperation(Operation):
+class ModelOperation(QueryOperation):
     """Describe how to train and evaluate a model based on the input data source."""
 
-    query: Query | None = None
     model: Model
 
     def store_metrics(self, metrics: Metrics, path: str) -> None:

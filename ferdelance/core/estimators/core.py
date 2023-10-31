@@ -1,47 +1,35 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, Sequence
 from abc import ABC, abstractmethod
 
+from ferdelance.core.entity import Entity
+from ferdelance.core.interfaces import Step
 from ferdelance.core.queries.features import QueryFeature
 from ferdelance.core.utils import convert_features_in_to_list
 
-from pydantic import BaseModel
 
 import pandas as pd
 
 
-class Estimator(BaseModel):
-    name: str
+class Estimator(ABC, Entity):
     features_in: list[QueryFeature]
     random_state: Any
-    params: dict[str, Any]
 
-
-class GenericEstimator(ABC):
     def __init__(
         self,
-        name: str,
-        features_in: QueryFeature | list[QueryFeature] | None = None,
+        features_in: QueryFeature | list[QueryFeature] | str | list[str] | None = None,
         random_state: Any = None,
-    ) -> None:
-        self.name: str = name
-        self.features_in: list[QueryFeature] = convert_features_in_to_list(features_in)
-        self.random_state: Any = random_state
-
-        self.estimator: Any = None
-
-        self._columns_in: list[str] = [f.name for f in self.features_in]
-
-    def params(self) -> dict[str, Any]:
-        return dict()
-
-    def build(self) -> Estimator:
-        return Estimator(
-            name=self.name,
-            features_in=self.features_in,
-            random_state=self.random_state,
-            params=self.params(),
+        **data,
+    ):
+        super(Estimator, self).__init__(
+            features_in=convert_features_in_to_list(features_in),  # type: ignore
+            random_state=random_state,  # type: ignore
+            **data,
         )
+
+    @abstractmethod
+    def get_steps(self) -> Sequence[Step]:
+        raise NotImplementedError()
 
     @abstractmethod
     def initialize(self) -> None:
@@ -52,7 +40,7 @@ class GenericEstimator(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def aggregate(self, estimator_a: GenericEstimator, estimator_b: GenericEstimator) -> Estimator:
+    def aggregate(self, estimator_a: Estimator, estimator_b: Estimator) -> Estimator:
         """Merge two estimators together. A new estimator need to be created.
         If an issue occurs, raise ValueError exception.
 
@@ -75,7 +63,7 @@ class GenericEstimator(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def finalize(self, estimator: GenericEstimator) -> None:
+    def finalize(self, estimator: Estimator) -> None:
         raise NotImplementedError()
 
     @abstractmethod
