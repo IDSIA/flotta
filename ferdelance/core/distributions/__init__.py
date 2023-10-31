@@ -2,10 +2,12 @@ __all__ = [
     "Distribution",
     "RoundRobin",
     "Collect",
+    "Arrange",
     "Distribute",
-    "Sequential",
+    "DirectToNext",
 ]
 
-from .core import Distribution, Distribute, Collect
+from .core import Distribution
+from .many import Distribute, Collect, Arrange
 from .circulars import RoundRobin
-from .sequentials import Sequential
+from .sequentials import DirectToNext

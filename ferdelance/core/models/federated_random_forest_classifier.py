@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Sequence
 
 from ferdelance.logging import get_logger
-from ferdelance.core.distributions.core import Collect
+from ferdelance.core.distributions import Collect
 from ferdelance.core.interfaces import Step
 from ferdelance.core.models import Model
 from ferdelance.core.model_operations import Train

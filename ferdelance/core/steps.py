@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from itertools import pairwise
+from typing import Sequence
 
 from ferdelance.core.distributions import Distribution
+from ferdelance.core.distributions.sequentials import DirectToNext
 from ferdelance.core.operations import Operation
 from ferdelance.core.environment import Environment
 
 from ferdelance.core.interfaces import Step, SchedulerJob, SchedulerContext
 
 
-class BlockStep(Step):
+class BaseStep(Step):
     operation: Operation
     distribution: Distribution | None = None
     inputs: list[str] = list()
@@ -34,8 +36,19 @@ class BlockStep(Step):
             for job, lock in zip(jobs0, locks):
                 job.locks += lock
 
+    def jobs(self, context: SchedulerContext) -> Sequence[SchedulerJob]:
+        return [
+            SchedulerJob(
+                id=context.get_id(),
+                worker=context.initiator,
+                iteration=context.iteration,
+                locks=[],
+                step=self,
+            )
+        ]
 
-class Initialize(BlockStep):
+
+class Initialize(BaseStep):
     """Initial step performed by an initiator."""
 
     def __init__(
@@ -68,7 +81,7 @@ class Initialize(BlockStep):
         ]
 
 
-class Parallel(BlockStep):
+class Parallel(BaseStep):
     """Jobs are executed in parallel."""
 
     def __init__(
@@ -102,21 +115,26 @@ class Parallel(BlockStep):
         ]
 
 
-class Sequential(BlockStep):
+class Sequential(BaseStep):
     """Jobs are executed in sequential order"""
+
+    init_operation: Operation
+    final_operation: Operation
 
     def __init__(
         self,
+        init_operation: Operation,
         operation: Operation,
-        distribution: Distribution | None,
+        final_operation: Operation,
         inputs: list[str] = list(),
         outputs: list[str] = list(),
         iteration: int = 1,
         **data,
     ) -> None:
         super(Sequential, self).__init__(
+            init_operation=init_operation,  # type: ignore
             operation=operation,
-            distribution=distribution,
+            final_operation=final_operation,  # type: ignore
             inputs=inputs,
             outputs=outputs,
             iteration=iteration,
@@ -126,6 +144,22 @@ class Sequential(BlockStep):
     def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
         job_list: list[SchedulerJob] = []
 
+        # initialization job
+        job_list.append(
+            SchedulerJob(
+                id=context.get_id(),
+                worker=context.initiator,
+                iteration=context.iteration,
+                locks=[],
+                step=BaseStep(
+                    iteration=self.iteration,
+                    operation=self.init_operation,
+                    distribution=DirectToNext(next=context.workers[0]),
+                ),
+            )
+        )
+
+        # worker jobs
         for worker in context.workers:
             job_list.append(
                 SchedulerJob(
@@ -133,17 +167,37 @@ class Sequential(BlockStep):
                     worker=worker,
                     iteration=context.iteration,
                     locks=[],
-                    step=self,
+                    step=BaseStep(
+                        iteration=self.iteration,
+                        operation=self.operation,
+                        distribution=DirectToNext(next=context.workers[0]),
+                    ),
                 )
             )
 
+        # finalization job
+        job_list.append(
+            SchedulerJob(
+                id=context.get_id(),
+                worker=context.initiator,
+                iteration=context.iteration,
+                locks=[],
+                step=BaseStep(
+                    iteration=self.iteration,
+                    operation=self.final_operation,
+                    distribution=None,
+                ),
+            )
+        )
+
+        # link all jobs together
         for curr, next in pairwise(job_list):
             curr.locks.append(next.id)
 
         return job_list
 
 
-class Finalize(BlockStep):
+class Finalize(BaseStep):
     def __init__(
         self,
         operation: Operation,
@@ -176,7 +230,7 @@ class Finalize(BlockStep):
 
 class Iterate(Step):
     iterations: int
-    steps: list[BlockStep]
+    steps: list[BaseStep]
 
     def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
         job_list = []
