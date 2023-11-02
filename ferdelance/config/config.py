@@ -92,7 +92,7 @@ class NodeConfiguration(BaseModel):
 
     # self-check in seconds when mode=node
     healthcheck: float = 60
-    # concact server node each interval in second for update when mode=client
+    # concat server node each interval in second for update when mode=client
     heartbeat: float = 2.0
 
     @root_validator(pre=True)
@@ -243,7 +243,7 @@ class Configuration(BaseSettings):
         return f"{_protocol}://{self.node.url.rstrip('/')}{_port}"
 
     def url_deploy(self) -> str:
-        """Url to use for deploying the api throug ray serve."""
+        """Url to use for deploying the api through ray serve."""
         _protocol, _port = clean_protocol_port(self.node.protocol, self.node.port)
 
         return f"{_protocol}://{self.node.interface.rstrip('/')}{_port}"
@@ -265,10 +265,8 @@ class Configuration(BaseSettings):
         artifact_id: str,
         job_id: str,
         iteration: int = 0,
+        is_partial: bool = False,
         is_error: bool = False,
-        is_aggregation: bool = False,
-        is_model: bool = False,
-        is_estimation: bool = False,
     ) -> str:
         """Creates a local path that can be used to save a resource to disk.
 
@@ -284,15 +282,6 @@ class Configuration(BaseSettings):
             is_error (bool, optional):
                 If it is an error, set to True.
                 Defaults to False.
-            is_aggregation (bool, optional):
-                If it is a resource of an aggregation, set to True.
-                Defaults to False.
-            is_model (bool, optional):
-                If it is a trained model, set to True.
-                Defaults to False.
-            is_estimation (bool, optional):
-                If it is a partial estimation, set to True.
-                Defaults to False.
 
         Returns:
             str:
@@ -306,15 +295,8 @@ class Configuration(BaseSettings):
 
         if is_error:
             chunks.append("ERROR")
-        elif is_aggregation:
-            chunks.append("AGGREGATED")
-        else:
+        elif is_partial:
             chunks.append("PARTIAL")
-
-        if is_model:
-            chunks.append("model")
-        elif is_estimation:
-            chunks.append("estimator")
 
         filename = ".".join(chunks)
 

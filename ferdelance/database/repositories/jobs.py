@@ -1,6 +1,7 @@
-from ferdelance.logging import get_logger
+from ferdelance.config import config_manager
 from ferdelance.database.tables import Job as JobDB, JobLock as JobLockDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.logging import get_logger
 from ferdelance.schemas.jobs import Job, JobLock
 from ferdelance.shared.status import JobStatus
 
@@ -10,6 +11,8 @@ from sqlalchemy.exc import NoResultFound
 from datetime import datetime
 from uuid import uuid4
 
+import aiofiles.os as aos
+import os
 
 LOGGER = get_logger(__name__)
 
@@ -20,12 +23,10 @@ def view(job: JobDB) -> Job:
         artifact_id=job.artifact_id,
         component_id=job.component_id,
         status=job.status,
+        path=job.path,
         creation_time=job.creation_time,
         execution_time=job.execution_time,
         termination_time=job.termination_time,
-        is_model=job.is_model,
-        is_estimation=job.is_estimation,
-        is_aggregation=job.is_aggregation,
         iteration=job.iteration,
     )
 
@@ -49,16 +50,14 @@ class JobRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
+    # TODO: maybe replace arguments with job object?
     async def create_job(
         self,
         artifact_id: str,
         component_id: str,
-        is_model: bool = False,
-        is_estimation: bool = False,
-        is_aggregation: bool = False,
+        path: str,
         iteration: int = 0,
         counter: int = 0,
-        work_type: str = "",
         status=JobStatus.WAITING,
         job_id: str | None = None,
     ) -> Job:
@@ -71,15 +70,8 @@ class JobRepository(Repository):
                 Id of the artifact to schedule.
             component_id (str):
                 Id of the client that will have to execute the job.
-            is_model (bool, optional):
-                If true, the job will be considered as a training of a new model.
-                Defaults to False.
-            is_estimation (bool, optional):
-                If true, the job will be considered as an estimation.
-                Defaults to False.
-            is_aggregation (bool, optional):
-                If true, the job will be considered as an aggregation, otherwise
-                a partial (local) job. Defaults to False.
+
+            TODO: add missing arguments
 
         Returns:
             Job:
@@ -92,17 +84,16 @@ class JobRepository(Repository):
         if job_id is None:
             job_id = str(uuid4())
 
+        path = await self.store(job_id)
+
         job = JobDB(
             id=job_id,
             artifact_id=artifact_id,
             component_id=component_id,
+            path=path,
             status=status.name,
-            is_model=is_model,
-            is_estimation=is_estimation,
-            is_aggregation=is_aggregation,
             iteration=iteration,
             lock_counter=counter,
-            work_type=work_type,
         )
 
         self.session.add(job)
@@ -116,9 +107,15 @@ class JobRepository(Repository):
 
         return view(job)
 
+    async def store(self, job_id: str) -> str:
+        path = config_manager.get().storage_artifact(job_id)
+        await aos.makedirs(path, exist_ok=True)
+        path = os.path.join(path, f"{job_id}.json")
+        return path
+
     async def add_locks(self, job: Job, locked_jobs: list[Job]) -> None:
         """Adds constraint between the current job and the jobs that depends on
-        the successfull completion of it. Locked jobs need to have the same
+        the successful completion of it. Locked jobs need to have the same
         artifact_id. Jobs from different artifact will be ignored.
 
         Args:
@@ -362,7 +359,7 @@ class JobRepository(Repository):
         return [view_lock(lock) for lock in locks.all()]
 
     async def list_job_locks_for(self, job: Job) -> list[JobLock]:
-        """Lists all the jobs that are locking (not completed succesfully) the
+        """Lists all the jobs that are locking (not completed successfully) the
         given job.
 
         Args:
@@ -461,9 +458,7 @@ class JobRepository(Repository):
         res = await self.session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
         return [view(j) for j in res.all()]
 
-    async def count_jobs_by_artifact_id(
-        self, artifact_id: str, iteration: int = -1, is_aggregation: bool | None = None
-    ) -> int:
+    async def count_jobs_by_artifact_id(self, artifact_id: str, iteration: int = -1) -> int:
         """Counts the number of jobs created for the given artifact_id.
 
         Args:
@@ -479,15 +474,11 @@ class JobRepository(Repository):
         conditions = [JobDB.artifact_id == artifact_id]
         if iteration > -1:
             conditions.append(JobDB.iteration == iteration)
-        if is_aggregation is not None:
-            conditions.append(JobDB.is_aggregation == is_aggregation)
 
         res = await self.session.scalars(select(func.count()).select_from(JobDB).where(*conditions))
         return res.one()
 
-    async def count_jobs_by_artifact_status(
-        self, artifact_id: str, status: JobStatus, iteration: int = -1, is_aggregation: bool | None = None
-    ) -> int:
+    async def count_jobs_by_artifact_status(self, artifact_id: str, status: JobStatus, iteration: int = -1) -> int:
         """Counts the number of jobs created for the given artifact_id and in
         the given status.
 
@@ -504,8 +495,6 @@ class JobRepository(Repository):
         conditions = [JobDB.artifact_id == artifact_id, JobDB.status == status.name]
         if iteration > -1:
             conditions.append(JobDB.iteration == iteration)
-        if is_aggregation is not None:
-            conditions.append(JobDB.is_aggregation == is_aggregation)
 
         res = await self.session.scalars(select(func.count()).select_from(JobDB).where(*conditions))
         return res.one()

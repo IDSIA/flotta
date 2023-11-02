@@ -61,7 +61,7 @@ class Component(Base):
     # fdl component's version
     version: Mapped[str | None] = mapped_column(String)
 
-    # node component ip addresss (for indirect communication)
+    # node component ip addresses (for indirect communication)
     ip_address: Mapped[str | None] = mapped_column(String)
     # node component complete url (for direct communication)
     url: Mapped[str | None] = mapped_column(String)
@@ -97,9 +97,6 @@ class Artifact(Base):
     # Zero-based index, same as relative Job.iteration
     iteration: Mapped[int] = mapped_column(default=0)
 
-    is_model: Mapped[bool] = mapped_column(default=False)
-    is_estimation: Mapped[bool] = mapped_column(default=False)
-
 
 class Job(Base):
     """Table that keeps track of which artifact has been submitted and the state of the request.
@@ -116,18 +113,14 @@ class Job(Base):
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
     artifact = relationship("Artifact")
 
-    # True if the job trains a new model
-    is_model: Mapped[bool] = mapped_column(default=False)
-    # True if the job fit a new estimation
-    is_estimation: Mapped[bool] = mapped_column(default=False)
-    # True if the job is an aggregation of models or estimations
-    is_aggregation: Mapped[bool] = mapped_column(default=False)
     # Zero-based counter for iterations
     iteration: Mapped[int] = mapped_column(default=0)
 
     # This counter keeps track of how many other jobs this job is waiting for, when 0 it can be set to scheduled
     lock_counter: Mapped[int] = mapped_column(default=0)
-    work_type: Mapped[str] = mapped_column(String())
+
+    # Path to the local descriptor of this job, sent to the worker
+    path: Mapped[str] = mapped_column(String)
 
     # Id of the component executing the job
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
@@ -162,7 +155,7 @@ class JobLock(Base):
     next_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
     locked: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    artifat = relationship("Artifact", foreign_keys=[artifact_id])
+    artifact = relationship("Artifact", foreign_keys=[artifact_id])
     job = relationship("Job", foreign_keys=[job_id])
     next_job = relationship("Job", foreign_keys=[next_id])
 
@@ -176,15 +169,11 @@ class Resource(Base):
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     path: Mapped[str] = mapped_column(String)
 
-    # TODO: if both is no, then it is a plain resource?
-    is_model: Mapped[bool] = mapped_column(default=False)
-    is_estimation: Mapped[bool] = mapped_column(default=False)
-    is_aggregation: Mapped[bool] = mapped_column(default=False)
     is_error: Mapped[bool] = mapped_column(default=False)
 
     iteration: Mapped[int] = mapped_column(default=0)
 
-    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), unique=True)
     job = relationship("Job")
 
     # TODO: one model per artifact or one artifact can have multiple models?
