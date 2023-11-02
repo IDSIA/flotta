@@ -3,7 +3,7 @@
 from ferdelance.cli.base import CLICommand, CLICommandSuite
 from ferdelance.cli.fdl_suites.args import FDLCLIArgs
 from ferdelance.cli.fdl_suites.commands import FDLCommands
-from .functions import list_models
+from .functions import list_resource
 
 #
 #   COMMANDS
@@ -12,7 +12,7 @@ from .functions import list_models
 list_command: CLICommand = CLICommand(
     command=FDLCommands.list,
     arguments=[FDLCLIArgs.ARTIFACT_ID, FDLCLIArgs.MODEL_ID],
-    function=list_models,
+    function=list_resource,
 )
 
 #
