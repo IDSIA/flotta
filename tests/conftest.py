@@ -38,7 +38,7 @@ def create_dirs() -> None:
     os.makedirs(conf.storage_datasources_dir(), exist_ok=True)
     os.makedirs(conf.storage_artifact_dir(), exist_ok=True)
     os.makedirs(conf.storage_clients_dir(), exist_ok=True)
-    os.makedirs(conf.storage_results_dir(), exist_ok=True)
+    os.makedirs(conf.storage_resource_dir(), exist_ok=True)
 
     if os.path.exists(db_path):
         os.remove(db_path)
@@ -48,7 +48,7 @@ def delete_dirs() -> None:
     shutil.rmtree(conf.storage_datasources_dir())
     shutil.rmtree(conf.storage_artifact_dir())
     shutil.rmtree(conf.storage_clients_dir())
-    shutil.rmtree(conf.storage_results_dir())
+    shutil.rmtree(conf.storage_resource_dir())
 
     if os.path.exists(db_path):
         os.remove(db_path)

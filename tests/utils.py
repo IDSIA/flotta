@@ -98,6 +98,7 @@ def get_metadata(
     project_token: str = TEST_PROJECT_TOKEN,
     datasource_id: str = TEST_DATASOURCE_ID,
     ds_hash: str = TEST_DATASOURCE_HASH,
+    scale: float = 1.0,
 ) -> Metadata:
     return Metadata(
         datasources=[
@@ -105,7 +106,7 @@ def get_metadata(
                 id=datasource_id,
                 hash=ds_hash,
                 tokens=[project_token],
-                n_records=1000,
+                n_records=int(1000 * scale),
                 n_features=2,
                 name="ds1",
                 removed=False,

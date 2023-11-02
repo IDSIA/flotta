@@ -28,6 +28,7 @@ async def test_jobs_list(session: AsyncSession):
         artifact_id="A1",
         component_id="C1",
         status="J1",
+        path="",
     )
 
     session.add(c1)

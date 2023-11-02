@@ -60,9 +60,11 @@ async def test_jobs_next(session: AsyncSession):
 
     jr: JobRepository = JobRepository(session)
 
-    sc_1 = await jr.schedule_job(artifact_id_1, client_id_1)
-    sc_2 = await jr.schedule_job(artifact_id_1, client_id_2)
-    sc_3 = await jr.schedule_job(artifact_id_2, client_id_1)
+    sc_1 = await jr.create_job(artifact_id_1, client_id_1, path="")
+    sc_2 = await jr.create_job(artifact_id_1, client_id_2, path="")
+    sc_3 = await jr.create_job(artifact_id_2, client_id_1, path="")
+
+    await jr.schedule_job(sc_1)
 
     job1 = await jr.next_job_for_component(client_id_1)
 
@@ -83,7 +85,7 @@ async def test_jobs_next(session: AsyncSession):
     assert sc_2.execution_time is None
     assert sc_3.execution_time is None
 
-    await jr.mark_completed(job1.id, job1.component_id)
+    await jr.complete_execution(job1)
 
     sc_1 = await jr.get(sc_1)
     sc_2 = await jr.get(sc_2)
@@ -94,6 +96,8 @@ async def test_jobs_next(session: AsyncSession):
     assert job1.termination_time is not None
     assert sc_2.termination_time is None
     assert sc_3.termination_time is None
+
+    await jr.schedule_job(sc_3)
 
     job2 = await jr.next_job_for_component(client_id_1)
 
