@@ -21,14 +21,14 @@ class FederatedSimpleImputer(QueryTransformer):
         return values
 
     def transform(self, env: Environment) -> tuple[Environment, Any]:
+        if env.X_tr is None:
+            raise ValueError("X_tr required!")
+
         tr = SimpleImputer(
             missing_values=self.missing_values,
             strategy=self.strategy,
             fill_value=self.fill_value,
         )
-
-        if env.X_tr is None:
-            raise ValueError("X_tr required!")
 
         tr.fit(env.X_tr[self._columns_in()], env.y_tr)
 

@@ -14,7 +14,7 @@ class Environment:
     X_ts: DataFrame | None = None
     y_ts: DataFrame | None = None
 
-    env: dict[str, Any]
+    env: dict[str, Any] = dict()
 
     def __getitem__(self, key: str) -> Any:
         return self.env[key]

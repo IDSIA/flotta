@@ -56,22 +56,20 @@ class FederatedStandardScaler(QueryTransformer):
     with_std: bool = True
 
     def transform(self, env: Environment) -> tuple[Environment, Any]:
+        if env.X_tr is None:
+            raise ValueError("X_tr required!")
+
         tr = StandardScaler(
             with_mean=self.with_mean,
             with_std=self.with_std,
         )
 
-        if env.X_tr is None:
-            raise ValueError("X_tr required!")
-
         tr.fit(env.X_tr[self._columns_in()])
 
-        if env.X_ts is None:
-            X = env.X_tr
-        else:
-            X = env.X_ts
+        env.X_tr[self._columns_out()] = tr.transform(env.X_tr[self._columns_in()])
 
-        X[self._columns_out()] = tr.transform(X[self._columns_in()])
+        if env.X_ts is not None:
+            env.X_ts[self._columns_out()] = tr.transform(env.X_ts[self._columns_in()])
 
         return env, tr
 
