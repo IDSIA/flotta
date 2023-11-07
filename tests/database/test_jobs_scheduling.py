@@ -1,10 +1,16 @@
+from ferdelance.core.artifacts import Artifact
+from ferdelance.core.distributions import Collect, Distribute
+from ferdelance.core.environment import Environment
+from ferdelance.core.interfaces import SchedulerContext
+from ferdelance.core.operations import Operation
+from ferdelance.core.steps import Finalize, Initialize, Parallel
 from ferdelance.database.tables import JobLock as JobLockDB, Job as JobDB
 from ferdelance.database.repositories import JobRepository, ArtifactRepository
 from ferdelance.node.api import api
-from ferdelance.core.artifacts import Artifact
-from ferdelance.shared.exchange import Exchange
+from ferdelance.schemas.components import Component
+from ferdelance.schemas.jobs import Job
 
-from tests.utils import create_project, create_node
+from tests.utils import create_project, create_node, setup_exchange
 
 from fastapi.testclient import TestClient
 
@@ -14,8 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import pytest
 
 
+class DummyOp(Operation):
+    def exec(self, env: Environment) -> Environment:
+        return env
+
+
 @pytest.mark.asyncio
-async def test_job_change_status(session: AsyncSession, exchange: Exchange):
+async def test_job_change_status(session: AsyncSession):
     with TestClient(api) as client:
         ar = ArtifactRepository(session)
         jr = JobRepository(session)
@@ -23,34 +34,65 @@ async def test_job_change_status(session: AsyncSession, exchange: Exchange):
         p_token: str = "123456789"
 
         await create_project(session, p_token)
-        client_id = create_node(client, exchange)
+        node = create_node(client, setup_exchange())
+        worker1 = create_node(client, setup_exchange())
+        worker2 = create_node(client, setup_exchange())
+        worker3 = create_node(client, setup_exchange())
 
         a = Artifact(
             id="artifact",
             project_id=p_token,
-            steps=[],
+            steps=[
+                Initialize(DummyOp(), Distribute()),
+                Parallel(DummyOp(), Collect()),
+                Finalize(DummyOp(), Distribute()),
+                Parallel(DummyOp(), Collect()),
+                Finalize(DummyOp()),
+            ],
         )
 
         await ar.create_artifact(a)
 
-        job0 = await jr.create_job(a.id, client_id, "", job_id="job0")
-        job1 = await jr.create_job(a.id, client_id, "", job_id="job1")
-        job2 = await jr.create_job(a.id, client_id, "", job_id="job2")
-        job3 = await jr.create_job(a.id, client_id, "", job_id="job3")
-        job4 = await jr.create_job(a.id, client_id, "", job_id="job4")
-        job5 = await jr.create_job(a.id, client_id, "", job_id="job5")
-        job6 = await jr.create_job(a.id, client_id, "", job_id="job6")
-        job7 = await jr.create_job(a.id, client_id, "", job_id="job7")
-        job8 = await jr.create_job(a.id, client_id, "", job_id="job8")
+        jobs = a.jobs(
+            SchedulerContext(
+                artifact_id=a.id,
+                initiator=Component(id=node, type_name="node", public_key=""),
+                workers=[
+                    Component(id=worker1, type_name="node", public_key=""),
+                    Component(id=worker2, type_name="node", public_key=""),
+                    Component(id=worker3, type_name="node", public_key=""),
+                ],
+            )
+        )
 
-        await jr.add_locks(job0, [job1, job2, job3])
-        await jr.add_locks(job1, [job4])
-        await jr.add_locks(job2, [job4])
-        await jr.add_locks(job3, [job4])
-        await jr.add_locks(job4, [job5, job6, job7])
-        await jr.add_locks(job5, [job8])
-        await jr.add_locks(job6, [job8])
-        await jr.add_locks(job7, [job8])
+        assert len(jobs) == 9
+
+        assert jobs[0].locks == [1, 2, 3]
+        assert jobs[1].locks == [4]
+        assert jobs[2].locks == [4]
+        assert jobs[3].locks == [4]
+        assert jobs[4].locks == [5, 6, 7]
+        assert jobs[5].locks == [8]
+        assert jobs[6].locks == [8]
+        assert jobs[7].locks == [8]
+        assert jobs[8].locks == []
+
+        job_map: dict[int, Job] = dict()
+
+        for i, job in enumerate(jobs):
+            j = await jr.create_job(a.id, job, job_id=f"job{i}")
+            job_map[job.id] = j
+
+        for job in jobs:
+            j = job_map[job.id]
+            unlocks = [job_map[i] for i in job.locks]
+
+            await jr.add_locks(j, unlocks)
+
+        job0 = job_map[0]
+        job1 = job_map[1]
+        job2 = job_map[2]
+        job3 = job_map[3]
 
         n_jobs = await session.scalar(select(func.count()).select_from(JobDB))
         assert n_jobs == 9
@@ -77,7 +119,7 @@ async def test_job_change_status(session: AsyncSession, exchange: Exchange):
 
         async def list_unlocked_jobs():
             print("list unlocked jobs")
-            jobs = await jr.list_unlocked_jobs(a.id)
+            jobs = await jr.list_unlocked_jobs_by_artifact_id(a.id)
 
             for job in jobs:
                 print("job: id=", job.id)
