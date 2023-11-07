@@ -19,6 +19,9 @@ class Artifact(Entity):
     def jobs(self, context: SchedulerContext) -> Sequence[SchedulerJob]:
         jobs = []
 
+        if len(self.steps) < 1:
+            return jobs
+
         jobs0 = self.steps[0].jobs(context)
 
         for step0, step1 in pairwise(self.steps):

@@ -1,4 +1,7 @@
-from ferdelance.config import config_manager
+from typing import Sequence
+from ferdelance.core.artifacts import Artifact, ArtifactStatus
+from ferdelance.core.interfaces import SchedulerContext, SchedulerJob
+from ferdelance.core.metrics import Metrics
 from ferdelance.database.repositories import (
     AsyncSession,
     ArtifactRepository,
@@ -9,21 +12,16 @@ from ferdelance.database.repositories import (
     ResourceRepository,
     Repository,
 )
-from ferdelance.exceptions import ArtifactDoesNotExists
 from ferdelance.logging import get_logger
 from ferdelance.node.services import ActionService, TaskManagementService
-from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.scheduling import SchedulerContext
 from ferdelance.schemas.database import ServerArtifact, Resource
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.tasks import TaskParameters, TaskError
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
-from ferdelance.tasks.backends import get_jobs_backend, Backend
 
-from sqlalchemy.exc import NoResultFound, IntegrityError
+from sqlalchemy.exc import NoResultFound
 
 import aiofiles
 import aiofiles.ospath
@@ -121,7 +119,7 @@ class JobManagementService(Repository):
             workers=workers,
         )
 
-        jobs: list[SchedulableJob] = artifact.get_plan().get_jobs(context)
+        jobs: Sequence[SchedulerJob] = artifact.jobs(context)
 
         LOGGER.info(f"artifact={artifact.id}: planned to schedule {len(jobs)} job(s) for it={iteration}")
 
@@ -131,68 +129,67 @@ class JobManagementService(Repository):
         for job in jobs:
             j = await self.jr.create_job(
                 artifact.id,
-                job.worker.id,
-                is_model=artifact.is_model(),
-                is_estimation=artifact.is_estimation(),
-                iteration=job.iteration,
-                counter=job.counter,
-                work_type=job.work_type,
+                job,
             )
             job_map[job.id] = j
 
         # insert unlocks in database
         for job in jobs:
             j = job_map[job.id]
-            unlocks = [job_map[i] for i in job.unlocks]
+            unlocks = [job_map[i] for i in job.locks]
 
             await self.jr.add_locks(j, unlocks)
 
-        # set first (init) job to scheduled
+        # set first job to scheduled
         if iteration == 0:
             job = job_map[0]
-            LOGGER.info(f"component={self.component.id}: scheduling initialization job={job}")
+            LOGGER.info(f"component={self.component.id}: scheduling initialization job={job.id}")
             await self.jr.schedule_job(job)
 
-            get_jobs_backend().start_init(
-                artifact_id=artifact.id,
-                job_id=job.id,
-                component_id=self.component.id,
-                private_key=self.private_key,
-                node_url=config_manager.get().url_extern(),
-                node_public_key=self.node_public_key,
-            )
+        #     get_jobs_backend().start_init(
+        #         artifact_id=artifact.id,
+        #         job_id=job.id,
+        #         component_id=self.component.id,
+        #         private_key=self.private_key,
+        #         node_url=config_manager.get().url_extern(),
+        #         node_public_key=self.node_public_key,
+        #     )
 
+    async def next_task_for_component(self, component_id: str) -> str | None:
+        jobs = await self.jr.list_scheduled_jobs_for_component(component_id)
+
+        if len(jobs) < 1:
+            return None
+
+        return jobs[0].id
+
+    # TODO: this should be internal to a task and referred to the ENVIRONMENT type
     async def store_context(self, context: TaskParameters, init: bool = False) -> None:
-        ar: ArtifactRepository = ArtifactRepository(self.session)
-        jr: JobRepository = JobRepository(self.session)
-
-        job = await jr.get_by_id(context.job_id)
+        job = await self.jr.get_by_id(context.job_id)
 
         if job.component_id != self.component.id:
             raise ValueError("Invalid component!")
 
         if init:
-            path_init = await ar.storage_location(context.artifact_id, "context.data.init.json")
+            path_init = await self.ar.storage_location(context.artifact_id, "context.data.init.json")
 
             # initialization context will be used at the end
             async with aiofiles.open(path_init, "w") as f:
                 json.dump(context.data, f)
 
         # current content, same as init
-        path = await ar.storage_location(context.artifact_id, "context.data.json")
+        path = await self.ar.storage_location(context.artifact_id, "context.data.json")
         async with aiofiles.open(path, "w") as f:
             json.dump(context.data, f)
 
-        await jr.complete_execution(job)
+        await self.jr.complete_execution(job)
 
         # TODO: check aggregation?
 
+    # TODO: this should be internal to a task and referred to the ENVIRONMENT type
     async def load_context(self, artifact_id: str, job_id: str) -> TaskParameters:
-        ar: ArtifactRepository = ArtifactRepository(self.session)
-        jr: JobRepository = JobRepository(self.session)
-
         # fetch task
-        job = await jr.get_by_id(job_id)
+        job = await self.jr.get_by_id(job_id)
 
         if job.component_id != self.component.id:
             raise ValueError("Invalid component!")
@@ -202,9 +199,9 @@ class JobManagementService(Repository):
 
         # check that the artifact exists
         await self.ar.get_artifact(artifact_id)
-        artifact = await ar.load(artifact_id)
+        artifact = await self.ar.load(artifact_id)
 
-        path = await ar.storage_location(artifact_id, "context.json")
+        path = await self.ar.storage_location(artifact_id, "context.json")
         if aiofiles.ospath.exists(path):
             async with aiofiles.open(path, "w") as f:
                 content = await f.read()
@@ -220,11 +217,11 @@ class JobManagementService(Repository):
             data=data,
         )
 
-        await jr.start_execution(job)
+        await self.jr.start_execution(job)
 
         return context
 
-    async def store_resource(self, job_id: str) -> Resource:
+    async def store_resource(self, job_id: str, is_error: bool) -> Resource:
         job = await self.jr.get_by_id(job_id)
         artifact_id = job.artifact_id
 
@@ -236,9 +233,7 @@ class JobManagementService(Repository):
             job.artifact_id,
             self.component.id,
             job.iteration,
-            job.is_estimation,
-            job.is_model,
-            job.is_aggregation,
+            is_error=is_error,
         )
 
         return resource
@@ -258,22 +253,36 @@ class JobManagementService(Repository):
     async def check(self, artifact_id: str) -> None:
         jobs = await self.jr.list_jobs_by_artifact_id(artifact_id)
 
-        job_to_start = []
+        job_to_start = False
 
         for job in jobs:
             if job.status == JobStatus.WAITING.name:
                 job = await self.jr.schedule_job(job)
-                job_to_start.append(job)
+                job_to_start = True
 
-        # await self.tm.task_start()
+        if not job_to_start:
+            await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED)
+            # TODO: check for iteration
 
-    async def task_completed(self, job_id: str) -> None:
-        LOGGER.error(f"job={job_id}: task completed")
+    async def task_started(self, job_id: str) -> None:
+        LOGGER.info(f"job={job_id}: task started")
 
         try:
             job = await self.jr.get_by_id(job_id)
+            job = await self.jr.start_execution(job)
 
-            await self.jr.complete_execution(job)
+            await self.ar.update_status(job.artifact_id, ArtifactJobStatus.RUNNING)
+
+        except NoResultFound:
+            raise ValueError(f"component={self.component.id}: job={job_id} does not exists")
+
+    async def task_completed(self, job_id: str) -> None:
+        LOGGER.info(f"job={job_id}: task completed")
+
+        try:
+            job = await self.jr.get_by_id(job_id)
+            job = await self.jr.complete_execution(job)
+
             await self.jr.unlock_job(job)
             await self.check(job.artifact_id)
 
@@ -289,15 +298,13 @@ class JobManagementService(Repository):
 
             await self.jr.failed_execution(job)
 
-            resource = await self.store_resource(error.job_id)
+            resource = await self.store_resource(error.job_id, True)
 
             job = await self.jr.get_by_id(error.job_id)
 
-            if job.is_aggregation:
-                # TODO: remove this since we don't have only agg jobs
-                # mark artifact as error
-                LOGGER.error(f"job={error.job_id}: aggregation failed for artifact={job.artifact_id}")
-                await self.ar.update_status(job.artifact_id, ArtifactJobStatus.ERROR)
+            # mark artifact as error
+            LOGGER.error(f"job={error.job_id}: aggregation failed for artifact={job.artifact_id}")
+            await self.ar.update_status(job.artifact_id, ArtifactJobStatus.ERROR)
 
             async with aiofiles.open(resource.path, "w") as out_file:
                 content = json.dumps(error.dict())
@@ -309,21 +316,19 @@ class JobManagementService(Repository):
             raise ValueError(f"component={self.component.id}: job={error.job_id} does not exists")
 
     async def metrics(self, metrics: Metrics) -> None:
-        ar: ArtifactRepository = ArtifactRepository(self.session)
-
-        artifact = await ar.get_artifact(metrics.artifact_id)
+        artifact = await self.ar.get_artifact(metrics.artifact_id)
 
         if artifact is None:
             raise ValueError(f"artifact={metrics.artifact_id} assigned to metrics not found")
 
-        path = await ar.storage_location(artifact.id, f"metrics_{metrics.source}.json")
+        path = await self.ar.storage_location(artifact.id, f"metrics_{metrics.source}.json")
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(metrics.dict())
             await f.write(content)
 
-    # TODO: check and updates methods below
 
+"""
     async def _task_start(self, job_id: str) -> TaskParameters:
         try:
             LOGGER.info(f"component={self.component.id}: start job={job_id}")
@@ -336,7 +341,7 @@ class JobManagementService(Repository):
 
             artifact_path = artifact_db.path
 
-            # check that the artifact exists on idsk
+            # check that the artifact exists on disk
             if not os.path.exists(artifact_path):
                 LOGGER.warning(
                     f"component={self.component.id}: artifact={artifact_id} does not exist with path={artifact_path}"
@@ -546,7 +551,7 @@ class JobManagementService(Repository):
             return agg_job
 
         except ValueError as e:
-            LOGGER.error(f"artifact={artifact_id}: aggregation impossile: no worker available")
+            LOGGER.error(f"artifact={artifact_id}: aggregation impossible: no worker available")
             raise e
 
         except IntegrityError:
@@ -564,3 +569,4 @@ class JobManagementService(Repository):
         except Exception as e:
             LOGGER.exception(e)
             raise e
+"""

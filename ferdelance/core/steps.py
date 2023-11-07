@@ -51,7 +51,7 @@ class Initialize(BaseStep):
     def __init__(
         self,
         operation: Operation,
-        distribution: Distribution | None,
+        distribution: Distribution | None = None,
         inputs: list[str] = list(),
         outputs: list[str] = list(),
         iteration: int = 1,
@@ -84,7 +84,7 @@ class Parallel(BaseStep):
     def __init__(
         self,
         operation: Operation,
-        distribution: Distribution | None,
+        distribution: Distribution | None = None,
         inputs: list[str] = list(),
         outputs: list[str] = list(),
         iteration: int = 1,

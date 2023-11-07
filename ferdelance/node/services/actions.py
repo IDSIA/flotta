@@ -25,15 +25,7 @@ class ActionService:
         return await self.jr.next_job_for_component(component.id)
 
     async def _action_schedule_job(self, job: Job) -> UpdateData:
-        if job.is_model:
-            action = Action.EXECUTE_TRAINING
-        elif job.is_estimation:
-            action = Action.EXECUTE_ESTIMATE
-        else:
-            LOGGER.error(f"Invalid action type for job={job.id}")
-            raise ValueError()
-
-        return UpdateData(action=action.name, job_id=job.id, artifact_id=job.artifact_id)
+        return UpdateData(action=Action.EXECUTE.name, job_id=job.id, artifact_id=job.artifact_id)
 
     async def _action_nothing(self) -> UpdateData:
         """Do nothing and waits for the next update request."""

@@ -7,11 +7,8 @@ class Action(Enum):
     """Initialize client"""
     INIT = auto()
 
-    """Execute a new train query."""
-    EXECUTE_TRAINING = auto()
-
-    """Execute a new estimate query."""
-    EXECUTE_ESTIMATE = auto()
+    """Execute a task."""
+    EXECUTE = auto()
 
     """Server send that the token is expired, update with a new one."""
     UPDATE_TOKEN = auto()

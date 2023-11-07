@@ -1,4 +1,7 @@
+import json
+import aiofiles
 from ferdelance.config import config_manager
+from ferdelance.core.interfaces import SchedulerJob
 from ferdelance.database.tables import Job as JobDB, JobLock as JobLockDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.logging import get_logger
@@ -54,10 +57,7 @@ class JobRepository(Repository):
     async def create_job(
         self,
         artifact_id: str,
-        component_id: str,
-        path: str,
-        iteration: int = 0,
-        counter: int = 0,
+        job: SchedulerJob,
         status=JobStatus.WAITING,
         job_id: str | None = None,
     ) -> Job:
@@ -77,40 +77,44 @@ class JobRepository(Repository):
             Job:
                 An handler to the scheduled job.
         """
-        LOGGER.info(f"component={component_id}: scheduling new job for artifact={artifact_id} iteration={iteration}")
+        LOGGER.info(f"artifact={artifact_id}: scheduling new job")
 
         # TODO: what happen if we submit again the same artifact?
 
         if job_id is None:
             job_id = str(uuid4())
 
-        path = await self.store(job_id)
+        path = await self.store(artifact_id, job, job_id)
 
-        job = JobDB(
+        job_db = JobDB(
             id=job_id,
+            step_id=job.id,
             artifact_id=artifact_id,
-            component_id=component_id,
+            component_id=job.worker.id,
             path=path,
             status=status.name,
-            iteration=iteration,
-            lock_counter=counter,
+            iteration=job.iteration,
         )
 
-        self.session.add(job)
+        self.session.add(job_db)
         await self.session.commit()
-        await self.session.refresh(job)
+        await self.session.refresh(job_db)
 
         LOGGER.info(
-            f"component={component_id}: scheduled job={job.id} for artifact={artifact_id} "
-            f"iteration={iteration} component={component_id}"
+            f"artifact={artifact_id}: scheduled job={job_db.id} iteration={job.iteration} component={job.worker.id}"
         )
 
-        return view(job)
+        return view(job_db)
 
-    async def store(self, job_id: str) -> str:
-        path = config_manager.get().storage_artifact(job_id)
+    async def store(self, artifact_id: str, job: SchedulerJob, job_id: str) -> str:
+        path = config_manager.get().storage_artifact(artifact_id)
         await aos.makedirs(path, exist_ok=True)
-        path = os.path.join(path, f"{job_id}.json")
+        path = os.path.join(path, f"job.{job_id}.json")
+
+        async with aiofiles.open(path, "w") as f:
+            content = json.dumps(job.dict())
+            await f.write(content)
+
         return path
 
     async def add_locks(self, job: Job, locked_jobs: list[Job]) -> None:
@@ -374,7 +378,7 @@ class JobRepository(Repository):
 
         return [view_lock(lock) for lock in locks.all()]
 
-    async def list_unlocked_jobs(self, artifact_id: str) -> list[Job]:
+    async def list_unlocked_jobs_by_artifact_id(self, artifact_id: str) -> list[Job]:
         """Lists all jobs that are not locked by any constraint for the given
         artifact_id. Jobs can be in different states.
 
@@ -390,6 +394,34 @@ class JobRepository(Repository):
             select(JobDB).where(
                 JobDB.artifact_id == artifact_id,
                 JobDB.id.not_in(
+                    select(JobLockDB.next_id)
+                    .where(
+                        JobLockDB.locked.is_(True),
+                        JobLockDB.artifact_id == artifact_id,
+                    )
+                    .distinct()
+                ),
+            )
+        )
+
+        return [view(j) for j in jobs.all()]
+
+    async def list_locked_jobs_by_artifact_id(self, artifact_id: str) -> list[Job]:
+        """Lists all jobs that are not lock by any constraint for the given
+        artifact_id. Jobs can be in different states.
+
+        Args:
+            artifact_id (str):
+                Id of the artifact to get the jobs for.
+
+        Returns:
+            list[Job]:
+                A list of jobs that are not locked by any constraint.
+        """
+        jobs = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.artifact_id == artifact_id,
+                JobDB.id.in_(
                     select(JobLockDB.next_id)
                     .where(
                         JobLockDB.locked.is_(True),
@@ -430,6 +462,15 @@ class JobRepository(Repository):
                 can be an empty list.
         """
         res = await self.session.scalars(select(JobDB).where(JobDB.status == status.name))
+        return [view(j) for j in res.all()]
+
+    async def list_scheduled_jobs_for_component(self, component_id: str) -> list[Job]:
+        res = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.status == JobStatus.SCHEDULED.name,
+                JobDB.component_id == component_id,
+            )
+        )
         return [view(j) for j in res.all()]
 
     async def list_jobs(self) -> list[Job]:

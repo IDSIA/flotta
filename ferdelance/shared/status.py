@@ -11,8 +11,6 @@ class JobStatus(Enum):
 
 class ArtifactJobStatus(Enum):
     SCHEDULED = auto()
-    TRAINING = auto()
-    AGGREGATING = auto()
-    EVALUATING = auto()
+    RUNNING = auto()
     COMPLETED = auto()
     ERROR = auto()

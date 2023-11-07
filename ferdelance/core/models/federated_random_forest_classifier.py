@@ -1,14 +1,8 @@
 from __future__ import annotations
-from typing import Sequence
 from enum import Enum
+from ferdelance.core.models.meta import AggregationModel
 
 from ferdelance.logging import get_logger
-from ferdelance.core.distributions import Collect
-from ferdelance.core.interfaces import Step
-from ferdelance.core.model import Model
-from ferdelance.core.model_operations import Train
-from ferdelance.core.operations import Aggregation
-from ferdelance.core.steps import Finalize, Parallel
 
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.preprocessing import LabelEncoder
@@ -28,7 +22,7 @@ class StrategyRandomForestClassifier(str, Enum):
     """All the models will be put together and a classification is decided by majority vote between all models."""
 
 
-class FederatedRandomForestClassifier(Model):
+class FederatedRandomForestClassifier(AggregationModel):
     """
     This class also defines all the parameters accepted in training by the model.
 
@@ -55,22 +49,6 @@ class FederatedRandomForestClassifier(Model):
     class_weight: str | list[str] | list[dict[str, float]] | None = None
     ccp_alpha: float = 0
     max_samples: int | None = None
-
-    def get_steps(self) -> Sequence[Step]:
-        return [
-            Parallel(
-                Train(
-                    query=self.query,
-                    model=self,
-                ),
-                Collect(),
-            ),
-            Finalize(
-                Aggregation(
-                    model=self,
-                ),
-            ),
-        ]
 
     def train(self, x, y) -> RandomForestClassifier:
         model = RandomForestClassifier(**self.dict())

@@ -5,10 +5,12 @@ __all__ = [
     "ModelOperation",
     "Train",
     "TrainTest",
+    "Aggregation",
     "LocalCrossValidation",
 ]
 
 
 from .core import ModelOperation
 from .train import Train, TrainTest
+from .aggregations import Aggregation
 from .cross_validation import LocalCrossValidation

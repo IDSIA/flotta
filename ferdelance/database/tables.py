@@ -109,15 +109,13 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    step_id: Mapped[int] = mapped_column(Integer)
 
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
     artifact = relationship("Artifact")
 
     # Zero-based counter for iterations
     iteration: Mapped[int] = mapped_column(default=0)
-
-    # This counter keeps track of how many other jobs this job is waiting for, when 0 it can be set to scheduled
-    lock_counter: Mapped[int] = mapped_column(default=0)
 
     # Path to the local descriptor of this job, sent to the worker
     path: Mapped[str] = mapped_column(String)
