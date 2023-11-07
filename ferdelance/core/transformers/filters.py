@@ -10,54 +10,23 @@ import pandas as pd
 
 
 class FederatedFilter(QueryTransformer):
-    feature: str
+    feature: QueryFeature
     operation: FilterOperation
-    value: str
-
-    def __init__(self, feature: str | QueryFeature, operation: FilterOperation, value: Any, **data) -> None:
-        super().__init__(**data)
-
-        if isinstance(feature, QueryFeature):
-            self.feature: str = feature.name
-        else:
-            self.feature: str = feature
-
-        self.operation = operation
-        self.value = value
-
-    @validator("feature")
-    def validate_feature(cls, values):
-        feature = values["feature"]
-
-        if isinstance(feature, QueryFeature):
-            values["feature"] = feature.name
-        else:
-            values["feature"] = feature
-
-        return values
-
-    @validator("operation")
-    def validate_operation(cls, values):
-        operation = values["operation"]
-
-        if isinstance(operation, FilterOperation):
-            values["operation"] = operation.name
-        else:
-            values["operation"] = operation
-
-        return values
+    value: str | Any
 
     @validator("value")
-    def validate_value(cls, values):
-        values["value"] = f"{values['value']}"
-        return values
+    def validate_value(cls, value):
+        if not isinstance(value, str):
+            return f"{value}"
+
+        return value
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
         return super().aggregate(env)
 
     def apply(self, df: pd.DataFrame) -> pd.Series:
-        feature: str = self.feature
+        feature: str = self.feature if isinstance(self.feature, str) else self.feature.name
         op: FilterOperation = self.operation
         parameter: str = self.value
 

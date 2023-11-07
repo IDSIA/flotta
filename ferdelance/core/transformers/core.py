@@ -26,7 +26,7 @@ class QueryTransformer(ABC, Entity):
         random_state: Any = None,
         **data,
     ):
-        super(QueryTransformer, self).__init__(random_state=random_state, **data)  # type: ignore
+        super(QueryTransformer, self).__init__(random_state=random_state, **data)
 
         self.features_in = convert_features_in_to_list(features_in)
         self.features_out = convert_features_out_to_list(self.features_in, features_out)
