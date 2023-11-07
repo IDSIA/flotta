@@ -1,6 +1,6 @@
-from ferdelance.schemas.queries import Query, QueryFilter, Operations, QueryFeature
+from ferdelance.core.queries import Query, QueryFilter, QueryFeature
 from ferdelance.schemas.datasources import Feature, DataSource
-from ferdelance.schemas.transformers import FederatedBinarizer
+from ferdelance.core.transformers import FederatedBinarizer
 
 DS1_NAME, DS1_ID = "data_source_1", "ds1"
 DS2_NAME, DS2_ID = "data_source_2", "ds2"
@@ -143,18 +143,10 @@ def test_query_composition():
 
     assert s.transformer is not None
 
-    params = s.transformer.params()
-
-    assert "feature" in params
-    assert params["feature"] == f1.name
-    assert "operation" in params
-    assert params["operation"] == Operations.NUM_GREATER_THAN.name
-    assert "value" in params
-    assert params["value"] == "3"
-
     # adding a transformer
+    f_out = QueryFeature("binary")
 
-    b = FederatedBinarizer(f1, "binary", 0.5)
+    b = FederatedBinarizer(features_in=[f1], features_out=[f_out], threshold=0.5)
 
     q = q.add(b)
 
@@ -167,15 +159,3 @@ def test_query_composition():
     assert "binary" in s.features
 
     assert s.transformer is not None
-
-    params = s.transformer.params()
-
-    assert "features_in" in params
-    assert len(params["features_in"]) == 1
-    assert params["features_in"][0] == f1.name
-
-    assert "features_out" in params
-    assert len(params["features_out"]) == 1
-    assert params["features_out"][0] == "binary"
-
-    assert params["threshold"] == 0.5
