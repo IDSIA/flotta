@@ -1,17 +1,19 @@
+from typing import AsyncGenerator
+
 from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.const import TYPE_USER
+from ferdelance.core.artifacts import ArtifactStatus, Artifact
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
     DataSourceRepository,
     ProjectRepository,
-    ResultRepository,
+    ResourceRepository,
 )
-from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.database import Result
+from ferdelance.schemas.database import Resource
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
     WorkbenchClientList,
@@ -115,8 +117,16 @@ class WorkbenchService:
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        jms: JobManagementService = JobManagementService(self.session, self.component)
+        jms: JobManagementService = JobManagementService(
+            self.session, self.component
+        )  # TODO: pass pub/priv key from args
         return await jms.submit_artifact(artifact)
+
+    async def store_resource(self, request_stream: AsyncGenerator[bytes, None]) -> str:
+        jms: JobManagementService = JobManagementService(
+            self.session, self.component
+        )  # TODO: pass pub/priv key from args
+        return await jms.store_resource(request_stream)
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """
@@ -136,7 +146,7 @@ class WorkbenchService:
         :raise:
             ValueError if the requested artifact cannot be found.
         """
-        LOGGER.info(f"user={self.component.id}: dowloading artifact with artifact={artifact_id}")
+        LOGGER.info(f"user={self.component.id}: downloading artifact with artifact={artifact_id}")
 
         ar: ArtifactRepository = ArtifactRepository(self.session)
 
@@ -144,46 +154,22 @@ class WorkbenchService:
 
         return artifact
 
-    async def get_result(self, artifact_id: str) -> Result:
+    async def get_resource(self, artifact_id: str) -> Resource:
         """
         :raise:
-            ValueError when the requested result exists on the database but not on disk.
+            ValueError when the requested resource exists on the database but not on disk.
 
-            NoResultFound when there are no results.
+            NoResultFound when there are no resources.
 
-            MultipleResultsFound when the result is not unique (database error).
+            MultipleResultsFound when the resource is not unique (database error).
         """
-        rr: ResultRepository = ResultRepository(self.session)
+        rr: ResourceRepository = ResourceRepository(self.session)
 
-        result: Result = await rr.get_aggregated_result(artifact_id)
+        resource: Resource = await rr.get_by_artifact(artifact_id)
 
-        if not os.path.exists(result.path):
-            raise ValueError(f"result={result.id} not found at path={result.path}")
+        if not os.path.exists(resource.path):
+            raise ValueError(f"resource={resource.id} not found at path={resource.path}")
 
-        LOGGER.info(f"user={self.component.id}: downloaded results for artifact={artifact_id}")
+        LOGGER.info(f"user={self.component.id}: downloaded resources for artifact={artifact_id}")
 
-        return result
-
-    async def get_partial_result(self, artifact_id: str, builder_id: str, iteration: int) -> Result:
-        """
-        :raise:
-            ValueError when the requested partial result exists on the database but not on disk.
-
-            NoResultFound when there are no results.
-
-            MultipleResultsFound when the result is not unique (database error).
-        """
-
-        rr: ResultRepository = ResultRepository(self.session)
-
-        result: Result = await rr.get_partial_result(artifact_id, builder_id, iteration)
-
-        if not os.path.exists(result.path):
-            raise ValueError(f"partial result={result.id} not found at path={result.path}")
-
-        LOGGER.info(
-            f"user={self.component.id}: downloaded partial result for artifact={artifact_id} "
-            f"and builder_user={builder_id}"
-        )
-
-        return result
+        return resource

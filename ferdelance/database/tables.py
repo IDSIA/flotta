@@ -1,12 +1,24 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, String, DateTime, Integer, Table, Column, UniqueConstraint
+from sqlalchemy import (
+    ForeignKey,
+    String,
+    DateTime,
+    Integer,
+    Table,
+    Column,
+    Boolean,
+)
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
 from datetime import datetime
 
-from . import Base
+from sqlalchemy.orm import DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Setting(Base):
@@ -49,7 +61,7 @@ class Component(Base):
     # fdl component's version
     version: Mapped[str | None] = mapped_column(String)
 
-    # node component ip addresss (for indirect communication)
+    # node component ip addresses (for indirect communication)
     ip_address: Mapped[str | None] = mapped_column(String)
     # node component complete url (for direct communication)
     url: Mapped[str | None] = mapped_column(String)
@@ -85,9 +97,6 @@ class Artifact(Base):
     # Zero-based index, same as relative Job.iteration
     iteration: Mapped[int] = mapped_column(default=0)
 
-    is_model: Mapped[bool] = mapped_column(default=False)
-    is_estimation: Mapped[bool] = mapped_column(default=False)
-
 
 class Job(Base):
     """Table that keeps track of which artifact has been submitted and the state of the request.
@@ -100,18 +109,16 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    step_id: Mapped[int] = mapped_column(Integer)
 
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
     artifact = relationship("Artifact")
 
-    # True if the job trains a new model
-    is_model: Mapped[bool] = mapped_column(default=False)
-    # True if the job fit a new estimation
-    is_estimation: Mapped[bool] = mapped_column(default=False)
-    # True if the job is an aggregation of models or estimations
-    is_aggregation: Mapped[bool] = mapped_column(default=False)
     # Zero-based counter for iterations
     iteration: Mapped[int] = mapped_column(default=0)
+
+    # Path to the local descriptor of this job, sent to the worker
+    path: Mapped[str] = mapped_column(String)
 
     # Id of the component executing the job
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
@@ -120,34 +127,51 @@ class Job(Base):
     # Last known status of the job
     status: Mapped[str] = mapped_column(nullable=True)
 
-    # When the job has been submitted
+    # When the job has been created in waiting state
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    # When the job has been scheduled
+    scheduling_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     # When the job started
     execution_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # When the job terminated
     termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (UniqueConstraint("artifact_id", "component_id", "iteration", name="_jobs_ids_unique"),)
+
+class JobLock(Base):
+    """Jobs are related to each other through a Directed Acyclic Graph (DAG). Each time a job is completed
+    successfully, it can unlock other jobs. This table keeps track of which jobs are unlocked.
+
+    When the job designed by `job_id` is completed without error, the entries in this table will be updated
+    to have their `locked` state to be False.
+    """
+
+    __tablename__ = "job_locks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
+    next_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
+    locked: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    artifact = relationship("Artifact", foreign_keys=[artifact_id])
+    job = relationship("Job", foreign_keys=[job_id])
+    next_job = relationship("Job", foreign_keys=[next_id])
 
 
-class Result(Base):
-    """Table that keep track of all the results produced by each job and stored on the server."""
+class Resource(Base):
+    """Table that keep track of all the resources produced by each job and stored on the server."""
 
-    __tablename__ = "results"
+    __tablename__ = "resources"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     path: Mapped[str] = mapped_column(String)
 
-    # TODO: if both is no, then it is a plain result?
-    is_model: Mapped[bool] = mapped_column(default=False)
-    is_estimation: Mapped[bool] = mapped_column(default=False)
-    is_aggregation: Mapped[bool] = mapped_column(default=False)
     is_error: Mapped[bool] = mapped_column(default=False)
 
     iteration: Mapped[int] = mapped_column(default=0)
 
-    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"))
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), unique=True)
     job = relationship("Job")
 
     # TODO: one model per artifact or one artifact can have multiple models?

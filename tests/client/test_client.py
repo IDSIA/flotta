@@ -1,7 +1,7 @@
 from ferdelance.logging import get_logger
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.database.tables import DataSource as DataSourceDB
-from ferdelance.schemas.components import Component, Event
+from ferdelance.schemas.components import Component  # , Event
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.node.api import api
 from ferdelance.shared.actions import Action
@@ -61,10 +61,10 @@ async def test_client_connect_successful(session: AsyncSession, exchange: Exchan
 
         assert db_client.active
 
-        db_events: list[Event] = await cr.list_events(client_id)
+        # db_events: list[Event] = await cr.list_events(client_id)
 
-        assert len(db_events) == 1
-        assert db_events[0].event == "creation"
+        # assert len(db_events) == 1
+        # assert db_events[0].event == "creation"
 
 
 @pytest.mark.asyncio
@@ -93,20 +93,20 @@ async def test_client_update(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
         client_id = create_node(client, exchange)
 
-        cr: ComponentRepository = ComponentRepository(session)
+        # cr: ComponentRepository = ComponentRepository(session)
 
         status_code, action, _ = client_update(client_id, client, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.DO_NOTHING
 
-        db_events: list[Event] = await cr.list_events(client_id)
-        events: list[str] = [e.event for e in db_events]
+        # db_events: list[Event] = await cr.list_events(client_id)
+        # events: list[str] = [e.event for e in db_events]
 
-        assert len(events) == 3
-        assert "creation" in events
-        assert "update" in events
-        assert f"action:{Action.DO_NOTHING.name}" in events
+        # assert len(events) == 3
+        # assert "creation" in events
+        # assert "update" in events
+        # assert f"action:{Action.DO_NOTHING.name}" in events
 
 
 @pytest.mark.asyncio
@@ -140,12 +140,12 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
         assert db_client.active is False
         assert db_client.left
 
-        db_events: list[Event] = await cr.list_events(client_id)
-        events: list[str] = [e.event for e in db_events]
+        # db_events: list[Event] = await cr.list_events(client_id)
+        # events: list[str] = [e.event for e in db_events]
 
-        assert "creation" in events
-        assert "left" in events
-        assert "update" not in events
+        # assert "creation" in events
+        # assert "left" in events
+        # assert "update" not in events
 
 
 @pytest.mark.asyncio

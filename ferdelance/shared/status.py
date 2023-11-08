@@ -2,6 +2,7 @@ from enum import Enum, auto
 
 
 class JobStatus(Enum):
+    WAITING = auto()
     SCHEDULED = auto()
     RUNNING = auto()
     COMPLETED = auto()
@@ -10,8 +11,6 @@ class JobStatus(Enum):
 
 class ArtifactJobStatus(Enum):
     SCHEDULED = auto()
-    TRAINING = auto()
-    AGGREGATING = auto()
-    EVALUATING = auto()
+    RUNNING = auto()
     COMPLETED = auto()
     ERROR = auto()

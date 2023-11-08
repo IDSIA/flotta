@@ -92,7 +92,7 @@ class NodeConfiguration(BaseModel):
 
     # self-check in seconds when mode=node
     healthcheck: float = 60
-    # concact server node each interval in second for update when mode=client
+    # concat server node each interval in second for update when mode=client
     heartbeat: float = 2.0
 
     @root_validator(pre=True)
@@ -243,7 +243,7 @@ class Configuration(BaseSettings):
         return f"{_protocol}://{self.node.url.rstrip('/')}{_port}"
 
     def url_deploy(self) -> str:
-        """Url to use for deploying the api throug ray serve."""
+        """Url to use for deploying the api through ray serve."""
         _protocol, _port = clean_protocol_port(self.node.protocol, self.node.port)
 
         return f"{_protocol}://{self.node.interface.rstrip('/')}{_port}"
@@ -260,17 +260,15 @@ class Configuration(BaseSettings):
     def storage_artifact(self, artifact_id: str, iteration: int = 0) -> str:
         return os.path.join(self.storage_artifact_dir(), artifact_id, str(iteration))
 
-    def store(
+    def store_resource(
         self,
         artifact_id: str,
         job_id: str,
         iteration: int = 0,
+        is_partial: bool = False,
         is_error: bool = False,
-        is_aggregation: bool = False,
-        is_model: bool = False,
-        is_estimation: bool = False,
     ) -> str:
-        """Creates a local path that can beuse to save a result to disk.
+        """Creates a local path that can be used to save a resource to disk.
 
         Args:
             artifact_id (str):
@@ -279,24 +277,15 @@ class Configuration(BaseSettings):
                 Iteration reached.
                 Defaults to 0.
             producer_id (str, optional):
-                Id of the component that produced the result.
+                Id of the component that produced the resource.
                 Defaults to "".
             is_error (bool, optional):
                 If it is an error, set to True.
                 Defaults to False.
-            is_aggregation (bool, optional):
-                If it is a result of an aggregation, set to True.
-                Defaults to False.
-            is_model (bool, optional):
-                If it is a trained model, set to True.
-                Defaults to False.
-            is_estimation (bool, optional):
-                If it is a partial estimation, set to True.
-                Defaults to False.
 
         Returns:
             str:
-                The path to use to save the result on disk.
+                The path to use to save the resource on disk.
         """
 
         out_dir: str = self.storage_artifact(artifact_id, iteration)
@@ -306,15 +295,8 @@ class Configuration(BaseSettings):
 
         if is_error:
             chunks.append("ERROR")
-        elif is_aggregation:
-            chunks.append("AGGREGATED")
-        else:
+        elif is_partial:
             chunks.append("PARTIAL")
-
-        if is_model:
-            chunks.append("model")
-        elif is_estimation:
-            chunks.append("estimator")
 
         filename = ".".join(chunks)
 
@@ -326,11 +308,11 @@ class Configuration(BaseSettings):
     def storage_clients(self, client_id: str) -> str:
         return os.path.join(self.storage_clients_dir(), client_id)
 
-    def storage_results_dir(self) -> str:
-        return os.path.join(self.workdir, "results")
+    def storage_resource_dir(self) -> str:
+        return os.path.join(self.workdir, "resources")
 
-    def storage_results(self, result_id: str) -> str:
-        return os.path.join(self.storage_results_dir(), result_id)
+    def storage_resources(self, resource_id: str) -> str:
+        return os.path.join(self.storage_resource_dir(), resource_id)
 
     def storage_config(self) -> str:
         return os.path.join(self.workdir, "config.yaml")
@@ -429,7 +411,7 @@ class ConfigManager:
         # create required directories
         os.makedirs(self.config.storage_artifact_dir(), exist_ok=True)
         os.makedirs(self.config.storage_clients_dir(), exist_ok=True)
-        os.makedirs(self.config.storage_results_dir(), exist_ok=True)
+        os.makedirs(self.config.storage_resource_dir(), exist_ok=True)
         # os.chmod(self.config.workdir, 0o700)
 
         LOGGER.info("directory initialization completed")

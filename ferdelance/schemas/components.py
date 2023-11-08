@@ -10,28 +10,14 @@ class Component(BaseModel):
 
     public_key: str
 
-    active: bool
-    blacklisted: bool
-    left: bool
+    active: bool = True
+    blacklisted: bool = False
+    left: bool = False
 
-    version: str
+    version: str = ""
 
-    url: str
-    ip_address: str
-
-
-dummy = Component(
-    id="dummy",
-    type_name="DUMMY",
-    name="dummy",
-    public_key="",
-    active=False,
-    left=False,
-    version="0.0",
-    blacklisted=False,
-    ip_address="127.0.0.1",
-    url="http://localhost/",
-)
+    url: str = ""
+    ip_address: str = ""
 
 
 class Event(BaseModel):

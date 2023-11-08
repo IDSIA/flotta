@@ -1,20 +1,20 @@
 from ferdelance.const import TYPE_USER
+from ferdelance.core.artifacts import ArtifactStatus, Artifact
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, session_args, valid_session_args
 from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
-from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
-    WorkbenchArtifactPartial,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
+    WorkbenchResource,
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
 from ferdelance.shared.checksums import str_checksum
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
@@ -121,6 +121,18 @@ async def wb_get_datasource_list(
     return await wb.get_datasource_list(wpt.token)
 
 
+@workbench_router.post("/resource", response_model=WorkbenchResource)
+async def wb_post_model(
+    request: Request,
+    args: ValidSessionArgs = Depends(allow_access),
+):
+    wb: WorkbenchService = WorkbenchService(args.session, args.component)
+
+    resource_id = await wb.store_resource(request.stream())
+
+    return WorkbenchResource(resource_id=resource_id)
+
+
 @workbench_router.post("/artifact/submit", response_model=ArtifactStatus)
 async def wb_post_artifact_submit(
     artifact: Artifact,
@@ -156,7 +168,7 @@ async def wb_get_artifact_status(
         raise HTTPException(404)
 
 
-@workbench_router.get("/artifact", response_model=Artifact)
+@workbench_router.get("/artifact", description="This endpoint returns an object of type Artifact.")
 async def wb_get_artifact(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
@@ -166,26 +178,27 @@ async def wb_get_artifact(
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        return await ws.get_artifact(wba.artifact_id)
+        artifact = await ws.get_artifact(wba.artifact_id)
+        return artifact
 
     except ValueError as e:
         LOGGER.error(f"{e}")
         raise HTTPException(404)
 
 
-@workbench_router.get("/result", response_class=FileResponse)
-async def wb_get_result(
+@workbench_router.get("/resource", response_class=FileResponse)
+async def wb_get_resource(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user={args.component.id}: requested result with artifact={wba.artifact_id}")
+    LOGGER.info(f"user={args.component.id}: requested resource with artifact={wba.artifact_id}")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        result = await ws.get_result(wba.artifact_id)
+        resource = await ws.get_resource(wba.artifact_id)
 
-        return FileResponse(result.path)
+        return FileResponse(resource.path)
 
     except ValueError as e:
         LOGGER.warning(str(e))
@@ -200,44 +213,6 @@ async def wb_get_result(
         LOGGER.error(f"multiple aggregated models found for artifact={wba.artifact_id}")
         raise HTTPException(500)
 
-
-@workbench_router.get("/result/partial", response_class=FileResponse)
-async def wb_get_partial_result(
-    part: WorkbenchArtifactPartial,
-    args: ValidSessionArgs = Depends(allow_access),
-):
-    component = args.component
-    artifact_id = part.artifact_id
-    producer_id = part.producer_id
-    iteration = part.iteration
-
-    LOGGER.info(
-        f"user={component.id}: requested partial model for artifact={artifact_id} "
-        f"from builder={producer_id} iteration={iteration}"
-    )
-
-    ws: WorkbenchService = WorkbenchService(args.session, component)
-
-    try:
-        result = await ws.get_partial_result(artifact_id, producer_id, iteration)
-
-        return FileResponse(result.path)
-
-    except ValueError as e:
-        LOGGER.warning(str(e))
-        raise HTTPException(404)
-
-    except NoResultFound:
-        LOGGER.warning(
-            f"user={component.id}: no partial model found for artifact={artifact_id} "
-            f"builder={producer_id} iteration={iteration}"
-        )
-        raise HTTPException(404)
-
-    except MultipleResultsFound:
-        # TODO: do we want to allow this?
-        LOGGER.error(
-            f"user={component.id}: multiple partial models found for artifact={artifact_id} "
-            f"builder={producer_id} iteration={iteration}"
-        )
+    except Exception as e:
+        LOGGER.exception(e)
         raise HTTPException(500)

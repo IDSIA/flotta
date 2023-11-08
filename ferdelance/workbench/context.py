@@ -2,6 +2,8 @@ from typing import Any
 
 from ferdelance import __version__
 from ferdelance.logging import get_logger
+
+# from ferdelance.core.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.node import NodePublicKey
 from ferdelance.shared.checksums import str_checksum
 from ferdelance.workbench.interface import (
@@ -11,7 +13,6 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
     WorkbenchArtifactPartial,
@@ -231,106 +232,106 @@ class Context:
 
         return data.datasources
 
-    def execute(
-        self,
-        project: Project,
-        estimate: QueryEstimate,
-        wait_interval: int = 1,
-        max_time: int = 30,
-    ) -> Any:
-        """Execute a statistical query."""
+    # def execute(
+    #     self,
+    #     project: Project,
+    #     estimate: QueryEstimate,
+    #     wait_interval: int = 1,
+    #     max_time: int = 30,
+    # ) -> Any:
+    #     """Execute a statistical query."""
 
-        artifact = Artifact(
-            project_id=project.id,
-            transform=estimate.transform,
-            estimator=estimate.estimator,
-        )
+    #     artifact = Artifact(
+    #         project_id=project.id,
+    #         transform=estimate.transform,
+    #         estimator=estimate.estimator,
+    #     )
 
-        headers, payload = self.exc.create(self.id, artifact.json())
+    #     headers, payload = self.exc.create(self.id, artifact.json())
 
-        res = requests.post(
-            f"{self.server}/workbench/artifact/submit",
-            headers=headers,
-            data=payload,
-        )
+    #     res = requests.post(
+    #         f"{self.server}/workbench/artifact/submit",
+    #         headers=headers,
+    #         data=payload,
+    #     )
 
-        res.raise_for_status()
+    #     res.raise_for_status()
 
-        _, data = self.exc.get_payload(res.content)
+    #     _, data = self.exc.get_payload(res.content)
 
-        art_status = ArtifactStatus(**json.loads(data))
-        artifact.id = art_status.id
+    #     art_status = ArtifactStatus(**json.loads(data))
+    #     artifact.id = art_status.id
 
-        start_time = time()
-        last_state = ""
+    #     start_time = time()
+    #     last_state = ""
 
-        while art_status.status not in (
-            ArtifactJobStatus.ERROR.name,
-            ArtifactJobStatus.COMPLETED.name,
-        ):
-            if art_status.status == last_state:
-                LOGGER.info(".")
-            else:
-                last_state = art_status.status
-                LOGGER.info(last_state)
+    #     while art_status.status not in (
+    #         ArtifactJobStatus.ERROR.name,
+    #         ArtifactJobStatus.COMPLETED.name,
+    #     ):
+    #         if art_status.status == last_state:
+    #             LOGGER.info(".")
+    #         else:
+    #             last_state = art_status.status
+    #             LOGGER.info(last_state)
 
-            art_status = self.status(art_status)
+    #         art_status = self.status(art_status)
 
-            sleep(wait_interval)
+    #         sleep(wait_interval)
 
-            if time() > start_time + max_time:
-                LOGGER.warning("reached max wait time")
-                raise ValueError("Timeout exceeded")
+    #         if time() > start_time + max_time:
+    #             LOGGER.warning("reached max wait time")
+    #             raise ValueError("Timeout exceeded")
 
-        if not art_status.id:
-            raise ValueError("Invalid artifact status")
+    #     if not art_status.id:
+    #         raise ValueError("Invalid artifact status")
 
-        estimate = self.get_result(artifact)
+    #     estimate = self.get_result(artifact)
 
-        if art_status.status == ArtifactJobStatus.ERROR.name:
-            LOGGER.error(f"Error on artifact {art_status.id}")
-            LOGGER.error(estimate)
-            raise ValueError(f"Error on artifact {art_status.id}")
+    #     if art_status.status == ArtifactJobStatus.ERROR.name:
+    #         LOGGER.error(f"Error on artifact {art_status.id}")
+    #         LOGGER.error(estimate)
+    #         raise ValueError(f"Error on artifact {art_status.id}")
 
-        if art_status.status == ArtifactJobStatus.COMPLETED.name:
-            LOGGER.info("Completed")
-            return estimate
+    #     if art_status.status == ArtifactJobStatus.COMPLETED.name:
+    #         LOGGER.info("Completed")
+    #         return estimate
 
-    def submit(self, project: Project, query: QueryModel) -> Artifact:
-        """Submit the query, model, and strategy and start a training task on the remote server.
+    # def submit(self, project: Project, query: QueryModel) -> Artifact:
+    #     """Submit the query, model, and strategy and start a training task on the remote server.
 
-        :param artifact:
-            Artifact to submit to the server for training.
-            This object will be updated with the id assigned by the server.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        :returns:
-            The same input artifact with an assigned artifact_id.
-            If the `ret_status` flag is true, the status of the artifact is also returned.
-        """
-        artifact: Artifact = Artifact(
-            project_id=project.id,
-            transform=query.transform,
-            plan=query.plan,
-            model=query.model,
-        )
+    #     :param artifact:
+    #         Artifact to submit to the server for training.
+    #         This object will be updated with the id assigned by the server.
+    #     :raises HTTPError:
+    #         If the return code of the response is not a 2xx type.
+    #     :returns:
+    #         The same input artifact with an assigned artifact_id.
+    #         If the `ret_status` flag is true, the status of the artifact is also returned.
+    #     """
+    #     artifact: Artifact = Artifact(
+    #         project_id=project.id,
+    #         transform=query.transform,
+    #         plan=query.plan,
+    #         model=query.model,
+    #     )
 
-        headers, payload = self.exc.create(self.id, artifact.json())
+    #     headers, payload = self.exc.create(self.id, artifact.json())
 
-        res = requests.post(
-            f"{self.server}/workbench/artifact/submit",
-            headers=headers,
-            data=payload,
-        )
+    #     res = requests.post(
+    #         f"{self.server}/workbench/artifact/submit",
+    #         headers=headers,
+    #         data=payload,
+    #     )
 
-        res.raise_for_status()
+    #     res.raise_for_status()
 
-        _, data = self.exc.get_payload(res.content)
+    #     _, data = self.exc.get_payload(res.content)
 
-        status = ArtifactStatus(**json.loads(data))
-        artifact.id = status.id
+    #     status = ArtifactStatus(**json.loads(data))
+    #     artifact.id = status.id
 
-        return artifact
+    #     return artifact
 
     def status(self, artifact: Artifact | ArtifactStatus) -> ArtifactStatus:
         """Poll the server to get an update of the status of the given artifact.
@@ -408,7 +409,7 @@ class Context:
         headers, payload = self.exc.create(self.id, wba.json())
 
         with requests.get(
-            f"{self.server}/workbench/result",
+            f"{self.server}/workbench/resource",
             headers=headers,
             data=payload,
             stream=True,
@@ -445,7 +446,7 @@ class Context:
 
         with requests.request(
             "GET",
-            f"{self.server}/workbench/result/partial",
+            f"{self.server}/workbench/resource/partial",
             headers=headers,
             data=payload,
             stream=True,

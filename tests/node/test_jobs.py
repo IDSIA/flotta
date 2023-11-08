@@ -1,8 +1,12 @@
-from ferdelance.logging import get_logger
 from ferdelance.const import TYPE_CLIENT
+from ferdelance.core.interfaces import SchedulerJob
+from ferdelance.database.repositories.component import ComponentRepository
 from ferdelance.database.repositories import JobRepository
 from ferdelance.database.tables import Artifact, Component
+from ferdelance.logging import get_logger
 from ferdelance.shared.status import JobStatus
+
+from tests.dummies import DummyStep
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,11 +62,21 @@ async def test_jobs_next(session: AsyncSession):
 
     await session.commit()
 
+    cr = ComponentRepository(session)
+    c1 = await cr.get_by_id(client_id_1)
+    c2 = await cr.get_by_id(client_id_2)
+
+    job_a1_c1 = SchedulerJob(id=0, worker=c1, iteration=0, step=DummyStep(), locks=[1])
+    job_a1_c2 = SchedulerJob(id=1, worker=c2, iteration=0, step=DummyStep(), locks=[1])
+    job_a2_c1 = SchedulerJob(id=2, worker=c1, iteration=0, step=DummyStep(), locks=[1])
+
     jr: JobRepository = JobRepository(session)
 
-    sc_1 = await jr.schedule_job(artifact_id_1, client_id_1)
-    sc_2 = await jr.schedule_job(artifact_id_1, client_id_2)
-    sc_3 = await jr.schedule_job(artifact_id_2, client_id_1)
+    sc_1 = await jr.create_job(artifact_id_1, job_a1_c1)
+    sc_2 = await jr.create_job(artifact_id_1, job_a1_c2)
+    sc_3 = await jr.create_job(artifact_id_2, job_a2_c1)
+
+    await jr.schedule_job(sc_1)
 
     job1 = await jr.next_job_for_component(client_id_1)
 
@@ -83,7 +97,7 @@ async def test_jobs_next(session: AsyncSession):
     assert sc_2.execution_time is None
     assert sc_3.execution_time is None
 
-    await jr.mark_completed(job1.id, job1.component_id)
+    await jr.complete_execution(job1)
 
     sc_1 = await jr.get(sc_1)
     sc_2 = await jr.get(sc_2)
@@ -94,6 +108,8 @@ async def test_jobs_next(session: AsyncSession):
     assert job1.termination_time is not None
     assert sc_2.termination_time is None
     assert sc_3.termination_time is None
+
+    await jr.schedule_job(sc_3)
 
     job2 = await jr.next_job_for_component(client_id_1)
 

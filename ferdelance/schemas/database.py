@@ -1,4 +1,4 @@
-from ferdelance.schemas.artifacts import ArtifactStatus
+from ferdelance.core.artifacts import ArtifactStatus
 
 from datetime import datetime
 from pydantic import BaseModel
@@ -11,8 +11,6 @@ class ServerArtifact(BaseModel):
     path: str
     status: str
     creation_time: datetime
-    is_model: bool
-    is_estimation: bool
 
     iteration: int
 
@@ -23,16 +21,13 @@ class ServerArtifact(BaseModel):
         )
 
 
-class Result(BaseModel):
+class Resource(BaseModel):
     """Model, estimation, or aggregation data stored in the database."""
 
     id: str
-    job_id: str
     artifact_id: str
-    client_id: str
+    iteration: int
+    job_id: str
+    component_id: str
     creation_time: datetime | None
     path: str
-    iteration: int
-    is_model: bool = False
-    is_estimation: bool = False
-    is_aggregation: bool = False

@@ -69,8 +69,6 @@ class NodeService:
 
         self.ss.set_remote_key(data.public_key)
 
-        await self.cr.create_event(self.component.id, "creation")
-
         LOGGER.info(f"component={self.component.id}: created as new {data.type_name}")
 
         self_component = await self.cr.get_self_component()
@@ -101,14 +99,15 @@ class NodeService:
             NoResultFound when there is no project with the given token.
         """
         await self.cr.component_leave(self.component.id)
-        await self.cr.create_event(self.component.id, "left")
         await self.distribute_remove(self.component)
+
+        LOGGER.info(f"component={self.component.id}: left")
 
     async def metadata(self, metadata: Metadata) -> Metadata:
         dsr: DataSourceRepository = DataSourceRepository(self.session)
         pr: ProjectRepository = ProjectRepository(self.session)
 
-        await self.cr.create_event(self.component.id, "update metadata")
+        LOGGER.info(f"component={self.component.id}: metadata updating")
 
         # this will also update existing metadata
         await dsr.create_or_update_from_metadata(self.component.id, metadata)
@@ -157,7 +156,7 @@ class NodeService:
                 continue
 
             if not node.active or node.blacklisted:
-                # skip disabeld nodes
+                # skip disabled nodes
                 continue
 
             if node.type_name != TYPE_NODE:

@@ -1,7 +1,7 @@
-from ferdelance.cli.fdl_suites.models.functions import describe_model, list_models
+from ferdelance.cli.fdl_suites.resources.functions import describe_resource, list_resource
 from ferdelance.const import TYPE_CLIENT
-from ferdelance.schemas.database import Result
-from ferdelance.database.tables import Artifact, Component, Result as ResultDB
+from ferdelance.schemas.database import Resource
+from ferdelance.database.tables import Artifact, Component, Resource as ResourceDB
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +9,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_models_list(session: AsyncSession):
+async def test_resources_list(session: AsyncSession):
     session.add(
         Artifact(
             id="aid1",
@@ -31,23 +31,22 @@ async def test_models_list(session: AsyncSession):
     )
 
     session.add(
-        ResultDB(
+        ResourceDB(
             id="mid1",
             job_id="job-1",
             path=".",
             artifact_id="aid1",
             component_id="cid1",
-            is_model=True,
         )
     )
 
-    res: list[Result] = await list_models()
+    res: list[Resource] = await list_resource()
 
     assert len(res) == 0
 
     await session.commit()
 
-    res: list[Result] = await list_models()
+    res: list[Resource] = await list_resource()
 
     assert len(res) == 1
 
@@ -75,25 +74,23 @@ async def test_describe_client(session: AsyncSession):
     )
 
     session.add(
-        ResultDB(
+        ResourceDB(
             id="mid1",
             job_id="job-1",
             path=".",
             artifact_id="aid1",
             component_id="cid1",
-            is_model=True,
-            is_aggregation=True,
             creation_time=None,
         )
     )
 
     await session.commit()
 
-    res: Result | None = await describe_model(task_id="mid1")
+    res: Resource | None = await describe_resource(resource_id="mid1")
 
     assert res is not None
     assert res.id == "mid1"
     assert res.path == "."
 
-    res = await describe_model(task_id="do not exist")
+    res = await describe_resource(resource_id="do not exist")
     assert res is None

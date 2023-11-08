@@ -30,7 +30,7 @@ def verify(public_key: RSAPublicKey, data: str | bytes, signature: str | bytes, 
         signature (str):
             Received signature to compare with.
         encoding (str, optional):
-            Encodign to use.
+            Encoding to use.
             Defaults to "utf8".
 
         Raises:

@@ -14,7 +14,7 @@ from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
 from ferdelance.shared.checksums import str_checksum
-from ferdelance.tasks.jobs.heartbeat import Heartbeat
+from ferdelance.tasks.backends import get_jobs_backend
 
 from sqlalchemy.exc import NoResultFound
 
@@ -203,11 +203,10 @@ class NodeStartup(Repository):
         if self.config.mode in ("client", "standalone"):
             LOGGER.info(f"component={self.self_component.id}: starting client heartbeat")
 
-            client = Heartbeat.remote(
+            get_jobs_backend().start_heartbeat(
                 self.self_component.id,
                 self.remote_key,
             )
-            client.run.remote()  # type: ignore
 
     async def startup(self) -> None:
         await self.populate_database()

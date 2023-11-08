@@ -1,7 +1,6 @@
 from typing import Callable, Coroutine, Any
 from dataclasses import dataclass
 
-
 from ferdelance.database import DataBase, AsyncSession
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.logging import get_logger
@@ -12,7 +11,9 @@ from fastapi import HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
 
+from starlette.requests import empty_receive, empty_send
 from starlette.types import Receive, Scope, Send
+
 
 LOGGER = get_logger(__name__)
 
@@ -46,8 +47,8 @@ class SignableRequest(Request):
         db_session: AsyncSession,
         self_component: Component,
         scope: Scope,
-        receive: Receive = ...,
-        send: Send = ...,
+        receive: Receive = empty_receive,
+        send: Send = empty_send,
     ):
         super().__init__(scope, receive, send)
 

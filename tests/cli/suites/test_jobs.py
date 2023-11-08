@@ -25,9 +25,11 @@ async def test_jobs_list(session: AsyncSession):
     )
     j1: Job = Job(
         id="job-1",
+        step_id=0,
         artifact_id="A1",
         component_id="C1",
         status="J1",
+        path="",
     )
 
     session.add(c1)

@@ -1,8 +1,8 @@
 from ferdelance.config import config_manager
+from ferdelance.core.artifacts import Artifact, ArtifactStatus
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.database import ServerArtifact
-from ferdelance.schemas.artifacts import Artifact, ArtifactStatus
 from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy import func, select
@@ -21,8 +21,6 @@ def view(artifact: ArtifactDB) -> ServerArtifact:
         creation_time=artifact.creation_time,
         path=artifact.path,
         status=artifact.status,
-        is_model=artifact.is_model,
-        is_estimation=artifact.is_estimation,
         iteration=artifact.iteration,
     )
 
@@ -40,9 +38,6 @@ class ArtifactRepository(Repository):
         """Creates a new artifact. The new artifact will be stored on disk and
         will have a SCHEDULED status. Exceptions are raised if we are trying
         to create an existing artifact and if the artifact is malformed.
-
-        Note that an artifact can be a model or an estimation, not both and
-        not none.
 
         Args:
             artifact (Artifact):
@@ -69,9 +64,6 @@ class ArtifactRepository(Repository):
             if existing:
                 raise ValueError("artifact already exists!")
 
-        if artifact.is_model() and artifact.is_estimation():
-            raise ValueError(f"invalid artifact={artifact.id} with both model and estimation")
-
         status = ArtifactJobStatus.SCHEDULED.name
 
         path = await self.store(artifact)
@@ -80,8 +72,6 @@ class ArtifactRepository(Repository):
             id=artifact.id,
             path=path,
             status=status,
-            is_model=artifact.is_model(),
-            is_estimation=artifact.is_estimation(),
         )
 
         self.session.add(db_artifact)
