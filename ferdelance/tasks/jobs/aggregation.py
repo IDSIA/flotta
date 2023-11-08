@@ -1,10 +1,10 @@
 from typing import Any
 
 from ferdelance.config import config_manager
+from ferdelance.core.artifacts import Artifact
+from ferdelance.core.model import Model
 from ferdelance.logging import get_logger
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.estimators import GenericEstimator, save_estimator
-from ferdelance.schemas.models import GenericModel
+from ferdelance.core.estimators import Estimator
 from ferdelance.schemas.tasks import TaskDone, TaskParameters
 from ferdelance.tasks.jobs.generic import GenericJob
 
@@ -37,13 +37,13 @@ class AggregatingJob(GenericJob):
 
         self.routes_service.post_result(self.artifact_id, self.job_id, path_in=res.resource_path)
 
-    def aggregate_estimator(self, artifact: Artifact, resource_ids: list[str]) -> GenericEstimator:
+    def aggregate_estimator(self, artifact: Artifact, resource_ids: list[str]) -> Estimator:
         agg = artifact.get_estimator()
 
         base: Any = None
 
         for resource_id in resource_ids:
-            partial: GenericEstimator = self.routes_service.get_resource(artifact.id, self.job_id, resource_id)
+            partial: Estimator = self.routes_service.get_resource(artifact.id, self.job_id, resource_id)
 
             if base is None:
                 base = partial
@@ -54,14 +54,14 @@ class AggregatingJob(GenericJob):
 
         return base
 
-    def aggregate_model(self, artifact: Artifact, resource_ids: list[str]) -> GenericModel:
+    def aggregate_model(self, artifact: Artifact, resource_ids: list[str]) -> Model:
         agg = artifact.get_model()
         strategy = artifact.get_strategy()
 
         base: Any = None
 
         for resource_id in resource_ids:
-            partial: GenericModel = self.routes_service.get_resource(artifact.id, self.job_id, resource_id)
+            partial: Model = self.routes_service.get_resource(artifact.id, self.job_id, resource_id)
 
             if base is None:
                 base = partial
@@ -89,7 +89,7 @@ class AggregatingJob(GenericJob):
             is_estimation,
         )
 
-        base: GenericEstimator | GenericModel
+        base: Estimator | Model
 
         if is_estimation:
             base = self.aggregate_estimator(artifact, resource_ids)

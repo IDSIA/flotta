@@ -20,20 +20,6 @@ class Component(BaseModel):
     ip_address: str = ""
 
 
-dummy = Component(
-    id="dummy",
-    type_name="DUMMY",
-    name="dummy",
-    public_key="",
-    active=False,
-    left=False,
-    version="0.0",
-    blacklisted=False,
-    ip_address="127.0.0.1",
-    url="http://localhost/",
-)
-
-
 class Event(BaseModel):
     id: int
     component_id: str

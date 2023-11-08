@@ -156,7 +156,7 @@ class NodeService:
                 continue
 
             if not node.active or node.blacklisted:
-                # skip disabeld nodes
+                # skip disabled nodes
                 continue
 
             if node.type_name != TYPE_NODE:

@@ -1,7 +1,6 @@
 from ferdelance.config import config_manager, DataSourceStorage
 from ferdelance.logging import get_logger
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.transformers import apply_transformer
+from ferdelance.core.artifacts import Artifact
 
 import pandas as pd
 
@@ -62,7 +61,9 @@ def apply_transform(
             if stage.transformer is None:
                 continue
 
-            df = apply_transformer(stage.transformer, df, working_folder, artifact.id, i)
+            # df = apply_transformer(
+            #     stage.transformer, df, working_folder, artifact.id, i
+            # )
 
         dfs.append(df)
 

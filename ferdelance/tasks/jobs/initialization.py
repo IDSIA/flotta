@@ -1,7 +1,6 @@
 from ferdelance.config.config import config_manager
+from ferdelance.core.artifacts import Artifact
 from ferdelance.logging import get_logger
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.estimators import save_estimator
 from ferdelance.schemas.tasks import TaskError, TaskParameters
 from ferdelance.tasks.jobs.commons import setup
 from ferdelance.tasks.jobs.local import GenericJob

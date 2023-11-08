@@ -17,7 +17,7 @@ from ferdelance.node.services import ActionService, TaskManagementService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import ServerArtifact, Resource
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.tasks import TaskParameters, TaskError
+from ferdelance.schemas.tasks import TaskError
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
@@ -146,6 +146,7 @@ class JobManagementService(Repository):
             LOGGER.info(f"component={self.component.id}: scheduling initialization job={job.id}")
             await self.jr.schedule_job(job)
 
+        # TODO: how to start this?
         #     get_jobs_backend().start_init(
         #         artifact_id=artifact.id,
         #         job_id=job.id,
@@ -163,70 +164,11 @@ class JobManagementService(Repository):
 
         return jobs[0].id
 
-    # TODO: this should be internal to a task and referred to the ENVIRONMENT type
-    async def store_context(self, context: TaskParameters, init: bool = False) -> None:
-        job = await self.jr.get_by_id(context.job_id)
-
-        if job.component_id != self.component.id:
-            raise ValueError("Invalid component!")
-
-        if init:
-            path_init = await self.ar.storage_location(context.artifact_id, "context.data.init.json")
-
-            # initialization context will be used at the end
-            async with aiofiles.open(path_init, "w") as f:
-                json.dump(context.data, f)
-
-        # current content, same as init
-        path = await self.ar.storage_location(context.artifact_id, "context.data.json")
-        async with aiofiles.open(path, "w") as f:
-            json.dump(context.data, f)
-
-        await self.jr.complete_execution(job)
-
-        # TODO: check aggregation?
-
-    # TODO: this should be internal to a task and referred to the ENVIRONMENT type
-    async def load_context(self, artifact_id: str, job_id: str) -> TaskParameters:
-        # fetch task
+    async def store_resource(self, job_id: str, is_error: bool = False) -> Resource:
         job = await self.jr.get_by_id(job_id)
 
-        if job.component_id != self.component.id:
-            raise ValueError("Invalid component!")
-
-        if job.artifact_id != artifact_id:
-            raise ValueError("Invalid artifact!")
-
-        # check that the artifact exists
-        await self.ar.get_artifact(artifact_id)
-        artifact = await self.ar.load(artifact_id)
-
-        path = await self.ar.storage_location(artifact_id, "context.json")
-        if aiofiles.ospath.exists(path):
-            async with aiofiles.open(path, "w") as f:
-                content = await f.read()
-                data = json.loads(content)
-        else:
-            data = dict()
-
-        context = TaskParameters(
-            artifact_id=artifact_id,
-            artifact=artifact,
-            job_id=job.id,
-            iteration=job.iteration,
-            data=data,
-        )
-
-        await self.jr.start_execution(job)
-
-        return context
-
-    async def store_resource(self, job_id: str, is_error: bool) -> Resource:
-        job = await self.jr.get_by_id(job_id)
-        artifact_id = job.artifact_id
-
-        # simple check
-        await self.ar.get_artifact(artifact_id)
+        # simple check that the artifact exists
+        await self.ar.get_artifact(job.artifact_id)
 
         resource = await self.rr.create_resource(
             job_id,
@@ -329,6 +271,64 @@ class JobManagementService(Repository):
 
 
 """
+    # TODO: this should be internal to a task and referred to the ENVIRONMENT type
+    async def store_context(self, context: TaskParameters, init: bool = False) -> None:
+        job = await self.jr.get_by_id(context.job_id)
+
+        if job.component_id != self.component.id:
+            raise ValueError("Invalid component!")
+
+        if init:
+            path_init = await self.ar.storage_location(context.artifact_id, "context.data.init.json")
+
+            # initialization context will be used at the end
+            async with aiofiles.open(path_init, "w") as f:
+                json.dump(context.data, f)
+
+        # current content, same as init
+        path = await self.ar.storage_location(context.artifact_id, "context.data.json")
+        async with aiofiles.open(path, "w") as f:
+            json.dump(context.data, f)
+
+        await self.jr.complete_execution(job)
+
+        # TODO: check aggregation?
+
+    # TODO: this should be internal to a task and referred to the ENVIRONMENT type
+    async def load_context(self, artifact_id: str, job_id: str) -> TaskParameters:
+        # fetch task
+        job = await self.jr.get_by_id(job_id)
+
+        if job.component_id != self.component.id:
+            raise ValueError("Invalid component!")
+
+        if job.artifact_id != artifact_id:
+            raise ValueError("Invalid artifact!")
+
+        # check that the artifact exists
+        await self.ar.get_artifact(artifact_id)
+        artifact = await self.ar.load(artifact_id)
+
+        path = await self.ar.storage_location(artifact_id, "context.json")
+        if aiofiles.ospath.exists(path):
+            async with aiofiles.open(path, "w") as f:
+                content = await f.read()
+                data = json.loads(content)
+        else:
+            data = dict()
+
+        context = TaskParameters(
+            artifact_id=artifact_id,
+            artifact=artifact,
+            job_id=job.id,
+            iteration=job.iteration,
+            data=data,
+        )
+
+        await self.jr.start_execution(job)
+
+        return context
+
     async def _task_start(self, job_id: str) -> TaskParameters:
         try:
             LOGGER.info(f"component={self.component.id}: start job={job_id}")

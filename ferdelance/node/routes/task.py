@@ -1,8 +1,8 @@
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE
+from ferdelance.core.metrics import Metrics
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
 from ferdelance.node.services import JobManagementService, TaskManagementService
-from ferdelance.schemas.models import Metrics
 from ferdelance.schemas.resources import ResourceRequest
 from ferdelance.schemas.tasks import Task, TaskDone, TaskError
 
@@ -65,10 +65,7 @@ async def get_resource(
     try:
         resource = await jms.load_resource(resource_id)
 
-        if not resource.is_aggregation and args.component.type_name == TYPE_CLIENT:
-            # Only aggregation jobs can download resources
-            LOGGER.error(f"component={args.component.id}: Tryied to get resource with resource={resource_id}")
-            raise HTTPException(403)
+        # TODO: add check for who can download which kind of resource
 
         return FileResponse(resource.path)
 

@@ -1,11 +1,10 @@
 from ferdelance.const import TYPE_USER
+from ferdelance.core.artifacts import ArtifactStatus, Artifact
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, session_args, valid_session_args
 from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
-from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
-    WorkbenchArtifactPartial,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
@@ -169,7 +168,7 @@ async def wb_get_artifact_status(
         raise HTTPException(404)
 
 
-@workbench_router.get("/artifact", response_model=Artifact)
+@workbench_router.get("/artifact", description="This endpoint returns an object of type Artifact.")
 async def wb_get_artifact(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
@@ -179,7 +178,8 @@ async def wb_get_artifact(
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        return await ws.get_artifact(wba.artifact_id)
+        artifact = await ws.get_artifact(wba.artifact_id)
+        return artifact
 
     except ValueError as e:
         LOGGER.error(f"{e}")
@@ -213,45 +213,6 @@ async def wb_get_resource(
         LOGGER.error(f"multiple aggregated models found for artifact={wba.artifact_id}")
         raise HTTPException(500)
 
-
-@workbench_router.get("/resource/partial", response_class=FileResponse)
-async def wb_get_partial_resource(
-    part: WorkbenchArtifactPartial,
-    args: ValidSessionArgs = Depends(allow_access),
-):
-    # TODO: do we want this?
-    component = args.component
-    artifact_id = part.artifact_id
-    producer_id = part.producer_id
-    iteration = part.iteration
-
-    LOGGER.info(
-        f"user={component.id}: requested partial model for artifact={artifact_id} "
-        f"from builder={producer_id} iteration={iteration}"
-    )
-
-    ws: WorkbenchService = WorkbenchService(args.session, component)
-
-    try:
-        resource = await ws.get_partial_resource(artifact_id, producer_id, iteration)
-
-        return FileResponse(resource.path)
-
-    except ValueError as e:
-        LOGGER.warning(str(e))
-        raise HTTPException(404)
-
-    except NoResultFound:
-        LOGGER.warning(
-            f"user={component.id}: no partial model found for artifact={artifact_id} "
-            f"builder={producer_id} iteration={iteration}"
-        )
-        raise HTTPException(404)
-
-    except MultipleResultsFound:
-        # TODO: do we want to allow this?
-        LOGGER.error(
-            f"user={component.id}: multiple partial models found for artifact={artifact_id} "
-            f"builder={producer_id} iteration={iteration}"
-        )
+    except Exception as e:
+        LOGGER.exception(e)
         raise HTTPException(500)

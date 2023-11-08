@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.artifacts import Artifact
+from ferdelance.core.artifacts import Artifact
 
 from pydantic import BaseModel
 

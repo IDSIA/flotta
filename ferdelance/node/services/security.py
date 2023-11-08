@@ -22,7 +22,7 @@ PRIVATE_KEY = "SERVER_KEY_PRIVATE"
 
 class SecurityService:
     def __init__(self, remote_key_str: str | None = None, encoding: str = "utf8") -> None:
-        """Creates a secure contexte between a local node, indicated by the
+        """Creates a secure context between a local node, indicated by the
         `self_component`, and a remote node.
 
         Args:
@@ -46,14 +46,14 @@ class SecurityService:
     def get_public_key(self) -> str:
         """
         :return:
-            The public key of this node in transferreable format.
+            The public key of this node in transferrable format.
         """
         return self.exc.transfer_public_key()
 
     def get_private_key(self) -> str:
         """
         :return:
-            The private key of this node in transferreable format.
+            The private key of this node in transferrable format.
         """
         return self.exc.transfer_private_key()
 

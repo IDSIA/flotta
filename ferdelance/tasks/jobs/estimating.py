@@ -1,8 +1,7 @@
 from typing import Any
 
 from ferdelance.logging import get_logger
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.estimators import save_estimator
+from ferdelance.core.artifacts import Artifact
 from ferdelance.schemas.tasks import TaskDone, TaskError, TaskParameters
 from ferdelance.tasks.jobs.commons import setup, apply_transform
 from ferdelance.tasks.jobs.local import LocalJob

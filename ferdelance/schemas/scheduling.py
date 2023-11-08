@@ -2,6 +2,8 @@ from ferdelance.schemas.components import Component
 
 from pydantic import BaseModel
 
+# TODO: this has been/need to be moved to fdl.core
+
 
 class SchedulerContext(BaseModel):  # this is internal to the server
     artifact_id: str

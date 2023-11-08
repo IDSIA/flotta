@@ -2,7 +2,7 @@ from typing import Any
 from abc import ABC, abstractmethod
 
 from ferdelance.logging import get_logger
-from ferdelance.schemas.models.metrics import Metrics
+from ferdelance.core.metrics import Metrics
 from ferdelance.schemas.resources import ResourceRequest
 from ferdelance.schemas.tasks import TaskError, TaskParameters, TaskParametersRequest
 from ferdelance.shared.exchange import Exchange
@@ -82,7 +82,7 @@ class EncryptRouteService(RouteService):
 
         context = TaskParameters(**json.loads(content))
 
-        LOGGER.info(f"artifact={artifact_id}: context for jon={job_id} upload successfull")
+        LOGGER.info(f"artifact={artifact_id}: context for jon={job_id} upload successful")
 
         return context
 

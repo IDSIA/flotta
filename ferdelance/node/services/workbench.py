@@ -3,6 +3,7 @@ from typing import AsyncGenerator
 from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
 from ferdelance.const import TYPE_USER
+from ferdelance.core.artifacts import ArtifactStatus, Artifact
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -10,7 +11,6 @@ from ferdelance.database.repositories import (
     ProjectRepository,
     ResourceRepository,
 )
-from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Resource
@@ -146,7 +146,7 @@ class WorkbenchService:
         :raise:
             ValueError if the requested artifact cannot be found.
         """
-        LOGGER.info(f"user={self.component.id}: dowloading artifact with artifact={artifact_id}")
+        LOGGER.info(f"user={self.component.id}: downloading artifact with artifact={artifact_id}")
 
         ar: ArtifactRepository = ArtifactRepository(self.session)
 
@@ -165,35 +165,11 @@ class WorkbenchService:
         """
         rr: ResourceRepository = ResourceRepository(self.session)
 
-        resource: Resource = await rr.get_aggregated_resource(artifact_id)
+        resource: Resource = await rr.get_by_artifact(artifact_id)
 
         if not os.path.exists(resource.path):
             raise ValueError(f"resource={resource.id} not found at path={resource.path}")
 
         LOGGER.info(f"user={self.component.id}: downloaded resources for artifact={artifact_id}")
-
-        return resource
-
-    async def get_partial_resource(self, artifact_id: str, builder_id: str, iteration: int) -> Resource:
-        """
-        :raise:
-            ValueError when the requested partial resource exists on the database but not on disk.
-
-            NoResultFound when there are no resources.
-
-            MultipleResultsFound when the resource is not unique (database error).
-        """
-
-        rr: ResourceRepository = ResourceRepository(self.session)
-
-        resource: Resource = await rr.get_partial_resource(artifact_id, builder_id, iteration)
-
-        if not os.path.exists(resource.path):
-            raise ValueError(f"partial resource={resource.id} not found at path={resource.path}")
-
-        LOGGER.info(
-            f"user={self.component.id}: downloaded partial resource for artifact={artifact_id} "
-            f"and builder_user={builder_id}"
-        )
 
         return resource
