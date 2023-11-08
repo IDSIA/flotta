@@ -1,10 +1,5 @@
-from typing import Any
-
-import numpy as np
-from numpy.typing import ArrayLike
 from ferdelance.const import TYPE_NODE
 from ferdelance.config import config_manager
-from ferdelance.core.models import AggregationModel
 from ferdelance.database.repositories.jobs import JobRepository
 from ferdelance.logging import get_logger
 from ferdelance.core.artifacts import Artifact
@@ -18,6 +13,7 @@ from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
 from tests.utils import connect, TEST_PROJECT_TOKEN, create_node
+from tests.dummies import DummyModel
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -49,22 +45,6 @@ async def test_task_task_not_found(session: AsyncSession, exchange: Exchange):
         )
 
         assert res.status_code == 404
-
-
-class DummyModel(AggregationModel):
-    def train(self, x, y) -> Any:
-        LOGGER.info("training...")
-        return None
-
-    def aggregate(self, model_a, model_b) -> Any:
-        LOGGER.info("aggregating...")
-        return None
-
-    def predict(self, x) -> np.ndarray:
-        return np.zeros(x.shape)
-
-    def classify(self, x) -> ArrayLike | np.ndarray:
-        return np.zeros(x.shape)
 
 
 async def list_jobs_by_artifact_and_component(

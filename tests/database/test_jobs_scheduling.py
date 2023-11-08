@@ -1,8 +1,6 @@
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.distributions import Collect, Distribute
-from ferdelance.core.environment import Environment
 from ferdelance.core.interfaces import SchedulerContext
-from ferdelance.core.operations import Operation
 from ferdelance.core.steps import Finalize, Initialize, Parallel
 from ferdelance.database.tables import JobLock as JobLockDB, Job as JobDB
 from ferdelance.database.repositories import JobRepository, ArtifactRepository
@@ -11,6 +9,7 @@ from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
 
 from tests.utils import create_project, create_node, setup_exchange
+from tests.dummies import DummyOp
 
 from fastapi.testclient import TestClient
 
@@ -18,11 +17,6 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import pytest
-
-
-class DummyOp(Operation):
-    def exec(self, env: Environment) -> Environment:
-        return env
 
 
 @pytest.mark.asyncio

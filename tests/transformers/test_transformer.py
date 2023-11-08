@@ -1,15 +1,6 @@
-from typing import Any
-from ferdelance.core.environment import Environment
 from ferdelance.core.queries import QueryFeature
-from ferdelance.core.transformers import QueryTransformer
 
-
-class DummyTransformer(QueryTransformer):
-    def transform(self, env: Environment) -> tuple[Environment, Any]:
-        return env, None
-
-    def aggregate(self, env: Environment) -> Environment:
-        return env
+from tests.dummies import DummyTransformer
 
 
 def test_ft_inputs():

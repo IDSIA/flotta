@@ -1,25 +1,18 @@
-from typing import Sequence
 from ferdelance.const import TYPE_CLIENT
-from ferdelance.core.interfaces import SchedulerContext, SchedulerJob, Step
+from ferdelance.core.interfaces import SchedulerJob
 from ferdelance.database.repositories.component import ComponentRepository
 from ferdelance.database.repositories import JobRepository
 from ferdelance.database.tables import Artifact, Component
 from ferdelance.logging import get_logger
 from ferdelance.shared.status import JobStatus
 
+from tests.dummies import DummyStep
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import pytest
 
 LOGGER = get_logger(__name__)
-
-
-class DummyStep(Step):
-    def jobs(self, context: SchedulerContext) -> Sequence[SchedulerJob]:
-        return []
-
-    def bind(self, jobs0: Sequence[SchedulerJob], jobs1: Sequence[SchedulerJob]) -> None:
-        return None
 
 
 @pytest.mark.asyncio
