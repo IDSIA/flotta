@@ -11,8 +11,6 @@ from ferdelance.core.operations import Operation
 class BaseStep(Step):
     operation: Operation
     distribution: Distribution | None = None
-    inputs: list[str] = list()
-    outputs: list[str] = list()
     iteration: int = 1
 
     def step(self, env: Environment) -> Environment:
@@ -52,16 +50,12 @@ class Initialize(BaseStep):
         self,
         operation: Operation,
         distribution: Distribution | None = None,
-        inputs: list[str] = list(),
-        outputs: list[str] = list(),
         iteration: int = 1,
         **data,
     ) -> None:
         super(Initialize, self).__init__(
             operation=operation,
             distribution=distribution,
-            inputs=inputs,
-            outputs=outputs,
             iteration=iteration,
             **data,
         )
@@ -85,16 +79,12 @@ class Parallel(BaseStep):
         self,
         operation: Operation,
         distribution: Distribution | None = None,
-        inputs: list[str] = list(),
-        outputs: list[str] = list(),
         iteration: int = 1,
         **data,
     ) -> None:
         super(Parallel, self).__init__(
             operation=operation,
             distribution=distribution,
-            inputs=inputs,
-            outputs=outputs,
             iteration=iteration,
             **data,
         )
@@ -123,8 +113,6 @@ class Sequential(BaseStep):
         init_operation: Operation,
         operation: Operation,
         final_operation: Operation,
-        inputs: list[str] = list(),
-        outputs: list[str] = list(),
         iteration: int = 1,
         **data,
     ) -> None:
@@ -132,8 +120,6 @@ class Sequential(BaseStep):
             init_operation=init_operation,  # type: ignore
             operation=operation,
             final_operation=final_operation,  # type: ignore
-            inputs=inputs,
-            outputs=outputs,
             iteration=iteration,
             **data,
         )
@@ -195,20 +181,18 @@ class Sequential(BaseStep):
 
 
 class Finalize(BaseStep):
+    """Completion job done by the initiator."""
+
     def __init__(
         self,
         operation: Operation,
         distribution: Distribution | None = None,
-        inputs: list[str] = list(),
-        outputs: list[str] = list(),
         iteration: int = 1,
         **data,
     ) -> None:
         super(Finalize, self).__init__(
             operation=operation,
             distribution=distribution,
-            inputs=inputs,
-            outputs=outputs,
             iteration=iteration,
             **data,
         )
@@ -226,6 +210,8 @@ class Finalize(BaseStep):
 
 
 class Iterate(Step):
+    """Repeat the step multiple times."""
+
     iterations: int
     steps: list[BaseStep]
 

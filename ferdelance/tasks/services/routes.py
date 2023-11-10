@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 
 from ferdelance.logging import get_logger
 from ferdelance.core.metrics import Metrics
-from ferdelance.schemas.resources import ResourceRequest
-from ferdelance.schemas.tasks import TaskError, TaskParameters, TaskParametersRequest
+from ferdelance.schemas.resources import ResourceIdentifier, ResourceRequest
+from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 from ferdelance.shared.exchange import Exchange
 
 import json
@@ -17,7 +17,7 @@ LOGGER = get_logger(__name__)
 
 class RouteService(ABC):
     @abstractmethod
-    def get_params(self, artifact_id: str, job_id: str) -> TaskParameters:
+    def get_task_data(self, artifact_id: str, job_id: str) -> Task:
         raise NotImplementedError()
 
     @abstractmethod
@@ -25,7 +25,7 @@ class RouteService(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def post_result(
+    def post_resource(
         self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None
     ) -> ResourceRequest:
         raise NotImplementedError()
@@ -35,11 +35,11 @@ class RouteService(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
+    def post_done(self, artifact_id: str, job_id: str) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def update_artifact_with_resource(self, artifact_id: str, job_id: str, content: bytes) -> None:
+    def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
         raise NotImplementedError()
 
 
@@ -49,21 +49,23 @@ class EncryptRouteService(RouteService):
     def __init__(
         self,
         component_id: str,
-        server_url: str,
+        remote_url: str,
         private_key: str,
-        server_public_key: str,
+        remote_public_key: str,
+        is_local: bool = False,
     ) -> None:
-        self.server: str = server_url
-
         self.component_id: str = component_id
+        self.remote: str = remote_url
+        self.is_local: bool = is_local
+
         self.exc: Exchange = Exchange()
         self.exc.set_private_key(private_key)
-        self.exc.set_remote_key(server_public_key)
+        self.exc.set_remote_key(remote_public_key)
 
-    def get_params(self, artifact_id: str, job_id: str) -> TaskParameters:
+    def get_task_data(self, artifact_id: str, job_id: str) -> Task:
         LOGGER.info(f"artifact={artifact_id}: getting context for job={job_id}")
 
-        req = TaskParametersRequest(artifact_id=artifact_id, job_id=job_id)
+        req = TaskRequest(artifact_id=artifact_id, job_id=job_id)
 
         headers, payload = self.exc.create(
             self.component_id,
@@ -71,7 +73,7 @@ class EncryptRouteService(RouteService):
         )
 
         res = requests.post(
-            f"{self.server}/task/context",
+            f"{self.remote}/task/data",
             headers=headers,
             data=payload,
         )
@@ -80,16 +82,20 @@ class EncryptRouteService(RouteService):
 
         _, content = self.exc.get_payload(res.content)
 
-        context = TaskParameters(**json.loads(content))
+        task = Task(**json.loads(content))
 
         LOGGER.info(f"artifact={artifact_id}: context for jon={job_id} upload successful")
 
-        return context
+        return task
 
     def get_resource(self, artifact_id: str, job_id: str, resource_id: str) -> Any:
         LOGGER.info(f"artifact={artifact_id}: requesting partial resource={resource_id} for job={job_id}")
 
-        req = ResourceRequest(artifact_id=artifact_id, resource_id=resource_id)
+        req = ResourceRequest(
+            artifact_id=artifact_id,
+            job_id=job_id,
+            resource_id=resource_id,
+        )
 
         headers, payload = self.exc.create(
             self.component_id,
@@ -97,21 +103,28 @@ class EncryptRouteService(RouteService):
         )
 
         with requests.get(
-            f"{self.server}/task/resource/{resource_id}",
+            f"{self.remote}/task/resource/{resource_id}",
             headers=headers,
             data=payload,
             stream=True,
         ) as res:
             res.raise_for_status()
 
+            # TODO: maybe save to disk?
             content, _ = self.exc.stream_response(res.iter_content())
 
         return pickle.loads(content)
 
-    def post_result(
+    def post_resource(
         self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None
     ) -> ResourceRequest:
         LOGGER.info(f"artifact={artifact_id}: posting resource for job={job_id}")
+
+        ri = ResourceIdentifier(
+            artifact_id=artifact_id,
+            job_id=job_id,
+            file="attached",
+        )
 
         if path_in is not None:
             path_out = f"{path_in}.enc"
@@ -120,14 +133,11 @@ class EncryptRouteService(RouteService):
             headers = self.exc.create_signed_header(
                 self.component_id,
                 checksum,
-                extra_headers={
-                    "job_id": job_id,
-                    "file": "attached",
-                },
+                extra_headers=ri.dict(),
             )
 
             res = requests.post(
-                f"{self.server}/task/resource",
+                f"{self.remote}/task/resource",
                 headers=headers,
                 data=open(path_out, "rb"),
             )
@@ -141,16 +151,13 @@ class EncryptRouteService(RouteService):
             headers, payload = self.exc.create(
                 self.component_id,
                 content,
-                extra_headers={
-                    "job_id": job_id,
-                    "file": "attached",
-                },
+                extra_headers=ri.dict(),
             )
 
             _, data = self.exc.stream(payload)
 
             res = requests.post(
-                f"{self.server}/task/resource",
+                f"{self.remote}/task/resource",
                 headers=headers,
                 data=data,
             )
@@ -158,16 +165,15 @@ class EncryptRouteService(RouteService):
             res.raise_for_status()
 
         else:
+            ri.file = "local"
+
             headers, _ = self.exc.create(
                 self.component_id,
-                extra_headers={
-                    "job_id": job_id,
-                    "file": "local",
-                },
+                extra_headers=ri.dict(),
             )
 
             res = requests.post(
-                f"{self.server}/task/resource",
+                f"{self.remote}/task/resource",
                 headers=headers,
             )
 
@@ -184,10 +190,13 @@ class EncryptRouteService(RouteService):
     def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
         LOGGER.info(f"artifact={artifact_id}: posting metrics for job={job_id}")
 
-        headers, payload = self.exc.create(self.component_id, metrics.json())
+        headers, payload = self.exc.create(
+            self.component_id,
+            metrics.json(),
+        )
 
         res = requests.post(
-            f"{self.server}/task/metrics",
+            f"{self.remote}/task/metrics",
             headers=headers,
             data=payload,
         )
@@ -202,37 +211,36 @@ class EncryptRouteService(RouteService):
     def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
         LOGGER.error(f"artifact={artifact_id} job={job_id}: error_message={error.message}")
 
-        headers, payload = self.exc.create(self.component_id, error.json())
+        headers, payload = self.exc.create(
+            self.component_id,
+            error.json(),
+        )
 
         res = requests.post(
-            f"{self.server}/task/error",
+            f"{self.remote}/task/error",
             headers=headers,
             data=payload,
         )
 
         res.raise_for_status()
 
-    def update_artifact_with_resource(self, artifact_id: str, job_id: str, content: bytes) -> None:
-        LOGGER.info(f"artifact={artifact_id}: updating resource for job={job_id}")
+    def post_done(self, artifact_id: str, job_id: str) -> None:
+        LOGGER.info(f"artifact={artifact_id} job={job_id}: done")
 
-        if content is not None:
-            headers, payload = self.exc.create(
-                self.component_id,
-                content,
-                extra_headers={
-                    "job_id": job_id,
-                    "file": "attached",
-                },
-            )
+        done = TaskDone(
+            artifact_id=artifact_id,
+            job_id=job_id,
+        )
 
-            _, data = self.exc.stream(payload)
+        headers, payload = self.exc.create(
+            self.component_id,
+            done.json(),
+        )
 
-            res = requests.post(
-                f"{self.server}/task/update",
-                headers=headers,
-                data=data,
-            )
+        res = requests.post(
+            f"{self.remote}/task/done",
+            headers=headers,
+            data=payload,
+        )
 
-            res.raise_for_status()
-
-        LOGGER.info(f"artifact={artifact_id}: resource from job={job_id} update successful")
+        res.raise_for_status()

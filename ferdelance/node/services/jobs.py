@@ -17,7 +17,7 @@ from ferdelance.node.services import ActionService, TaskManagementService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import ServerArtifact, Resource
 from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.tasks import TaskError
+from ferdelance.tasks.tasks import TaskError
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 

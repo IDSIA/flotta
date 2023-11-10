@@ -3,9 +3,8 @@ from ferdelance.exceptions import InvalidAction
 from ferdelance.logging import get_logger
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.actions import Action
+from ferdelance.tasks.jobs.execution import Execution
 
-from ferdelance.tasks.jobs.estimating import EstimationJob
-from ferdelance.tasks.jobs.training import TrainingJob
 
 LOGGER = get_logger(__name__)
 
@@ -23,7 +22,7 @@ class ScheduleActionService:
         LOGGER.debug("nothing new from the server node")
         return Action.DO_NOTHING
 
-    def start_training(
+    def start(
         self,
         remote_url: str,
         remote_public_key: str,
@@ -31,28 +30,7 @@ class ScheduleActionService:
         job_id: str,
         dsc: list[DataSourceConfiguration],
     ) -> Action:
-        actor_handler = TrainingJob.remote(
-            self.component_id,
-            artifact_id,
-            job_id,
-            remote_url,
-            self.private_key,
-            remote_public_key,
-            [d.dict() for d in dsc],
-        )
-        _ = actor_handler.run.remote()  # type: ignore
-
-        return Action.DO_NOTHING
-
-    def start_estimate(
-        self,
-        remote_url: str,
-        remote_public_key: str,
-        artifact_id: str,
-        job_id: str,
-        dsc: list[DataSourceConfiguration],
-    ) -> Action:
-        actor_handler = EstimationJob.remote(
+        actor_handler = Execution.remote(
             self.component_id,
             artifact_id,
             job_id,
@@ -74,17 +52,8 @@ class ScheduleActionService:
     ) -> Action:
         action = Action[update_data.action]
 
-        if action == Action.EXECUTE_TRAINING:
-            return self.start_training(
-                remote_url,
-                remote_public_key,
-                update_data.artifact_id,
-                update_data.job_id,
-                dsc,
-            )
-
-        if action == Action.EXECUTE_ESTIMATE:
-            return self.start_estimate(
+        if action == Action.EXECUTE:
+            return self.start(
                 remote_url,
                 remote_public_key,
                 update_data.artifact_id,
