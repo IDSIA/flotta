@@ -1,7 +1,7 @@
 from typing import Any
-from abc import ABC, abstractmethod
 
 from ferdelance.logging import get_logger
+from ferdelance.config import config_manager
 from ferdelance.core.metrics import Metrics
 from ferdelance.schemas.resources import ResourceIdentifier, ResourceRequest
 from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
@@ -9,48 +9,19 @@ from ferdelance.shared.exchange import Exchange
 
 import json
 import os
-import pickle
 import requests
 
 LOGGER = get_logger(__name__)
 
 
-class RouteService(ABC):
-    @abstractmethod
-    def get_task_data(self, artifact_id: str, job_id: str) -> Task:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def get_resource(self, artifact_id: str, job_id: str, resource_id: str) -> Any:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def post_resource(
-        self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None
-    ) -> ResourceRequest:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def post_done(self, artifact_id: str, job_id: str) -> None:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
-        raise NotImplementedError()
-
-
-class EncryptRouteService(RouteService):
+class RouteService:
     """This router has direct access to local file system."""
 
     def __init__(
         self,
         component_id: str,
-        remote_url: str,
         private_key: str,
+        remote_url: str,
         remote_public_key: str,
         is_local: bool = False,
     ) -> None:
@@ -60,6 +31,16 @@ class EncryptRouteService(RouteService):
 
         self.exc: Exchange = Exchange()
         self.exc.set_private_key(private_key)
+        self.exc.set_remote_key(remote_public_key)
+
+    def reroute(
+        self,
+        remote_url: str,
+        remote_public_key: str,
+        is_local: bool = False,
+    ) -> None:
+        self.remote = remote_url
+        self.is_local = is_local
         self.exc.set_remote_key(remote_public_key)
 
     def get_task_data(self, artifact_id: str, job_id: str) -> Task:
@@ -110,10 +91,11 @@ class EncryptRouteService(RouteService):
         ) as res:
             res.raise_for_status()
 
-            # TODO: maybe save to disk?
-            content, _ = self.exc.stream_response(res.iter_content())
+            path = config_manager.get().store_resource(artifact_id, job_id)
 
-        return pickle.loads(content)
+            self.exc.stream_response_to_file(res, path)
+
+            return path
 
     def post_resource(
         self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from ferdelance.logging import get_logger
-from ferdelance.tasks.services import EncryptRouteService, RouteService
+from ferdelance.tasks.services import RouteService
 
 
 LOGGER = get_logger(__name__)
@@ -21,7 +21,7 @@ class GenericJob(ABC):
         self.artifact_id: str = artifact_id
         self.job_id: str = job_id
 
-        self.routes_service: RouteService = EncryptRouteService(
+        self.routes_service: RouteService = RouteService(
             self.component_id,
             node_url,
             private_key,
