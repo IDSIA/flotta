@@ -3,6 +3,7 @@ from typing import Any, Sequence
 from abc import abstractmethod, ABC
 
 from ferdelance.core.entity import Entity, create_entities
+from ferdelance.core.environment import Environment
 from ferdelance.schemas.components import Component
 
 from pydantic import BaseModel, root_validator
@@ -77,6 +78,10 @@ class Step(ABC, Entity):
             list[SchedulerJob]:
                 A list of jobs that can be scheduled that can be used to start the computations.
         """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def step(self, env: Environment) -> Environment:
         raise NotImplementedError()
 
 

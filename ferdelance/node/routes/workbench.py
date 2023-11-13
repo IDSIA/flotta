@@ -15,7 +15,7 @@ from ferdelance.schemas.workbench import (
 from ferdelance.shared.checksums import str_checksum
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
 
@@ -42,7 +42,7 @@ async def wb_home():
     return "Workbench 🔧"
 
 
-@workbench_router.post("/connect", response_class=Response)
+@workbench_router.post("/connect")
 async def wb_connect(
     data: WorkbenchJoinRequest,
     args: SessionArgs = Depends(session_args),
@@ -63,8 +63,6 @@ async def wb_connect(
             raise ValueError("Checksum failed")
 
         await wb.register(data, args.ip_address)
-
-        return
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
@@ -122,7 +120,7 @@ async def wb_get_datasource_list(
 
 
 @workbench_router.post("/resource", response_model=WorkbenchResource)
-async def wb_post_model(
+async def wb_post_resource(
     request: Request,
     args: ValidSessionArgs = Depends(allow_access),
 ):

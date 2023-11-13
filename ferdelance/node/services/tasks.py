@@ -1,6 +1,6 @@
 from ferdelance.database.repositories import AsyncSession, Repository
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.tasks import Task
+from ferdelance.tasks.tasks import Task
 
 
 class TaskManagementService(Repository):

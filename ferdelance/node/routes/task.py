@@ -4,7 +4,7 @@ from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
 from ferdelance.node.services import JobManagementService, TaskManagementService
 from ferdelance.schemas.resources import ResourceRequest
-from ferdelance.schemas.tasks import Task, TaskDone, TaskError
+from ferdelance.tasks.tasks import Task, TaskDone, TaskError
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
