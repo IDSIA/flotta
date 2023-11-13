@@ -37,6 +37,7 @@ class TaskResource(TaskNode):
 class Task(BaseModel):
     artifact_id: str
     job_id: str  # current job
+    project_id: str
 
     iteration: int
 

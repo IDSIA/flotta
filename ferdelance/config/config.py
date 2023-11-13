@@ -1,15 +1,14 @@
 from typing import Any
 
-from pydantic import BaseSettings, BaseModel, root_validator, validator
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE
-
 from ferdelance.datasources import DataSourceDB, DataSourceFile
-from ferdelance.schemas.metadata import Metadata
 from ferdelance.logging import get_logger
+from ferdelance.schemas.metadata import Metadata
 from ferdelance.shared.exchange import Exchange
 
 from .arguments import setup_config_from_arguments
 
+from pydantic import BaseSettings, BaseModel, root_validator, validator
 from dotenv import load_dotenv
 
 import os
@@ -171,6 +170,15 @@ class DataSourceStorage:
 
     def metadata(self) -> Metadata:
         return Metadata(datasources=[ds.metadata() for _, ds in self.datasources.items()])
+
+    def hashes(self) -> list[str]:
+        return list(self.datasources.keys())
+
+    def __getitem__(self, key: str) -> DataSourceDB | DataSourceFile | None:
+        return self.datasources.get(key, None)
+
+    def __len__(self) -> int:
+        return len(self.datasources)
 
 
 class Configuration(BaseSettings):

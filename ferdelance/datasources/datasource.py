@@ -23,6 +23,12 @@ class DataSource:
             "token": self.tokens,
         }
 
+    def check_token(self, project_token: str) -> bool:
+        for token in self.tokens:
+            if token == project_token:
+                return True
+        return False
+
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, type(self))

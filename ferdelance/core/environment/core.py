@@ -9,6 +9,8 @@ class Environment:
 
     label: str
 
+    df: DataFrame | None = None
+
     X_tr: DataFrame | None = None
     y_tr: DataFrame | None = None
     X_ts: DataFrame | None = None
