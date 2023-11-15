@@ -117,6 +117,11 @@ class JobRepository(Repository):
 
         return path
 
+    async def load(self, job: Job) -> SchedulerJob:
+        async with aiofiles.open(job.path, "r") as f:
+            content = await f.read()
+            return SchedulerJob(**json.loads(content))
+
     async def add_locks(self, job: Job, locked_jobs: list[Job]) -> None:
         """Adds constraint between the current job and the jobs that depends on
         the successful completion of it. Locked jobs need to have the same
@@ -429,6 +434,32 @@ class JobRepository(Repository):
                     )
                     .distinct()
                 ),
+            )
+        )
+
+        return [view(j) for j in jobs.all()]
+
+    async def list_previous_jobs(self, job_id: str) -> list[Job]:
+        jobs = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.id.in_(
+                    select(JobLockDB.job_id).where(
+                        JobLockDB.next_id == job_id,
+                    )
+                )
+            )
+        )
+
+        return [view(j) for j in jobs.all()]
+
+    async def list_next_jobs(self, job_id: str) -> list[Job]:
+        jobs = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.id.in_(
+                    select(JobLockDB.next_id).where(
+                        JobLockDB.job_id == job_id,
+                    )
+                )
             )
         )
 

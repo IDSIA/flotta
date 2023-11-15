@@ -31,3 +31,5 @@ class Resource(BaseModel):
     component_id: str
     creation_time: datetime | None
     path: str
+    is_error: bool
+    is_ready: bool

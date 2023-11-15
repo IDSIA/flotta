@@ -273,8 +273,6 @@ class Configuration(BaseSettings):
         artifact_id: str,
         job_id: str,
         iteration: int = 0,
-        is_partial: bool = False,
-        is_error: bool = False,
     ) -> str:
         """Creates a local path that can be used to save a resource to disk.
 
@@ -300,11 +298,6 @@ class Configuration(BaseSettings):
         os.makedirs(out_dir, exist_ok=True)
 
         chunks: list[str] = [job_id]
-
-        if is_error:
-            chunks.append("ERROR")
-        elif is_partial:
-            chunks.append("PARTIAL")
 
         filename = ".".join(chunks)
 

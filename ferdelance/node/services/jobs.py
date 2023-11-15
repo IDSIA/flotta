@@ -17,7 +17,7 @@ from ferdelance.node.services import ActionService, TaskManagementService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import ServerArtifact, Resource
 from ferdelance.schemas.jobs import Job
-from ferdelance.tasks.tasks import TaskError
+from ferdelance.tasks.tasks import Task, TaskError, TaskNode, TaskResource
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
@@ -127,24 +127,28 @@ class JobManagementService(Repository):
 
         # insert jobs in database
         for job in jobs:
-            j = await self.jr.create_job(
+            job_db = await self.jr.create_job(
                 artifact.id,
                 job,
             )
-            job_map[job.id] = j
+            job_map[job.id] = job_db
+
+            await self.rr.create_resource(job_db.id, artifact.id, job.worker.id, iteration)
 
         # insert unlocks in database
         for job in jobs:
-            j = job_map[job.id]
+            job_db = job_map[job.id]
             unlocks = [job_map[i] for i in job.locks]
 
-            await self.jr.add_locks(j, unlocks)
+            await self.jr.add_locks(job_db, unlocks)
 
         # set first job to scheduled
         if iteration == 0:
-            job = job_map[0]
-            LOGGER.info(f"component={self.component.id}: scheduling initialization job={job.id}")
-            await self.jr.schedule_job(job)
+            jobs_ready = await self.jr.list_unlocked_jobs_by_artifact_id(artifact.id)
+
+            for job in jobs_ready:
+                LOGGER.info(f"artifact={artifact.id}: scheduling initial job={job.id}")
+                await self.jr.schedule_job(job)
 
         # TODO: how to start this?
         #     get_jobs_backend().start_init(
@@ -170,15 +174,9 @@ class JobManagementService(Repository):
         # simple check that the artifact exists
         await self.ar.get_artifact(job.artifact_id)
 
-        resource = await self.rr.create_resource(
-            job_id,
-            job.artifact_id,
-            self.component.id,
-            job.iteration,
-            is_error=is_error,
-        )
+        await self.rr.mark_as_ready_by_job_id(job_id, is_error)
 
-        return resource
+        return await self.rr.get_by_job_id(job_id)
 
     async def load_resource(self, resource_id: str) -> Resource:
         """
@@ -205,6 +203,68 @@ class JobManagementService(Repository):
         if not job_to_start:
             await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED)
             # TODO: check for iteration
+
+    async def get_task_by_job_id(self, job_id: str) -> Task:
+        # TODO: add checks if who is downloading the job is allowed to do so
+        # FIXME: this is bad written: multiple queries can be aggregate together
+
+        job = await self.jr.get_by_id(job_id)
+        scheduler_job = await self.jr.load(job)
+        artifact = await self.ar.load(job.artifact_id)
+
+        # collect required resources
+        prev_jobs = await self.jr.list_previous_jobs(job.id)
+
+        task_resources = []
+
+        for p_job in prev_jobs:
+            c = await self.cr.get_by_id(p_job.component_id)
+            r = await self.rr.get_by_job_id(p_job.id)
+
+            task_resources.append(
+                TaskResource(
+                    component_id=c.id,
+                    artifact_id=job.artifact_id,
+                    job_id=job.id,
+                    public_key=c.public_key,
+                    url=c.url,
+                    is_local=c.id == self.component.id,  # TODO: should this be a self_component instead?
+                    resource_id=r.id,
+                )
+            )
+
+        # collect next resources
+        next_jobs = await self.jr.list_next_jobs(job.id)
+
+        next_nodes = []
+
+        for n_job in next_jobs:
+            c = await self.cr.get_by_id(n_job.component_id)
+            next_nodes.append(
+                TaskNode(
+                    component_id=c.id,
+                    public_key=c.public_key,
+                    url=c.url,
+                    is_local=c.id == self.component.id,
+                )
+            )
+
+        # resource id produced
+        resource = await self.rr.get_by_job_id(job.id)
+
+        # task to execute
+        task = Task(
+            artifact_id=artifact.id,
+            project_id=artifact.project_id,
+            job_id=job.id,
+            iteration=job.iteration,
+            step=scheduler_job.step,
+            task_resources=task_resources,
+            next_nodes=next_nodes,
+            resource_id=resource.id,
+        )
+
+        return task
 
     async def task_started(self, job_id: str) -> None:
         LOGGER.info(f"job={job_id}: task started")
@@ -268,305 +328,3 @@ class JobManagementService(Repository):
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(metrics.dict())
             await f.write(content)
-
-
-"""
-    # TODO: this should be internal to a task and referred to the ENVIRONMENT type
-    async def store_context(self, context: TaskParameters, init: bool = False) -> None:
-        job = await self.jr.get_by_id(context.job_id)
-
-        if job.component_id != self.component.id:
-            raise ValueError("Invalid component!")
-
-        if init:
-            path_init = await self.ar.storage_location(context.artifact_id, "context.data.init.json")
-
-            # initialization context will be used at the end
-            async with aiofiles.open(path_init, "w") as f:
-                json.dump(context.data, f)
-
-        # current content, same as init
-        path = await self.ar.storage_location(context.artifact_id, "context.data.json")
-        async with aiofiles.open(path, "w") as f:
-            json.dump(context.data, f)
-
-        await self.jr.complete_execution(job)
-
-        # TODO: check aggregation?
-
-    # TODO: this should be internal to a task and referred to the ENVIRONMENT type
-    async def load_context(self, artifact_id: str, job_id: str) -> TaskParameters:
-        # fetch task
-        job = await self.jr.get_by_id(job_id)
-
-        if job.component_id != self.component.id:
-            raise ValueError("Invalid component!")
-
-        if job.artifact_id != artifact_id:
-            raise ValueError("Invalid artifact!")
-
-        # check that the artifact exists
-        await self.ar.get_artifact(artifact_id)
-        artifact = await self.ar.load(artifact_id)
-
-        path = await self.ar.storage_location(artifact_id, "context.json")
-        if aiofiles.ospath.exists(path):
-            async with aiofiles.open(path, "w") as f:
-                content = await f.read()
-                data = json.loads(content)
-        else:
-            data = dict()
-
-        context = TaskParameters(
-            artifact_id=artifact_id,
-            artifact=artifact,
-            job_id=job.id,
-            iteration=job.iteration,
-            data=data,
-        )
-
-        await self.jr.start_execution(job)
-
-        return context
-
-    async def _task_start(self, job_id: str) -> TaskParameters:
-        try:
-            LOGGER.info(f"component={self.component.id}: start job={job_id}")
-
-            # fetch task
-            job = await self.jr.get_by_id(job_id)
-            artifact_id = job.artifact_id
-
-            artifact_db: ServerArtifact = await self.ar.get_artifact(artifact_id)
-
-            artifact_path = artifact_db.path
-
-            # check that the artifact exists on disk
-            if not os.path.exists(artifact_path):
-                LOGGER.warning(
-                    f"component={self.component.id}: artifact={artifact_id} does not exist with path={artifact_path}"
-                )
-                raise ArtifactDoesNotExists()
-
-            async with aiofiles.open(artifact_path, "r") as f:
-                data = await f.read()
-                artifact = Artifact(**json.loads(data))
-
-            # discriminate based on job type
-            if job.is_aggregation:
-                if ArtifactJobStatus[artifact_db.status] != ArtifactJobStatus.AGGREGATING:
-                    LOGGER.error(
-                        f"component={self.component.id}: aggregating"
-                        f"task job={job_id} for artifact={artifact_id} is in an unexpected state={artifact_db.status}"
-                    )
-                    raise ValueError(f"Wrong status for job={job_id}")
-
-                resources: list[Resource] = await self.rr.list_resources_by_artifact_id(
-                    artifact_id, artifact_db.iteration
-                )
-
-                content: list[str] = [r.id for r in resources]
-
-            elif job.is_estimation or job.is_model:
-                if ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.SCHEDULED:
-                    await self.ar.update_status(artifact_id, ArtifactJobStatus.TRAINING)
-
-                elif ArtifactJobStatus[artifact_db.status] == ArtifactJobStatus.TRAINING:
-                    LOGGER.warning(f"component={self.component.id}: requested task already in training status?")
-
-                else:
-                    LOGGER.error(
-                        f"component={self.component.id}: "
-                        f"task job={job_id} for artifact={artifact_id} is in an unexpected state={artifact_db.status}"
-                    )
-                    raise ValueError(f"Wrong status for job={job_id}")
-
-                content: list[str] = await self.dsr.list_hash_by_client_and_project(
-                    self.component.id, artifact.project_id
-                )
-
-                if len(content) == 0:
-                    LOGGER.warning(
-                        f"component={self.component.id}: "
-                        f"task with job={job_id} has no datasources with artifact={artifact_id}"
-                    )
-                    raise ValueError("TaskDoesNotExists")
-
-            else:
-                LOGGER.error(f"component={self.component.id}: invalid type for job={job.id}")
-                raise ValueError(f"Invalid type for job={job_id}")
-
-            # TODO: for complex training, filter based on artifact.load field
-
-            await self.jr.start_execution(job)
-
-            return TaskParameters(
-                artifact=artifact,
-                job_id=job.id,
-                content_ids=content,
-                iteration=job.iteration,
-            )
-
-        except NoResultFound:
-            LOGGER.warning(f"component={self.component.id}: task with job={job_id} does not exists")
-            raise ValueError("TaskDoesNotExists")
-
-    async def check_aggregation(
-        self,
-        job: Job,
-        artifact: Artifact,
-        context: SchedulerContext,
-    ) -> bool:
-        # aggregations checks for
-        context.aggregations = await self.jr.count_jobs_by_artifact_id(
-            artifact.id,
-            job.iteration,
-            True,
-        )
-        context.aggregations_failed = await self.jr.count_jobs_by_artifact_status(
-            artifact.id,
-            JobStatus.ERROR,
-            job.iteration,
-            True,
-        )
-
-        context.job_total = await self.jr.count_jobs_by_artifact_id(
-            artifact.id,
-            job.iteration,
-            False,
-        )
-        context.job_completed = await self.jr.count_jobs_by_artifact_status(
-            artifact.id,
-            JobStatus.COMPLETED,
-            job.iteration,
-            False,
-        )
-        context.job_failed = await self.jr.count_jobs_by_artifact_status(
-            artifact.id,
-            JobStatus.ERROR,
-            job.iteration,
-            False,
-        )
-
-        if artifact.has_plan():
-            await artifact.get_plan().pre_aggregation_hook(context)
-
-        if context.has_failed():
-            LOGGER.error(f"artifact={artifact.id}: aggregation failed: {context.job_failed} jobs have error")
-            await self.ar.update_status(artifact.id, ArtifactJobStatus.ERROR, context.current_iteration)
-            return False
-
-        if not context.completed():
-            LOGGER.info(
-                f"artifact={artifact.id}: "
-                f"{context.job_completed} / {context.job_total} completed job(s) waiting for others",
-            )
-            return False
-
-        if context.has_aggregations_failed():
-            LOGGER.warning(f"artifact={artifact.id}: ")
-            return False
-
-        return True
-
-    async def check_next_iteration(
-        self,
-        artifact: Artifact,
-        context: SchedulerContext,
-    ):
-        # check for next iteration
-        if artifact.has_plan():
-            await artifact.get_plan().post_aggregation_hook(context)
-
-        if context.schedule_next_iteration:
-            # schedule next iteration
-            LOGGER.info(f"artifact={artifact.id}: scheduling next iteration={context.next_iteration}")
-
-            await self.ar.update_status(artifact.id, ArtifactJobStatus.SCHEDULED, context.next_iteration)
-            await self.schedule_tasks_for_iteration(artifact, context.next_iteration)
-            return
-
-        # mark artifact as completed
-        LOGGER.info(f"artifact={artifact.id}: artifact completed ")
-        await self.ar.update_status(artifact.id, ArtifactJobStatus.COMPLETED, context.next_iteration)
-        return
-
-    async def _check(self, job_id: str, start_function) -> None:
-        job, artifact, context = await self._context(job_id)
-
-        if job.is_aggregation:
-            if job.status == JobStatus.ERROR:
-                LOGGER.warn(f"artifact={artifact.id}: aggregation failed")
-                await self.ar.update_status(artifact.id, ArtifactJobStatus.ERROR, context.current_iteration)
-                return
-
-            await self.check_next_iteration(artifact, context)
-
-        elif job.is_estimation or job.is_model:
-            aggregate = await self.check_aggregation(job, artifact, context)
-
-            if aggregate:
-                LOGGER.info(
-                    f"artifact={artifact.id}: " f"all {context.job_total} job(s) completed, starting aggregation"
-                )
-
-                await self.start_aggregation(artifact.id, job.is_model, job.is_estimation, start_function)
-
-    async def start_aggregation(
-        self,
-        artifact_id: str,
-        is_model: bool,
-        is_estimation: bool,
-        backend: Backend | None = None,
-    ) -> Job:
-        if not backend:
-            backend = get_jobs_backend()
-
-        artifact = await self.ar.get_status(artifact_id)
-
-        try:
-            # schedule an aggregation
-            worker = await self.cr.get_self_component()
-
-            agg_job: Job = await self.jr.create_job(
-                artifact_id,
-                worker.id,
-                is_model=is_model,
-                is_estimation=is_estimation,
-                is_aggregation=True,
-                iteration=artifact.iteration,
-            )
-
-            backend.start_aggregation(
-                artifact_id=artifact_id,
-                job_id=agg_job.id,
-                component_id=worker.id,
-                private_key=self.private_key,
-                node_url=config_manager.get().url_extern(),
-                node_public_key=self.node_public_key,
-            )
-
-            await self.ar.update_status(artifact_id, ArtifactJobStatus.AGGREGATING)
-
-            return agg_job
-
-        except ValueError as e:
-            LOGGER.error(f"artifact={artifact_id}: aggregation impossible: no worker available")
-            raise e
-
-        except IntegrityError:
-            LOGGER.warning(f"artifact={artifact_id}: trying to re-schedule an already existing aggregation job")
-            await self.session.rollback()
-            return await self.jr.get_by_artifact(
-                artifact_id,
-                self.component.id,
-                artifact.iteration,
-            )
-
-        except NoResultFound:
-            raise ValueError(f"artifact={artifact_id} not found")
-
-        except Exception as e:
-            LOGGER.exception(e)
-            raise e
-"""

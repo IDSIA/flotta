@@ -36,15 +36,16 @@ class TaskResource(TaskNode):
 
 class Task(BaseModel):
     artifact_id: str
-    job_id: str  # current job
     project_id: str
+    job_id: str  # current job
+
+    resource_id: str
 
     iteration: int
 
     step: Step  # what execute
 
     task_resources: list[TaskResource]  # what collect from
-
     next_nodes: list[TaskNode]  # receivers of the produced resources
 
     def run(self, env: Environment) -> Environment:

@@ -164,9 +164,10 @@ class Resource(Base):
     __tablename__ = "resources"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
-    creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
-    path: Mapped[str] = mapped_column(String)
+    creation_time: Mapped[datetime] = mapped_column(default=None, nullable=True)
+    path: Mapped[str] = mapped_column(String)  # this is local for the scheduler, if present
 
+    is_ready: Mapped[bool] = mapped_column(default=False)
     is_error: Mapped[bool] = mapped_column(default=False)
 
     iteration: Mapped[int] = mapped_column(default=0)
@@ -174,7 +175,6 @@ class Resource(Base):
     job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), unique=True)
     job = relationship("Job")
 
-    # TODO: one model per artifact or one artifact can have multiple models?
     artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
     artifact = relationship("Artifact")
 

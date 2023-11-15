@@ -1,14 +1,9 @@
 from abc import ABC, abstractmethod
 
 from ferdelance.core.entity import Entity
-from ferdelance.core.environment.core import Environment
 
 
 class Distribution(ABC, Entity):
-    @abstractmethod
-    def distribute(self, env: Environment) -> None:
-        raise NotImplementedError()
-
     @abstractmethod
     def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
         """Defines the locks between the given job ids lists. The locks are

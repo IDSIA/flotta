@@ -4,7 +4,7 @@ from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
 from ferdelance.node.services import JobManagementService, TaskManagementService
 from ferdelance.schemas.resources import ResourceRequest
-from ferdelance.tasks.tasks import Task, TaskDone, TaskError
+from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -31,9 +31,20 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
         raise HTTPException(403)
 
 
-@task_router.get("/")
-async def task_home():
-    return "Task 🔨"
+@task_router.get("/", response_model=Task)
+async def get_task(
+    task_request: TaskRequest,
+    args: ValidSessionArgs = Depends(allow_access),
+):
+    LOGGER.info(
+        f"component={args.component.id}: request new task with artifact={task_request.artifact_id} and job={task_request.job_id}"
+    )
+
+    jms: JobManagementService = JobManagementService(
+        args.session, args.component, args.security_service.get_private_key(), args.security_service.get_public_key()
+    )
+
+    return await jms.get_task_by_job_id(task_request.job_id)
 
 
 @task_router.post("/")
@@ -114,6 +125,7 @@ async def post_resource(
 
         return ResourceRequest(
             artifact_id=resource.artifact_id,
+            job_id=job_id,
             resource_id=resource.id,
         )
 

@@ -1,11 +1,7 @@
 from ferdelance.core.distributions.core import Distribution
-from ferdelance.core.environment.core import Environment
 
 
 class Arrange(Distribution):
-    def distribute(self, env: Environment) -> None:
-        return super().distribute(env)
-
     def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
         locks: list[list[int]] = list()
 
@@ -16,9 +12,6 @@ class Arrange(Distribution):
 
 
 class Distribute(Arrange):
-    def distribute(self, env: Environment) -> None:
-        return super().distribute(env)
-
     def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
         if len(job_ids0) != 1:
             raise ValueError("Cannot distribute from multiple sources, use Arrange instead")
@@ -27,9 +20,6 @@ class Distribute(Arrange):
 
 
 class Collect(Arrange):
-    def distribute(self, env: Environment) -> None:
-        return super().distribute(env)
-
     def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
         if len(job_ids1) != 1:
             raise ValueError("Cannot collect to multiple sinks, use Arrange instead")
