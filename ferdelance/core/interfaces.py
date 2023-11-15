@@ -19,7 +19,7 @@ class SchedulerJob(BaseModel):
     resource_required: list[tuple[str, str]] = list()  # [(resource_id, producer_id)] for previous node
     resource_produced: list[tuple[str, str]] = list()  # [(resource_id, consumer_id)] for next node
 
-    @root_validator
+    @root_validator(pre=True)
     def create_subclass_entities(cls, values) -> dict[str, Any]:
         return create_entities(values)
 
