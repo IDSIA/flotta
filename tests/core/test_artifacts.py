@@ -139,3 +139,39 @@ def test_plan_sequence():
 
     assert jobs[3].worker == sc.initiator
     assert jobs[3].locks == []
+
+
+def test_steps_conversion():
+    artifact = Artifact(
+        id="artifact_id",
+        project_id="project_id",
+        steps=[
+            Initialize(
+                UniformMatrix(size=(2, 2), persist=True),
+                Distribute(),
+            ),
+            Parallel(
+                SumMatrix(),
+                Collect(),
+            ),
+            Finalize(
+                SubtractMatrix(),
+            ),
+        ],
+    )
+
+    sc = get_scheduler_context(3)
+    jobs = artifact.jobs(sc)
+
+    print()
+
+    for job in jobs:
+        print(
+            job.step._name,
+            job.id,
+            f"{str(job.locks):8}",
+            job.resource_required,
+            "->",
+            job.resource_produced,
+            sep="\t",
+        )

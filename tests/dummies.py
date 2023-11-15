@@ -20,6 +20,9 @@ class DummyOp(Operation):
 
 
 class DummyStep(Step):
+    def step(self, env: Environment) -> Environment:
+        return env
+
     def jobs(self, context: SchedulerContext) -> Sequence[SchedulerJob]:
         return []
 
