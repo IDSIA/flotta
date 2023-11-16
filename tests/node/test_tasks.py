@@ -128,7 +128,7 @@ async def test_task_endpoints(session: AsyncSession):
         assert artifact.id is not None
 
         assert status.status is not None
-        assert JobStatus[status.status] == JobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.SCHEDULED
 
         res = await session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact.id).limit(1))
         art_db: ArtifactDB = res.one()

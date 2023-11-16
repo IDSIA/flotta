@@ -1,6 +1,7 @@
 from ferdelance.cli.fdl_suites.artifacts.functions import describe_artifact, list_artifacts
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.schemas.database import ServerArtifact
+from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,14 +17,14 @@ async def test_artifacts_ls(session: AsyncSession):
         ArtifactDB(
             id=artifact_id_1,
             path=".",
-            status="",
+            status=ArtifactJobStatus.COMPLETED.name,
         )
     )
     session.add(
         ArtifactDB(
             id=artifact_id_2,
             path=".",
-            status="",
+            status=ArtifactJobStatus.ERROR.name,
         )
     )
 
@@ -43,14 +44,14 @@ async def test_artifacts_description(session: AsyncSession):
         ArtifactDB(
             id=artifact_id_1,
             path=".",
-            status="",
+            status=ArtifactJobStatus.COMPLETED.name,
         )
     )
     session.add(
         ArtifactDB(
             id=artifact_id_2,
             path=".",
-            status="",
+            status=ArtifactJobStatus.ERROR.name,
         )
     )
 
@@ -61,10 +62,10 @@ async def test_artifacts_description(session: AsyncSession):
     assert res is not None
     assert res.id == "artifact1"
     assert res.path == "."
-    assert res.status == ""
+    assert res.status == ArtifactJobStatus.COMPLETED
 
     with pytest.raises(ValueError) as e:
-        res = await describe_artifact(artifact_id=None)
+        res = await describe_artifact(artifact_id="")
         assert "Provide an Artifact ID" in str(e)
 
     res = await describe_artifact(artifact_id="do_not_exist")
