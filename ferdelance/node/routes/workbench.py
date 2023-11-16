@@ -184,17 +184,29 @@ async def wb_get_artifact(
         raise HTTPException(404)
 
 
-@workbench_router.get("/resource", response_class=FileResponse)
-async def wb_get_resource(
+@workbench_router.get("/resource/list", response_class=FileResponse)
+async def wb_get_resource_list(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user={args.component.id}: requested resource with artifact={wba.artifact_id}")
+    LOGGER.info(f"user={args.component.id}: requested resource list for artifact={wba.artifact_id}")
+
+    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+
+    return await ws.list_resources(wba.artifact_id)
+
+
+@workbench_router.get("/resource", response_class=FileResponse)
+async def wb_get_resource(
+    wbr: WorkbenchResource,
+    args: ValidSessionArgs = Depends(allow_access),
+):
+    LOGGER.info(f"user={args.component.id}: requested resource={wbr.resource_id}")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component)
 
     try:
-        resource = await ws.get_resource(wba.artifact_id)
+        resource = await ws.get_resource(wbr.resource_id)
 
         return FileResponse(resource.path)
 
@@ -203,12 +215,12 @@ async def wb_get_resource(
         raise HTTPException(404)
 
     except NoResultFound:
-        LOGGER.warning(f"no aggregated model found for artifact={wba.artifact_id}")
+        LOGGER.warning(f"no aggregated model found for artifact={wbr.resource_id}")
         raise HTTPException(404)
 
     except MultipleResultsFound:
         # TODO: do we want to allow this?
-        LOGGER.error(f"multiple aggregated models found for artifact={wba.artifact_id}")
+        LOGGER.error(f"multiple aggregated models found for artifact={wbr.resource_id}")
         raise HTTPException(500)
 
     except Exception as e:

@@ -20,7 +20,7 @@ def view(artifact: ArtifactDB) -> ServerArtifact:
         id=artifact.id,
         creation_time=artifact.creation_time,
         path=artifact.path,
-        status=artifact.status,
+        status=ArtifactJobStatus[artifact.status],
         iteration=artifact.iteration,
     )
 
@@ -64,14 +64,14 @@ class ArtifactRepository(Repository):
             if existing:
                 raise ValueError("artifact already exists!")
 
-        status = ArtifactJobStatus.SCHEDULED.name
+        status = ArtifactJobStatus.SCHEDULED
 
         path = await self.store(artifact)
 
         db_artifact = ArtifactDB(
             id=artifact.id,
             path=path,
-            status=status,
+            status=status.name,
         )
 
         self.session.add(db_artifact)
@@ -236,7 +236,7 @@ class ArtifactRepository(Repository):
 
         return ArtifactStatus(
             id=artifact.id,
-            status=artifact.status,
+            status=ArtifactJobStatus[artifact.status],
             iteration=artifact.iteration,
         )
 

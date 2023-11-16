@@ -4,6 +4,7 @@ from itertools import pairwise
 
 from ferdelance.core.entity import Entity
 from ferdelance.core.interfaces import Step, SchedulerJob, SchedulerContext
+from ferdelance.shared.status import ArtifactJobStatus
 
 from pydantic import BaseModel
 
@@ -41,6 +42,6 @@ class ArtifactStatus(BaseModel):
     """Details on the artifact status."""
 
     id: str
-    status: str | None
+    status: ArtifactJobStatus | None
     resource: str | None = None
     iteration: int = 0

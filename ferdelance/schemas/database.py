@@ -1,4 +1,5 @@
 from ferdelance.core.artifacts import ArtifactStatus
+from ferdelance.shared.status import ArtifactJobStatus
 
 from datetime import datetime
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ class ServerArtifact(BaseModel):
 
     id: str
     path: str
-    status: str
+    status: ArtifactJobStatus
     creation_time: datetime
 
     iteration: int

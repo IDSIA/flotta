@@ -196,7 +196,7 @@ class JobManagementService(Repository):
         job_to_start = False
 
         for job in jobs:
-            if job.status == JobStatus.WAITING.name:
+            if job.status == JobStatus.WAITING:
                 job = await self.jr.schedule_job(job)
                 job_to_start = True
 

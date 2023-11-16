@@ -25,7 +25,7 @@ def view(job: JobDB) -> Job:
         id=job.id,
         artifact_id=job.artifact_id,
         component_id=job.component_id,
-        status=job.status,
+        status=JobStatus[job.status],
         path=job.path,
         creation_time=job.creation_time,
         execution_time=job.execution_time,

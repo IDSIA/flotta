@@ -154,7 +154,7 @@ class WorkbenchService:
 
         return artifact
 
-    async def get_resource(self, artifact_id: str) -> Resource:
+    async def get_resource(self, resource_id: str) -> Resource:
         """
         :raise:
             ValueError when the requested resource exists on the database but not on disk.
@@ -165,11 +165,16 @@ class WorkbenchService:
         """
         rr: ResourceRepository = ResourceRepository(self.session)
 
-        resource: Resource = await rr.get_by_artifact(artifact_id)
+        resource: Resource = await rr.get_by_id(resource_id)
 
         if not os.path.exists(resource.path):
             raise ValueError(f"resource={resource.id} not found at path={resource.path}")
 
-        LOGGER.info(f"user={self.component.id}: downloaded resources for artifact={artifact_id}")
+        LOGGER.info(f"user={self.component.id}: downloaded resource={resource_id}")
 
         return resource
+
+    async def list_resources(self, artifact_id: str) -> list[Resource]:
+        rr: ResourceRepository = ResourceRepository(self.session)
+
+        return await rr.list_resources_by_artifact_id(artifact_id)

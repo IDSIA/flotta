@@ -14,6 +14,9 @@ class FederatedSplitter(QueryTransformer):
 
     label: str
 
+    def aggregate(self, env: Environment) -> Environment:
+        return env
+
     def transform(self, env: Environment) -> tuple[Environment, Any]:
         df: pd.DataFrame = env["df"]
 
