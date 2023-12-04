@@ -1,3 +1,4 @@
+from ferdelance.core.entity import Entity
 from ferdelance.core.environment import Environment
 from ferdelance.core.interfaces import Step
 
@@ -34,7 +35,7 @@ class TaskResource(TaskNode):
     resource_id: str
 
 
-class Task(BaseModel):
+class Task(Entity):
     artifact_id: str
     project_id: str
     job_id: str  # current job

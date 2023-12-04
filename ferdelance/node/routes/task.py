@@ -31,7 +31,7 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
         raise HTTPException(403)
 
 
-@task_router.get("/", response_model=Task)
+@task_router.get("/")
 async def get_task(
     task_request: TaskRequest,
     args: ValidSessionArgs = Depends(allow_access),
@@ -44,7 +44,8 @@ async def get_task(
         args.session, args.component, args.security_service.get_private_key(), args.security_service.get_public_key()
     )
 
-    return await jms.get_task_by_job_id(task_request.job_id)
+    task = await jms.get_task_by_job_id(task_request.job_id)
+    return task
 
 
 @task_router.post("/")
