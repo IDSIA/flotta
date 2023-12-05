@@ -315,7 +315,6 @@ async def test_get_results(session: AsyncSession):
 
         await jms.get_task_by_job_id(job1.id)
 
-        await jms.task_started(job1.id)
         job1 = await jr.get_by_id(job1.id)
         assert job1.status == JobStatus.RUNNING
 
@@ -331,7 +330,6 @@ async def test_get_results(session: AsyncSession):
 
         await jms.get_task_by_job_id(job2.id)
 
-        await jms.task_started(job2.id)
         job2 = await jr.get_by_id(job2.id)
         assert job2.status == JobStatus.RUNNING
 
