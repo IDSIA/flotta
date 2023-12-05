@@ -1,4 +1,5 @@
 from typing import Sequence
+
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
 from ferdelance.core.interfaces import SchedulerContext, SchedulerJob
 from ferdelance.core.metrics import Metrics
@@ -41,7 +42,7 @@ class JobManagementService(Repository):
     ) -> None:
         super().__init__(session)
 
-        self.component: Component = component
+        self.self_component: Component = component  # this is the self-component!
         self.ar: ArtifactRepository = ArtifactRepository(session)
         self.ax: ActionService = ActionService(self.session)
         self.cr: ComponentRepository = ComponentRepository(session)
@@ -55,10 +56,10 @@ class JobManagementService(Repository):
         self.private_key = private_key
         self.node_public_key = node_public_key
 
-    async def update(self) -> UpdateData:
-        next_action = await self.ax.next(self.component)
+    async def update(self, component: Component) -> UpdateData:
+        next_action = await self.ax.next(component)
 
-        LOGGER.debug(f"component={self.component.id}: update action={next_action.action}")
+        LOGGER.debug(f"component={component.id}: update action={next_action.action}")
 
         return next_action
 
@@ -88,13 +89,13 @@ class JobManagementService(Repository):
 
             artifact.id = artifact_db.id
 
-            await self.schedule_tasks_for_iteration(artifact, 0)
+            await self.schedule_tasks_for_iteration(artifact)
 
             return artifact_db.get_status()
         except ValueError as e:
             raise e
 
-    async def schedule_tasks_for_iteration(self, artifact: Artifact, iteration: int) -> None:
+    async def schedule_tasks_for_iteration(self, artifact: Artifact) -> None:
         """Schedules all the jobs for the given artifact in the given iteration.
 
         Args:
@@ -108,20 +109,20 @@ class JobManagementService(Repository):
 
         workers: list[Component] = []
         for datasource_id in datasources_ids:
-            worker: Component = await self.dsr.get_client_by_datasource_id(datasource_id)
+            worker: Component = await self.dsr.get_node_by_datasource_id(datasource_id)
             workers.append(worker)
 
-        LOGGER.info(f"artifact={artifact.id}: creating jobs with {len(workers)} worker(s) for it={iteration}")
+        LOGGER.info(f"artifact={artifact.id}: creating jobs with {len(workers)} worker(s)")
 
         context = SchedulerContext(
             artifact_id=artifact.id,
-            initiator=self.component,
+            initiator=self.self_component,
             workers=workers,
         )
 
         jobs: Sequence[SchedulerJob] = artifact.jobs(context)
 
-        LOGGER.info(f"artifact={artifact.id}: planned to schedule {len(jobs)} job(s) for it={iteration}")
+        LOGGER.info(f"artifact={artifact.id}: planned to schedule {len(jobs)} job(s)")
 
         job_map: dict[int, Job] = dict()
 
@@ -133,9 +134,9 @@ class JobManagementService(Repository):
             )
             job_map[job.id] = job_db
 
-            await self.rr.create_resource(job_db.id, artifact.id, job.worker.id, iteration)
+            await self.rr.create_resource(job_db.id, artifact.id, job.worker.id, job.iteration)
 
-        # insert unlocks in database
+        # insert locks in database
         for job in jobs:
             job_db = job_map[job.id]
             unlocks = [job_map[i] for i in job.locks]
@@ -143,12 +144,11 @@ class JobManagementService(Repository):
             await self.jr.add_locks(job_db, unlocks)
 
         # set first job to scheduled
-        if iteration == 0:
-            jobs_ready = await self.jr.list_unlocked_jobs_by_artifact_id(artifact.id)
+        jobs_ready = await self.jr.list_unlocked_jobs_by_artifact_id(artifact.id)
 
-            for job in jobs_ready:
-                LOGGER.info(f"artifact={artifact.id}: scheduling initial job={job.id}")
-                await self.jr.schedule_job(job)
+        for job in jobs_ready:
+            LOGGER.info(f"artifact={artifact.id}: scheduling initial job={job.id}")
+            await self.jr.schedule_job(job)
 
         # TODO: how to start this?
         #     get_jobs_backend().start_init(
@@ -191,18 +191,24 @@ class JobManagementService(Repository):
         return resource
 
     async def check(self, artifact_id: str) -> None:
-        jobs = await self.jr.list_jobs_by_artifact_id(artifact_id)
+        jobs = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id)
+
+        artifact = await self.ar.get_artifact(artifact_id)
+        it = artifact.iteration
 
         job_to_start = False
 
         for job in jobs:
             if job.status == JobStatus.WAITING:
                 job = await self.jr.schedule_job(job)
+                it = job.iteration
                 job_to_start = True
 
         if not job_to_start:
-            await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED)
+            await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, it)
             # TODO: check for iteration
+        else:
+            await self.ar.update_status(artifact_id, ArtifactJobStatus.RUNNING, it)
 
     async def get_task_by_job_id(self, job_id: str) -> Task:
         # TODO: add checks if who is downloading the job is allowed to do so
@@ -228,7 +234,7 @@ class JobManagementService(Repository):
                     job_id=job.id,
                     public_key=c.public_key,
                     url=c.url,
-                    is_local=c.id == self.component.id,  # TODO: should this be a self_component instead?
+                    is_local=c.id == self.self_component.id,
                     resource_id=r.id,
                 )
             )
@@ -245,7 +251,7 @@ class JobManagementService(Repository):
                     component_id=c.id,
                     public_key=c.public_key,
                     url=c.url,
-                    is_local=c.id == self.component.id,
+                    is_local=c.id == self.self_component.id,
                 )
             )
 
@@ -264,6 +270,8 @@ class JobManagementService(Repository):
             resource_id=resource.id,
         )
 
+        await self.task_started(job_id)
+
         return task
 
     async def task_started(self, job_id: str) -> None:
@@ -276,7 +284,7 @@ class JobManagementService(Repository):
             await self.ar.update_status(job.artifact_id, ArtifactJobStatus.RUNNING)
 
         except NoResultFound:
-            raise ValueError(f"component={self.component.id}: job={job_id} does not exists")
+            raise ValueError(f"component={self.self_component.id}: job={job_id} does not exists")
 
     async def task_completed(self, job_id: str) -> None:
         LOGGER.info(f"job={job_id}: task completed")
@@ -289,7 +297,7 @@ class JobManagementService(Repository):
             await self.check(job.artifact_id)
 
         except NoResultFound:
-            raise ValueError(f"component={self.component.id}: job={job_id} does not exists")
+            raise ValueError(f"component={self.self_component.id}: job={job_id} does not exists")
 
     async def task_failed(self, error: TaskError) -> Resource:
         LOGGER.error(f"job={error.job_id}: task failed: {error.message}")
@@ -315,7 +323,7 @@ class JobManagementService(Repository):
             return resource
 
         except NoResultFound:
-            raise ValueError(f"component={self.component.id}: job={error.job_id} does not exists")
+            raise ValueError(f"component={self.self_component.id}: job={error.job_id} does not exists")
 
     async def metrics(self, metrics: Metrics) -> None:
         artifact = await self.ar.get_artifact(metrics.artifact_id)

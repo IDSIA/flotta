@@ -16,12 +16,12 @@ class BaseStep(Step):
     def step(self, env: Environment) -> Environment:
         return self.operation.exec(env)
 
-    def bind(self, jobs0: list[SchedulerJob], jobs1: list[SchedulerJob]) -> None:
+    def bind(self, jobs0: Sequence[SchedulerJob], jobs1: Sequence[SchedulerJob]) -> None:
         if self.distribution:
             jobs_id0 = [j.id for j in jobs0]
             jobs_id1 = [j.id for j in jobs1]
 
-            locks = self.distribution.bind(jobs_id0, jobs_id1)
+            locks = self.distribution.bind_locks(jobs_id0, jobs_id1)
 
             for job, lock in zip(jobs0, locks):
                 job.locks += lock
@@ -255,11 +255,31 @@ class Iterate(Step):
         raise ValueError("Iterate is a meta-step and does not have a bind method!")
 
     def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
-        job_list = []
+        job_list: Sequence[SchedulerJob] = []
 
+        last_job = None
         for it in range(self.iterations):
-            for step in self.steps:
-                context.iteration = it
-                job_list += step.jobs(context)
+            # create jobs for current iteration
+            it_jobs: Sequence[SchedulerJob] = []
+
+            context.iteration = it
+            jobs0: Sequence[SchedulerJob] = self.steps[0].jobs(context)
+
+            for step0, step1 in pairwise(self.steps):
+                jobs1 = step1.jobs(context)
+
+                step0.bind(jobs0, jobs1)
+
+                it_jobs += jobs0
+                jobs0 = jobs1
+
+            it_jobs += jobs0
+
+            if last_job is not None:
+                # add locks to last job of previous iteration
+                last_job.locks += [job.id for job in it_jobs]
+
+            job_list += it_jobs
+            last_job = job_list[-1]
 
         return job_list

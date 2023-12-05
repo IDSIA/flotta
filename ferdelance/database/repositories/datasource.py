@@ -341,8 +341,8 @@ class DataSourceRepository(Repository):
         stored_ds = await self.load(datasource_id)
         return view(ds, stored_ds.features)
 
-    async def get_client_by_datasource_id(self, datasource_id: str) -> Component:
-        """Return information on the client of the given datasource_id.
+    async def get_node_by_datasource_id(self, datasource_id: str) -> Component:
+        """Return information on the node with the given datasource_id.
 
         Args:
             datasource_id (str):

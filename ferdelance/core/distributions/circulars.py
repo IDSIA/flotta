@@ -2,7 +2,7 @@ from ferdelance.core.distributions.core import Distribution
 
 
 class RoundRobin(Distribution):
-    def bind(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
+    def bind_locks(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
         locks = []
 
         if len(job_ids0) != len(job_ids1):
@@ -13,6 +13,6 @@ class RoundRobin(Distribution):
         for i in range(n):
             x = (i + 1) % n
 
-            locks.append([job_ids1[x]])
+            locks += [job_ids1[x]]
 
         return locks
