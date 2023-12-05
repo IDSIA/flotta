@@ -85,7 +85,7 @@ async def wb_get_project(
 ) -> Project:
     LOGGER.info(f"user={args.component.id}: requested a project given its token")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
         return await ws.project(wpt.token)
@@ -102,7 +102,7 @@ async def wb_get_client_list(
 ) -> WorkbenchClientList:
     LOGGER.info(f"user={args.component.id}: requested a list of clients")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     return await ws.get_client_list(wpt.token)
 
@@ -114,7 +114,7 @@ async def wb_get_datasource_list(
 ) -> WorkbenchDataSourceIdList:
     LOGGER.info(f"user={args.component.id}: requested a list of available data source")
 
-    wb: WorkbenchService = WorkbenchService(args.session, args.component)
+    wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     return await wb.get_datasource_list(wpt.token)
 
@@ -124,7 +124,7 @@ async def wb_post_resource(
     request: Request,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    wb: WorkbenchService = WorkbenchService(args.session, args.component)
+    wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     resource_id = await wb.store_resource(request.stream())
 
@@ -138,7 +138,7 @@ async def wb_post_artifact_submit(
 ) -> ArtifactStatus:
     LOGGER.info(f"user={args.component.id}: submitted a new artifact")
 
-    wb: WorkbenchService = WorkbenchService(args.session, args.component)
+    wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
         return await wb.submit_artifact(artifact)
@@ -156,7 +156,7 @@ async def wb_get_artifact_status(
 ) -> ArtifactStatus:
     LOGGER.info(f"user={args.component.id}: requested status of artifact")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
         return await ws.get_status_artifact(wba.artifact_id)
@@ -173,7 +173,7 @@ async def wb_get_artifact(
 ):
     LOGGER.info(f"user={args.component.id}: requested details on artifact")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
         artifact = await ws.get_artifact(wba.artifact_id)
@@ -191,7 +191,7 @@ async def wb_get_resource_list(
 ):
     LOGGER.info(f"user={args.component.id}: requested resource list for artifact={wba.artifact_id}")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     return await ws.list_resources(wba.artifact_id)
 
@@ -203,7 +203,7 @@ async def wb_get_resource(
 ):
     LOGGER.info(f"user={args.component.id}: requested resource={wbr.resource_id}")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
         resource = await ws.get_resource(wbr.resource_id)
