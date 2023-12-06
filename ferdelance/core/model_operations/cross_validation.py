@@ -23,22 +23,22 @@ class LocalCrossValidation(ModelOperation):
         else:
             kf = KFold(self.folds, shuffle=self.shuffle, random_state=self.random_state)
 
-        x = env.X_tr
-        y = env.y_tr
+        X = env.X_tr
+        Y = env.Y_tr
 
-        if x is None:
+        if X is None:
             raise ValueError("X_tr is required")
 
-        if y is None:
+        if Y is None:
             raise ValueError("y_tr is required")
 
         metrics_list: list[Metrics] = list()
 
-        for fold, (tr, ts) in kf.split(x, y):
-            x_tr = x.iloc[tr].copy()
-            y_tr = y.iloc[tr].copy()
-            x_ts = x.iloc[ts].copy()
-            y_ts = y.iloc[ts].copy()
+        for fold, (tr, ts) in kf.split(X, Y):
+            x_tr = X.iloc[tr].copy()
+            y_tr = Y.iloc[tr].copy()
+            x_ts = X.iloc[ts].copy()
+            y_ts = Y.iloc[ts].copy()
 
             model = self.model.train(x_tr, y_tr)
 

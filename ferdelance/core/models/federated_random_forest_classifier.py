@@ -1,7 +1,8 @@
 from __future__ import annotations
 from enum import Enum
-from ferdelance.core.models.meta import AggregationModel
 
+from ferdelance.core.models.meta import AggregationModel
+from ferdelance.core.models.utils import get_model_parameters
 from ferdelance.logging import get_logger
 
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -51,9 +52,10 @@ class FederatedRandomForestClassifier(AggregationModel):
     max_samples: int | None = None
 
     def train(self, x, y) -> RandomForestClassifier:
-        model = RandomForestClassifier(**self.dict())
-        model.fit(x, y)
-        return model
+        params = get_model_parameters(RandomForestClassifier, self.dict())
+        self._model: RandomForestClassifier = RandomForestClassifier(**params)
+        self._model.fit(x, y)
+        return self._model
 
     def aggregate(
         self, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier
@@ -111,11 +113,11 @@ class FederatedRandomForestClassifier(AggregationModel):
         return vc
 
     def predict(self, x) -> np.ndarray:
-        if self.model is None:
+        if self._model is None:
             raise ValueError("No model has been loaded or created")
-        return self.model.predict_proba(x)
+        return self._model.predict_proba(x)
 
     def classify(self, x) -> np.ndarray | ArrayLike:
-        if self.model is None:
+        if self._model is None:
             raise ValueError("No model has been loaded or created")
-        return self.model.predict(x)
+        return self._model.predict(x)

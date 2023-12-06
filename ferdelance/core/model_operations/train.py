@@ -18,11 +18,11 @@ class Train(ModelOperation):
         if self.query is not None:
             env = self.query.apply(env)
 
-        if env.X_tr is None or env.y_tr is None:
+        if env.X_tr is None or env.Y_tr is None:
             raise ValueError("Cannot train a model without X_tr and y_tr")
 
         # model training
-        env["local_model"] = self.model.train(env.X_tr.values, env.y_tr)
+        env["local_model"] = self.model.train(env.X_tr.values, env.Y_tr)
 
         LOGGER.info(f"artifact={env.artifact_id}: local model train completed")
 
@@ -41,25 +41,25 @@ class TrainTest(ModelOperation):
         if self.query is not None:
             env = self.query.apply(env)
 
-        if env.X_tr is None or env.y_tr is None:
+        if env.X_tr is None or env.Y_tr is None:
             raise ValueError("Cannot train without train data")
 
         # model training
-        model = self.model.train(env.X_tr, env.y_tr)
+        model = self.model.train(env.X_tr, env.Y_tr)
         env["local_model"] = model
 
         LOGGER.info(f"artifact={artifact_id}: train done")
 
         # model testing
-        if env.X_ts is None or env.y_ts is None:
+        if env.X_ts is None or env.Y_ts is None:
             raise ValueError("Cannot eval without test data")
 
         metrics_list: list[Metrics] = list()
 
         x_ts = env.X_ts.values
-        y_ts = env.y_ts
+        y_ts = env.Y_ts
 
-        metrics = model.eval(x_ts, y_ts)
+        metrics = self.model.eval(x_ts, y_ts)
         metrics.source = self.source
         metrics.artifact_id = artifact_id
 

@@ -30,7 +30,7 @@ class FederatedSimpleImputer(QueryTransformer):
             fill_value=self.fill_value,
         )
 
-        tr.fit(env.X_tr[self._columns_in()], env.y_tr)
+        tr.fit(env.X_tr[self._columns_in()], env.Y_tr)
 
         if env.X_ts is None:
             X = env.X_tr

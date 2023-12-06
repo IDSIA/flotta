@@ -218,6 +218,8 @@ class JobManagementService(Repository):
         scheduler_job = await self.jr.load(job)
         artifact = await self.ar.load(job.artifact_id)
 
+        project = await self.pr.get_by_id(artifact.project_id)
+
         # collect required resources
         prev_jobs = await self.jr.list_previous_jobs(job.id)
 
@@ -260,14 +262,14 @@ class JobManagementService(Repository):
 
         # task to execute
         task = Task(
+            project_token=project.token,
             artifact_id=artifact.id,
-            project_id=artifact.project_id,
             job_id=job.id,
             iteration=job.iteration,
             step=scheduler_job.step,
-            task_resources=task_resources,
+            required_resources=task_resources,
             next_nodes=next_nodes,
-            resource_id=resource.id,
+            produced_resource_id=resource.id,
         )
 
         await self.task_started(job_id)

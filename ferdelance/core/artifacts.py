@@ -12,7 +12,7 @@ from pydantic import BaseModel
 class Artifact(Entity):
     """This is a plan that can produce jobs given a list of steps."""
 
-    id: str
+    id: str = ""
     project_id: str
     steps: Sequence[Step]
     random_state: Any = None
