@@ -1,28 +1,27 @@
 from typing import Any
-
 from ferdelance.config import DataSourceConfiguration, DataSourceStorage
+from ferdelance.core.artifacts import Artifact
+from ferdelance.core.distributions import Collect
+from ferdelance.core.model_operations import Train, TrainTest, Aggregation
+from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+from ferdelance.core.steps import Finalize, Parallel
+from ferdelance.core.transformers import FederatedSplitter
 from ferdelance.database import AsyncSession
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.models import (
-    GenericModel,
-    FederatedRandomForestClassifier,
-    StrategyRandomForestClassifier,
-    ParametersRandomForestClassifier,
-)
-from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.schemas.tasks import TaskArguments
-from ferdelance.schemas.updates import UpdateData
+from ferdelance.schemas.database import Resource
 
 from tests.serverless import ServerlessExecution
-from tests.utils import TEST_PROJECT_TOKEN
+from tests.utils import TEST_PROJECT_TOKEN, assert_jobs_count
+
+from sklearn.ensemble import RandomForestClassifier
 
 import os
 import pickle
 import pytest
 
 
-def aggregation_job(args: TaskArguments) -> None:
-    print(f"artifact={args.artifact_id}: aggregation start for job={args.job_id}")
+def load_resource(res: Resource) -> Any:
+    with open(res.path, "rb") as f:
+        return pickle.load(f)
 
 
 @pytest.mark.asyncio
@@ -61,83 +60,104 @@ async def test_aggregation(session: AsyncSession):
 
     await server.create_project(TEST_PROJECT_TOKEN)
 
-    client1 = await server.add_client(1, data1)
-    client2 = await server.add_client(2, data2)
+    client1 = await server.add_worker(data1)
+    client2 = await server.add_worker(data2)
 
     clients = [c.id for c in await server.cr.list_clients()]
+    nodes = [n.id for n in await server.cr.list_nodes()]
 
     assert len(clients) == 2
-    assert client1.client.id in clients
-    assert client2.client.id in clients
+    assert client1.component.id in clients
+    assert client2.component.id in clients
+
+    assert len(nodes) == 1
+    assert server.self_worker.component.id in nodes
 
     # submit artifact
 
     project = await server.get_project(TEST_PROJECT_TOKEN)
+    label = "MedHouseValDiscrete"
+
+    model = FederatedRandomForestClassifier(
+        n_estimators=10,
+        strategy=StrategyRandomForestClassifier.MERGE,
+    )
 
     artifact: Artifact = Artifact(
         project_id=project.id,
-        transform=project.extract(),
-        plan=TrainTestSplit("MedHouseValDiscrete", 0.2).build(),
-        model=FederatedRandomForestClassifier(
-            strategy=StrategyRandomForestClassifier.MERGE,
-            parameters=ParametersRandomForestClassifier(n_estimators=10),
-        ).build(),
+        steps=[
+            Parallel(
+                TrainTest(
+                    query=project.extract().add(
+                        FederatedSplitter(
+                            random_state=42,
+                            test_percentage=0.2,
+                            label=label,
+                        )
+                    ),
+                    trainer=Train(model=model),
+                    model=model,
+                ),
+                Collect(),
+            ),
+            Finalize(
+                Aggregation(model=model),
+            ),
+        ],
     )
 
-    await server.submit(artifact)
-
-    # client 1
-    result1 = await client1.next_get_execute_post()
-
-    can_aggregate = await server.check_aggregation(result1)
-
-    assert not can_aggregate
-
-    # client 2
-    result2 = await client2.next_get_execute_post()
-
-    can_aggregate = await server.check_aggregation(result2)
-
-    assert can_aggregate
-
-    # aggregate
-
-    job_id = await server.aggregate(result2, aggregation_job)
-
-    # worker
-    worker_task = await server.get_task(job_id)
-
-    artifact = worker_task.artifact
-
-    assert artifact.is_model()
-
-    base: Any = None
-
-    agg: GenericModel = artifact.get_model()
-    strategy: str = artifact.get_strategy()
-
-    for result_id in worker_task.content_ids:
-        result = await server.jobs_service.get_result(result_id)
-
-        with open(result.path, "rb") as f:
-            partial: GenericModel = pickle.load(f)
-
-        if base is None:
-            base = partial
-        else:
-            base = agg.aggregate(strategy, base, partial)
-
-    await server.post_result(job_id)
+    artifact_id = await server.submit(artifact)
 
     jobs = await server.jr.list_jobs_by_artifact_id(artifact.id)
 
     assert len(jobs) == 3
 
+    await assert_jobs_count(server.ar, server.jr, artifact_id, 0, 3, 1, 2, 0, 0)
+
+    # client 1
+    res1 = await client1.next_get_execute_post()
+
+    await assert_jobs_count(server.ar, server.jr, artifact_id, 0, 3, 1, 1, 0, 1)
+
+    local_model_1 = load_resource(res1)
+
+    assert isinstance(local_model_1, RandomForestClassifier)
+
+    job_id = await server.next(server.self_component)
+
+    assert job_id is None
+
+    # client 2
+    res2 = await client2.next_get_execute_post()
+
+    await assert_jobs_count(server.ar, server.jr, artifact_id, 0, 3, 0, 1, 0, 2)
+
+    local_model_2 = load_resource(res2)
+
+    assert isinstance(local_model_2, RandomForestClassifier)
+
+    # server
+    job_id = await server.next(server.self_component)
+
+    assert job_id is not None
+
+    res3 = await server.self_worker.next_get_execute_post()
+
+    await assert_jobs_count(server.ar, server.jr, artifact_id, 0, 3, 0, 0, 0, 3)
+
+    model_agg = load_resource(res3)
+
+    assert isinstance(model_agg, RandomForestClassifier)
+
     # check
     next_action = await client1.next_action()
 
-    assert isinstance(next_action, UpdateData)
+    assert next_action.action == "DO_NOTHING"
 
     next_action = await client2.next_action()
 
-    assert isinstance(next_action, UpdateData)
+    assert next_action.action == "DO_NOTHING"
+
+    job_id = await server.next(server.self_component)
+
+    assert job_id is None
