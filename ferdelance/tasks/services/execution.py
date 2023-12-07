@@ -4,7 +4,6 @@ from ferdelance.config import config_manager
 from ferdelance.config.config import DataSourceStorage
 from ferdelance.core.environment import Environment
 from ferdelance.logging import get_logger
-from ferdelance.schemas.database import Resource
 from ferdelance.tasks.tasks import Task
 
 import pickle
@@ -16,9 +15,9 @@ LOGGER = get_logger(__name__)
 
 
 class ExecutionService:
-    def __init__(self, task: Task, data: DataSourceStorage, component_id: str) -> None:
+    def __init__(self, task: Task, data: DataSourceStorage | None, component_id: str) -> None:
         self.task: Task = task
-        self.data: DataSourceStorage = data
+        self.data: DataSourceStorage | None = data
 
         self.component_id: str = component_id
 
@@ -48,6 +47,9 @@ class ExecutionService:
             json.dump(self.task.dict(), f)
 
     def load(self):
+        if self.data is None:
+            return
+
         dfs: list[pd.DataFrame] = []
 
         LOGGER.debug(f"artifact={self.artifact_id}: number of datasources={len(self.data)}")
@@ -75,26 +77,14 @@ class ExecutionService:
         self.env[resource_id] = resource
 
     def run(self) -> None:
-        try:
-            self.env = self.task.run(self.env)
+        self.env = self.task.run(self.env)
 
-            path = os.path.join(self.working_folder, "local_model.pkl")
-            self.env["resource_path"] = path
+        path = os.path.join(self.working_folder, "local_model.pkl")
+        self.env["resource_path"] = path
 
-            with open(path, "wb") as f:
-                pickle.dump(f, self.env["local_model"])
+        with open(path, "wb") as f:
+            pickle.dump(self.env["local_model"], f)
 
-            self.env.produced_resource = Resource(
-                id=self.task.produced_resource_id,
-                artifact_id=self.task.artifact_id,
-                iteration=self.task.iteration,
-                job_id=self.task.job_id,
-                component_id=self.component_id,
-                creation_time=None,
-                path=path,
-                is_error=False,
-                is_ready=True,
-            )
-        except Exception as e:
-            # TODO: produce error
-            ...
+        self.env.produced_resource_path = path
+
+        # TODO: manage error

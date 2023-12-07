@@ -3,8 +3,6 @@ from dataclasses import dataclass, field
 
 from pandas import DataFrame
 
-from ferdelance.schemas.database import Resource
-
 
 @dataclass
 class Environment:
@@ -22,7 +20,7 @@ class Environment:
 
     env: dict[str, Any] = field(default_factory=dict)
 
-    produced_resource: Resource | None = None
+    produced_resource_path: str | None = None
 
     def __getitem__(self, key: str) -> Any:
         return self.env[key]
