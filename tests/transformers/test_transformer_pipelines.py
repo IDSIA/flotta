@@ -103,13 +103,13 @@ def test_pipeline():
         ]
     )
 
-    env = Environment()
+    env = Environment("", "")
     env.X_tr = pd.read_csv(PATH_CALIFORNIA)
 
     env, _ = pipe.transform(env)
 
     assert env.X_tr is not None
-    assert env.y_tr is not None
+    assert env.Y_tr is not None
 
     assert env.X_tr.shape == (20640, 7)
     assert len(env.X_tr.columns) == 7
@@ -125,7 +125,7 @@ def test_pipeline():
         assert c in env.X_tr.columns
 
     x_mean = env.X_tr.mean(axis=0)
-    y_mean = env.y_tr.mean(axis=0)
+    y_mean = env.Y_tr.mean(axis=0)
 
     assert y_mean.MedIncLabel == -0.1631782945736434
 

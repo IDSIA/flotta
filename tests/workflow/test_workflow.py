@@ -217,7 +217,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         assert task.artifact_id == job.artifact_id
         assert task.artifact_id == status.id
-        assert task.project_id == project.id
+        assert task.project_token == project.id
         assert task.job_id == job.id
 
         # cleanup

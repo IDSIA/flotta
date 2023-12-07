@@ -11,14 +11,14 @@ from ferdelance.database.repositories import (
     JobRepository,
     ProjectRepository,
 )
-from ferdelance.node.services import JobManagementService, WorkbenchService
-from ferdelance.node.services.tasks import TaskManagementService
+from ferdelance.node.services import JobManagementService, WorkbenchService, TaskManagementService
 from ferdelance.node.startup import NodeStartup
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Resource
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.updates import UpdateData
+from ferdelance.tasks.services import ExecutionService
 from ferdelance.tasks.tasks import Task, TaskError
 
 from tests.utils import create_project
@@ -29,12 +29,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 class ServerlessWorker:
     def __init__(
         self,
-        session: AsyncSession,
         index: int,
         node: ServerlessExecution,
         data: DataSourceStorage | Metadata | None = None,
     ) -> None:
-        self.session: AsyncSession = session
         self.index: int = index
 
         self.node: ServerlessExecution = node
@@ -49,20 +47,24 @@ class ServerlessWorker:
         if isinstance(data, Metadata):
             self.md = data
 
-        self.cr: ComponentRepository = ComponentRepository(session)
+        self.component: Component
 
-        self.worker: Component
+    async def setup(self, cr: ComponentRepository, component: Component | None = None):
+        if component is None:
+            self.component = await cr.create_component(
+                f"client-{self.index}",
+                TYPE_CLIENT,
+                f"key-{self.index}",
+                __version__,
+                f"client-{self.index}",
+                f"ip-{self.index}",
+                "",
+            )
+        else:
+            self.component = component
 
-    async def setup(self):
-        self.worker = await self.cr.create_component(
-            f"client-{self.index}",
-            TYPE_CLIENT,
-            f"key-{self.index}",
-            __version__,
-            f"client-{self.index}",
-            f"ip-{self.index}",
-            "",
-        )
+    def has_metadata(self) -> bool:
+        return self.md is not None
 
     def metadata(self) -> Metadata:
         if self.md is None:
@@ -70,27 +72,48 @@ class ServerlessWorker:
         return self.md
 
     async def next_action(self) -> UpdateData:
-        return await self.node.get_update(self.worker)
+        return await self.node.get_update(self.component)
 
     async def get_task(self, next_action: UpdateData) -> Task:
         return await self.node.get_task(next_action.job_id)
 
-    async def post_resource(self, task: Task) -> None:
+    async def complete_task(self, task: Task) -> None:
         await self.node.task_completed(task)
 
     async def execute(self, task: Task) -> Resource:
-        # TODO
-        raise NotImplementedError()
+        es = ExecutionService(task, self.data, self.component.id)
+
+        es.setup()
+        es.load()
+
+        for resource in task.required_resources:
+            es.add_resource(resource.resource_id, resource)
+
+        es.run()
+
+        assert es.env.produced_resource_path is not None
+
+        return Resource(
+            id=task.produced_resource_id,
+            artifact_id=task.artifact_id,
+            iteration=task.iteration,
+            job_id=task.job_id,
+            component_id=self.component.id,
+            creation_time=None,
+            path=es.env.produced_resource_path,
+            is_error=False,
+            is_ready=True,
+        )
 
     async def next_get_execute_post(self) -> Resource:
         next_action = await self.next_action()
 
-        if not isinstance(next_action, UpdateData):
+        if next_action is None:
             raise ValueError("next_action is not an execution action!")
 
         task = await self.get_task(next_action)
         res = await self.execute(task)
-        await self.post_resource(task)
+        await self.complete_task(task)
 
         return res
 
@@ -101,6 +124,9 @@ class ServerlessExecution:
         self.cr: ComponentRepository = ComponentRepository(session)
         self.ar: ArtifactRepository = ArtifactRepository(session)
         self.jr: JobRepository = JobRepository(session)
+
+        self.dsr: DataSourceRepository = DataSourceRepository(self.session)
+        self.pr: ProjectRepository = ProjectRepository(self.session)
 
         self.workers: dict[str, ServerlessWorker] = dict()
         self.self_component: Component
@@ -124,26 +150,30 @@ class ServerlessExecution:
             "",
         )
 
+        self.self_worker = await self.add_worker(component=self.self_component)
+
         self.jobs_service = JobManagementService(self.session, self.self_component)
         self.task_service = TaskManagementService(self.session, self.self_component)
         self.workbench_service = WorkbenchService(self.session, self.user_component, self.self_component)
 
-    async def add_worker(self, index: int, data: DataSourceStorage | Metadata) -> ServerlessWorker:
-        sw = ServerlessWorker(self.session, index, self, data)
-        await sw.setup()
+    async def add_worker(
+        self,
+        data: DataSourceStorage | Metadata | None = None,
+        component: Component | None = None,
+    ) -> ServerlessWorker:
+        sw = ServerlessWorker(len(self.workers), self, data)
+        await sw.setup(self.cr, component)
 
-        metadata = sw.metadata()
+        if sw.has_metadata():
+            metadata = sw.metadata()
 
-        dsr: DataSourceRepository = DataSourceRepository(self.session)
-        pr: ProjectRepository = ProjectRepository(self.session)
+            await self.cr.create_event(sw.component.id, "update metadata")
 
-        await self.cr.create_event(sw.worker.id, "update metadata")
+            # this will also update existing metadata
+            await self.dsr.create_or_update_from_metadata(sw.component.id, metadata)
+            await self.pr.add_datasources_from_metadata(metadata)
 
-        # this will also update existing metadata
-        await dsr.create_or_update_from_metadata(sw.worker.id, metadata)
-        await pr.add_datasources_from_metadata(metadata)
-
-        self.workers[sw.worker.id] = sw
+        self.workers[sw.component.id] = sw
 
         return sw
 
