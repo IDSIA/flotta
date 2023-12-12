@@ -10,11 +10,13 @@ from ferdelance.core.transformers import (
     FederatedOneHotEncoder,
 )
 
+from pathlib import Path
+
 import pandas as pd
 import os
 
-PATH_DIR = os.path.abspath(os.path.dirname(__file__))
-PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
+PATH_DIR = Path(os.path.abspath(os.path.dirname(__file__)))
+PATH_CALIFORNIA = PATH_DIR / "california.csv"
 
 
 def test_pipeline():

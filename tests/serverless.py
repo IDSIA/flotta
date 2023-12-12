@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from ferdelance import __version__
-from ferdelance.config import DataSourceStorage
+from ferdelance.config import DataSourceStorage, Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_USER
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
+from ferdelance.core.environment import EnvResource
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -36,6 +37,7 @@ class ServerlessWorker:
         self.index: int = index
 
         self.node: ServerlessExecution = node
+        self.config: Configuration = config_manager.get()
 
         self.md: Metadata | None = None
         self.data: DataSourceStorage | None = None
@@ -87,20 +89,39 @@ class ServerlessWorker:
         es.load()
 
         for resource in task.required_resources:
-            es.add_resource(resource.resource_id, resource)
+            es.env.add_resource(
+                resource.resource_id,
+                self.config.storage_job(
+                    resource.artifact_id,
+                    resource.job_id,
+                    resource.iteration,
+                )
+                / f"{resource.resource_id}.pkl",
+            )
+
+        es.env.produced_resource = EnvResource(
+            id=task.produced_resource_id,
+            path=self.config.storage_job(
+                task.artifact_id,
+                task.job_id,
+                task.iteration,
+            )
+            / f"{task.produced_resource_id}.pkl",
+        )
 
         es.run()
 
-        assert es.env.produced_resource_path is not None
+        assert es.env.produced_resource is not None
+        assert es.env.produced_resource.path is not None
 
         return Resource(
-            id=task.produced_resource_id,
+            id=es.env.produced_resource.id,
             artifact_id=task.artifact_id,
             iteration=task.iteration,
             job_id=task.job_id,
             component_id=self.component.id,
             creation_time=None,
-            path=es.env.produced_resource_path,
+            path=es.env.produced_resource.path,
             is_error=False,
             is_ready=True,
         )

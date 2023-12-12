@@ -14,6 +14,8 @@ from tests.utils import TEST_PROJECT_TOKEN, assert_jobs_count
 
 from sklearn.ensemble import RandomForestClassifier
 
+from pathlib import Path
+
 import os
 import pickle
 import pytest
@@ -26,8 +28,8 @@ def load_resource(res: Resource) -> Any:
 
 @pytest.mark.asyncio
 async def test_aggregation(session: AsyncSession):
-    DATA_PATH_1 = os.path.join("tests", "integration", "data", "california_housing.MedInc1.csv")
-    DATA_PATH_2 = os.path.join("tests", "integration", "data", "california_housing.MedInc2.csv")
+    DATA_PATH_1 = Path("tests") / "integration" / "data" / "california_housing.MedInc1.csv"
+    DATA_PATH_2 = Path("tests") / "integration" / "data" / "california_housing.MedInc2.csv"
 
     assert os.path.exists(DATA_PATH_1)
     assert os.path.exists(DATA_PATH_2)
@@ -39,7 +41,7 @@ async def test_aggregation(session: AsyncSession):
                 token=[TEST_PROJECT_TOKEN],
                 kind="file",
                 type="csv",
-                path=DATA_PATH_1,
+                path=str(DATA_PATH_1),
             )
         ],
     )
@@ -49,7 +51,7 @@ async def test_aggregation(session: AsyncSession):
                 name="california2",
                 kind="file",
                 type="csv",
-                path=DATA_PATH_2,
+                path=str(DATA_PATH_2),
                 token=[TEST_PROJECT_TOKEN],
             )
         ],
@@ -122,6 +124,7 @@ async def test_aggregation(session: AsyncSession):
     local_model_1 = load_resource(res1)
 
     assert isinstance(local_model_1, RandomForestClassifier)
+    assert local_model_1.n_estimators == 10  # type: ignore
 
     job_id = await server.next(server.self_component)
 
@@ -135,6 +138,7 @@ async def test_aggregation(session: AsyncSession):
     local_model_2 = load_resource(res2)
 
     assert isinstance(local_model_2, RandomForestClassifier)
+    assert local_model_2.n_estimators == 10  # type: ignore
 
     # server
     job_id = await server.next(server.self_component)
@@ -148,6 +152,7 @@ async def test_aggregation(session: AsyncSession):
     model_agg = load_resource(res3)
 
     assert isinstance(model_agg, RandomForestClassifier)
+    assert model_agg.n_estimators == 20  # type: ignore
 
     # check
     next_action = await client1.next_action()

@@ -5,6 +5,8 @@ from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pathlib import Path
+
 import pytest
 
 
@@ -61,7 +63,7 @@ async def test_artifacts_description(session: AsyncSession):
 
     assert res is not None
     assert res.id == "artifact1"
-    assert res.path == "."
+    assert res.path == Path(".")
     assert res.status == ArtifactJobStatus.COMPLETED
 
     with pytest.raises(ValueError) as e:

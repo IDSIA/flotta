@@ -13,7 +13,6 @@ from tests.utils import TEST_PROJECT_TOKEN, assert_jobs_count, get_metadata
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import os
 import pytest
 import shutil
 
@@ -27,7 +26,7 @@ async def test_iteration(session: AsyncSession):
     await server.setup()
     await server.create_project(TEST_PROJECT_TOKEN)
 
-    worker = await server.add_worker(1, get_metadata(TEST_PROJECT_TOKEN))
+    worker = await server.add_worker(get_metadata(TEST_PROJECT_TOKEN))
 
     project = await server.get_project(TEST_PROJECT_TOKEN)
     label: str = project.data.features[0].name
@@ -145,4 +144,4 @@ async def test_iteration(session: AsyncSession):
     assert next_action.job_id == ""
 
     # cleanup
-    shutil.rmtree(os.path.join(config_manager.get().storage_artifact(artifact_id)))
+    shutil.rmtree(config_manager.get().storage_artifact(artifact_id))

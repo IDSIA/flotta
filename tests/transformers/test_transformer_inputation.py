@@ -5,12 +5,14 @@ from . import run
 
 from sklearn.impute import SimpleImputer
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import os
 
-PATH_DIR = os.path.abspath(os.path.dirname(__file__))
-PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
+PATH_DIR = Path(os.path.abspath(os.path.dirname(__file__)))
+PATH_CALIFORNIA = PATH_DIR / "california.csv"
 
 
 def test_imp_one_feature():
