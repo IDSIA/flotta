@@ -110,14 +110,14 @@ class FederatedLabelBinarizer(QueryTransformer):
         tr_label_cols = env.X_tr[c_in]
         tr_label_data = tr.fit_transform(tr_label_cols)
 
-        env.y_tr = pd.DataFrame(data=tr_label_data, columns=c_out)  # type: ignore
+        env.Y_tr = pd.DataFrame(data=tr_label_data, columns=c_out)  # type: ignore
         env.X_tr.drop(c_in, inplace=True, axis=1)
 
         if env.X_ts is not None:
             ts_label_cols = env.X_ts[c_in]
             ts_label_data = tr.transform(ts_label_cols)
 
-            env.y_ts = pd.DataFrame(data=ts_label_data, columns=c_out)  # type: ignore
+            env.Y_ts = pd.DataFrame(data=ts_label_data, columns=c_out)  # type: ignore
             env.X_ts.drop(c_in, inplace=True, axis=1)
 
         return env, tr

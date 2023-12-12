@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q -s -v --ignore=tests/integration"
+addopts = "-ra -q -s -v --ignore=tests/integration --log-disable=aiosqlite"
 log_cli = false
 log_cli_level = "DEBUG"
 log_cli_format = "%(asctime)s %(levelname)8s %(name)48.48s:%(lineno)-3s %(message)s"

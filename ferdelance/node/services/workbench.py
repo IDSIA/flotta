@@ -74,9 +74,10 @@ class WorkbenchConnectService:
 
 
 class WorkbenchService:
-    def __init__(self, session: AsyncSession, component: Component) -> None:
+    def __init__(self, session: AsyncSession, wb_component: Component, self_component: Component) -> None:
         self.session: AsyncSession = session
-        self.component: Component = component
+        self.wb_component: Component = wb_component
+        self.self_component: Component = self_component
 
     async def project(self, project_token: str) -> Project:
         """
@@ -87,7 +88,7 @@ class WorkbenchService:
 
         project = await pr.get_by_token(project_token)
 
-        LOGGER.info(f"user={self.component.id}: loaded project with project={project.id}")
+        LOGGER.info(f"user={self.wb_component.id}: loaded project with project={project.id}")
 
         return project
 
@@ -101,7 +102,9 @@ class WorkbenchService:
 
         client_details = [ClientDetails(**c.dict()) for c in clients]
 
-        LOGGER.info(f"user={self.component.id}: found {len(client_details)} datasource(s) with token={project_token}")
+        LOGGER.info(
+            f"user={self.wb_component.id}: found {len(client_details)} datasource(s) with token={project_token}"
+        )
 
         return WorkbenchClientList(clients=client_details)
 
@@ -113,20 +116,22 @@ class WorkbenchService:
 
         datasources = [await dsr.load(ds_id) for ds_id in datasource_ids]
 
-        LOGGER.info(f"user={self.component.id}: found {len(datasources)} datasource(s) with token={project_token}")
+        LOGGER.info(f"user={self.wb_component.id}: found {len(datasources)} datasource(s) with token={project_token}")
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
         jms: JobManagementService = JobManagementService(
-            self.session, self.component
+            self.session,
+            self.self_component,
         )  # TODO: pass pub/priv key from args
         return await jms.submit_artifact(artifact)
 
     async def store_resource(self, request_stream: AsyncGenerator[bytes, None]) -> str:
         jms: JobManagementService = JobManagementService(
-            self.session, self.component
+            self.session,
+            self.self_component,
         )  # TODO: pass pub/priv key from args
-        return await jms.store_resource(request_stream)
+        return await jms.store_resource(request_stream)  # TODO: FIXME
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """
@@ -137,7 +142,7 @@ class WorkbenchService:
 
         status = await ar.get_status(artifact_id)
 
-        LOGGER.info(f"user={self.component.id}: got status={status.status} for artifact={artifact_id} ")
+        LOGGER.info(f"user={self.wb_component.id}: got status={status.status} for artifact={artifact_id} ")
 
         return status
 
@@ -146,7 +151,7 @@ class WorkbenchService:
         :raise:
             ValueError if the requested artifact cannot be found.
         """
-        LOGGER.info(f"user={self.component.id}: downloading artifact with artifact={artifact_id}")
+        LOGGER.info(f"user={self.wb_component.id}: downloading artifact with artifact={artifact_id}")
 
         ar: ArtifactRepository = ArtifactRepository(self.session)
 
@@ -154,7 +159,7 @@ class WorkbenchService:
 
         return artifact
 
-    async def get_resource(self, artifact_id: str) -> Resource:
+    async def get_resource(self, resource_id: str) -> Resource:
         """
         :raise:
             ValueError when the requested resource exists on the database but not on disk.
@@ -165,11 +170,16 @@ class WorkbenchService:
         """
         rr: ResourceRepository = ResourceRepository(self.session)
 
-        resource: Resource = await rr.get_by_artifact(artifact_id)
+        resource: Resource = await rr.get_by_id(resource_id)
 
         if not os.path.exists(resource.path):
             raise ValueError(f"resource={resource.id} not found at path={resource.path}")
 
-        LOGGER.info(f"user={self.component.id}: downloaded resources for artifact={artifact_id}")
+        LOGGER.info(f"user={self.wb_component.id}: downloaded resource={resource_id}")
 
         return resource
+
+    async def list_resources(self, artifact_id: str) -> list[Resource]:
+        rr: ResourceRepository = ResourceRepository(self.session)
+
+        return await rr.list_resources_by_artifact_id(artifact_id)

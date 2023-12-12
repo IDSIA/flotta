@@ -8,11 +8,13 @@ from ferdelance.core.transformers import (
 
 from . import run
 
+from pathlib import Path
+
 import pandas as pd
 import os
 
-PATH_DIR = os.path.abspath(os.path.dirname(__file__))
-PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
+PATH_DIR = Path(os.path.abspath(os.path.dirname(__file__)))
+PATH_CALIFORNIA = PATH_DIR / "california.csv"
 
 
 def test_kbin_one_feature():
@@ -57,7 +59,7 @@ def test_lbin_one_feature():
 
     fb = FederatedBinarizer(features_in=[f1], features_out=[f2], threshold=30.0)
 
-    env = Environment()
+    env = Environment("", "")
     env.X_tr = df
 
     env, _ = fb.transform(env)
@@ -69,11 +71,11 @@ def test_lbin_one_feature():
     env, _ = flb.transform(env)
 
     assert env.X_tr is not None
-    assert env.y_tr is not None
+    assert env.Y_tr is not None
 
     # TODO: what if we binarize more columns or more values?
 
     assert df.shape[1] == 8
     assert f3.name not in env.X_tr.columns
-    assert f3.name in env.y_tr.columns
-    assert env.y_tr[f3.name].sum() == -1650
+    assert f3.name in env.Y_tr.columns
+    assert env.Y_tr[f3.name].sum() == -1650

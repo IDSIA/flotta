@@ -14,19 +14,14 @@ class BaseStep(Step):
     iteration: int = 1
 
     def step(self, env: Environment) -> Environment:
-        env = self.operation.exec(env)
+        return self.operation.exec(env)
 
-        if self.distribution:
-            self.distribution.distribute(env)
-
-        return env
-
-    def bind(self, jobs0: list[SchedulerJob], jobs1: list[SchedulerJob]) -> None:
+    def bind(self, jobs0: Sequence[SchedulerJob], jobs1: Sequence[SchedulerJob]) -> None:
         if self.distribution:
             jobs_id0 = [j.id for j in jobs0]
             jobs_id1 = [j.id for j in jobs1]
 
-            locks = self.distribution.bind(jobs_id0, jobs_id1)
+            locks = self.distribution.bind_locks(jobs_id0, jobs_id1)
 
             for job, lock in zip(jobs0, locks):
                 job.locks += lock
@@ -37,7 +32,6 @@ class BaseStep(Step):
                 id=context.get_id(),
                 worker=context.initiator,
                 iteration=context.iteration,
-                locks=[],
                 step=self,
             )
         ]
@@ -66,7 +60,6 @@ class Initialize(BaseStep):
                 id=context.get_id(),
                 worker=context.initiator,
                 iteration=context.iteration,
-                locks=[],
                 step=self,
             )
         ]
@@ -95,7 +88,6 @@ class Parallel(BaseStep):
                 id=context.get_id(),
                 worker=worker,
                 iteration=context.iteration,
-                locks=[],
                 step=self,
             )
             for worker in context.workers
@@ -133,7 +125,6 @@ class Sequential(BaseStep):
                 id=context.get_id(),
                 worker=context.initiator,
                 iteration=context.iteration,
-                locks=[],
                 step=BaseStep(
                     iteration=self.iteration,
                     operation=self.init_operation,
@@ -149,7 +140,6 @@ class Sequential(BaseStep):
                     id=context.get_id(),
                     worker=worker,
                     iteration=context.iteration,
-                    locks=[],
                     step=BaseStep(
                         iteration=self.iteration,
                         operation=self.operation,
@@ -164,7 +154,6 @@ class Sequential(BaseStep):
                 id=context.get_id(),
                 worker=context.initiator,
                 iteration=context.iteration,
-                locks=[],
                 step=BaseStep(
                     iteration=self.iteration,
                     operation=self.final_operation,
@@ -176,6 +165,51 @@ class Sequential(BaseStep):
         # link all jobs together
         for curr, next in pairwise(job_list):
             curr.locks.append(next.id)
+
+        return job_list
+
+
+class RoundRobin(BaseStep):
+    """Circular distribution of jobs between workers."""
+
+    def __init__(
+        self,
+        operation: Operation,
+        iteration: int = 1,
+        **data,
+    ) -> None:
+        super(RoundRobin, self).__init__(
+            operation=operation,
+            iteration=iteration,
+            distribution=None,
+            **data,
+        )
+
+    def jobs(self, context: SchedulerContext) -> Sequence[SchedulerJob]:
+        job_list = []
+
+        n_workers = len(context.workers)
+
+        # TODO: this is a draft, check if it is correctly implemented
+        # FIXME: keep track of the produced resource! It need to pass through ALL workers!
+
+        for _ in range(n_workers):
+            for i in range(n_workers):
+                start_worker = context.workers[i]
+                end_worker = context.workers[(i + 1) % n_workers]
+
+                job_list.append(
+                    SchedulerJob(
+                        id=context.get_id(),
+                        worker=start_worker,
+                        iteration=context.iteration,
+                        step=BaseStep(
+                            iteration=self.iteration,
+                            operation=self.operation,
+                            distribution=DirectToNext(next=end_worker),
+                        ),
+                    )
+                )
 
         return job_list
 
@@ -203,7 +237,6 @@ class Finalize(BaseStep):
                 id=context.get_id(),
                 worker=context.initiator,
                 iteration=context.iteration,
-                locks=[],
                 step=self,
             )
         ]
@@ -215,12 +248,38 @@ class Iterate(Step):
     iterations: int
     steps: list[BaseStep]
 
-    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
-        job_list = []
+    def step(self, env: Environment) -> Environment:
+        raise ValueError("Iterate is a meta-step and should not be executed!")
 
+    def bind(self, jobs0: Sequence[SchedulerJob], jobs1: Sequence[SchedulerJob]) -> None:
+        raise ValueError("Iterate is a meta-step and does not have a bind method!")
+
+    def jobs(self, context: SchedulerContext) -> list[SchedulerJob]:
+        job_list: Sequence[SchedulerJob] = []
+
+        last_job = None
         for it in range(self.iterations):
-            for step in self.steps:
-                context.iteration = it
-                job_list += step.jobs(context)
+            # create jobs for current iteration
+            it_jobs: Sequence[SchedulerJob] = []
+
+            context.iteration = it
+            jobs0: Sequence[SchedulerJob] = self.steps[0].jobs(context)
+
+            for step0, step1 in pairwise(self.steps):
+                jobs1 = step1.jobs(context)
+
+                step0.bind(jobs0, jobs1)
+
+                it_jobs += jobs0
+                jobs0 = jobs1
+
+            it_jobs += jobs0
+
+            if last_job is not None:
+                # add locks to last job of previous iteration
+                last_job.locks += [job.id for job in it_jobs]
+
+            job_list += it_jobs
+            last_job = job_list[-1]
 
         return job_list

@@ -5,6 +5,8 @@ from ferdelance.core.metrics import Metrics
 from ferdelance.core.model import Model
 from ferdelance.core.operations import QueryOperation
 
+from pathlib import Path
+
 import json
 
 
@@ -16,7 +18,7 @@ class ModelOperation(QueryOperation):
 
     model: Model
 
-    def store_metrics(self, metrics: Metrics, path: str) -> None:
+    def store_metrics(self, metrics: Metrics, path: Path) -> None:
         with open(path, "w") as f:
             content = json.dumps(metrics)
             f.write(content)

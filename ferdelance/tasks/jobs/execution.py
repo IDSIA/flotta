@@ -1,12 +1,15 @@
 from typing import Any
 
 from ferdelance.config import DataSourceConfiguration
-from ferdelance.core.environment import Environment
-from ferdelance.tasks.services import RouteService
+from ferdelance.config.config import DataSourceStorage
+from ferdelance.logging import get_logger
+from ferdelance.tasks.services import RouteService, ExecutionService
 from ferdelance.tasks.tasks import Task, TaskError
 
 import ray
 import traceback
+
+LOGGER = get_logger(__name__)
 
 
 @ray.remote
@@ -37,7 +40,7 @@ class Execution:
         self.scheduler_public_key: str = scheduler_public_key
         self.private_key: str = private_key
 
-        self.datasources: list[DataSourceConfiguration] = [DataSourceConfiguration(**ds) for ds in datasources]
+        self.data = DataSourceStorage([DataSourceConfiguration(**ds) for ds in datasources])
 
         self.scheduler_is_local: bool = scheduler_is_local
 
@@ -45,6 +48,11 @@ class Execution:
         return f"Job artifact={self.artifact_id} job={self.job_id}"
 
     def run(self):
+        artifact_id: str = self.artifact_id
+        job_id: str = self.job_id
+
+        LOGGER.info(f"artifact={artifact_id}: received new task with job={job_id}")
+
         scheduler = RouteService(
             self.component_id,
             self.private_key,
@@ -54,12 +62,15 @@ class Execution:
         )
 
         try:
-            task: Task = scheduler.get_task_data(self.artifact_id, self.job_id)
+            task: Task = scheduler.get_task_data(artifact_id, job_id)
 
-            env = Environment()
+            es = ExecutionService(task, self.data, self.component_id)
+
+            es.setup()
+            es.load()
 
             # get required resources
-            for resource in task.task_resources:
+            for resource in task.required_resources:
                 node = RouteService(
                     self.component_id,
                     self.private_key,
@@ -68,14 +79,19 @@ class Execution:
                 )
 
                 # path to resource saved locally
-                env[resource.resource_id] = node.get_resource(
+                res_path = node.get_resource(
                     resource.artifact_id,
                     resource.job_id,
                     resource.resource_id,
+                    resource.iteration,
                 )
+                es.env.add_resource(resource.resource_id, res_path)
 
             # apply work from step
-            env = task.run(env)
+            es.run()
+
+            if es.env.produced_resource is None:
+                raise ValueError("Produced resource not available")
 
             # send forward the produced resources
             for next_node in task.next_nodes:
@@ -87,16 +103,16 @@ class Execution:
                     next_node.is_local,
                 )
 
-                node.post_resource(self.artifact_id, self.job_id, env["resource_path"])
+                node.post_resource(artifact_id, job_id, es.env.produced_resource.path)
 
-            scheduler.post_done(self.artifact_id, self.job_id)
+            scheduler.post_done(artifact_id, job_id)
 
         except Exception as e:
             scheduler.post_error(
-                self.artifact_id,
-                self.job_id,
+                artifact_id,
+                job_id,
                 TaskError(
-                    job_id=self.job_id,
+                    job_id=job_id,
                     message=f"{e}",
                     stack_trace="".join(traceback.TracebackException.from_exception(e).format()),
                 ),

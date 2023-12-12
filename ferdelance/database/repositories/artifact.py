@@ -7,20 +7,21 @@ from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import NoResultFound
+
+from pathlib import Path
 from uuid import uuid4
 
 import aiofiles
 import aiofiles.os as aos
 import json
-import os
 
 
 def view(artifact: ArtifactDB) -> ServerArtifact:
     return ServerArtifact(
         id=artifact.id,
         creation_time=artifact.creation_time,
-        path=artifact.path,
-        status=artifact.status,
+        path=Path(artifact.path),
+        status=ArtifactJobStatus[artifact.status],
         iteration=artifact.iteration,
     )
 
@@ -64,14 +65,14 @@ class ArtifactRepository(Repository):
             if existing:
                 raise ValueError("artifact already exists!")
 
-        status = ArtifactJobStatus.SCHEDULED.name
+        status = ArtifactJobStatus.SCHEDULED
 
         path = await self.store(artifact)
 
         db_artifact = ArtifactDB(
             id=artifact.id,
-            path=path,
-            status=status,
+            path=str(path),
+            status=status.name,
         )
 
         self.session.add(db_artifact)
@@ -80,7 +81,7 @@ class ArtifactRepository(Repository):
 
         return view(db_artifact)
 
-    async def storage_location(self, artifact_id: str, filename: str = "artifact.json") -> str:
+    async def storage_location(self, artifact_id: str, filename: str = "artifact.json") -> Path:
         """Checks that the output directory for this artifact exists. If not
         it will be created. Then it creates a path for the destination file.
 
@@ -101,9 +102,9 @@ class ArtifactRepository(Repository):
 
         path = config_manager.get().storage_artifact(artifact_id)
         await aos.makedirs(path, exist_ok=True)
-        return os.path.join(path, filename)
+        return path / filename
 
-    async def store(self, artifact: Artifact) -> str:
+    async def store(self, artifact: Artifact) -> Path:
         """Save an artifact on disk in JSON format.
 
         Args:
@@ -145,7 +146,7 @@ class ArtifactRepository(Repository):
         """
 
         try:
-            artifact_path: str = await self.storage_location(artifact_id)
+            artifact_path: Path = await self.storage_location(artifact_id)
 
             if not await aos.path.exists(artifact_path):
                 raise ValueError(f"artifact={artifact_id} not found")
@@ -177,7 +178,7 @@ class ArtifactRepository(Repository):
 
         return view(res.one())
 
-    async def get_artifact_path(self, artifact_id: str) -> str:
+    async def get_artifact_path(self, artifact_id: str) -> Path:
         """Returns the path to the given artifact saved on disk, if the
         artifact exists.
 
@@ -196,7 +197,7 @@ class ArtifactRepository(Repository):
         """
         res = await self.session.scalars(select(ArtifactDB.path).where(ArtifactDB.id == artifact_id).limit(1))
 
-        path = res.one()
+        path = Path(res.one())
 
         if aos.path.exists(path):
             return path
@@ -236,7 +237,7 @@ class ArtifactRepository(Repository):
 
         return ArtifactStatus(
             id=artifact.id,
-            status=artifact.status,
+            status=ArtifactJobStatus[artifact.status],
             iteration=artifact.iteration,
         )
 

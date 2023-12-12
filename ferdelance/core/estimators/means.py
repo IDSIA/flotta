@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Sequence
-from ferdelance.core.environment.core import Environment
 
+from ferdelance.core.environment import Environment
 from ferdelance.core.estimators.core import Estimator
 from ferdelance.core.interfaces import Step
 from ferdelance.core.operations import Operation, QueryOperation

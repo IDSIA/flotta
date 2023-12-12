@@ -2,10 +2,14 @@ from __future__ import annotations
 from typing import Any, Sequence
 from abc import ABC, abstractmethod
 
+from pydantic import PrivateAttr
+
 from ferdelance.core.entity import Entity
 from ferdelance.core.metrics import Metrics
 from ferdelance.core.interfaces import Step
 from ferdelance.core.queries import Query
+
+from pathlib import Path
 
 from numpy.typing import ArrayLike
 
@@ -27,17 +31,25 @@ class Model(ABC, Entity):
 
     query: Query | None = None
 
-    def load(self, path: str) -> None:
+    _model: Any = PrivateAttr()
+
+    def load(self, path: Path) -> None:
         """Load a trained model from a path on the local disk to the internal
-        model object.
+        model object. The loaded model must be in pickle format.
 
         :param path:
             A valid path to a model downloaded from the aggregation server.
         """
         with open(path, "rb") as f:
-            self.model = pickle.load(f)
+            self._model = pickle.load(f)
 
-    def save(self, path: str) -> None:
+    def set_model(self, model: Any) -> None:
+        self._model = model
+
+    def get_model(self) -> Any:
+        return self._model
+
+    def save(self, path: Path) -> None:
         """Save the internal model object to the disk. Models save with this method
         can be loaded again using the `load()` method.
 
@@ -45,10 +57,10 @@ class Model(ABC, Entity):
             A valid path to the disk.
         """
         with open(path, "wb") as f:
-            pickle.dump(self.model, f)
+            pickle.dump(self._model, f)
 
     def bin(self) -> bytes:
-        return pickle.dumps(self.model)
+        return pickle.dumps(self._model)
 
     @abstractmethod
     def train(self, x, y) -> Any:

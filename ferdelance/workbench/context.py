@@ -22,9 +22,8 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
 )
 from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.status import ArtifactJobStatus
 
-from time import sleep, time
+from pathlib import Path
 from uuid import uuid4
 
 import json
@@ -34,10 +33,10 @@ import os
 
 LOGGER = get_logger(__name__)
 
-HOME = os.path.expanduser("~")
-DATA_DIR = os.environ.get("DATA_HOME", os.path.join(HOME, ".local", "share", "ferdelance"))
-CONFIG_DIR = os.environ.get("CONFIG_HOME", os.path.join(HOME, ".config", "ferdelance"))
-CACHE_DIR = os.environ.get("CACHE_HOME", os.path.join(HOME, ".cache", "ferdelance"))
+HOME: Path = Path(os.path.expanduser("~"))
+DATA_DIR: Path = Path(os.environ.get("DATA_HOME", str(HOME / ".local" / "share" / "ferdelance")))
+CONFIG_DIR: Path = Path(os.environ.get("CONFIG_HOME", str(HOME / ".config" / "ferdelance")))
+CACHE_DIR: Path = Path(os.environ.get("CACHE_HOME", str(HOME / ".cache" / "ferdelance")))
 
 
 class Context:
@@ -46,10 +45,10 @@ class Context:
     def __init__(
         self,
         server: str,
-        ssh_key_path: str | None = None,
+        ssh_key_path: Path | str | None = None,
         generate_keys: bool = True,
         name: str = "",
-        id_path: str | None = None,
+        id_path: Path | str | None = None,
     ) -> None:
         """Connect to the given server, and establish all the requirements for a secure interaction.
 
@@ -69,9 +68,15 @@ class Context:
         os.makedirs(CONFIG_DIR, exist_ok=True)
         os.makedirs(CACHE_DIR, exist_ok=True)
 
+        if isinstance(ssh_key_path, str):
+            if ssh_key_path == "":
+                ssh_key_path = None
+            else:
+                ssh_key_path = Path(ssh_key_path)
+
         if ssh_key_path is None:
             if generate_keys:
-                ssh_key_path = os.path.join(DATA_DIR, "rsa_id")
+                ssh_key_path = DATA_DIR / "rsa_id"
 
                 if os.path.exists(ssh_key_path):
                     LOGGER.debug(f"loading private key from {ssh_key_path}")
@@ -85,7 +90,7 @@ class Context:
                     self.exc.save_private_key(ssh_key_path)
 
             else:
-                ssh_key_path = os.path.join(HOME, ".ssh", "rsa_id")
+                ssh_key_path = HOME / ".ssh" / "rsa_id"
 
                 LOGGER.debug(f"loading private key from {ssh_key_path}")
 
@@ -96,8 +101,14 @@ class Context:
 
             self.exc.load_key(ssh_key_path)
 
+        if isinstance(id_path, str):
+            if id_path == "":
+                id_path = None
+            else:
+                id_path = Path(id_path)
+
         if id_path is None:
-            id_path = os.path.join(DATA_DIR, "id")
+            id_path = DATA_DIR / "id"
 
             if os.path.exists(id_path):
                 with open(id_path, "r") as f:

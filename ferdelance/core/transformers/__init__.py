@@ -38,15 +38,3 @@ from .utilities import (
     FederatedDrop,
     FederatedRename,
 )
-
-
-"""
-def save(obj: Transformer, path: str) -> None:
-    with open(path, "wb") as f:
-        pickle.dump(obj, f)
-
-
-def run(path: str) -> Transformer:
-    with open(path, "rb") as f:
-        return pickle.load(f)
-"""

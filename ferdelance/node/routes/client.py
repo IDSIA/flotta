@@ -48,9 +48,12 @@ async def client_update(
     LOGGER.debug(f"component={args.component.id}: update request")
 
     jms: JobManagementService = JobManagementService(
-        args.session, args.component, args.security_service.get_private_key(), args.security_service.get_public_key()
+        args.session,
+        args.self_component,
+        args.security_service.get_private_key(),
+        args.security_service.get_public_key(),
     )
 
-    next_action = await jms.update()
+    next_action = await jms.update(args.component)
 
     return next_action

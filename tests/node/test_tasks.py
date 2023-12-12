@@ -8,7 +8,7 @@ from ferdelance.database.repositories import ProjectRepository, ComponentReposit
 from ferdelance.node.api import api
 from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.tasks import TaskParametersRequest
+from ferdelance.tasks.tasks import TaskRequest
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
@@ -30,7 +30,7 @@ async def test_task_task_not_found(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
         node_id = create_node(server, exchange, TYPE_NODE)
 
-        tpr = TaskParametersRequest(
+        tpr = TaskRequest(
             artifact_id=str(uuid.uuid4()),
             job_id=str(uuid.uuid4()),
         )
@@ -128,7 +128,7 @@ async def test_task_endpoints(session: AsyncSession):
         assert artifact.id is not None
 
         assert status.status is not None
-        assert JobStatus[status.status] == JobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.SCHEDULED
 
         res = await session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact.id).limit(1))
         art_db: ArtifactDB = res.one()

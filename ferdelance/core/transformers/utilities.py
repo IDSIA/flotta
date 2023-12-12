@@ -57,14 +57,14 @@ class FederatedRename(QueryTransformer):
         if env.X_tr is not None:
             env.X_tr = env.X_tr.rename(rename_dict, axis=1, inplace=False)
 
-        if env.y_tr is not None:
-            env.y_tr = env.y_tr.rename(rename_dict, axis=1, inplace=False)
+        if env.Y_tr is not None:
+            env.Y_tr = env.Y_tr.rename(rename_dict, axis=1, inplace=False)
 
         if env.X_ts is not None:
             env.X_ts = env.X_ts.rename(rename_dict, axis=1, inplace=False)
 
-        if env.y_ts is not None:
-            env.y_ts = env.y_ts.rename(rename_dict, axis=1, inplace=False)
+        if env.Y_ts is not None:
+            env.Y_ts = env.Y_ts.rename(rename_dict, axis=1, inplace=False)
 
         return env, None
 

@@ -8,12 +8,14 @@ from . import run
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
+from pathlib import Path
+
 import pandas as pd
 import os
 
 
-PATH_DIR = os.path.abspath(os.path.dirname(__file__))
-PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
+PATH_DIR = Path(os.path.abspath(os.path.dirname(__file__)))
+PATH_CALIFORNIA = PATH_DIR / "california.csv"
 
 
 def test_mms_scaling_one_feature():
@@ -118,7 +120,7 @@ def test_mms_save_and_reload():
 
     fmms = FederatedMinMaxScaler(features_in=[f_in], features_out=[f_out])
 
-    TF_PATH = os.path.join(".", "mms.transformer")
+    TF_PATH = Path(".") / "mms.transformer"
 
     save(fmms, TF_PATH)
 
@@ -151,7 +153,7 @@ def test_ssc_save_and_reload():
 
     fssc = FederatedStandardScaler(features_in=[f_in], features_out=[f_out])
 
-    TF_PATH = os.path.join(".", "mms.transformer")
+    TF_PATH = Path(".") / "mms.transformer"
 
     save(fssc, TF_PATH)
 

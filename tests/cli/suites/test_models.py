@@ -5,6 +5,8 @@ from ferdelance.database.tables import Artifact, Component, Resource as Resource
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pathlib import Path
+
 import pytest
 
 
@@ -90,7 +92,7 @@ async def test_describe_client(session: AsyncSession):
 
     assert res is not None
     assert res.id == "mid1"
-    assert res.path == "."
+    assert res.path == Path(".")
 
     res = await describe_resource(resource_id="do not exist")
     assert res is None

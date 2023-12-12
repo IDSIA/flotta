@@ -67,13 +67,13 @@ class FederatedFilter(QueryTransformer):
         if env.X_tr:
             mask = self.apply(env.X_tr)
             env.X_tr = env.X_tr[mask]
-            if env.y_tr:
-                env.y_tr = env.y_tr[mask]
+            if env.Y_tr:
+                env.Y_tr = env.Y_tr[mask]
 
         if env.X_ts:
             mask = self.apply(env.X_ts)
             env.X_ts = env.X_ts[mask]
-            if env.y_ts:
-                env.y_ts = env.y_ts[mask]
+            if env.Y_ts:
+                env.Y_ts = env.Y_ts[mask]
 
         return env, None

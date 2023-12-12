@@ -1,3 +1,4 @@
+from ferdelance.core.entity import Entity
 from ferdelance.core.environment import Environment
 from ferdelance.core.interfaces import Step
 
@@ -29,12 +30,15 @@ class TaskNode(BaseModel):
 class TaskResource(TaskNode):
     """Identifies a resource and its location inside the node network."""
 
+    resource_id: str
     artifact_id: str
     job_id: str
-    resource_id: str
+    iteration: int
 
 
-class Task(BaseModel):
+class Task(Entity):
+    project_token: str
+
     artifact_id: str
     job_id: str  # current job
 
@@ -42,9 +46,10 @@ class Task(BaseModel):
 
     step: Step  # what execute
 
-    task_resources: list[TaskResource]  # what collect from
-
+    required_resources: list[TaskResource]  # what collect from
     next_nodes: list[TaskNode]  # receivers of the produced resources
+
+    produced_resource_id: str  # id of the produced resource
 
     def run(self, env: Environment) -> Environment:
         return self.step.step(env)

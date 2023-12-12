@@ -11,11 +11,13 @@ from ferdelance.core.transformers import (
 
 from . import run
 
+from pathlib import Path
+
 import pandas as pd
 import os
 
-PATH_DIR = os.path.abspath(os.path.dirname(__file__))
-PATH_CALIFORNIA = os.path.join(PATH_DIR, "california.csv")
+PATH_DIR = Path(os.path.abspath(os.path.dirname(__file__)))
+PATH_CALIFORNIA = PATH_DIR / "california.csv"
 
 
 def test_apply_transformer():
@@ -73,16 +75,16 @@ def test_apply_pipeline():
         ]
     )
 
-    env = Environment()
+    env = Environment("", "")
     env.X_tr = pd.read_csv(PATH_CALIFORNIA)
 
     env, _ = pipe.transform(env)
 
     assert env.X_tr is not None
-    assert env.y_tr is not None
+    assert env.Y_tr is not None
 
     assert env.X_ts is None
-    assert env.y_ts is None
+    assert env.Y_ts is None
 
     assert "Latitude" not in env.X_tr.columns
     assert "Longitude" not in env.X_tr.columns
@@ -90,12 +92,12 @@ def test_apply_pipeline():
     assert "MedInc" not in env.X_tr.columns
 
     assert "Label" not in env.X_tr.columns
-    assert "Label" not in env.y_tr.columns
+    assert "Label" not in env.Y_tr.columns
 
     assert "MedIncLabel" not in env.X_tr.columns
-    assert "MedIncLabel" in env.y_tr.columns
+    assert "MedIncLabel" in env.Y_tr.columns
 
-    labels = env.y_tr.groupby("MedIncLabel").size()
+    labels = env.Y_tr.groupby("MedIncLabel").size()
 
     assert labels[-1] == 12004
     assert labels[1] == 8636

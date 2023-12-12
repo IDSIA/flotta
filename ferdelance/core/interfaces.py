@@ -14,9 +14,12 @@ class SchedulerJob(BaseModel):
     worker: Component  # id of the worker
     iteration: int
     step: Step
-    locks: list[int]  # list of jobs unlocked by this job
+    locks: list[int] = list()  # list of jobs unlocked by this job
 
-    @root_validator
+    resource_required: list[tuple[str, str]] = list()  # [(resource_id, producer_id)] for previous node
+    resource_produced: list[tuple[str, str]] = list()  # [(resource_id, consumer_id)] for next node
+
+    @root_validator(pre=True)
     def create_subclass_entities(cls, values) -> dict[str, Any]:
         return create_entities(values)
 

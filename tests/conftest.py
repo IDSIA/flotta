@@ -10,6 +10,8 @@ from .utils import TEST_PROJECT_TOKEN
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pathlib import Path
+
 import os
 import pytest
 import pytest_asyncio
@@ -17,7 +19,7 @@ import shutil
 
 
 db_file = "./tests/test_sqlite.db"
-db_path = os.path.join("./", db_file)
+db_path = Path(".") / db_file
 
 conf = config_manager.get()
 
@@ -27,7 +29,7 @@ conf.database.host = db_file
 
 conf.node.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
 conf.node.token_project_default = TEST_PROJECT_TOKEN
-conf.workdir = str(os.path.join("tests", "storage"))
+conf.workdir = os.path.join("tests", "storage")
 
 conf.dump()
 
@@ -38,7 +40,6 @@ def create_dirs() -> None:
     os.makedirs(conf.storage_datasources_dir(), exist_ok=True)
     os.makedirs(conf.storage_artifact_dir(), exist_ok=True)
     os.makedirs(conf.storage_clients_dir(), exist_ok=True)
-    os.makedirs(conf.storage_resource_dir(), exist_ok=True)
 
     if os.path.exists(db_path):
         os.remove(db_path)
@@ -48,7 +49,6 @@ def delete_dirs() -> None:
     shutil.rmtree(conf.storage_datasources_dir())
     shutil.rmtree(conf.storage_artifact_dir())
     shutil.rmtree(conf.storage_clients_dir())
-    shutil.rmtree(conf.storage_resource_dir())
 
     if os.path.exists(db_path):
         os.remove(db_path)

@@ -1,8 +1,10 @@
-from typing import Callable
+from __future__ import annotations
 
 from ferdelance import __version__
-from ferdelance.config import DataSourceStorage
+from ferdelance.config import DataSourceStorage, Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_USER
+from ferdelance.core.artifacts import Artifact, ArtifactStatus
+from ferdelance.core.environment import EnvResource
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -10,29 +12,32 @@ from ferdelance.database.repositories import (
     JobRepository,
     ProjectRepository,
 )
-from ferdelance.node.services import JobManagementService, WorkbenchService
+from ferdelance.node.services import JobManagementService, WorkbenchService, TaskManagementService
 from ferdelance.node.startup import NodeStartup
-from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.database import Result
-from ferdelance.schemas.jobs import Job
+from ferdelance.schemas.database import Resource
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
-from ferdelance.schemas.tasks import TaskArguments, TaskParameters
 from ferdelance.schemas.updates import UpdateData
-from ferdelance.tasks.jobs.actors import TaskResult, run_estimate, run_training
+from ferdelance.tasks.services import ExecutionService
+from ferdelance.tasks.tasks import Task, TaskError
 
 from tests.utils import create_project
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import aiofiles.os
 
-
-class ServerlessClient:
-    def __init__(self, session: AsyncSession, index: int, data: DataSourceStorage | Metadata | None = None) -> None:
-        self.session: AsyncSession = session
+class ServerlessWorker:
+    def __init__(
+        self,
+        index: int,
+        node: ServerlessExecution,
+        data: DataSourceStorage | Metadata | None = None,
+    ) -> None:
         self.index: int = index
+
+        self.node: ServerlessExecution = node
+        self.config: Configuration = config_manager.get()
 
         self.md: Metadata | None = None
         self.data: DataSourceStorage | None = None
@@ -44,21 +49,24 @@ class ServerlessClient:
         if isinstance(data, Metadata):
             self.md = data
 
-        self.cr: ComponentRepository = ComponentRepository(session)
+        self.component: Component
 
-        self.client: Component
+    async def setup(self, cr: ComponentRepository, component: Component | None = None):
+        if component is None:
+            self.component = await cr.create_component(
+                f"client-{self.index}",
+                TYPE_CLIENT,
+                f"key-{self.index}",
+                __version__,
+                f"client-{self.index}",
+                f"ip-{self.index}",
+                "",
+            )
+        else:
+            self.component = component
 
-    async def setup(self):
-        self.client = await self.cr.create_component(
-            f"client-{self.index}",
-            TYPE_CLIENT,
-            f"key-{self.index}",
-            __version__,
-            f"client-{self.index}",
-            f"ip-{self.index}",
-            "",
-        )
-        self.jobs_service = JobManagementService(self.session, self.client)
+    def has_metadata(self) -> bool:
+        return self.md is not None
 
     def metadata(self) -> Metadata:
         if self.md is None:
@@ -66,45 +74,69 @@ class ServerlessClient:
         return self.md
 
     async def next_action(self) -> UpdateData:
-        return await self.jobs_service.update()
+        return await self.node.get_update(self.component)
 
-    async def get_client_task(self, job_id: str) -> TaskParameters:
-        return await self.jobs_service.task_start(job_id)
+    async def get_task(self, next_action: UpdateData) -> Task:
+        return await self.node.get_task(next_action.job_id)
 
-    async def post_client_results(self, task: TaskParameters, in_result: TaskResult | None = None) -> Result:
-        result = await self.jobs_service.task_completed(task.job_id)
+    async def complete_task(self, task: Task) -> None:
+        await self.node.task_completed(task)
 
-        if in_result is not None and in_result.result_path is not None:
-            async with aiofiles.open(in_result.result_path, "rb") as src:
-                async with aiofiles.open(result.path, "wb") as dst:
-                    while (chunk := await src.read()) != b"":
-                        await dst.write(chunk)
+    async def execute(self, task: Task) -> Resource:
+        es = ExecutionService(task, self.data, self.component.id)
 
-        return result
+        es.setup()
+        es.load()
 
-    async def execute(self, task: TaskParameters) -> TaskResult:
-        if self.data is None:
-            raise ValueError("Cannot execute job without local data configuration.")
+        for resource in task.required_resources:
+            es.env.add_resource(
+                resource.resource_id,
+                self.config.storage_job(
+                    resource.artifact_id,
+                    resource.job_id,
+                    resource.iteration,
+                )
+                / f"{resource.resource_id}.pkl",
+            )
 
-        if task.artifact.is_estimation():
-            return run_estimate(self.data, task)
+        es.env.produced_resource = EnvResource(
+            id=task.produced_resource_id,
+            path=self.config.storage_job(
+                task.artifact_id,
+                task.job_id,
+                task.iteration,
+            )
+            / f"{task.produced_resource_id}.pkl",
+        )
 
-        if task.artifact.is_model():
-            return run_training(self.data, task)
+        es.run()
 
-        raise ValueError("Invalid artifact.")
+        assert es.env.produced_resource is not None
+        assert es.env.produced_resource.path is not None
 
-    async def next_get_execute_post(self) -> Result:
+        return Resource(
+            id=es.env.produced_resource.id,
+            artifact_id=task.artifact_id,
+            iteration=task.iteration,
+            job_id=task.job_id,
+            component_id=self.component.id,
+            creation_time=None,
+            path=es.env.produced_resource.path,
+            is_error=False,
+            is_ready=True,
+        )
+
+    async def next_get_execute_post(self) -> Resource:
         next_action = await self.next_action()
 
-        if not isinstance(next_action, UpdateData):
+        if next_action is None:
             raise ValueError("next_action is not an execution action!")
 
-        task = await self.get_client_task(next_action.job_id)
+        task = await self.get_task(next_action)
         res = await self.execute(task)
-        result = await self.post_client_results(task, res)
+        await self.complete_task(task)
 
-        return result
+        return res
 
 
 class ServerlessExecution:
@@ -114,11 +146,15 @@ class ServerlessExecution:
         self.ar: ArtifactRepository = ArtifactRepository(session)
         self.jr: JobRepository = JobRepository(session)
 
-        self.clients: dict[str, ServerlessClient] = dict()
+        self.dsr: DataSourceRepository = DataSourceRepository(self.session)
+        self.pr: ProjectRepository = ProjectRepository(self.session)
+
+        self.workers: dict[str, ServerlessWorker] = dict()
         self.self_component: Component
         self.user_component: Component
 
         self.jobs_service: JobManagementService
+        self.task_service: TaskManagementService
         self.workbench_service: WorkbenchService
 
     async def setup(self):
@@ -135,27 +171,32 @@ class ServerlessExecution:
             "",
         )
 
+        self.self_worker = await self.add_worker(component=self.self_component)
+
         self.jobs_service = JobManagementService(self.session, self.self_component)
-        self.workbench_service = WorkbenchService(self.session, self.user_component)
+        self.task_service = TaskManagementService(self.session, self.self_component)
+        self.workbench_service = WorkbenchService(self.session, self.user_component, self.self_component)
 
-    async def add_client(self, index: int, data: DataSourceStorage | Metadata) -> ServerlessClient:
-        sc = ServerlessClient(self.session, index, data)
-        await sc.setup()
+    async def add_worker(
+        self,
+        data: DataSourceStorage | Metadata | None = None,
+        component: Component | None = None,
+    ) -> ServerlessWorker:
+        sw = ServerlessWorker(len(self.workers), self, data)
+        await sw.setup(self.cr, component)
 
-        metadata = sc.metadata()
+        if sw.has_metadata():
+            metadata = sw.metadata()
 
-        dsr: DataSourceRepository = DataSourceRepository(self.session)
-        pr: ProjectRepository = ProjectRepository(self.session)
+            await self.cr.create_event(sw.component.id, "update metadata")
 
-        await self.cr.create_event(sc.client.id, "update metadata")
+            # this will also update existing metadata
+            await self.dsr.create_or_update_from_metadata(sw.component.id, metadata)
+            await self.pr.add_datasources_from_metadata(metadata)
 
-        # this will also update existing metadata
-        await dsr.create_or_update_from_metadata(sc.client.id, metadata)
-        await pr.add_datasources_from_metadata(metadata)
+        self.workers[sw.component.id] = sw
 
-        self.clients[sc.client.id] = sc
-
-        return sc
+        return sw
 
     async def create_project(self, project_token: str) -> None:
         await create_project(self.session, project_token)
@@ -170,33 +211,26 @@ class ServerlessExecution:
 
         return status.id
 
-    async def check_aggregation(self, result: Result) -> bool:
-        js = self.clients[result.client_id].jobs_service
-        args = await js._context(result.job_id)
-        return await js.check_aggregation(*args)
+    async def get_status(self, artifact_id: str) -> ArtifactStatus:
+        return await self.workbench_service.get_status_artifact(artifact_id)
 
-    async def aggregate(self, result: Result, start_function: Callable[[TaskArguments], None]) -> Job:
-        return await self.clients[result.client_id].jobs_service.start_aggregation(
-            result.artifact_id,
-            result.is_model,
-            result.is_estimation,
-            start_function,
-        )
+    async def get_update(self, component: Component):
+        return await self.jobs_service.update(component)
 
-    async def get_task(self, job: Job) -> TaskParameters:
-        return await self.jobs_service.task_start(job.id)
+    async def next(self, component: Component) -> str | None:
+        return await self.jobs_service.next_task_for_component(component.id)
 
-    async def post_result(self, job: Job) -> Result:
-        result = await self.jobs_service.task_completed(job.id)
+    async def get_task(self, job_id: str) -> Task:
+        return await self.jobs_service.get_task_by_job_id(job_id)
 
-        if job.component_id in self.clients:
-            js = self.clients[result.client_id].jobs_service
-        elif job.component_id == self.self_component.id:
-            js = self.jobs_service
-        else:
-            raise ValueError(f"Unrecognized job author: {job.component_id}")
+    async def start_task(self, task: Task) -> None:
+        await self.task_service.task_start(task)
 
-        _, a, c = await js._context(job.id)
+    async def task_completed(self, task: Task) -> None:
+        await self.jobs_service.task_completed(task.job_id)
 
-        await self.jobs_service.check_next_iteration(a, c)
-        return result
+    async def task_failed(self, job_id: str) -> None:
+        await self.jobs_service.task_failed(TaskError(job_id=job_id))
+
+    async def get_resource(self, resource_id: str) -> Resource:
+        return await self.jobs_service.load_resource(resource_id)

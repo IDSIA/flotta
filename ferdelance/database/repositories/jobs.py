@@ -11,11 +11,9 @@ from ferdelance.shared.status import JobStatus
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import NoResultFound
 
+from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
-
-import aiofiles.os as aos
-import os
 
 LOGGER = get_logger(__name__)
 
@@ -25,8 +23,8 @@ def view(job: JobDB) -> Job:
         id=job.id,
         artifact_id=job.artifact_id,
         component_id=job.component_id,
-        status=job.status,
-        path=job.path,
+        status=JobStatus[job.status],
+        path=Path(job.path),
         creation_time=job.creation_time,
         execution_time=job.execution_time,
         termination_time=job.termination_time,
@@ -91,7 +89,7 @@ class JobRepository(Repository):
             step_id=job.id,
             artifact_id=artifact_id,
             component_id=job.worker.id,
-            path=path,
+            path=str(path),
             status=status.name,
             iteration=job.iteration,
         )
@@ -106,16 +104,19 @@ class JobRepository(Repository):
 
         return view(job_db)
 
-    async def store(self, artifact_id: str, job: SchedulerJob, job_id: str) -> str:
-        path = config_manager.get().storage_artifact(artifact_id)
-        await aos.makedirs(path, exist_ok=True)
-        path = os.path.join(path, f"job.{job_id}.json")
+    async def store(self, artifact_id: str, job: SchedulerJob, job_id: str) -> Path:
+        path = config_manager.get().storage_job(artifact_id, job_id, job.iteration) / "job.json"
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(job.dict())
             await f.write(content)
 
         return path
+
+    async def load(self, job: Job) -> SchedulerJob:
+        async with aiofiles.open(job.path, "r") as f:
+            content = await f.read()
+            return SchedulerJob(**json.loads(content))
 
     async def add_locks(self, job: Job, locked_jobs: list[Job]) -> None:
         """Adds constraint between the current job and the jobs that depends on
@@ -429,6 +430,32 @@ class JobRepository(Repository):
                     )
                     .distinct()
                 ),
+            )
+        )
+
+        return [view(j) for j in jobs.all()]
+
+    async def list_previous_jobs(self, job_id: str) -> list[Job]:
+        jobs = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.id.in_(
+                    select(JobLockDB.job_id).where(
+                        JobLockDB.next_id == job_id,
+                    )
+                )
+            )
+        )
+
+        return [view(j) for j in jobs.all()]
+
+    async def list_next_jobs(self, job_id: str) -> list[Job]:
+        jobs = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.id.in_(
+                    select(JobLockDB.next_id).where(
+                        JobLockDB.job_id == job_id,
+                    )
+                )
             )
         )
 

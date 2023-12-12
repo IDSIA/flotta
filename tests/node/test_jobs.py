@@ -83,7 +83,7 @@ async def test_jobs_next(session: AsyncSession):
     assert job1 is not None
     assert job1.execution_time is None
     assert job1.artifact_id == artifact_id_1
-    assert JobStatus[job1.status] == JobStatus.SCHEDULED
+    assert job1.status == JobStatus.SCHEDULED
 
     await jr.start_execution(job1)
 
@@ -92,7 +92,7 @@ async def test_jobs_next(session: AsyncSession):
     sc_3 = await jr.get(sc_3)
     job1 = await jr.get(job1)
 
-    assert JobStatus[job1.status] == JobStatus.RUNNING
+    assert job1.status == JobStatus.RUNNING
     assert job1.execution_time is not None
     assert sc_2.execution_time is None
     assert sc_3.execution_time is None
@@ -104,7 +104,7 @@ async def test_jobs_next(session: AsyncSession):
     sc_3 = await jr.get(sc_3)
     job1 = await jr.get(job1)
 
-    assert JobStatus[job1.status] == JobStatus.COMPLETED
+    assert job1.status == JobStatus.COMPLETED
     assert job1.termination_time is not None
     assert sc_2.termination_time is None
     assert sc_3.termination_time is None

@@ -7,6 +7,8 @@ from ferdelance.schemas.resources import ResourceIdentifier, ResourceRequest
 from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 from ferdelance.shared.exchange import Exchange
 
+from pathlib import Path
+
 import json
 import os
 import requests
@@ -69,7 +71,7 @@ class RouteService:
 
         return task
 
-    def get_resource(self, artifact_id: str, job_id: str, resource_id: str) -> Any:
+    def get_resource(self, artifact_id: str, job_id: str, resource_id: str, iteration: int) -> Path:
         LOGGER.info(f"artifact={artifact_id}: requesting partial resource={resource_id} for job={job_id}")
 
         req = ResourceRequest(
@@ -91,14 +93,14 @@ class RouteService:
         ) as res:
             res.raise_for_status()
 
-            path = config_manager.get().store_resource(artifact_id, job_id)
+            path = config_manager.get().store_resource(artifact_id, job_id, resource_id, iteration)
 
             self.exc.stream_response_to_file(res, path)
 
             return path
 
     def post_resource(
-        self, artifact_id: str, job_id: str, path_in: str | None = None, content: Any = None
+        self, artifact_id: str, job_id: str, path_in: Path | None = None, content: Any = None
     ) -> ResourceRequest:
         LOGGER.info(f"artifact={artifact_id}: posting resource for job={job_id}")
 
@@ -109,9 +111,9 @@ class RouteService:
         )
 
         if path_in is not None:
-            path_out = f"{path_in}.enc"
+            path_out = path_in.parent / f"{path_in.name}.enc"
 
-            checksum = self.exc.encrypt_file_for_remote(path_in, path_out)
+            checksum = self.exc.encrypt_file_for_remote(path_in, path_out)  # TODO: this should be optional!
             headers = self.exc.create_signed_header(
                 self.component_id,
                 checksum,

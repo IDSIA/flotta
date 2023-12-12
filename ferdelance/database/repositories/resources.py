@@ -3,8 +3,11 @@ from ferdelance.schemas.database import Resource
 from ferdelance.database.tables import Resource as ResourceDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 
-from sqlalchemy import select
+from sqlalchemy import select, update
+from pathlib import Path
 from uuid import uuid4
+
+from datetime import datetime
 
 
 def view(resource: ResourceDB) -> Resource:
@@ -13,9 +16,11 @@ def view(resource: ResourceDB) -> Resource:
         job_id=resource.job_id,
         artifact_id=resource.artifact_id,
         component_id=resource.component_id,
-        path=resource.path,
+        path=Path(resource.path),
         creation_time=resource.creation_time,
         iteration=resource.iteration,
+        is_ready=resource.is_ready,
+        is_error=resource.is_error,
     )
 
 
@@ -34,8 +39,6 @@ class ResourceRepository(Repository):
         artifact_id: str,
         producer_id: str,
         iteration: int,
-        is_partial: bool = False,
-        is_error: bool = False,
     ) -> Resource:
         """Creates an entry in the database for the resource produced by a client or a worker,
         identified with producer_id, and by setting the type of resource as a specified by the flags.
@@ -60,18 +63,16 @@ class ResourceRepository(Repository):
         out_path = config_manager.get().store_resource(
             artifact_id,
             job_id,
+            resource_id,
             iteration,
-            is_partial,
-            is_error,
         )
 
         resource_db = ResourceDB(
             id=resource_id,
-            path=out_path,
+            path=str(out_path),
             job_id=job_id,
             artifact_id=artifact_id,
             component_id=producer_id,
-            is_error=is_error,
             iteration=iteration,
         )
 
@@ -80,6 +81,20 @@ class ResourceRepository(Repository):
         await self.session.refresh(resource_db)
 
         return view(resource_db)
+
+    async def mark_as_ready_by_job_id(self, job_id: str, is_error: bool = False) -> None:
+        now = datetime.now()
+
+        await self.session.execute(
+            update(ResourceDB)
+            .where(ResourceDB.job_id == job_id)
+            .values(
+                is_ready=True,
+                is_error=is_error,
+                creation_time=now,
+            )
+        )
+        await self.session.commit()
 
     async def get_by_id(self, resource_id: str) -> Resource:
         """Get the resource given its resource_id.

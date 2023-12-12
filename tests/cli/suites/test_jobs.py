@@ -1,8 +1,9 @@
 from ferdelance.cli.fdl_suites.jobs.functions import list_jobs
 from ferdelance.const import TYPE_CLIENT
 from ferdelance.database import AsyncSession
-from ferdelance.schemas.jobs import Job as JobView
 from ferdelance.database.tables import Artifact, Component, Job
+from ferdelance.schemas.jobs import Job as JobView
+from ferdelance.shared.status import JobStatus
 
 import pytest
 
@@ -28,7 +29,7 @@ async def test_jobs_list(session: AsyncSession):
         step_id=0,
         artifact_id="A1",
         component_id="C1",
-        status="J1",
+        status=JobStatus.COMPLETED.name,
         path="",
     )
 
