@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from pathlib import Path
 
 import sys
 
@@ -9,7 +10,7 @@ class CustomArguments(ArgumentParser):
         self.exit(0, f"{self.prog}: error: {message}\n")
 
 
-def setup_config_from_arguments() -> tuple[str, bool]:
+def setup_config_from_arguments() -> tuple[Path | None, bool]:
     """Defines the available input parameters base on command line arguments.
 
     Can raise ConfigError.
@@ -44,6 +45,6 @@ def setup_config_from_arguments() -> tuple[str, bool]:
     # parse input arguments as a dict
     args, _ = parser.parse_known_args()
 
-    config_path: str = args.config
+    config_path = None if not args.config else Path(args.config)
 
     return config_path, args.leave or False

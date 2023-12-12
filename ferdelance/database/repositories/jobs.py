@@ -11,11 +11,9 @@ from ferdelance.shared.status import JobStatus
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import NoResultFound
 
+from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
-
-import aiofiles.os as aos
-import os
 
 LOGGER = get_logger(__name__)
 
@@ -26,7 +24,7 @@ def view(job: JobDB) -> Job:
         artifact_id=job.artifact_id,
         component_id=job.component_id,
         status=JobStatus[job.status],
-        path=job.path,
+        path=Path(job.path),
         creation_time=job.creation_time,
         execution_time=job.execution_time,
         termination_time=job.termination_time,
@@ -91,7 +89,7 @@ class JobRepository(Repository):
             step_id=job.id,
             artifact_id=artifact_id,
             component_id=job.worker.id,
-            path=path,
+            path=str(path),
             status=status.name,
             iteration=job.iteration,
         )
@@ -106,10 +104,8 @@ class JobRepository(Repository):
 
         return view(job_db)
 
-    async def store(self, artifact_id: str, job: SchedulerJob, job_id: str) -> str:
-        path = config_manager.get().storage_artifact(artifact_id)
-        await aos.makedirs(path, exist_ok=True)
-        path = os.path.join(path, f"job.{job_id}.json")
+    async def store(self, artifact_id: str, job: SchedulerJob, job_id: str) -> Path:
+        path = config_manager.get().storage_job(artifact_id, job_id, job.iteration) / "job.json"
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(job.dict())

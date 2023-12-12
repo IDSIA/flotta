@@ -1,14 +1,12 @@
-from typing import Any
-
 from ferdelance.config import config_manager
 from ferdelance.config.config import DataSourceStorage
 from ferdelance.core.environment import Environment
 from ferdelance.logging import get_logger
 from ferdelance.tasks.tasks import Task
 
-import pickle
+from pathlib import Path
+
 import json
-import os
 import pandas as pd
 
 LOGGER = get_logger(__name__)
@@ -28,27 +26,26 @@ class ExecutionService:
 
         self.env: Environment = Environment(self.artifact_id, self.project_token)
 
-        self.working_folder: str = ""
-
     def setup(self) -> None:
         config = config_manager.get()
 
         # creating working folders
-        self.working_folder = os.path.join(
-            config.storage_artifact(self.artifact_id, self.iteration),
-            f"{self.job_id}",
-        )
+        self.env.working_dir = config.storage_job(self.artifact_id, self.job_id, self.iteration)
 
-        os.makedirs(self.working_folder, exist_ok=True)
+        path_task: Path = self.env.working_dir / "task.json"
 
-        path_artifact = os.path.join(self.working_folder, "task.json")
-
-        with open(path_artifact, "w") as f:
+        with open(path_task, "w") as f:
             json.dump(self.task.dict(), f)
 
     def load(self):
         if self.data is None:
             return
+
+        # TODO: load resources from local disk!
+        # Assume that the external downloader will fetch and download all the required resourced
+        # from previous nodes/workers and save it to disk. This method will have to check if the
+        # resource is available and use it.
+        # PRO TIP: load on demand from disk what is needed when it is needed!
 
         dfs: list[pd.DataFrame] = []
 
@@ -73,18 +70,10 @@ class ExecutionService:
 
         self.env.df = pd.concat(dfs)  # TODO: do we want it to be loaded in df?
 
-    def add_resource(self, resource_id: str, resource: Any) -> None:
-        self.env[resource_id] = resource
-
     def run(self) -> None:
         self.env = self.task.run(self.env)
 
-        path = os.path.join(self.working_folder, "local_model.pkl")
-        self.env["resource_path"] = path
-
-        with open(path, "wb") as f:
-            pickle.dump(self.env["local_model"], f)
-
-        self.env.produced_resource_path = path
+        if self.env.produced_resource is not None:
+            self.env.produced_resource.store()
 
         # TODO: manage error

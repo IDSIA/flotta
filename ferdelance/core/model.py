@@ -9,6 +9,8 @@ from ferdelance.core.metrics import Metrics
 from ferdelance.core.interfaces import Step
 from ferdelance.core.queries import Query
 
+from pathlib import Path
+
 from numpy.typing import ArrayLike
 
 import numpy as np
@@ -31,7 +33,7 @@ class Model(ABC, Entity):
 
     _model: Any = PrivateAttr()
 
-    def load(self, path: str) -> None:
+    def load(self, path: Path) -> None:
         """Load a trained model from a path on the local disk to the internal
         model object. The loaded model must be in pickle format.
 
@@ -47,7 +49,7 @@ class Model(ABC, Entity):
     def get_model(self) -> Any:
         return self._model
 
-    def save(self, path: str) -> None:
+    def save(self, path: Path) -> None:
         """Save the internal model object to the disk. Models save with this method
         can be loaded again using the `load()` method.
 

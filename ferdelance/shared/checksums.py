@@ -1,6 +1,5 @@
 from hashlib import sha256
-
-import os
+from pathlib import Path
 
 
 def str_checksum(
@@ -16,7 +15,7 @@ def str_checksum(
     return checksum.hexdigest()
 
 
-def file_checksum(path: str | os.PathLike[str], CHUNK_SIZE: int = 4096) -> str:
+def file_checksum(path: Path, CHUNK_SIZE: int = 4096) -> str:
     checksum = sha256()
 
     with open(path, "rb") as f:

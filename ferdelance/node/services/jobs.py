@@ -231,13 +231,14 @@ class JobManagementService(Repository):
 
             task_resources.append(
                 TaskResource(
-                    component_id=c.id,
+                    resource_id=r.id,
                     artifact_id=job.artifact_id,
-                    job_id=job.id,
+                    iteration=job.iteration,
+                    job_id=p_job.id,
+                    component_id=c.id,
                     public_key=c.public_key,
                     url=c.url,
                     is_local=c.id == self.self_component.id,
-                    resource_id=r.id,
                 )
             )
 

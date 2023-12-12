@@ -9,6 +9,8 @@ from ferdelance.shared.decode import HybridDecrypter
 from fastapi import Request
 from fastapi.responses import StreamingResponse, Response
 
+from pathlib import Path
+
 import aiofiles
 import os
 
@@ -33,7 +35,7 @@ class SecurityService:
         """
         self.encoding = encoding
 
-        private_key_path: str = config_manager.get().private_key_location()
+        private_key_path = config_manager.get().private_key_location()
 
         self.exc: Exchange = Exchange(private_key_path, self.encoding)
 
@@ -88,12 +90,12 @@ class SecurityService:
         body = await request.body()
         return self.exc.get_payload(body)
 
-    def encrypt_file(self, path: str | os.PathLike[str]) -> tuple[str, StreamingResponse]:
+    def encrypt_file(self, path: Path) -> tuple[str, StreamingResponse]:
         """Used to stream encrypt data from a file, using less memory."""
         checksum, it = self.exc.stream_from_file(path)
         return checksum, StreamingResponse(it, media_type="application/octet-stream")
 
-    async def stream_decrypt_file(self, request: Request, path: str) -> str:
+    async def stream_decrypt_file(self, request: Request, path: Path) -> str:
         """Used to stream decrypt data to a file, using less memory."""
         if self.exc.private_key is None:
             raise ValueError("Missing local private key, i exchange object initialized?")

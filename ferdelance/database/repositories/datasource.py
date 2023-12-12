@@ -10,12 +10,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 import aiofiles
 import aiofiles.os as aos
 import json
-import os
 
 LOGGER = get_logger(__name__)
 
@@ -117,7 +117,7 @@ class DataSourceRepository(Repository):
                 id=ds.id,
                 hash=ds.hash,
                 name=ds.name,
-                path=path,
+                path=str(path),
                 n_records=ds.n_records,
                 n_features=ds.n_features,
                 component_id=client_id,
@@ -157,7 +157,7 @@ class DataSourceRepository(Repository):
 
         return view(ds_db, stored_ds.features)
 
-    async def storage_location(self, datasource_id: str) -> str:
+    async def storage_location(self, datasource_id: str) -> Path:
         """Checks that the output directory for this datasource exists. If not
         it will be created. Then it creates a path for the destination file.
 
@@ -174,9 +174,9 @@ class DataSourceRepository(Repository):
         """
         path = config_manager.get().storage_datasources(datasource_id)
         await aos.makedirs(path, exist_ok=True)
-        return os.path.join(path, "datasource.json")
+        return path / "datasource.json"
 
-    async def store(self, datasource: DataSource) -> str:
+    async def store(self, datasource: DataSource) -> Path:
         """Save a datasource on disk in JSON format.
 
         Args:
@@ -238,14 +238,14 @@ class DataSourceRepository(Repository):
             ValueError:
                 If the datasource does not exists on disk.
         """
-        datasource_path: str = await self.get_datasource_path(datasource_id)
+        datasource_path: Path = await self.get_datasource_path(datasource_id)
 
         if not await aos.path.exists(datasource_path):
             raise ValueError(f"datasource={datasource_id} not found")
 
         await aos.remove(datasource_path)
 
-    async def get_datasource_path(self, datasource_id: str) -> str:
+    async def get_datasource_path(self, datasource_id: str) -> Path:
         """Return the location, or path, where the datasource is stored on disk,
         if it exists in the database.
 
@@ -262,7 +262,7 @@ class DataSourceRepository(Repository):
                 The path where the datasource is stored on disk.
         """
         res = await self.session.scalars(select(DataSourceDB.path).where(DataSourceDB.id == datasource_id))
-        return res.one()
+        return Path(res.one())
 
     async def list_datasources(self) -> list[DataSource]:
         """List all datasources stored in the database.

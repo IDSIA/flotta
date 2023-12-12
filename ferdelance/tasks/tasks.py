@@ -30,9 +30,10 @@ class TaskNode(BaseModel):
 class TaskResource(TaskNode):
     """Identifies a resource and its location inside the node network."""
 
+    resource_id: str
     artifact_id: str
     job_id: str
-    resource_id: str
+    iteration: int
 
 
 class Task(Entity):

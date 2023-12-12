@@ -64,7 +64,7 @@ class Execution:
         try:
             task: Task = scheduler.get_task_data(artifact_id, job_id)
 
-            es = ExecutionService(task, self.data)
+            es = ExecutionService(task, self.data, self.component_id)
 
             es.setup()
             es.load()
@@ -79,15 +79,19 @@ class Execution:
                 )
 
                 # path to resource saved locally
-                res = node.get_resource(
+                res_path = node.get_resource(
                     resource.artifact_id,
                     resource.job_id,
                     resource.resource_id,
+                    resource.iteration,
                 )
-                es.add_resource(resource.resource_id, res)
+                es.env.add_resource(resource.resource_id, res_path)
 
             # apply work from step
             es.run()
+
+            if es.env.produced_resource is None:
+                raise ValueError("Produced resource not available")
 
             # send forward the produced resources
             for next_node in task.next_nodes:
@@ -99,7 +103,7 @@ class Execution:
                     next_node.is_local,
                 )
 
-                node.post_resource(artifact_id, job_id, es.env["resource_path"])
+                node.post_resource(artifact_id, job_id, es.env.produced_resource.path)
 
             scheduler.post_done(artifact_id, job_id)
 

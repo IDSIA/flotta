@@ -3,13 +3,14 @@ from ferdelance.shared.status import ArtifactJobStatus
 
 from datetime import datetime
 from pydantic import BaseModel
+from pathlib import Path
 
 
 class ServerArtifact(BaseModel):
     """Artifact stored in the database."""
 
     id: str
-    path: str
+    path: Path
     status: ArtifactJobStatus
     creation_time: datetime
 
@@ -31,6 +32,6 @@ class Resource(BaseModel):
     job_id: str
     component_id: str
     creation_time: datetime | None
-    path: str
+    path: Path
     is_error: bool
     is_ready: bool
