@@ -16,7 +16,7 @@ class InitCounter(Operation):
 
         rand_value = r.integers(-(2**31), 2**31, size=1)[0]
 
-        env["_init_value"] = rand_value
+        env[".init_value"] = rand_value
         env["count"] = rand_value
 
         return env
@@ -27,19 +27,29 @@ class Count(QueryOperation):
         if self.query is not None:
             env = self.query.apply(env)
 
-        if env.X_tr is None:
+        if env.df is None:
             raise ValueError("Input data not set")
 
-        env["count"] += env.X_tr.shape[0]
+        ids = env.list_resource_ids()
+        if len(ids) != 1:
+            raise ValueError("Count algorithm requires exactly one resource")
+
+        r = ids[0]
+
+        env["count"] = env[r]["count"] + env.df.shape[0]
 
         return env
 
 
 class CleanCounter(Operation):
     def exec(self, env: Environment) -> Environment:
-        rand_value = env["_init_value"]
+        ids = env.list_resource_ids()
+        if len(ids) != 1:
+            raise ValueError("Count algorithm requires exactly one resource")
 
-        env["count"] -= rand_value
+        r = ids[0]
+
+        env["count"] = env[r]["count"] - env[".init_value"]
 
         return env
 

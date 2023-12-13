@@ -278,35 +278,6 @@ class Configuration(BaseSettings):
         os.makedirs(d, exist_ok=True)
         return d
 
-    def store_resource(
-        self,
-        artifact_id: str,
-        job_id: str,
-        resource_id: str,
-        iteration: int = 0,
-    ) -> Path:
-        """Creates a local path that can be used to save a resource to disk.
-
-        Args:
-            artifact_id (str):
-                Id of the artifact.
-            iteration (int, optional):
-                Iteration reached.
-                Defaults to 0.
-            producer_id (str, optional):
-                Id of the component that produced the resource.
-                Defaults to "".
-            is_error (bool, optional):
-                If it is an error, set to True.
-                Defaults to False.
-
-        Returns:
-            str:
-                The path to use to save the resource on disk.
-        """
-
-        return self.storage_job(artifact_id, job_id, iteration) / f"{resource_id}.pkl"
-
     def storage_clients_dir(self) -> Path:
         return self.get_workdir() / "clients"
 

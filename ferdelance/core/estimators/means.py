@@ -17,8 +17,8 @@ class InitMean(Operation):
         shape = (2,)
         vals = r.integers(-(2**31), 2**31, size=shape)
 
-        env["_init_sum"] = vals[0]
-        env["_init_count"] = vals[1]
+        env[".init_sum"] = vals[0]
+        env[".init_count"] = vals[1]
 
         env["sum"] = vals[0]
         env["count"] = vals[1]
@@ -31,21 +31,33 @@ class Mean(QueryOperation):
         if self.query is not None:
             env = self.query.apply(env)
 
-        if env.X_tr is None:
+        if env.df is None:
             raise ValueError("Input data not set")
 
-        env["sum"] += env.X_tr.sum(axis=1)
-        env["count"] += env.X_tr.shape[0]
+        ids = env.list_resource_ids()
+        if len(ids) != 1:
+            raise ValueError("Mean algorithm requires exactly one resource")
+
+        r = ids[0]
+
+        env["sum"] = env[r]["sum"] + env.df.sum(axis=1)
+        env["count"] = env[r]["count"] + env.df.shape[0]
 
         return env
 
 
 class CleanMean(Operation):
     def exec(self, env: Environment) -> Environment:
-        env["sum"] -= env["_init_sum"]
-        env["count"] -= env["_init_count"]
+        ids = env.list_resource_ids()
+        if len(ids) != 1:
+            raise ValueError("Mean algorithm requires exactly one resource")
 
-        env["mean"] = env["sum"] / env["count"]
+        r = ids[0]
+
+        sum = env[r]["sum"] - env[".init_sum"]
+        count = env[r]["count"] - env[".init_count"]
+
+        env["mean"] = 1.0 * sum / count
 
         return env
 

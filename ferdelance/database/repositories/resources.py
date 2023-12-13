@@ -60,12 +60,7 @@ class ResourceRepository(Repository):
 
         resource_id: str = str(uuid4())
 
-        out_path = config_manager.get().store_resource(
-            artifact_id,
-            job_id,
-            resource_id,
-            iteration,
-        )
+        out_path = config_manager.get().storage_job(artifact_id, job_id, iteration) / f"{resource_id}.pkl"
 
         resource_db = ResourceDB(
             id=resource_id,
