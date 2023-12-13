@@ -1,36 +1,70 @@
+from ferdelance.config.config import DataSourceConfiguration, DataSourceStorage
 from ferdelance.core.estimators import CountEstimator
 from ferdelance.workbench.interface import Artifact
 
-from tests.utils import TEST_PROJECT_TOKEN, assert_jobs_count, get_metadata
+from tests.utils import TEST_PROJECT_TOKEN, assert_jobs_count
 from tests.serverless import ServerlessExecution, ServerlessWorker
+from tests.workflow.test_aggregation import load_resource
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pathlib import Path
+
 import pytest
-
-from hashlib import sha256
-from uuid import uuid5, NAMESPACE_URL
-
-from tests.workflow.test_aggregation import load_resource
+import os
 
 
 @pytest.mark.asyncio
 async def test_count(session: AsyncSession):
+    DATA_PATH_1 = Path("tests") / "integration" / "data" / "california_housing.MedInc1.csv"
+    DATA_PATH_2 = Path("tests") / "integration" / "data" / "california_housing.MedInc2.csv"
+    DATA_PATH_3 = Path("tests") / "integration" / "data" / "california_housing.validation.csv"
+
+    assert os.path.exists(DATA_PATH_1)
+    assert os.path.exists(DATA_PATH_2)
+    assert os.path.exists(DATA_PATH_3)
+
+    data1 = DataSourceStorage(
+        [
+            DataSourceConfiguration(
+                name="california1",
+                kind="file",
+                type="csv",
+                path=str(DATA_PATH_1),
+                token=[TEST_PROJECT_TOKEN],
+            )
+        ],
+    )
+    data2 = DataSourceStorage(
+        [
+            DataSourceConfiguration(
+                name="california2",
+                kind="file",
+                type="csv",
+                path=str(DATA_PATH_2),
+                token=[TEST_PROJECT_TOKEN],
+            )
+        ],
+    )
+    data3 = DataSourceStorage(
+        [
+            DataSourceConfiguration(
+                name="california3",
+                kind="file",
+                type="csv",
+                path=str(DATA_PATH_3),
+                token=[TEST_PROJECT_TOKEN],
+            )
+        ],
+    )
+
     server = ServerlessExecution(session)
     await server.setup()
     await server.create_project(TEST_PROJECT_TOKEN)
 
-    ds_id_1: str = str(uuid5(NAMESPACE_URL, "ds_1"))
-    ds_id_2: str = str(uuid5(NAMESPACE_URL, "ds_2"))
-    ds_id_3: str = str(uuid5(NAMESPACE_URL, "ds_3"))
-
-    ds_hs_1: str = sha256(ds_id_1.encode()).hexdigest()
-    ds_hs_2: str = sha256(ds_id_2.encode()).hexdigest()
-    ds_hs_3: str = sha256(ds_id_3.encode()).hexdigest()
-
-    node1: ServerlessWorker = await server.add_worker(get_metadata(TEST_PROJECT_TOKEN, ds_id_1, ds_hs_1))
-    node2: ServerlessWorker = await server.add_worker(get_metadata(TEST_PROJECT_TOKEN, ds_id_2, ds_hs_2))
-    node3: ServerlessWorker = await server.add_worker(get_metadata(TEST_PROJECT_TOKEN, ds_id_3, ds_hs_3))
+    node1: ServerlessWorker = await server.add_worker(data1)
+    node2: ServerlessWorker = await server.add_worker(data2)
+    node3: ServerlessWorker = await server.add_worker(data3)
 
     project = await server.get_project(TEST_PROJECT_TOKEN)
 
@@ -69,4 +103,4 @@ async def test_count(session: AsyncSession):
 
     counter = load_resource(r_count)
 
-    print(counter)
+    assert counter["count"] == 20640
