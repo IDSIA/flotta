@@ -105,7 +105,7 @@ def test_pipeline():
         ]
     )
 
-    env = Environment("", "")
+    env = Environment("", "", "", Path("."))
     env.X_tr = pd.read_csv(PATH_CALIFORNIA)
 
     env, _ = pipe.transform(env)

@@ -4,7 +4,6 @@ from ferdelance import __version__
 from ferdelance.config import DataSourceStorage, Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_USER
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
-from ferdelance.core.environment import EnvResource
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -85,7 +84,6 @@ class ServerlessWorker:
     async def execute(self, task: Task) -> Resource:
         es = ExecutionService(task, self.data, self.component.id)
 
-        es.setup()
         es.load()
 
         for resource in task.required_resources:
@@ -99,29 +97,18 @@ class ServerlessWorker:
                 / f"{resource.resource_id}.pkl",
             )
 
-        es.env.produced_resource = EnvResource(
-            id=task.produced_resource_id,
-            path=self.config.storage_job(
-                task.artifact_id,
-                task.job_id,
-                task.iteration,
-            )
-            / f"{task.produced_resource_id}.pkl",
-        )
-
         es.run()
 
-        assert es.env.produced_resource is not None
-        assert es.env.produced_resource.path is not None
+        assert es.env.products is not None
 
         return Resource(
-            id=es.env.produced_resource.id,
+            id=es.env.product_id,
             artifact_id=task.artifact_id,
             iteration=task.iteration,
             job_id=task.job_id,
             component_id=self.component.id,
             creation_time=None,
-            path=es.env.produced_resource.path,
+            path=es.env.product_path(),
             is_error=False,
             is_ready=True,
         )
