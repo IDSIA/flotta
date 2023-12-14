@@ -113,8 +113,8 @@ def test_pipeline():
     assert env.X_tr is not None
     assert env.Y_tr is not None
 
-    assert env.X_tr.shape == (20640, 7)
-    assert len(env.X_tr.columns) == 7
+    assert env.X_tr.shape == (20640, 8)
+    assert len(env.X_tr.columns) == 8
     for c in [
         "HouseAgeBins",
         "AveRoomsBins",

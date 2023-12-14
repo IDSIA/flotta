@@ -29,7 +29,7 @@ def test_kbin_one_feature():
     df = run(df, fkbd)
 
     assert df is not None
-    assert df.shape[1] == 9
+    assert df.shape[1] == 10
 
     x = df[["HouseAgeBin"]].groupby("HouseAgeBin").size()
 
@@ -46,7 +46,7 @@ def test_bin_one_feature():
     df = run(df, fb)
 
     assert df is not None
-    assert df.shape[1] == 9
+    assert df.shape[1] == 10
     assert df[["MoreThanThree"]].sum()[0] == 20185.0
 
 
@@ -75,7 +75,7 @@ def test_lbin_one_feature():
 
     # TODO: what if we binarize more columns or more values?
 
-    assert df.shape[1] == 8
+    assert df.shape[1] == 9
     assert f3.name not in env.X_tr.columns
     assert f3.name in env.Y_tr.columns
     assert env.Y_tr[f3.name].sum() == -1650
