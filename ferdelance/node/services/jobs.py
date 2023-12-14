@@ -14,7 +14,7 @@ from ferdelance.database.repositories import (
     Repository,
 )
 from ferdelance.logging import get_logger
-from ferdelance.node.services import ActionService, TaskManagementService
+from ferdelance.node.services import ActionService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import ServerArtifact, Resource
 from ferdelance.schemas.jobs import Job
@@ -51,12 +51,21 @@ class JobManagementService(Repository):
         self.pr: ProjectRepository = ProjectRepository(session)
         self.rr: ResourceRepository = ResourceRepository(session)
 
-        self.tm: TaskManagementService = TaskManagementService(session, component)
-
-        self.private_key = private_key
-        self.node_public_key = node_public_key
+        self.private_key: str = private_key
+        self.node_public_key: str = node_public_key
 
     async def update(self, component: Component) -> UpdateData:
+        """This method is used to get an update for a client. Such update consists in the next action to execute and
+        the parameters required to execute it. After this call, a client can request a task.
+
+        Args:
+            component (Component):
+                The client component requesting an update.
+
+        Returns:
+            UpdateData:
+                Container object with the next action to execute.
+        """
         next_action = await self.ax.next(component)
 
         LOGGER.debug(f"component={component.id}: update action={next_action.action}")
@@ -89,20 +98,18 @@ class JobManagementService(Repository):
 
             artifact.id = artifact_db.id
 
-            await self.schedule_tasks_for_iteration(artifact)
+            await self.schedule_tasks(artifact)
 
             return artifact_db.get_status()
         except ValueError as e:
             raise e
 
-    async def schedule_tasks_for_iteration(self, artifact: Artifact) -> None:
+    async def schedule_tasks(self, artifact: Artifact) -> None:
         """Schedules all the jobs for the given artifact in the given iteration.
 
         Args:
             artifact (Artifact):
                 Artifact to complete.
-            iteration (int):
-                Current iteration.
         """
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
@@ -150,16 +157,6 @@ class JobManagementService(Repository):
             LOGGER.info(f"artifact={artifact.id}: scheduling initial job={job.id}")
             await self.jr.schedule_job(job)
 
-        # TODO: how to start this?
-        #     get_jobs_backend().start_init(
-        #         artifact_id=artifact.id,
-        #         job_id=job.id,
-        #         component_id=self.component.id,
-        #         private_key=self.private_key,
-        #         node_url=config_manager.get().url_extern(),
-        #         node_public_key=self.node_public_key,
-        #     )
-
     async def next_task_for_component(self, component_id: str) -> str | None:
         jobs = await self.jr.list_scheduled_jobs_for_component(component_id)
 
@@ -167,6 +164,9 @@ class JobManagementService(Repository):
             return None
 
         return jobs[0].id
+
+    async def get_scheduled_jobs(self, artifact_id: str) -> list[Job]:
+        return await self.jr.list_jobs_by_artifact_id(artifact_id)
 
     async def store_resource(self, job_id: str, is_error: bool = False) -> Resource:
         job = await self.jr.get_by_id(job_id)

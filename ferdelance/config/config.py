@@ -147,6 +147,7 @@ class DataSourceStorage:
     def __init__(self, datasources: list[DataSourceConfiguration]) -> None:
         """Hash -> DataSource"""
         self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
+        self.ds_configs: list[DataSourceConfiguration] = datasources
 
         for ds in datasources:
             if ds.token is None:

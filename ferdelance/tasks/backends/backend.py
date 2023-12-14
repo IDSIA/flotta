@@ -1,6 +1,7 @@
+from typing import Any
+
 from ferdelance.logging import get_logger
-from ferdelance.tasks.jobs.heartbeat import Heartbeat
-from ferdelance.tasks.jobs.execution import Execution
+from ferdelance.tasks.jobs import Heartbeat, Execution
 
 LOGGER = get_logger(__name__)
 
@@ -27,6 +28,8 @@ class Backend:
         private_key: str,
         node_url: str,
         node_public_key: str,
+        datasources: list[dict[str, Any]],
+        scheduler_is_local: bool,
     ) -> None:
         LOGGER.info(f"artifact={artifact_id}: scheduling job={job_id}")
 
@@ -35,8 +38,10 @@ class Backend:
             artifact_id,
             job_id,
             node_url,
-            private_key,
             node_public_key,
+            private_key,
+            datasources,
+            scheduler_is_local,
         )
 
         task_handler = actor_handler.run.remote()  # type: ignore

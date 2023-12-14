@@ -30,7 +30,7 @@ class Execution:
         private_key: str,
         datasources: list[dict[str, Any]],
         # if true, we don't have to send data to the remote server
-        scheduler_is_local: bool = False,
+        scheduler_is_local: bool,
     ) -> None:
         self.component_id: str = component_id
         self.artifact_id: str = artifact_id

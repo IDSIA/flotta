@@ -74,10 +74,24 @@ class WorkbenchConnectService:
 
 
 class WorkbenchService:
-    def __init__(self, session: AsyncSession, wb_component: Component, self_component: Component) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        wb_component: Component,
+        self_component: Component,
+        private_key: str = "",
+        node_public_key: str = "",
+    ) -> None:
         self.session: AsyncSession = session
         self.wb_component: Component = wb_component
         self.self_component: Component = self_component
+
+        self.jms: JobManagementService = JobManagementService(
+            self.session,
+            self.self_component,
+            private_key,
+            node_public_key,
+        )
 
     async def project(self, project_token: str) -> Project:
         """
@@ -120,18 +134,10 @@ class WorkbenchService:
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        jms: JobManagementService = JobManagementService(
-            self.session,
-            self.self_component,
-        )  # TODO: pass pub/priv key from args
-        return await jms.submit_artifact(artifact)
+        return await self.jms.submit_artifact(artifact)
 
     async def store_resource(self, request_stream: AsyncGenerator[bytes, None]) -> str:
-        jms: JobManagementService = JobManagementService(
-            self.session,
-            self.self_component,
-        )  # TODO: pass pub/priv key from args
-        return await jms.store_resource(request_stream)  # TODO: FIXME
+        return await self.jms.store_resource(request_stream)  # TODO: FIXME
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """

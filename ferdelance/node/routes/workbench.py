@@ -3,6 +3,7 @@ from ferdelance.core.artifacts import ArtifactStatus, Artifact
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, session_args, valid_session_args
 from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
+from ferdelance.node.services.tasks import TaskManagementService
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
     WorkbenchClientList,
@@ -138,10 +139,26 @@ async def wb_post_artifact_submit(
 ) -> ArtifactStatus:
     LOGGER.info(f"user={args.component.id}: submitted a new artifact")
 
-    wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+    wb: WorkbenchService = WorkbenchService(
+        args.session,
+        args.component,
+        args.self_component,
+        args.security_service.get_private_key(),
+        args.security_service.get_remote_key(),
+    )
+    tms: TaskManagementService = TaskManagementService(
+        args.session,
+        args.self_component,
+        args.security_service.get_private_key(),
+        args.security_service.get_public_key(),
+    )
 
     try:
-        return await wb.submit_artifact(artifact)
+        status = await wb.submit_artifact(artifact)
+
+        await tms.check(status.id)
+
+        return status
 
     except ValueError as e:
         LOGGER.error("artifact already exists")
