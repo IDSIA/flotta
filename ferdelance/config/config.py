@@ -1,16 +1,17 @@
 from typing import Any
 
-from pydantic import BaseSettings, BaseModel, root_validator, validator
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE
-
 from ferdelance.datasources import DataSourceDB, DataSourceFile
-from ferdelance.schemas.metadata import Metadata
 from ferdelance.logging import get_logger
+from ferdelance.schemas.metadata import Metadata
 from ferdelance.shared.exchange import Exchange
 
 from .arguments import setup_config_from_arguments
 
+from pydantic import BaseSettings, BaseModel, root_validator, validator
 from dotenv import load_dotenv
+
+from pathlib import Path
 
 import os
 import re
@@ -92,7 +93,7 @@ class NodeConfiguration(BaseModel):
 
     # self-check in seconds when mode=node
     healthcheck: float = 60
-    # concact server node each interval in second for update when mode=client
+    # concat server node each interval in second for update when mode=client
     heartbeat: float = 2.0
 
     @root_validator(pre=True)
@@ -146,6 +147,7 @@ class DataSourceStorage:
     def __init__(self, datasources: list[DataSourceConfiguration]) -> None:
         """Hash -> DataSource"""
         self.datasources: dict[str, DataSourceDB | DataSourceFile] = dict()
+        self.ds_configs: list[DataSourceConfiguration] = datasources
 
         for ds in datasources:
             if ds.token is None:
@@ -171,6 +173,15 @@ class DataSourceStorage:
 
     def metadata(self) -> Metadata:
         return Metadata(datasources=[ds.metadata() for _, ds in self.datasources.items()])
+
+    def hashes(self) -> list[str]:
+        return list(self.datasources.keys())
+
+    def __getitem__(self, key: str) -> DataSourceDB | DataSourceFile | None:
+        return self.datasources.get(key, None)
+
+    def __len__(self) -> int:
+        return len(self.datasources)
 
 
 class Configuration(BaseSettings):
@@ -243,111 +254,53 @@ class Configuration(BaseSettings):
         return f"{_protocol}://{self.node.url.rstrip('/')}{_port}"
 
     def url_deploy(self) -> str:
-        """Url to use for deploying the api throug ray serve."""
+        """Url to use for deploying the api through ray serve."""
         _protocol, _port = clean_protocol_port(self.node.protocol, self.node.port)
 
         return f"{_protocol}://{self.node.interface.rstrip('/')}{_port}"
 
-    def storage_datasources_dir(self) -> str:
-        return os.path.join(self.workdir, "datasources")
+    def get_workdir(self) -> Path:
+        return Path(self.workdir)
 
-    def storage_datasources(self, datasource_hash: str) -> str:
-        return os.path.join(self.storage_datasources_dir(), datasource_hash)
+    def storage_datasources_dir(self) -> Path:
+        return self.get_workdir() / "datasources"
 
-    def storage_artifact_dir(self) -> str:
-        return os.path.join(self.workdir, "artifacts")
+    def storage_datasources(self, datasource_hash: str) -> Path:
+        return self.storage_datasources_dir() / datasource_hash
 
-    def storage_artifact(self, artifact_id: str, iteration: int = 0) -> str:
-        return os.path.join(self.storage_artifact_dir(), artifact_id, str(iteration))
+    def storage_artifact_dir(self) -> Path:
+        return self.get_workdir() / "artifacts"
 
-    def store(
-        self,
-        artifact_id: str,
-        job_id: str,
-        iteration: int = 0,
-        is_error: bool = False,
-        is_aggregation: bool = False,
-        is_model: bool = False,
-        is_estimation: bool = False,
-    ) -> str:
-        """Creates a local path that can beuse to save a result to disk.
+    def storage_artifact(self, artifact_id: str, iteration: int = 0) -> Path:
+        return self.storage_artifact_dir() / artifact_id / str(iteration)
 
-        Args:
-            artifact_id (str):
-                Id of the artifact.
-            iteration (int, optional):
-                Iteration reached.
-                Defaults to 0.
-            producer_id (str, optional):
-                Id of the component that produced the result.
-                Defaults to "".
-            is_error (bool, optional):
-                If it is an error, set to True.
-                Defaults to False.
-            is_aggregation (bool, optional):
-                If it is a result of an aggregation, set to True.
-                Defaults to False.
-            is_model (bool, optional):
-                If it is a trained model, set to True.
-                Defaults to False.
-            is_estimation (bool, optional):
-                If it is a partial estimation, set to True.
-                Defaults to False.
+    def storage_job(self, artifact_id: str, job_id: str, iteration: int = 0) -> Path:
+        d = self.storage_artifact(artifact_id, iteration) / job_id
+        os.makedirs(d, exist_ok=True)
+        return d
 
-        Returns:
-            str:
-                The path to use to save the result on disk.
-        """
+    def storage_clients_dir(self) -> Path:
+        return self.get_workdir() / "clients"
 
-        out_dir: str = self.storage_artifact(artifact_id, iteration)
-        os.makedirs(out_dir, exist_ok=True)
+    def storage_clients(self, client_id: str) -> Path:
+        return self.storage_clients_dir() / client_id
 
-        chunks: list[str] = [job_id]
+    def storage_config(self) -> Path:
+        return self.get_workdir() / "config.yaml"
 
-        if is_error:
-            chunks.append("ERROR")
-        elif is_aggregation:
-            chunks.append("AGGREGATED")
-        else:
-            chunks.append("PARTIAL")
+    def private_key_location(self) -> Path:
+        return self.get_workdir() / "private_key.pem"
 
-        if is_model:
-            chunks.append("model")
-        elif is_estimation:
-            chunks.append("estimator")
-
-        filename = ".".join(chunks)
-
-        return os.path.join(out_dir, filename)
-
-    def storage_clients_dir(self) -> str:
-        return os.path.join(self.workdir, "clients")
-
-    def storage_clients(self, client_id: str) -> str:
-        return os.path.join(self.storage_clients_dir(), client_id)
-
-    def storage_results_dir(self) -> str:
-        return os.path.join(self.workdir, "results")
-
-    def storage_results(self, result_id: str) -> str:
-        return os.path.join(self.storage_results_dir(), result_id)
-
-    def storage_config(self) -> str:
-        return os.path.join(self.workdir, "config.yaml")
-
-    def private_key_location(self) -> str:
-        return os.path.join(self.workdir, "private_key.pem")
-
-    def storage_properties(self) -> str:
-        return os.path.join(self.workdir, "properties.yaml")
+    def storage_properties(self) -> Path:
+        return self.get_workdir() / "properties.yaml"
 
     def dump(self) -> None:
-        os.makedirs(self.workdir, exist_ok=True)
+        os.makedirs(self.get_workdir(), exist_ok=True)
         with open(self.storage_config(), "w") as f:
             try:
                 yaml.safe_dump(self.dict(), f)
 
-                os.environ["FERDELANCE_CONFIG_FILE"] = self.storage_config()
+                os.environ["FERDELANCE_CONFIG_FILE"] = str(self.storage_config())
 
             except yaml.YAMLError as e:
                 LOGGER.error(f"could not dump config file to {self.storage_config()}")
@@ -372,14 +325,14 @@ class ConfigManager:
         config_path, self._leave = setup_config_from_arguments()
 
         # config path from env variable
-        env_path = os.environ.get("FERDELANCE_CONFIG_FILE", "")
+        env_path = os.environ.get("FERDELANCE_CONFIG_FILE", None)
 
-        if env_path:
-            config_path: str = env_path
+        if env_path is not None:
+            config_path = Path(env_path)
             LOGGER.info(f"configuration file provided through environment variable path={config_path}")
 
         # default config path
-        if not config_path:
+        if config_path is None:
             LOGGER.info("no configuration file provided")
             self._set_default_config()
             return
@@ -429,7 +382,6 @@ class ConfigManager:
         # create required directories
         os.makedirs(self.config.storage_artifact_dir(), exist_ok=True)
         os.makedirs(self.config.storage_clients_dir(), exist_ok=True)
-        os.makedirs(self.config.storage_results_dir(), exist_ok=True)
         # os.chmod(self.config.workdir, 0o700)
 
         LOGGER.info("directory initialization completed")

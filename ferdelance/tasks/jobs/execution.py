@@ -1,138 +1,118 @@
-from ferdelance.config import config_manager, DataSourceStorage
+from typing import Any
+
+from ferdelance.config import DataSourceConfiguration
+from ferdelance.config.config import DataSourceStorage
 from ferdelance.logging import get_logger
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.estimators import apply_estimator
-from ferdelance.schemas.transformers import apply_transformer
-from ferdelance.schemas.tasks import TaskParameters, TaskResult
+from ferdelance.tasks.services import RouteService, ExecutionService
+from ferdelance.tasks.tasks import Task, TaskError
 
-import pandas as pd
-
-import json
-import os
+import ray
+import traceback
 
 LOGGER = get_logger(__name__)
 
 
-def setup(artifact: Artifact, job_id: str, iteration: int) -> str:
-    if not artifact.id:
-        raise ValueError("Invalid Artifact")
+@ray.remote
+class Execution:
+    def __init__(
+        self,
+        # the worker node id
+        component_id: str,
+        # id of the artifact to run
+        artifact_id: str,
+        # id of the job to download
+        job_id: str,
+        # url of the remote node to use (if localhost, same node)
+        scheduler_url: str,
+        # public key of the remote node (if none, same node)
+        scheduler_public_key: str,
+        # this node private key (for communication)
+        private_key: str,
+        datasources: list[dict[str, Any]],
+        # if true, we don't have to send data to the remote server
+        scheduler_is_local: bool,
+    ) -> None:
+        self.component_id: str = component_id
+        self.artifact_id: str = artifact_id
+        self.job_id: str = job_id
 
-    LOGGER.info(f"artifact={artifact.id}: received new task with job={job_id}")
+        self.scheduler_url: str = scheduler_url
+        self.scheduler_public_key: str = scheduler_public_key
+        self.private_key: str = private_key
 
-    config = config_manager.get()
+        self.data = DataSourceStorage([DataSourceConfiguration(**ds) for ds in datasources])
 
-    working_folder = os.path.join(config.storage_artifact(artifact.id, iteration), f"{job_id}")
+        self.scheduler_is_local: bool = scheduler_is_local
 
-    os.makedirs(working_folder, exist_ok=True)
+    def __repr__(self) -> str:
+        return f"Job artifact={self.artifact_id} job={self.job_id}"
 
-    path_artifact = os.path.join(working_folder, "descriptor.json")
+    def run(self):
+        artifact_id: str = self.artifact_id
+        job_id: str = self.job_id
 
-    with open(path_artifact, "w") as f:
-        json.dump(artifact.dict(), f)
+        LOGGER.info(f"artifact={artifact_id}: received new task with job={job_id}")
 
-    LOGGER.info(f"artifact={artifact.id}: saved to {path_artifact}")
+        scheduler = RouteService(
+            self.component_id,
+            self.private_key,
+            self.scheduler_url,
+            self.scheduler_public_key,
+            self.scheduler_is_local,
+        )
 
-    return working_folder
+        try:
+            task: Task = scheduler.get_task_data(artifact_id, job_id)
 
+            es = ExecutionService(task, self.data, self.component_id)
 
-def apply_transform(
-    artifact: Artifact,
-    task: TaskParameters,
-    data: DataSourceStorage,
-    working_folder: str,
-) -> pd.DataFrame:
-    dfs: list[pd.DataFrame] = []
+            es.load()
 
-    datasource_hashes: list[str] = task.content_ids
+            # get required resources
+            for resource in task.required_resources:
+                node = RouteService(
+                    self.component_id,
+                    self.private_key,
+                    resource.url,
+                    resource.public_key,
+                )
 
-    LOGGER.debug(f"artifact={artifact.id}: number of transformation queries={len(datasource_hashes)}")
+                # path to resource saved locally
+                res_path = node.get_resource(
+                    resource.artifact_id,
+                    resource.job_id,
+                    resource.resource_id,
+                    resource.iteration,
+                )
+                es.env.add_resource(resource.resource_id, res_path)
 
-    for ds_hash in datasource_hashes:
-        # EXTRACT data from datasource
-        LOGGER.info(f"artifact={artifact.id}: execute extraction from datasource_hash={ds_hash}")
+            # apply work from step
+            es.run()
 
-        ds = data.datasources.get(ds_hash, None)
-        if not ds:
-            raise ValueError()
+            if es.env.products is None:
+                raise ValueError("Produced resource not available")
 
-        datasource: pd.DataFrame = ds.get()  # TODO: implemented only for files
+            # send forward the produced resources
+            for next_node in task.next_nodes:
+                node = RouteService(
+                    self.component_id,
+                    self.private_key,
+                    next_node.url,
+                    next_node.public_key,
+                    next_node.is_local,
+                )
 
-        # TRANSFORM using query
-        LOGGER.info(f"artifact={artifact.id}: execute transformation on datasource_hash={ds_hash}")
+                node.post_resource(artifact_id, job_id, es.env.product_path())
 
-        df = datasource.copy()
+            scheduler.post_done(artifact_id, job_id)
 
-        for i, stage in enumerate(artifact.transform.stages):
-            if stage.transformer is None:
-                continue
-
-            df = apply_transformer(stage.transformer, df, working_folder, artifact.id, i)
-
-        dfs.append(df)
-
-    df_dataset = pd.concat(dfs)
-
-    LOGGER.info(f"artifact={artifact.id}: dataset shape: {df_dataset.shape}")
-
-    path_datasource = os.path.join(working_folder, "dataset.csv.gz")
-
-    df_dataset.to_csv(path_datasource, compression="gzip")
-
-    LOGGER.info(f"artifact={artifact.id}: saved data to {path_datasource}")
-
-    return df_dataset
-
-
-def run_training(data: DataSourceStorage, task: TaskParameters) -> TaskResult:
-    job_id = task.job_id
-    artifact: Artifact = task.artifact
-
-    working_folder = setup(artifact, job_id, task.iteration)
-
-    df_dataset = apply_transform(artifact, task, data, working_folder)
-
-    if artifact.model is not None and artifact.plan is None:
-        raise ValueError("Invalid artifact training")  # TODO: manage this!
-
-    LOGGER.info(f"artifact={artifact.id}: executing model training")
-
-    # model preparation
-    local_model = artifact.get_model()
-
-    # LOAD execution plan
-    plan = artifact.get_plan()
-
-    metrics = plan.run(df_dataset, local_model, working_folder, artifact.id)
-
-    if plan.path_model is None:
-        raise ValueError("Model path not set!")  # TODO: manage this!
-
-    return TaskResult(
-        job_id=job_id,
-        result_path=plan.path_model,
-        metrics=metrics,
-        is_model=True,
-    )
-
-
-def run_estimate(data: DataSourceStorage, task: TaskParameters) -> TaskResult:
-    job_id = task.job_id
-    artifact: Artifact = task.artifact
-    artifact.id = artifact.id
-
-    working_folder = setup(artifact, job_id, task.iteration)
-
-    df_dataset = apply_transform(artifact, task, data, working_folder)
-
-    if artifact.estimator is None:
-        raise ValueError("Artifact is not an estimation!")  # TODO: manage this!
-
-    LOGGER.info(f"artifact={artifact.id}: executing estimation")
-
-    path_estimator = apply_estimator(artifact.estimator, df_dataset, working_folder, artifact.id)
-
-    return TaskResult(
-        job_id=job_id,
-        result_path=path_estimator,
-        is_estimate=True,
-    )
+        except Exception as e:
+            scheduler.post_error(
+                artifact_id,
+                job_id,
+                TaskError(
+                    job_id=job_id,
+                    message=f"{e}",
+                    stack_trace="".join(traceback.TracebackException.from_exception(e).format()),
+                ),
+            )

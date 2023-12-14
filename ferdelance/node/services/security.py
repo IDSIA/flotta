@@ -9,6 +9,8 @@ from ferdelance.shared.decode import HybridDecrypter
 from fastapi import Request
 from fastapi.responses import StreamingResponse, Response
 
+from pathlib import Path
+
 import aiofiles
 import os
 
@@ -22,7 +24,7 @@ PRIVATE_KEY = "SERVER_KEY_PRIVATE"
 
 class SecurityService:
     def __init__(self, remote_key_str: str | None = None, encoding: str = "utf8") -> None:
-        """Creates a secure contexte between a local node, indicated by the
+        """Creates a secure context between a local node, indicated by the
         `self_component`, and a remote node.
 
         Args:
@@ -33,7 +35,7 @@ class SecurityService:
         """
         self.encoding = encoding
 
-        private_key_path: str = config_manager.get().private_key_location()
+        private_key_path = config_manager.get().private_key_location()
 
         self.exc: Exchange = Exchange(private_key_path, self.encoding)
 
@@ -46,16 +48,23 @@ class SecurityService:
     def get_public_key(self) -> str:
         """
         :return:
-            The public key of this node in transferreable format.
+            The public key of this node in transferrable format.
         """
         return self.exc.transfer_public_key()
 
     def get_private_key(self) -> str:
         """
         :return:
-            The private key of this node in transferreable format.
+            The private key of this node in transferrable format.
         """
         return self.exc.transfer_private_key()
+
+    def get_remote_key(self) -> str:
+        """
+        :return:
+            The public key of the remote node in transferrable format.
+        """
+        return self.exc.transfer_remote_key()
 
     def sign(self, content: str) -> str:
         return self.exc.sign(content)
@@ -88,12 +97,12 @@ class SecurityService:
         body = await request.body()
         return self.exc.get_payload(body)
 
-    def encrypt_file(self, path: str | os.PathLike[str]) -> tuple[str, StreamingResponse]:
+    def encrypt_file(self, path: Path) -> tuple[str, StreamingResponse]:
         """Used to stream encrypt data from a file, using less memory."""
         checksum, it = self.exc.stream_from_file(path)
         return checksum, StreamingResponse(it, media_type="application/octet-stream")
 
-    async def stream_decrypt_file(self, request: Request, path: str) -> str:
+    async def stream_decrypt_file(self, request: Request, path: Path) -> str:
         """Used to stream decrypt data to a file, using less memory."""
         if self.exc.private_key is None:
             raise ValueError("Missing local private key, i exchange object initialized?")

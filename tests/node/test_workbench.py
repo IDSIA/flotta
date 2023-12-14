@@ -1,25 +1,32 @@
 from ferdelance.config import config_manager
+from ferdelance.core.steps import Finalize, Parallel
+from ferdelance.database.repositories.projects import ProjectRepository
 from ferdelance.logging import get_logger
-from ferdelance.database.repositories import ComponentRepository, ResultRepository, JobRepository, ArtifactRepository
+from ferdelance.database.repositories import (
+    ComponentRepository,
+    ResourceRepository,
+    JobRepository,
+    ArtifactRepository,
+)
 from ferdelance.node.api import api
+from ferdelance.node.services.jobs import JobManagementService
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
     Project,
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.models import Model
-from ferdelance.schemas.queries import Query
 from ferdelance.schemas.workbench import (
-    WorkbenchArtifactPartial,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchProjectToken,
     WorkbenchArtifact,
+    WorkbenchResource,
 )
-from ferdelance.shared.status import ArtifactJobStatus
+from ferdelance.shared.status import ArtifactJobStatus, JobStatus
 
 from tests.utils import connect, TEST_PROJECT_TOKEN
+from tests.dummies import DummyModel
 
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -191,11 +198,12 @@ async def test_workflow_submit(session: AsyncSession):
         assert "float" in dtypes
         assert "int" in dtypes
 
+        model = DummyModel(query=datasource.extract())
+
         artifact = Artifact(
+            id="",
             project_id=project.id,
-            transform=datasource.extract(),
-            model=Model(name="model", strategy=""),
-            plan=None,
+            steps=model.get_steps(),
         )
 
         headers, payload = wb_exc.create(args.wb_id, artifact.json())
@@ -216,7 +224,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         assert status.status is not None
         assert artifact_id is not None
-        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.SCHEDULED
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
@@ -236,7 +244,7 @@ async def test_workflow_submit(session: AsyncSession):
         status = ArtifactStatus(**json.loads(res_payload))
 
         assert status.status is not None
-        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.SCHEDULED
 
         headers, payload = wb_exc.create(args.wb_id, wba.json())
 
@@ -254,8 +262,9 @@ async def test_workflow_submit(session: AsyncSession):
         downloaded_artifact = Artifact(**json.loads(res_payload))
 
         assert downloaded_artifact.id is not None
-        assert len(downloaded_artifact.transform.stages) == 1
-        assert len(downloaded_artifact.transform.stages[0].features) == 2
+        assert len(downloaded_artifact.steps) == 2
+        assert isinstance(downloaded_artifact.steps[0], Parallel)
+        assert isinstance(downloaded_artifact.steps[1], Finalize)
 
         shutil.rmtree(config_manager.get().storage_artifact(artifact_id))
 
@@ -269,80 +278,86 @@ async def test_get_results(session: AsyncSession):
         cr: ComponentRepository = ComponentRepository(session)
         ar: ArtifactRepository = ArtifactRepository(session)
         jr: JobRepository = JobRepository(session)
-        rr: ResultRepository = ResultRepository(session)
+        rr: ResourceRepository = ResourceRepository(session)
+        pr: ProjectRepository = ProjectRepository(session)
 
         self_component = await cr.get_self_component()
 
-        artifact = await ar.create_artifact(Artifact(project_id=TEST_PROJECT_TOKEN, transform=Query()))
-        await ar.update_status(artifact.id, ArtifactJobStatus.COMPLETED)
+        jms: JobManagementService = JobManagementService(session, self_component)
 
-        job = await jr.schedule_job(artifact.id, self_component.id, is_aggregation=True, iteration=artifact.iteration)
-        await jr.start_execution(job)
-        await jr.mark_completed(job.id, self_component.id)
+        project = await pr.get_by_token(args.project_token)
 
-        content = '{"message": "results!"}'
-        result = await rr.create_result(job.id, artifact.id, self_component.id, artifact.iteration, is_aggregation=True)
-        os.makedirs(os.path.dirname(result.path), exist_ok=True)
-        with open(result.path, "w") as f:
-            f.write(content)
-
-        wba = WorkbenchArtifact(artifact_id=result.artifact_id)
-
-        headers, payload = wb_exc.create(args.wb_id, wba.json())
-
-        res = server.request(
-            "GET",
-            "/workbench/result",
-            headers=headers,
-            content=payload,
+        model = DummyModel()
+        artifact = Artifact(
+            id="",
+            project_id=project.id,
+            steps=model.get_steps(),
         )
 
-        res.raise_for_status()
+        # simulate artifact submission
+        status = await jms.submit_artifact(artifact)
+        artifact.id = status.id
 
-        assert res.status_code == 200
+        jobs = await jr.list_jobs_by_artifact_id(artifact.id)
 
-        _, res_data = wb_exc.get_payload(res.content)
+        assert len(jobs) == 2
 
-        data = json.loads(res_data)
+        job1, job2 = jobs
 
-        assert "message" in data
-        assert data["message"] == "results!"
+        assert job1.status == JobStatus.SCHEDULED
+        assert job2.status == JobStatus.WAITING
 
+        # simulate job1 execution
+        unlocked = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
 
-@pytest.mark.asyncio
-async def test_get_partial_results(session: AsyncSession):
-    with TestClient(api) as server:
-        args = await connect(server, session)
+        assert len(unlocked) == 1
+        assert unlocked[0].id == job1.id
 
-        cl_id = args.cl_id
-        wb_exc = args.wb_exc
+        await jms.get_task_by_job_id(job1.id)
 
-        ar: ArtifactRepository = ArtifactRepository(session)
-        jr: JobRepository = JobRepository(session)
-        rr: ResultRepository = ResultRepository(session)
+        job1 = await jr.get_by_id(job1.id)
+        assert job1.status == JobStatus.RUNNING
 
-        artifact = await ar.create_artifact(Artifact(project_id=TEST_PROJECT_TOKEN, transform=Query()))
+        await jms.task_completed(job1.id)
+        job1 = await jr.get_by_id(job1.id)
+        assert job1.status == JobStatus.COMPLETED
 
-        job = await jr.schedule_job(artifact.id, cl_id, iteration=artifact.iteration)
-        job = await jr.start_execution(job)
-        job = await jr.mark_completed(job.id, cl_id)
+        # simulate job2 execution
+        unlocked = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
 
-        await ar.update_status(artifact.id, ArtifactJobStatus.COMPLETED)
+        assert len(unlocked) == 2
+        assert unlocked[1].id == job2.id
 
-        content = '{"message": "results!"}'
-        result = await rr.create_result(job.id, artifact.id, cl_id, artifact.iteration, is_aggregation=False)
+        await jms.get_task_by_job_id(job2.id)
 
-        os.makedirs(os.path.dirname(result.path), exist_ok=True)
-        with open(result.path, "w") as f:
-            f.write(content)
+        job2 = await jr.get_by_id(job2.id)
+        assert job2.status == JobStatus.RUNNING
 
-        wbap = WorkbenchArtifactPartial(artifact_id=artifact.id, producer_id=cl_id, iteration=0)
+        res = await jms.store_resource(job2.id)
 
-        headers, payload = wb_exc.create(args.wb_id, wbap.json())
+        await jms.task_completed(job2.id)
+        job2 = await jr.get_by_id(job2.id)
+        assert job2.status == JobStatus.COMPLETED
+
+        # check artifact status
+        status = await ar.get_status(artifact.id)
+        assert status.status == ArtifactJobStatus.COMPLETED
+
+        resource = await rr.get_by_job_id(job2.id)
+        assert resource.is_ready
+        assert not resource.is_error
+
+        os.makedirs(os.path.dirname(resource.path), exist_ok=True)
+        with open(resource.path, "w") as f:
+            f.write('{"message": "results!"}')
+
+        wbr = WorkbenchResource(resource_id=resource.id)
+
+        headers, payload = wb_exc.create(args.wb_id, wbr.json())
 
         res = server.request(
             "GET",
-            "/workbench/result/partial",
+            "/workbench/resource",
             headers=headers,
             content=payload,
         )
@@ -378,7 +393,7 @@ async def test_workbench_access(session):
         assert res.status_code == 403
 
         res = server.get(
-            "/task/result/none",
+            "/task/",
             headers=headers,
         )
 

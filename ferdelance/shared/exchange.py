@@ -25,20 +25,21 @@ from .signatures import sign, verify
 from .checksums import str_checksum, file_checksum
 
 from requests import Response
+from pathlib import Path
 
 import os
 import json
 
 
 class Exchange:
-    def __init__(self, private_key_path: str = "", encoding: str = "utf8") -> None:
+    def __init__(self, private_key_path: Path | None = None, encoding: str = "utf8") -> None:
         self.private_key: RSAPrivateKey | None = None
         self.public_key: RSAPublicKey | None = None
         self.remote_key: RSAPublicKey | None = None
 
         self.encoding = encoding
 
-        if private_key_path:
+        if private_key_path is not None:
             self.load_key(private_key_path)
 
     def generate_key(self) -> None:
@@ -46,7 +47,7 @@ class Exchange:
         self.private_key = generate_asymmetric_key()
         self.public_key = self.private_key.public_key()
 
-    def load_key(self, path: str) -> None:
+    def load_key(self, path: Path) -> None:
         """Load a private key from disk.
 
         :param path:
@@ -62,7 +63,7 @@ class Exchange:
             self.private_key = private_key_from_bytes(pk_bytes)
             self.public_key = self.private_key.public_key()
 
-    def load_remote_key(self, path: str) -> None:
+    def load_remote_key(self, path: Path) -> None:
         """Load a remote public key from disk.
 
         :param path:
@@ -77,7 +78,7 @@ class Exchange:
             rk_bytes: bytes = f.read()
             self.remote_key = public_key_from_bytes(rk_bytes)
 
-    def save_private_key(self, path: str) -> None:
+    def save_private_key(self, path: Path) -> None:
         """Save the stored private key to disk.
 
         :param path:
@@ -96,7 +97,7 @@ class Exchange:
             pk_bytes: bytes = bytes_from_private_key(self.private_key)
             f.write(pk_bytes)
 
-    def save_public_key(self, path: str) -> None:
+    def save_public_key(self, path: Path) -> None:
         """Save the stored public key to disk.
 
         :param path:
@@ -115,7 +116,7 @@ class Exchange:
             pk_bytes: bytes = bytes_from_public_key(self.public_key)
             f.write(pk_bytes)
 
-    def save_remote_key(self, path: str) -> None:
+    def save_remote_key(self, path: Path) -> None:
         """Save the stored remote public key to disk.
 
         :param path:
@@ -413,7 +414,7 @@ class Exchange:
 
         return checksum, enc.encrypt_to_stream(content)
 
-    def stream_from_file(self, path: str | os.PathLike[str]) -> tuple[str, Iterator[bytes]]:
+    def stream_from_file(self, path: Path) -> tuple[str, Iterator[bytes]]:
         """Creates a stream from content from a file.
 
         :param path:

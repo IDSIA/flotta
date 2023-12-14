@@ -1,30 +1,24 @@
 from ferdelance.const import TYPE_NODE
 from ferdelance.config import config_manager
+from ferdelance.database.repositories.jobs import JobRepository
 from ferdelance.logging import get_logger
-from ferdelance.database.tables import (
-    Artifact as ArtifactDB,
-    Job as JobDB,
-    Result as ResultDB,
-)
+from ferdelance.core.artifacts import Artifact
+from ferdelance.database.tables import Artifact as ArtifactDB, Job as JobDB
 from ferdelance.database.repositories import ProjectRepository, ComponentRepository, AsyncSession
 from ferdelance.node.api import api
 from ferdelance.node.services import JobManagementService
-from ferdelance.schemas.artifacts import Artifact
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.models import Model
-from ferdelance.schemas.plans import TrainAll
-from ferdelance.schemas.tasks import TaskParameters, TaskArguments, TaskParametersRequest
+from ferdelance.tasks.tasks import TaskRequest
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 
 from tests.utils import connect, TEST_PROJECT_TOKEN, create_node
+from tests.dummies import DummyModel
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-import json
 import os
-import pickle
 import pytest
 import uuid
 
@@ -36,7 +30,7 @@ async def test_task_task_not_found(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
         node_id = create_node(server, exchange, TYPE_NODE)
 
-        tpr = TaskParametersRequest(
+        tpr = TaskRequest(
             artifact_id=str(uuid.uuid4()),
             job_id=str(uuid.uuid4()),
         )
@@ -53,23 +47,59 @@ async def test_task_task_not_found(session: AsyncSession, exchange: Exchange):
         assert res.status_code == 404
 
 
+async def list_jobs_by_artifact_and_component(
+    session: AsyncSession,
+    artifact_id: str,
+    component_id: str,
+) -> list[JobDB]:
+    res = await session.scalars(
+        select(JobDB).where(
+            JobDB.artifact_id == artifact_id,
+            JobDB.component_id == component_id,
+        )
+    )
+    jobs: list[JobDB] = list(res.all())
+    return jobs
+
+
+async def _count_jobs(session: AsyncSession, artifact_id: str, expected_n_jobs: int) -> list[JobDB]:
+    res = await session.scalars(select(JobDB).where(JobDB.artifact_id == artifact_id))
+    jobs: list[JobDB] = list(res.all())
+
+    assert len(jobs) == expected_n_jobs
+
+    return jobs
+
+
+async def _test_for_status(
+    session: AsyncSession,
+    artifact_id: str,
+    component_id: str,
+    expected_status: JobStatus,
+    expected_n_jobs: int = 1,
+    job_to_test: int = 0,
+) -> JobDB:
+    jobs = await list_jobs_by_artifact_and_component(session, artifact_id, component_id)
+
+    assert len(jobs) == expected_n_jobs
+    job = jobs[job_to_test]
+    assert JobStatus[job.status] == expected_status
+
+    return job
+
+
 @pytest.mark.asyncio
 async def test_task_endpoints(session: AsyncSession):
     with TestClient(api) as server:
         cr: ComponentRepository = ComponentRepository(session)
+        jr: JobRepository = JobRepository(session)
 
         args = await connect(server, session)
 
-        # workbench: he who submits artifacts
-        wb_id = args.wb_id
-        wb = await cr.get_by_id(wb_id)
-
         # client: he who has the data
         cl_id = args.cl_id
-        cl_exc = args.cl_exc
-        cl = await cr.get_by_id(cl_id)
 
-        # server: he who aggretates
+        # server: he who schedule jobs
         sc: Component = await cr.get_self_component()
         sc_id = sc.id
         sc_exc = Exchange(config_manager.get().private_key_location())
@@ -79,15 +109,16 @@ async def test_task_endpoints(session: AsyncSession):
         pr: ProjectRepository = ProjectRepository(session)
         project = await pr.get_by_token(TEST_PROJECT_TOKEN)
 
+        model = DummyModel(query=project.data.extract())
+
         artifact = Artifact(
+            id="",
             project_id=project.id,
-            transform=project.data.extract(),
-            model=Model(name="model", strategy=""),
-            plan=TrainAll("label").build(),
+            steps=model.get_steps(),
         )
 
         # fake submit of artifact
-        jms: JobManagementService = JobManagementService(session, wb)
+        jms: JobManagementService = JobManagementService(session, sc)
 
         status = await jms.submit_artifact(artifact)
 
@@ -97,7 +128,7 @@ async def test_task_endpoints(session: AsyncSession):
         assert artifact.id is not None
 
         assert status.status is not None
-        assert JobStatus[status.status] == JobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.SCHEDULED
 
         res = await session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact.id).limit(1))
         art_db: ArtifactDB = res.one()
@@ -105,39 +136,46 @@ async def test_task_endpoints(session: AsyncSession):
         assert art_db is not None
         assert os.path.exists(art_db.path)
 
-        res = await session.scalars(
-            select(JobDB).where(
-                JobDB.artifact_id == artifact.id,
-                JobDB.component_id == args.cl_id,
-            )
-        )
-        jobs: list[JobDB] = list(res.all())
+        await _count_jobs(session, artifact.id, 2)
 
-        assert len(jobs) == 1
-        job = jobs[0]
-        assert JobStatus[job.status] == JobStatus.SCHEDULED
+        unlocked_jobs = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
+        locked_jobs = await jr.list_locked_jobs_by_artifact_id(artifact.id)
 
-        # simulate client train task
-        jm: JobManagementService = JobManagementService(session, cl)
+        assert len(unlocked_jobs) == 1
+        assert len(locked_jobs) == 1
 
-        await jm.task_start(job.id)
-        result = await jm.task_completed(job.id)
+        assert unlocked_jobs[0].component_id == cl_id
+        assert locked_jobs[0].component_id == sc_id
 
-        def ignore(task: TaskArguments) -> None:
-            return
+        job = await _test_for_status(session, artifact.id, cl_id, JobStatus.SCHEDULED, 1, 0)
+        cl_job_id = job.id
 
-        await jm.check(result.job_id, ignore)
+        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.WAITING, 1, 0)
+        sc_job_id = job.id
 
-        # check status of job completed by the client
-        res = await session.scalars(
-            select(JobDB).where(
-                JobDB.artifact_id == artifact.id,
-                JobDB.component_id == args.cl_id,
-            )
-        )
-        job: JobDB = res.one()
+        # simulate client accept task
+        next_cl_job = await jms.next_task_for_component(cl_id)
 
-        assert JobStatus[job.status] == JobStatus.COMPLETED
+        assert next_cl_job == cl_job_id
+
+        await jms.task_started(cl_job_id)
+
+        job = await _test_for_status(session, artifact.id, cl_id, JobStatus.RUNNING, 1, 0)
+
+        # simulate client run task
+        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.WAITING, 1, 0)
+
+        await jms.task_completed(cl_job_id)
+
+        job = await _test_for_status(session, artifact.id, cl_id, JobStatus.COMPLETED, 1, 0)
+        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.SCHEDULED, 1, 0)
+
+        # check for unlocks
+        unlocked_jobs = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
+        locked_jobs = await jr.list_locked_jobs_by_artifact_id(artifact.id)
+
+        assert len(unlocked_jobs) == 2
+        assert len(locked_jobs) == 0
 
         # check status of artifact
         res = await session.scalars(
@@ -147,110 +185,30 @@ async def test_task_endpoints(session: AsyncSession):
         )
         art_db = res.one()
 
-        assert ArtifactJobStatus[art_db.status] == ArtifactJobStatus.AGGREGATING
+        assert ArtifactJobStatus[art_db.status] == ArtifactJobStatus.RUNNING
 
-        # get job scheduled for aggregation task
+        # simulate second step
+        next_sc_job = await jms.next_task_for_component(sc_id)
+
+        assert next_sc_job == sc_job_id
+
+        await jms.task_started(sc_job_id)
+
+        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.RUNNING, 1, 0)
+
+        await jms.task_completed(sc_job_id)
+
+        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.COMPLETED, 1, 0)
+
+        # check status of artifact
         res = await session.scalars(
-            select(JobDB).where(
-                JobDB.artifact_id == artifact.id,
-                JobDB.component_id == sc_id,
-                JobDB.status == JobStatus.SCHEDULED.name,
+            select(ArtifactDB).where(
+                ArtifactDB.id == artifact.id,
             )
         )
-        job_aggregate: JobDB | None = res.one_or_none()
+        art_db = res.one()
 
-        assert job_aggregate is not None
-
-        # simulate aggregation behavior: get task parameters
-        tpr = TaskParametersRequest(artifact_id=artifact.id, job_id=job_aggregate.id)
-
-        headers, payload = sc_exc.create(sc_id, tpr.json())
-
-        res = server.request(
-            "GET",
-            "/task/params",
-            headers=headers,
-            content=payload,
-        )
-
-        assert res.status_code == 200
-
-        _, res_data = sc_exc.get_payload(res.content)
-
-        wt: TaskParameters = TaskParameters(**json.loads(res_data))
-
-        assert wt.job_id == job_aggregate.id
-
-        assert artifact.id == wt.artifact.id
-
-        assert artifact.model is not None
-        assert wt.artifact.model is not None
-        assert len(artifact.transform.stages) == len(wt.artifact.transform.stages)
-        assert len(artifact.model.name) == len(wt.artifact.model.name)
-
-        post_d = artifact.dict()
-        get_d = wt.artifact.dict()
-
-        assert post_d == get_d
-
-        # test submit of a (fake) aggregated model
-        model_path_in = os.path.join(".", "tests", "storage", "model.bin")
-        model_path_out = os.path.join(".", "tests", "storage", "model.enc")
-        model = {"model": "example_model"}
-
-        with open(model_path_in, "wb") as f:
-            pickle.dump(model, f)
-
-        checksum = sc_exc.encrypt_file_for_remote(model_path_in, model_path_out)
-        headers = sc_exc.create_signed_header(
-            sc_id,
-            checksum,
-            extra_headers={
-                "job_id": job_aggregate.id,
-                "file": "attached",
-            },
-        )
-
-        res = server.post(
-            "/task/result",
-            headers=headers,
-            content=open(model_path_out, "rb"),
-        )
-
-        assert res.status_code == 200
-
-        res = await session.scalars(select(ResultDB).where(ResultDB.component_id == sc_id))
-        results: list[ResultDB] = list(res.all())
-
-        assert len(results) == 1
-
-        result_id = results[0].id
-
-        # test node get aggregated model
-        headers, _ = cl_exc.create(cl_id, "")
-
-        res = server.get(
-            f"/task/result/{result_id}",
-            headers=headers,
-        )
-
-        assert res.status_code == 200
-
-        data, _ = cl_exc.stream_response(res.iter_bytes())
-
-        model_get = pickle.loads(data)
-
-        assert isinstance(model_get, type(model))
-        assert "model" in model_get
-        assert model == model_get
-
-        assert os.path.exists(results[0].path)
-
-        # cleanup
-        os.remove(art_db.path)
-        os.remove(results[0].path)
-        os.remove(model_path_in)
-        os.remove(model_path_out)
+        assert ArtifactJobStatus[art_db.status] == ArtifactJobStatus.COMPLETED
 
 
 @pytest.mark.asyncio
@@ -270,7 +228,7 @@ async def test_task_access(session: AsyncSession):
         assert res.status_code == 403
 
         res = server.get(
-            "/task/result/none",
+            "/task/resource/none",
             headers=headers,
         )
 

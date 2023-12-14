@@ -11,13 +11,15 @@ class DataSourceFile(DataSource):
         self,
         name: str,
         type: str,
-        path: str,
+        path: Path | str,
         tokens: list[str] = list(),
         encoding: str = "utf8",
     ) -> None:
-        super().__init__(name, type, path, tokens, encoding)
+        super().__init__(name, type, str(path), tokens, encoding)
 
-        self.path: Path = Path(path)
+        if isinstance(path, str):
+            path = Path(path)
+        self.path: Path = path
 
     def get(self) -> pd.DataFrame:
         extension = self.path.suffix  # CSV, TSV, XLSX, ...

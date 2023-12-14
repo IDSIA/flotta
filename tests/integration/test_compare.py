@@ -3,21 +3,22 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 
+from pathlib import Path
+
 import os
 
-local_dir = os.path.dirname(os.path.realpath(__file__))
+local_dir = Path(os.path.dirname(os.path.realpath(__file__)))
 
 if __name__ == "__main__":
-
-    df1 = pd.read_csv(os.path.join(local_dir, "..", "data", "california_housing.MedInc1.csv"))
-    df2 = pd.read_csv(os.path.join(local_dir, "..", "data", "california_housing.MedInc2.csv"))
+    df1 = pd.read_csv(local_dir / ".." / "data" / "california_housing.MedInc1.csv")
+    df2 = pd.read_csv(local_dir / ".." / "data" / "california_housing.MedInc2.csv")
 
     df = pd.concat([df1, df2])
 
     y_train = df["MedHouseValDiscrete"]
     x_train = df.drop("MedHouseValDiscrete", axis=1).values
 
-    df_val = pd.read_csv(os.path.join(local_dir, "..", "data", "california_housing.validation.csv"))
+    df_val = pd.read_csv(local_dir / ".." / "data" / "california_housing.validation.csv")
     y_val = df_val["MedHouseValDiscrete"]
     x_val = df_val.drop("MedHouseValDiscrete", axis=1).values
 

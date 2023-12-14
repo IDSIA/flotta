@@ -9,7 +9,7 @@ __all__ = [
     "Project",
 ]
 
-from ferdelance.schemas.artifacts import (
+from ferdelance.core.artifacts import (
     Artifact,
     ArtifactStatus,
 )

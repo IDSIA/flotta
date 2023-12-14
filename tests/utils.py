@@ -1,4 +1,6 @@
 from typing import Any
+from ferdelance.database.repositories.artifact import ArtifactRepository
+from ferdelance.database.repositories.jobs import JobRepository
 
 from ferdelance.logging import get_logger
 from ferdelance.const import TYPE_CLIENT
@@ -16,6 +18,8 @@ from pydantic import BaseModel
 
 import json
 import uuid
+
+from ferdelance.shared.status import JobStatus
 
 LOGGER = get_logger(__name__)
 
@@ -98,6 +102,7 @@ def get_metadata(
     project_token: str = TEST_PROJECT_TOKEN,
     datasource_id: str = TEST_DATASOURCE_ID,
     ds_hash: str = TEST_DATASOURCE_HASH,
+    scale: float = 1.0,
 ) -> Metadata:
     return Metadata(
         datasources=[
@@ -105,7 +110,7 @@ def get_metadata(
                 id=datasource_id,
                 hash=ds_hash,
                 tokens=[project_token],
-                n_records=1000,
+                n_records=int(1000 * scale),
                 n_features=2,
                 name="ds1",
                 removed=False,
@@ -264,3 +269,44 @@ def client_update(component_id: str, api: TestClient, exchange: Exchange) -> tup
     assert "action" in response_payload
 
     return response.status_code, response_payload["action"], response_payload
+
+
+async def assert_jobs_count(
+    ar: ArtifactRepository,
+    jr: JobRepository,
+    artifact_id: str,
+    exp_iteration: int,
+    exp_jobs_count: int = 0,
+    exp_jobs_waiting: int = 0,
+    exp_jobs_scheduled: int = 0,
+    exp_jobs_running: int = 0,
+    exp_jobs_completed: int = 0,
+    exp_jobs_failed: int = 0,
+) -> None:
+    ar_db = await ar.get_artifact(artifact_id)
+
+    jobs_count = await jr.count_jobs_by_artifact_id(artifact_id)
+
+    job_waiting_count = await jr.count_jobs_by_artifact_status(artifact_id, JobStatus.WAITING)
+    job_scheduled_count = await jr.count_jobs_by_artifact_status(artifact_id, JobStatus.SCHEDULED)
+    job_running_count = await jr.count_jobs_by_artifact_status(artifact_id, JobStatus.RUNNING)
+    job_completed_count = await jr.count_jobs_by_artifact_status(artifact_id, JobStatus.COMPLETED)
+    job_failed_count = await jr.count_jobs_by_artifact_status(artifact_id, JobStatus.ERROR)
+
+    print("=" * 32)
+    print("iteration:     ", ar_db.iteration, "(", exp_iteration, ")")
+    print("jobs count:    ", jobs_count, "(", exp_jobs_count, ")")
+    print("jobs waiting:  ", job_waiting_count, "(", exp_jobs_waiting, ")")
+    print("jobs scheduled:", job_scheduled_count, "(", exp_jobs_scheduled, ")")
+    print("jobs running:  ", job_running_count, "(", exp_jobs_running, ")")
+    print("jobs completed:", job_completed_count, "(", exp_jobs_completed, ")")
+    print("jobs failed:   ", job_failed_count, "(", exp_jobs_failed, ")")
+    print("=" * 32)
+
+    assert ar_db.iteration == exp_iteration
+    assert jobs_count == exp_jobs_count
+    assert job_waiting_count == exp_jobs_waiting
+    assert job_scheduled_count == exp_jobs_scheduled
+    assert job_running_count == exp_jobs_running
+    assert job_completed_count == exp_jobs_completed
+    assert job_failed_count == exp_jobs_failed

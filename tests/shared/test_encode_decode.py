@@ -13,6 +13,8 @@ from ferdelance.shared.decode import (
     HybridDecrypter,
 )
 
+from pathlib import Path
+
 import random
 import string
 import os
@@ -89,8 +91,8 @@ def test_stream_from_file():
 
     content_from: str = _random_string(7637)
 
-    path_content_from: str = os.path.join(".", "file_in.txt")
-    path_content_to: str = os.path.join(".", "file_out.txt")
+    path_content_from: Path = Path(".") / "file_in.txt"
+    path_content_to: Path = Path(".") / "file_out.txt"
 
     with open(path_content_from, "w") as f:
         f.write(content_from)

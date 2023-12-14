@@ -1,6 +1,7 @@
+from typing import Any
+
 from ferdelance.logging import get_logger
-from ferdelance.schemas.tasks import TaskArguments
-from ferdelance.tasks.jobs import EstimationJob, AggregatingJob, TrainingJob
+from ferdelance.tasks.jobs import Heartbeat, Execution
 
 LOGGER = get_logger(__name__)
 
@@ -9,57 +10,42 @@ class Backend:
     def __init__(self) -> None:
         super().__init__()
 
-    def start_aggregation(self, args: TaskArguments) -> None:
-        LOGGER.info(f"artifact={args.artifact_id}: scheduling aggregation task with job={args.job_id}")
+    def start_heartbeat(self, component_id: str, remote_key: str) -> None:
+        LOGGER.info(f"component={component_id}: start heartbeat")
 
-        actor_handler = AggregatingJob.remote(
-            args.component_id,
-            args.artifact_id,
-            args.job_id,
-            args.node_url,
-            args.private_key,
-            args.node_public_key,
+        client = Heartbeat.remote(
+            component_id,
+            remote_key,
         )
+
+        client.run.remote()  # type: ignore
+
+    def start_exec(
+        self,
+        artifact_id: str,
+        job_id: str,
+        component_id: str,
+        private_key: str,
+        node_url: str,
+        node_public_key: str,
+        datasources: list[dict[str, Any]],
+        scheduler_is_local: bool,
+    ) -> None:
+        LOGGER.info(f"artifact={artifact_id}: scheduling job={job_id}")
+
+        actor_handler = Execution.remote(
+            component_id,
+            artifact_id,
+            job_id,
+            node_url,
+            node_public_key,
+            private_key,
+            datasources,
+            scheduler_is_local,
+        )
+
         task_handler = actor_handler.run.remote()  # type: ignore
 
-        LOGGER.info(f"artifact={args.artifact_id}: started task with job={args.job_id}")
-
-        return task_handler
-
-    def start_training(self, args: TaskArguments) -> None:
-        LOGGER.info(f"artifact={args.artifact_id}: scheduling training task with job={args.job_id}")
-
-        actor_handler = TrainingJob.remote(
-            args.component_id,
-            args.artifact_id,
-            args.job_id,
-            args.node_url,
-            args.private_key,
-            args.node_public_key,
-            args.workdir,
-            args.datasources,
-        )
-        task_handler = actor_handler.run.remote()  # type: ignore
-
-        LOGGER.info(f"artifact={args.artifact_id}: started task with job={args.job_id}")
-
-        return task_handler
-
-    def start_estimation(self, args: TaskArguments) -> None:
-        LOGGER.info(f"artifact={args.artifact_id}: scheduling training task with job={args.job_id}")
-
-        actor_handler = EstimationJob.remote(
-            args.component_id,
-            args.artifact_id,
-            args.job_id,
-            args.node_url,
-            args.private_key,
-            args.node_public_key,
-            args.workdir,
-            args.datasources,
-        )
-        task_handler = actor_handler.run.remote()  # type: ignore
-
-        LOGGER.info(f"artifact={args.artifact_id}: started task with job={args.job_id}")
+        LOGGER.info(f"artifact={artifact_id}: started job={job_id}")
 
         return task_handler

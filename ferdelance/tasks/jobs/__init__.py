@@ -1,7 +1,7 @@
-from .actors import TrainingJob, EstimationJob, AggregatingJob
-
 __all__ = [
-    "TrainingJob",
-    "EstimationJob",
-    "AggregatingJob",
+    "Execution",
+    "Heartbeat",
 ]
+
+from .heartbeat import Heartbeat
+from .execution import Execution

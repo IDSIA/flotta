@@ -1,29 +1,38 @@
 from ferdelance.config import config_manager
+from ferdelance.core.distributions.many import Collect
+from ferdelance.core.model_operations.aggregations import Aggregation
+from ferdelance.core.model_operations.train import Train, TrainTest
+from ferdelance.core.operations.core import QueryOperation
+from ferdelance.core.steps import Finalize, Parallel
+from ferdelance.core.transformers.splitters import FederatedSplitter
 from ferdelance.logging import get_logger
 from ferdelance.database.tables import Job
 from ferdelance.node.api import api
+from ferdelance.tasks.tasks import Task
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
     Project,
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.models import Model
+
+# from ferdelance.schemas.models import Model
 from ferdelance.schemas.updates import UpdateData
-from ferdelance.schemas.plans import TrainTestSplit
+
+# from ferdelance.schemas.plans import TrainTestSplit
 from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
-from ferdelance.schemas.tasks import TaskParameters
+
 from ferdelance.shared.actions import Action
 from ferdelance.shared.status import ArtifactJobStatus
+from tests.dummies import DummyModel
 
 from tests.utils import (
     connect,
     client_update,
     TEST_PROJECT_TOKEN,
-    TEST_DATASOURCE_HASH,
 )
 
 from fastapi.testclient import TestClient
@@ -31,7 +40,6 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import json
-import os
 import pytest
 import shutil
 
@@ -77,14 +85,33 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         assert "float" in dtypes
         assert "int" in dtypes
 
+        model = DummyModel()
         artifact = Artifact(
+            id="",
             project_id=project.id,
-            transform=datasource.extract(),
-            model=Model(name="model", strategy=""),
-            plan=TrainTestSplit(
-                label=datasource.features[0].name,
-                test_percentage=0.5,
-            ).build(),
+            steps=[
+                Parallel(
+                    TrainTest(
+                        query=project.extract().add(
+                            FederatedSplitter(
+                                random_state=42,
+                                test_percentage=0.5,
+                                label=datasource.features[0].name,
+                            )
+                        ),
+                        trainer=Train(
+                            model=model,
+                        ),
+                        model=model,
+                    ),
+                    Collect(),
+                ),
+                Finalize(
+                    Aggregation(
+                        model=model,
+                    ),
+                ),
+            ],
         )
 
         headers, payload = wb_exc.create(args.wb_id, artifact.json())
@@ -104,7 +131,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         assert status.status is not None
         assert artifact_id is not None
-        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.SCHEDULED
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
@@ -125,7 +152,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         assert status.status is not None
         assert status.id is not None
 
-        assert ArtifactJobStatus[status.status] == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.SCHEDULED
 
         headers, payload = wb_exc.create(args.wb_id, wba.json())
 
@@ -142,13 +169,17 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         downloaded_artifact = Artifact(**json.loads(res_payload))
 
         assert downloaded_artifact.id is not None
-        assert len(downloaded_artifact.transform.stages) == 1
-        assert len(downloaded_artifact.transform.stages[0].features) == 2
+        assert len(downloaded_artifact.steps) == len(artifact.steps)
+        step0 = downloaded_artifact.steps[0]
+        assert isinstance(step0, Parallel)
+        assert isinstance(step0.operation, QueryOperation)
+        assert step0.operation.query is not None
+        assert len(step0.operation.query.stages) == 2
+        assert len(step0.operation.query.stages[0].features) == 2
 
         # client part
-
         n = await session.scalar(select(func.count()).select_from(Job))
-        assert n == 1
+        assert n == 2
 
         n = await session.scalar(select(func.count()).select_from(Job).where(Job.component_id == client_id))
         assert n == 1
@@ -161,7 +192,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         status_code, action, data = client_update(client_id, server, cl_exc)
 
         assert status_code == 200
-        assert Action[action] == Action.EXECUTE_TRAINING
+        assert Action[action] == Action.EXECUTE
 
         update_execute = UpdateData(**data)
 
@@ -173,27 +204,22 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         task_response = server.request(
             method="GET",
-            url="/task/params",
+            url="/task/",
             headers=headers,
             content=payload,
         )
         assert task_response.status_code == 200
 
         _, res_payload = cl_exc.get_payload(task_response.content)
-        task = TaskParameters(**json.loads(res_payload))
+        task = Task(**json.loads(res_payload))
 
-        assert TEST_DATASOURCE_HASH in task.content_ids
+        assert isinstance(task.step, Parallel)
 
-        art = task.artifact
-
-        assert art.id == job.artifact_id
-        assert art.id == status.id
-        assert art.project_id == project.id
-        assert len(art.transform.stages) == 1
-        assert len(art.transform.stages[0].features) == 2
-        assert art.plan is not None
-        assert art.plan.params["label"] == datasource.features[0].name
+        assert task.artifact_id == job.artifact_id
+        assert task.artifact_id == status.id
+        assert task.project_token == project.token
+        assert task.job_id == job.id
 
         # cleanup
 
-        shutil.rmtree(os.path.join(config_manager.get().storage_artifact(artifact_id)))
+        shutil.rmtree(config_manager.get().storage_artifact(artifact_id))

@@ -16,7 +16,7 @@ class NumpyEncoder(json.JSONEncoder):
         return super(NumpyEncoder, self).default(obj)
 
 
-def check_url(url: str, total_retry=10, backoff_factor=0.5) -> None:
+def check_url(url: str, total_retry: int = 10, backoff_factor: int = 1) -> None:
     """Checks that the given url up, if not wait for a little bit.
     If the url cannot be accessed, or it returns 500 error, raises
     an exception; otherwise nothing happens.

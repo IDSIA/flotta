@@ -1,21 +1,22 @@
 from ferdelance.const import TYPE_USER
+from ferdelance.core.artifacts import ArtifactStatus, Artifact
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, session_args, valid_session_args
 from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
-from ferdelance.schemas.artifacts import ArtifactStatus, Artifact
+from ferdelance.node.services.tasks import TaskManagementService
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import (
-    WorkbenchArtifactPartial,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
+    WorkbenchResource,
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
 from ferdelance.shared.checksums import str_checksum
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
 
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound
 
@@ -42,7 +43,7 @@ async def wb_home():
     return "Workbench 🔧"
 
 
-@workbench_router.post("/connect", response_class=Response)
+@workbench_router.post("/connect")
 async def wb_connect(
     data: WorkbenchJoinRequest,
     args: SessionArgs = Depends(session_args),
@@ -63,8 +64,6 @@ async def wb_connect(
             raise ValueError("Checksum failed")
 
         await wb.register(data, args.ip_address)
-
-        return
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
@@ -87,7 +86,7 @@ async def wb_get_project(
 ) -> Project:
     LOGGER.info(f"user={args.component.id}: requested a project given its token")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
         return await ws.project(wpt.token)
@@ -104,7 +103,7 @@ async def wb_get_client_list(
 ) -> WorkbenchClientList:
     LOGGER.info(f"user={args.component.id}: requested a list of clients")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     return await ws.get_client_list(wpt.token)
 
@@ -116,9 +115,21 @@ async def wb_get_datasource_list(
 ) -> WorkbenchDataSourceIdList:
     LOGGER.info(f"user={args.component.id}: requested a list of available data source")
 
-    wb: WorkbenchService = WorkbenchService(args.session, args.component)
+    wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     return await wb.get_datasource_list(wpt.token)
+
+
+@workbench_router.post("/resource", response_model=WorkbenchResource)
+async def wb_post_resource(
+    request: Request,
+    args: ValidSessionArgs = Depends(allow_access),
+):
+    wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+
+    resource_id = await wb.store_resource(request.stream())
+
+    return WorkbenchResource(resource_id=resource_id)
 
 
 @workbench_router.post("/artifact/submit", response_model=ArtifactStatus)
@@ -128,10 +139,26 @@ async def wb_post_artifact_submit(
 ) -> ArtifactStatus:
     LOGGER.info(f"user={args.component.id}: submitted a new artifact")
 
-    wb: WorkbenchService = WorkbenchService(args.session, args.component)
+    wb: WorkbenchService = WorkbenchService(
+        args.session,
+        args.component,
+        args.self_component,
+        args.security_service.get_private_key(),
+        args.security_service.get_remote_key(),
+    )
+    tms: TaskManagementService = TaskManagementService(
+        args.session,
+        args.self_component,
+        args.security_service.get_private_key(),
+        args.security_service.get_public_key(),
+    )
 
     try:
-        return await wb.submit_artifact(artifact)
+        status = await wb.submit_artifact(artifact)
+
+        await tms.check(status.id)
+
+        return status
 
     except ValueError as e:
         LOGGER.error("artifact already exists")
@@ -146,7 +173,7 @@ async def wb_get_artifact_status(
 ) -> ArtifactStatus:
     LOGGER.info(f"user={args.component.id}: requested status of artifact")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
         return await ws.get_status_artifact(wba.artifact_id)
@@ -156,88 +183,63 @@ async def wb_get_artifact_status(
         raise HTTPException(404)
 
 
-@workbench_router.get("/artifact", response_model=Artifact)
+@workbench_router.get("/artifact", description="This endpoint returns an object of type Artifact.")
 async def wb_get_artifact(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"user={args.component.id}: requested details on artifact")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
-        return await ws.get_artifact(wba.artifact_id)
+        artifact = await ws.get_artifact(wba.artifact_id)
+        return artifact
 
     except ValueError as e:
         LOGGER.error(f"{e}")
         raise HTTPException(404)
 
 
-@workbench_router.get("/result", response_class=FileResponse)
-async def wb_get_result(
+@workbench_router.get("/resource/list", response_class=FileResponse)
+async def wb_get_resource_list(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user={args.component.id}: requested result with artifact={wba.artifact_id}")
+    LOGGER.info(f"user={args.component.id}: requested resource list for artifact={wba.artifact_id}")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
-    try:
-        result = await ws.get_result(wba.artifact_id)
-
-        return FileResponse(result.path)
-
-    except ValueError as e:
-        LOGGER.warning(str(e))
-        raise HTTPException(404)
-
-    except NoResultFound:
-        LOGGER.warning(f"no aggregated model found for artifact={wba.artifact_id}")
-        raise HTTPException(404)
-
-    except MultipleResultsFound:
-        # TODO: do we want to allow this?
-        LOGGER.error(f"multiple aggregated models found for artifact={wba.artifact_id}")
-        raise HTTPException(500)
+    return await ws.list_resources(wba.artifact_id)
 
 
-@workbench_router.get("/result/partial", response_class=FileResponse)
-async def wb_get_partial_result(
-    part: WorkbenchArtifactPartial,
+@workbench_router.get("/resource", response_class=FileResponse)
+async def wb_get_resource(
+    wbr: WorkbenchResource,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    component = args.component
-    artifact_id = part.artifact_id
-    producer_id = part.producer_id
-    iteration = part.iteration
+    LOGGER.info(f"user={args.component.id}: requested resource={wbr.resource_id}")
 
-    LOGGER.info(
-        f"user={component.id}: requested partial model for artifact={artifact_id} "
-        f"from builder={producer_id} iteration={iteration}"
-    )
-
-    ws: WorkbenchService = WorkbenchService(args.session, component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
     try:
-        result = await ws.get_partial_result(artifact_id, producer_id, iteration)
+        resource = await ws.get_resource(wbr.resource_id)
 
-        return FileResponse(result.path)
+        return FileResponse(resource.path)
 
     except ValueError as e:
         LOGGER.warning(str(e))
         raise HTTPException(404)
 
     except NoResultFound:
-        LOGGER.warning(
-            f"user={component.id}: no partial model found for artifact={artifact_id} "
-            f"builder={producer_id} iteration={iteration}"
-        )
+        LOGGER.warning(f"no aggregated model found for artifact={wbr.resource_id}")
         raise HTTPException(404)
 
     except MultipleResultsFound:
         # TODO: do we want to allow this?
-        LOGGER.error(
-            f"user={component.id}: multiple partial models found for artifact={artifact_id} "
-            f"builder={producer_id} iteration={iteration}"
-        )
+        LOGGER.error(f"multiple aggregated models found for artifact={wbr.resource_id}")
+        raise HTTPException(500)
+
+    except Exception as e:
+        LOGGER.exception(e)
         raise HTTPException(500)
