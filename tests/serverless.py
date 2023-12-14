@@ -161,7 +161,7 @@ class ServerlessExecution:
         self.self_worker = await self.add_worker(component=self.self_component)
 
         self.jobs_service = JobManagementService(self.session, self.self_component)
-        self.task_service = TaskManagementService(self.session, self.self_component)
+        self.task_service = TaskManagementService(self.session, self.self_component, "", "")
         self.workbench_service = WorkbenchService(self.session, self.user_component, self.self_component)
 
     async def add_worker(
@@ -209,9 +209,6 @@ class ServerlessExecution:
 
     async def get_task(self, job_id: str) -> Task:
         return await self.jobs_service.get_task_by_job_id(job_id)
-
-    async def start_task(self, task: Task) -> None:
-        await self.task_service.task_start(task)
 
     async def task_completed(self, task: Task) -> None:
         await self.jobs_service.task_completed(task.job_id)
