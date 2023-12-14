@@ -22,7 +22,7 @@ class Train(ModelOperation):
             raise ValueError("Cannot train a model without X_tr and y_tr")
 
         # model training
-        env.set_product(self.model.train(env.X_tr.values, env.Y_tr))
+        env["model"] = self.model.train(env.X_tr.values, env.Y_tr)
 
         LOGGER.info(f"artifact={env.artifact_id}: local model train completed")
 
@@ -45,8 +45,7 @@ class TrainTest(ModelOperation):
             raise ValueError("Cannot train without train data")
 
         # model training
-        model = self.model.train(env.X_tr, env.Y_tr)
-        env.set_product(model)
+        env["model"] = self.model.train(env.X_tr, env.Y_tr)
 
         LOGGER.info(f"artifact={artifact_id}: train done")
 

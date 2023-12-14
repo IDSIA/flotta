@@ -30,7 +30,7 @@ class Execution:
         private_key: str,
         datasources: list[dict[str, Any]],
         # if true, we don't have to send data to the remote server
-        scheduler_is_local: bool = False,
+        scheduler_is_local: bool,
     ) -> None:
         self.component_id: str = component_id
         self.artifact_id: str = artifact_id
@@ -66,7 +66,6 @@ class Execution:
 
             es = ExecutionService(task, self.data, self.component_id)
 
-            es.setup()
             es.load()
 
             # get required resources
@@ -90,7 +89,7 @@ class Execution:
             # apply work from step
             es.run()
 
-            if es.env.produced_resource is None:
+            if es.env.products is None:
                 raise ValueError("Produced resource not available")
 
             # send forward the produced resources
@@ -103,7 +102,7 @@ class Execution:
                     next_node.is_local,
                 )
 
-                node.post_resource(artifact_id, job_id, es.env.produced_resource.path)
+                node.post_resource(artifact_id, job_id, es.env.product_path())
 
             scheduler.post_done(artifact_id, job_id)
 

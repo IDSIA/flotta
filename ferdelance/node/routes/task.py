@@ -58,9 +58,14 @@ async def post_task(
 ):
     LOGGER.info(f"component={args.component.id}: new task execution")
 
-    tms: TaskManagementService = TaskManagementService(args.session, args.component)
+    tms: TaskManagementService = TaskManagementService(
+        args.session,
+        args.component,
+        args.security_service.get_private_key(),
+        args.security_service.get_public_key(),
+    )
 
-    status = await tms.task_start(task)
+    status = await tms.start_task(task, args.component.id)
 
     LOGGER.info(f"component={args.component.id}: executing {status}")
 

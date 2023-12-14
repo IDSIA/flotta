@@ -6,16 +6,16 @@ from ferdelance.core.model_operations import ModelOperation
 
 class Aggregation(ModelOperation):
     def exec(self, env: Environment) -> Environment:
-        resource_ids = list(env.stored_resources.keys())
+        resource_ids = env.list_resource_ids()
 
-        base = env.stored_resources[resource_ids[0]].get()
+        base = env[resource_ids[0]]["model"]
 
         for resource_id in resource_ids[1:]:
-            model = env.stored_resources[resource_id].get()
+            model = env[resource_id]["model"]
 
             base = self.model.aggregate(base, model)
 
-        env.set_product(base)
+        env["model"] = base
 
         return env
 

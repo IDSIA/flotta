@@ -93,7 +93,7 @@ class RouteService:
         ) as res:
             res.raise_for_status()
 
-            path = config_manager.get().store_resource(artifact_id, job_id, resource_id, iteration)
+            path = config_manager.get().storage_job(artifact_id, job_id, iteration) / f"{resource_id}.pkl"
 
             self.exc.stream_response_to_file(res, path)
 

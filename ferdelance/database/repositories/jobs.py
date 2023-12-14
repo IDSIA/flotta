@@ -500,6 +500,15 @@ class JobRepository(Repository):
         )
         return [view(j) for j in res.all()]
 
+    async def list_scheduled_jobs_for_artifact(self, artifact_id: str) -> list[Job]:
+        res = await self.session.scalars(
+            select(JobDB).where(
+                JobDB.status == JobStatus.SCHEDULED.name,
+                JobDB.artifact_id == artifact_id,
+            )
+        )
+        return [view(j) for j in res.all()]
+
     async def list_jobs(self) -> list[Job]:
         """Returns all jobs in the database.
 

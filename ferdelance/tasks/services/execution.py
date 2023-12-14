@@ -4,8 +4,6 @@ from ferdelance.core.environment import Environment
 from ferdelance.logging import get_logger
 from ferdelance.tasks.tasks import Task
 
-from pathlib import Path
-
 import json
 import pandas as pd
 
@@ -24,17 +22,13 @@ class ExecutionService:
         self.iteration: int = task.iteration
         self.job_id: str = task.job_id
 
-        self.env: Environment = Environment(self.artifact_id, self.project_token)
-
-    def setup(self) -> None:
         config = config_manager.get()
 
-        # creating working folders
-        self.env.working_dir = config.storage_job(self.artifact_id, self.job_id, self.iteration)
+        wd = config.storage_job(self.artifact_id, self.job_id, self.iteration)
 
-        path_task: Path = self.env.working_dir / "task.json"
+        self.env: Environment = Environment(self.artifact_id, self.project_token, task.produced_resource_id, wd)
 
-        with open(path_task, "w") as f:
+        with open(self.env.working_dir / "task.json", "w") as f:
             json.dump(self.task.dict(), f)
 
     def load(self):
@@ -68,12 +62,11 @@ class ExecutionService:
 
             dfs.append(datasource)
 
-        self.env.df = pd.concat(dfs)  # TODO: do we want it to be loaded in df?
+        self.env.df = pd.concat(dfs)
 
     def run(self) -> None:
         self.env = self.task.run(self.env)
 
-        if self.env.produced_resource is not None:
-            self.env.produced_resource.store()
+        self.env.store()
 
         # TODO: manage error

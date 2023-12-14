@@ -59,7 +59,7 @@ def test_lbin_one_feature():
 
     fb = FederatedBinarizer(features_in=[f1], features_out=[f2], threshold=30.0)
 
-    env = Environment("", "")
+    env = Environment("", "", "", Path("."))
     env.X_tr = df
 
     env, _ = fb.transform(env)

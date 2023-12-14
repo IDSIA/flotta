@@ -59,6 +59,13 @@ class SecurityService:
         """
         return self.exc.transfer_private_key()
 
+    def get_remote_key(self) -> str:
+        """
+        :return:
+            The public key of the remote node in transferrable format.
+        """
+        return self.exc.transfer_remote_key()
+
     def sign(self, content: str) -> str:
         return self.exc.sign(content)
 

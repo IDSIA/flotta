@@ -121,7 +121,7 @@ async def test_aggregation(session: AsyncSession):
 
     await assert_jobs_count(server.ar, server.jr, artifact_id, 0, 3, 1, 1, 0, 1)
 
-    local_model_1 = load_resource(res1)
+    local_model_1 = load_resource(res1)["model"]
 
     assert isinstance(local_model_1, RandomForestClassifier)
     assert local_model_1.n_estimators == 10  # type: ignore
@@ -135,7 +135,7 @@ async def test_aggregation(session: AsyncSession):
 
     await assert_jobs_count(server.ar, server.jr, artifact_id, 0, 3, 0, 1, 0, 2)
 
-    local_model_2 = load_resource(res2)
+    local_model_2 = load_resource(res2)["model"]
 
     assert isinstance(local_model_2, RandomForestClassifier)
     assert local_model_2.n_estimators == 10  # type: ignore
@@ -149,7 +149,7 @@ async def test_aggregation(session: AsyncSession):
 
     await assert_jobs_count(server.ar, server.jr, artifact_id, 0, 3, 0, 0, 0, 3)
 
-    model_agg = load_resource(res3)
+    model_agg = load_resource(res3)["model"]
 
     assert isinstance(model_agg, RandomForestClassifier)
     assert model_agg.n_estimators == 20  # type: ignore
