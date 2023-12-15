@@ -45,7 +45,7 @@ services:
       - DATABASE_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
     volumes:
       - server-data:/ferdelance/storage
-      - ./conf/config.0.yaml:/ferdelance/config.yaml
+      - ./conf/config.server.yaml:/ferdelance/config.yaml
       - /dev/shm:/dev/shm # this is for ray
     networks:
       - ferdelance
@@ -62,7 +62,7 @@ services:
       - FERDELANCE_NODE_HOST=server
     volumes: 
       - client-1-data:/ferdelance/storage
-      - ./conf/config.1.yaml:/ferdelance/config.yaml
+      - ./conf/config.client.1.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
       - /dev/shm:/dev/shm # this is for ray
     networks:
@@ -78,7 +78,7 @@ services:
       - FERDELANCE_NODE_HOST=server
     volumes: 
       - client-2-data:/ferdelance/storage
-      - ./conf/config.2.yaml:/ferdelance/config.yaml
+      - ./conf/config.client.2.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
       - /dev/shm:/dev/shm # this is for ray
     networks:
@@ -94,7 +94,7 @@ services:
       - FERDELANCE_NODE_HOST=server
     volumes: 
       - client-2-data:/ferdelance/storage
-      - ./conf/config.2.yaml:/ferdelance/config.yaml
+      - ./conf/config.node.1.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
       - /dev/shm:/dev/shm # this is for ray
     networks:
@@ -104,13 +104,13 @@ services:
   
   node2:
     image: idsia.ferdelance
-    container_name: nocde2
+    container_name: node2
     restart: unless-stopped
     environment:
       - FERDELANCE_NODE_HOST=server
     volumes: 
       - client-2-data:/ferdelance/storage
-      - ./conf/config.2.yaml:/ferdelance/config.yaml
+      - ./conf/config.node.2.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
       - /dev/shm:/dev/shm # this is for ray
     networks:
