@@ -8,6 +8,8 @@ volumes:
   server-data:
   client-1-data:
   client-2-data:
+  node-1-data:
+  node-2-data:
 
 services:
 
@@ -93,7 +95,7 @@ services:
     environment:
       - FERDELANCE_NODE_HOST=server
     volumes: 
-      - client-2-data:/ferdelance/storage
+      - node-1-data:/ferdelance/storage
       - ./conf/config.node.1.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
       - /dev/shm:/dev/shm # this is for ray
@@ -109,7 +111,7 @@ services:
     environment:
       - FERDELANCE_NODE_HOST=server
     volumes: 
-      - client-2-data:/ferdelance/storage
+      - node-2-data:/ferdelance/storage
       - ./conf/config.node.2.yaml:/ferdelance/config.yaml
       - ./data:/ferdelance/data
       - /dev/shm:/dev/shm # this is for ray
