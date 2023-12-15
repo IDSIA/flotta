@@ -1,10 +1,18 @@
-from typing import Any
+from typing import Any, Sequence
 
 from ferdelance import __version__
+from ferdelance.core.interfaces import Step
 from ferdelance.logging import get_logger
-
-# from ferdelance.core.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.node import NodePublicKey
+from ferdelance.schemas.workbench import (
+    WorkbenchArtifact,
+    WorkbenchClientList,
+    WorkbenchDataSourceIdList,
+    WorkbenchJoinRequest,
+    WorkbenchProjectToken,
+    WorkbenchResource,
+)
+from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.checksums import str_checksum
 from ferdelance.workbench.interface import (
     Project,
@@ -13,15 +21,6 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.workbench import (
-    WorkbenchArtifact,
-    WorkbenchArtifactPartial,
-    WorkbenchClientList,
-    WorkbenchDataSourceIdList,
-    WorkbenchJoinRequest,
-    WorkbenchProjectToken,
-)
-from ferdelance.shared.exchange import Exchange
 
 from pathlib import Path
 from uuid import uuid4
@@ -243,106 +242,39 @@ class Context:
 
         return data.datasources
 
-    # def execute(
-    #     self,
-    #     project: Project,
-    #     estimate: QueryEstimate,
-    #     wait_interval: int = 1,
-    #     max_time: int = 30,
-    # ) -> Any:
-    #     """Execute a statistical query."""
+    def submit(self, project: Project, steps: Sequence[Step]) -> Artifact:
+        """Submit the query, model, and strategy and start a training task on the remote server.
 
-    #     artifact = Artifact(
-    #         project_id=project.id,
-    #         transform=estimate.transform,
-    #         estimator=estimate.estimator,
-    #     )
+        :param artifact:
+            Artifact to submit to the server for training.
+            This object will be updated with the id assigned by the server.
+        :raises HTTPError:
+            If the return code of the response is not a 2xx type.
+        :returns:
+            The same input artifact with an assigned artifact_id.
+            If the `ret_status` flag is true, the status of the artifact is also returned.
+        """
+        artifact: Artifact = Artifact(
+            project_id=project.id,
+            steps=steps,
+        )
 
-    #     headers, payload = self.exc.create(self.id, artifact.json())
+        headers, payload = self.exc.create(self.id, artifact.json())
 
-    #     res = requests.post(
-    #         f"{self.server}/workbench/artifact/submit",
-    #         headers=headers,
-    #         data=payload,
-    #     )
+        res = requests.post(
+            f"{self.server}/workbench/artifact/submit",
+            headers=headers,
+            data=payload,
+        )
 
-    #     res.raise_for_status()
+        res.raise_for_status()
 
-    #     _, data = self.exc.get_payload(res.content)
+        _, data = self.exc.get_payload(res.content)
 
-    #     art_status = ArtifactStatus(**json.loads(data))
-    #     artifact.id = art_status.id
+        status = ArtifactStatus(**json.loads(data))
+        artifact.id = status.id
 
-    #     start_time = time()
-    #     last_state = ""
-
-    #     while art_status.status not in (
-    #         ArtifactJobStatus.ERROR.name,
-    #         ArtifactJobStatus.COMPLETED.name,
-    #     ):
-    #         if art_status.status == last_state:
-    #             LOGGER.info(".")
-    #         else:
-    #             last_state = art_status.status
-    #             LOGGER.info(last_state)
-
-    #         art_status = self.status(art_status)
-
-    #         sleep(wait_interval)
-
-    #         if time() > start_time + max_time:
-    #             LOGGER.warning("reached max wait time")
-    #             raise ValueError("Timeout exceeded")
-
-    #     if not art_status.id:
-    #         raise ValueError("Invalid artifact status")
-
-    #     estimate = self.get_result(artifact)
-
-    #     if art_status.status == ArtifactJobStatus.ERROR.name:
-    #         LOGGER.error(f"Error on artifact {art_status.id}")
-    #         LOGGER.error(estimate)
-    #         raise ValueError(f"Error on artifact {art_status.id}")
-
-    #     if art_status.status == ArtifactJobStatus.COMPLETED.name:
-    #         LOGGER.info("Completed")
-    #         return estimate
-
-    # def submit(self, project: Project, query: QueryModel) -> Artifact:
-    #     """Submit the query, model, and strategy and start a training task on the remote server.
-
-    #     :param artifact:
-    #         Artifact to submit to the server for training.
-    #         This object will be updated with the id assigned by the server.
-    #     :raises HTTPError:
-    #         If the return code of the response is not a 2xx type.
-    #     :returns:
-    #         The same input artifact with an assigned artifact_id.
-    #         If the `ret_status` flag is true, the status of the artifact is also returned.
-    #     """
-    #     artifact: Artifact = Artifact(
-    #         project_id=project.id,
-    #         transform=query.transform,
-    #         plan=query.plan,
-    #         model=query.model,
-    #     )
-
-    #     headers, payload = self.exc.create(self.id, artifact.json())
-
-    #     res = requests.post(
-    #         f"{self.server}/workbench/artifact/submit",
-    #         headers=headers,
-    #         data=payload,
-    #     )
-
-    #     res.raise_for_status()
-
-    #     _, data = self.exc.get_payload(res.content)
-
-    #     status = ArtifactStatus(**json.loads(data))
-    #     artifact.id = status.id
-
-    #     return artifact
+        return artifact
 
     def status(self, artifact: Artifact | ArtifactStatus) -> ArtifactStatus:
         """Poll the server to get an update of the status of the given artifact.
@@ -400,64 +332,30 @@ class Context:
 
         return Artifact(**json.loads(data))
 
-    def get_result(self, artifact: Artifact) -> Any:
-        """Get the trained and aggregated result for the the artifact and save it
-        to disk. The result can be a model or an estimation.
-
-        :param artifact:
-            Artifact to get the result from.
-        :param path:
-            Optional, destination path on disk. If none, a UUID will be generated
-            and used to store the downloaded model.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        """
-        if not artifact.id:
-            raise ValueError("submit first the artifact to the server")
-
+    def list_resources(self, artifact: Artifact) -> list[WorkbenchResource]:
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
         headers, payload = self.exc.create(self.id, wba.json())
 
-        with requests.get(
-            f"{self.server}/workbench/resource",
+        res = requests.get(
+            f"{self.server}/resource/list",
             headers=headers,
             data=payload,
-            stream=True,
-        ) as res:
-            res.raise_for_status()
+        )
 
-            data, _ = self.exc.stream_response(res.iter_content())
+        res.raise_for_status()
 
-            obj = pickle.loads(data)
+        _, data = self.exc.get_payload(res.content)
 
-            return obj
+        js = json.loads(data)
 
-    def get_partial_result(self, artifact: Artifact, client_id: str, iteration: int) -> Any:
-        """Get the trained partial model from the artifact and save it to disk.
+        return [WorkbenchResource(**d) for d in js]
 
-        :param artifact:
-            Artifact to get the model from.
-        :param client_id:
-            The client_it that trained the partial model.
-        :param path:
-            Optional, destination path on disk. If none, a UUID will be used to store the downloaded model.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        """
-        if not artifact.id:
-            raise ValueError("submit first the artifact to the server")
+    def get_resource(self, resource: WorkbenchResource) -> Any:
+        headers, payload = self.exc.create(self.id, resource.json())
 
-        if artifact.model is None:
-            raise ValueError("no model associated with this artifact")
-
-        wap = WorkbenchArtifactPartial(artifact_id=artifact.id, producer_id=client_id, iteration=iteration)
-
-        headers, payload = self.exc.create(self.id, wap.json())
-
-        with requests.request(
-            "GET",
-            f"{self.server}/workbench/resource/partial",
+        with requests.get(
+            f"{self.server}/workbench/resource",
             headers=headers,
             data=payload,
             stream=True,

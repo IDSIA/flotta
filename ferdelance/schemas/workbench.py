@@ -33,10 +33,7 @@ class WorkbenchArtifact(BaseModel):
     artifact_id: str
 
 
-class WorkbenchArtifactPartial(WorkbenchArtifact):
-    producer_id: str
-    iteration: int
-
-
 class WorkbenchResource(BaseModel):
     resource_id: str
+    producer_id: str
+    iteration: int

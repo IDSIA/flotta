@@ -120,18 +120,6 @@ async def wb_get_datasource_list(
     return await wb.get_datasource_list(wpt.token)
 
 
-@workbench_router.post("/resource", response_model=WorkbenchResource)
-async def wb_post_resource(
-    request: Request,
-    args: ValidSessionArgs = Depends(allow_access),
-):
-    wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
-
-    resource_id = await wb.store_resource(request.stream())
-
-    return WorkbenchResource(resource_id=resource_id)
-
-
 @workbench_router.post("/artifact/submit", response_model=ArtifactStatus)
 async def wb_post_artifact_submit(
     artifact: Artifact,
@@ -201,7 +189,18 @@ async def wb_get_artifact(
         raise HTTPException(404)
 
 
-@workbench_router.get("/resource/list", response_class=FileResponse)
+# @workbench_router.post("/resource", response_model=WorkbenchResource)
+# async def wb_post_resource(
+#     request: Request,
+#     args: ValidSessionArgs = Depends(allow_access),
+# ):
+#   TODO: find a way to manage resources
+#     wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+#     resource_id = await wb.store_resource(request.stream())
+#     return WorkbenchResource(resource_id=resource_id)
+
+
+@workbench_router.get("/resource/list", response_model=list[WorkbenchResource])
 async def wb_get_resource_list(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
@@ -210,7 +209,9 @@ async def wb_get_resource_list(
 
     ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
 
-    return await ws.list_resources(wba.artifact_id)
+    res_list = await ws.list_resources(wba.artifact_id)
+
+    return [WorkbenchResource(resource_id=r.id, producer_id=r.component_id, iteration=r.iteration) for r in res_list]
 
 
 @workbench_router.get("/resource", response_class=FileResponse)
