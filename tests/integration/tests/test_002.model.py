@@ -1,11 +1,14 @@
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.models import (
+import resource
+from ferdelance.core.artifacts import Artifact
+from ferdelance.core.distributions import Collect
+from ferdelance.core.model_operations import Aggregation, Train, TrainTest
+from ferdelance.core.models import (
     FederatedRandomForestClassifier,
     StrategyRandomForestClassifier,
-    ParametersRandomForestClassifier,
 )
-from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.workbench.context import Context
+from ferdelance.core.steps import Finalize, Parallel
+from ferdelance.core.transformers import FederatedSplitter
+from ferdelance.workbench import Context
 from ferdelance.logging import get_logger
 
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
@@ -41,11 +44,11 @@ if __name__ == "__main__":
     server: str = os.environ.get("SERVER", "")
 
     if not project_id:
-        LOGGER.info("Project id not found")
+        LOGGER.error("Project id not found")
         sys.exit(-1)
 
     if not server:
-        LOGGER.info("Server host not found")
+        LOGGER.error("Server host not found")
         sys.exit(-1)
 
     ctx = Context(server)
@@ -56,27 +59,43 @@ if __name__ == "__main__":
 
     client_id_1, client_id_2 = [c.id for c in clients]
 
-    q = project.extract()
-
-    q = q.add_plan(TrainTestSplit("MedHouseValDiscrete", 0.2))
-
-    q = q.add_model(
-        FederatedRandomForestClassifier(
-            strategy=StrategyRandomForestClassifier.MERGE,
-            parameters=ParametersRandomForestClassifier(n_estimators=10),
-        )
+    model = FederatedRandomForestClassifier(
+        n_estimators=10,
+        strategy=StrategyRandomForestClassifier.MERGE,
     )
 
-    a: Artifact = ctx.submit(project, q)
+    label = "MedHouseValDiscrete"
 
-    LOGGER.info(f"Artifact id: {a.id}")
+    steps = [
+        Parallel(
+            TrainTest(
+                query=project.extract().add(
+                    FederatedSplitter(
+                        random_state=42,
+                        test_percentage=0.2,
+                        label=label,
+                    )
+                ),
+                trainer=Train(model=model),
+                model=model,
+            ),
+            Collect(),
+        ),
+        Finalize(
+            Aggregation(model=model),
+        ),
+    ]
+
+    artifact: Artifact = ctx.submit(project, steps)
+
+    LOGGER.info(f"Artifact id: {artifact.id}")
 
     last_state = ""
 
     start_time = time.time()
     max_wait, wait_time = 60, 10
 
-    while (status := ctx.status(a)).status != "COMPLETED":
+    while (status := ctx.status(artifact)).status != "COMPLETED":
         if status.status == last_state:
             LOGGER.info(".")
         else:
@@ -87,20 +106,26 @@ if __name__ == "__main__":
         time.sleep(wait_time)
 
         if time.time() - start_time > max_wait:
-            LOGGER.info("reached max wait time")
+            LOGGER.error("reached max wait time")
             sys.exit(-1)
 
     LOGGER.info("done!")
 
-    cls_agg = ctx.get_result(a)
+    resources = ctx.list_resources(artifact)
+
+    if not len(resources) == 3:
+        LOGGER.error("Not all models have been produced")
+        sys.exit(-1)
+
+    cls_agg = ctx.get_resource(artifact)
 
     LOGGER.info(f"aggregated model fetched: {cls_agg}")
 
-    cls_pa1 = ctx.get_partial_result(a, client_id_1, 0)
+    cls_pa1 = ctx.get_resource(artifact, client_id_1, 0)
 
     LOGGER.info(f"partial model 1 fetched:  {cls_pa1}")
 
-    cls_pa2 = ctx.get_partial_result(a, client_id_2, 0)
+    cls_pa2 = ctx.get_resource(artifact, client_id_2, 0)
 
     LOGGER.info(f"partial model 2 fetched:  {cls_pa2}")
 
