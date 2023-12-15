@@ -86,6 +86,38 @@ services:
     depends_on:
       - server
 
+  node1:
+    image: idsia.ferdelance
+    container_name: node1
+    restart: unless-stopped
+    environment:
+      - FERDELANCE_NODE_HOST=server
+    volumes: 
+      - client-2-data:/ferdelance/storage
+      - ./conf/config.2.yaml:/ferdelance/config.yaml
+      - ./data:/ferdelance/data
+      - /dev/shm:/dev/shm # this is for ray
+    networks:
+      - ferdelance
+    depends_on:
+      - server
+  
+  node2:
+    image: idsia.ferdelance
+    container_name: nocde2
+    restart: unless-stopped
+    environment:
+      - FERDELANCE_NODE_HOST=server
+    volumes: 
+      - client-2-data:/ferdelance/storage
+      - ./conf/config.2.yaml:/ferdelance/config.yaml
+      - ./data:/ferdelance/data
+      - /dev/shm:/dev/shm # this is for ray
+    networks:
+      - ferdelance
+    depends_on:
+      - server
+
   workbench:
     image: python:3.10
     container_name: workbench
