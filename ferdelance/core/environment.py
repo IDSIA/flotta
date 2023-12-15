@@ -14,10 +14,13 @@ class EnvResource:
     id: str
     # where is located on disk
     path: Path = Path(".")
+    data: Any = None
 
     def get(self) -> Any:
-        with open(self.path, "rb") as f:
-            return pickle.load(f)
+        if self.data is None:
+            with open(self.path, "rb") as f:
+                self.data = pickle.load(f)
+        return self.data
 
 
 @dataclass

@@ -1,24 +1,24 @@
 from __future__ import annotations
 from typing import Any, Sequence
-from ferdelance.core.environment import Environment
 
-from ferdelance.core.estimators.core import Estimator
+from ferdelance.core.environment import Environment
+from ferdelance.core.estimators import Estimator
 from ferdelance.core.interfaces import Step
+from ferdelance.core.operations import Operation, QueryOperation
+from ferdelance.core.steps import Sequential
 
 import numpy as np
-from ferdelance.core.operations.core import Operation, QueryOperation
-
-from ferdelance.core.steps import Sequential
 
 
 class InitGroupCounter(Operation):
     def exec(self, env: Environment) -> Environment:
         r = np.random.default_rng(self.random_state)
 
-        rand_value = r.integers(-(2**31), 2**31, size=1)[0]
+        rand_value = r.integers(-(2**31), 0, size=1)[0]
 
         env[".init_value"] = rand_value
         env["noise"] = rand_value
+        env["counts"] = dict()
 
         return env
 
@@ -40,21 +40,24 @@ class GroupCount(QueryOperation):
 
         r = ids[0]
 
-        noise = env[r]["noise"]
-        counts_in = env[r]["counts"]
-        count_out = dict()
+        noise: int = env[r]["noise"]
+        counts_in: dict[str, Any] = env[r]["counts"]
+        counts_out: dict[str, Any] = dict()
 
         group_count = env.df.groupby(self.by).count().to_dict()
 
         for feature in self.features:
-            counts: dict[str, Any] = group_count[feature]
+            x: dict[str, int] = counts_in.get(feature, dict())
+            y: dict[str, int] = group_count[feature]
 
-            count_out[feature] = dict()
+            counts_out_feature = {k: x.get(k, 0) + y.get(k, 0) for k in set(x) | set(y)}
 
-            for k in counts.keys():
-                count_out[feature][k] = counts[k] + counts_in[feature].get(k, 0) + noise
+            if noise == 0:
+                counts_out[feature] = counts_out_feature
+            else:
+                counts_out[feature] = {k: v + noise for k, v in counts_out_feature.items()}
 
-        env["counts"] = count_out
+        env["counts"] = counts_out
 
         if noise != 0:
             env["noise"] = 0

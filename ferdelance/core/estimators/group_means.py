@@ -14,14 +14,16 @@ class InitGroupMean(Operation):
     def exec(self, env: Environment) -> Environment:
         r = np.random.default_rng(self.random_state)
 
-        shape = (2,)
-        vals = r.integers(-(2**31), 2**31, size=shape)
+        vals = r.integers(-(2**31), 0, size=(2,))
 
         env[".init_sum"] = vals[0]
         env[".init_num"] = vals[1]
 
         env["noise_sum"] = vals[0]
         env["noise_num"] = vals[1]
+
+        env["sums"] = dict()
+        env["nums"] = dict()
 
         return env
 
@@ -39,34 +41,40 @@ class GroupMean(QueryOperation):
 
         ids = env.list_resource_ids()
         if len(ids) != 1:
-            raise ValueError("Count algorithm requires exactly one resource")
+            raise ValueError("Mean algorithm requires exactly one resource")
 
         r = ids[0]
 
-        noise_sum = env[r]["noise_sum"]
-        noise_num = env[r]["noise_num"]
+        noise_sum: int = env[r]["noise_sum"]
+        noise_num: int = env[r]["noise_num"]
 
-        sums_in = env[r]["sums"]
-        nums_in = env[r]["nums"]
+        sums_in: dict[str, Any] = env[r]["sums"]
+        nums_in: dict[str, Any] = env[r]["nums"]
 
-        sums_out = dict()
-        nums_out = dict()
+        sums_out: dict[str, Any] = dict()
+        nums_out: dict[str, Any] = dict()
 
         group_sum = env.df.groupby(self.by).sum().to_dict()
         group_num = env.df.groupby(self.by).count().to_dict()
 
         for feature in self.features:
-            sums: dict[str, Any] = group_sum[feature]
-            nums: dict[str, Any] = group_num[feature]
+            xs: dict[str, int] = sums_in.get(feature, dict())
+            ys: dict[str, int] = group_sum[feature]
+            xn: dict[str, int] = nums_in.get(feature, dict())
+            yn: dict[str, int] = group_num[feature]
 
-            sums_out[feature] = dict()
-            nums_out[feature] = dict()
+            sums_out_feature = {k: xs.get(k, 0) + ys.get(k, 0) for k in set(xs) | set(ys)}
+            nums_out_feature = {k: xn.get(k, 0) + yn.get(k, 0) for k in set(xn) | set(yn)}
 
-            for k in sums.keys():
-                sums_out[feature][k] = sums[k] + sums_in[feature].get(k, 0) + noise_sum
+            if noise_sum == 0:
+                sums_out[feature] = sums_out_feature
+            else:
+                sums_out[feature] = {k: v + noise_sum for k, v in sums_out_feature.items()}
 
-            for k in nums.keys():
-                nums_out[feature][k] = nums[k] + nums_in[feature].get(k, 0) + noise_num
+            if noise_num == 0:
+                nums_out[feature] = nums_out_feature
+            else:
+                nums_out[feature] = {k: v + noise_num for k, v in nums_out_feature.items()}
 
         env["sums"] = sums_out
         env["nums"] = nums_out
@@ -83,12 +91,12 @@ class CleanGroupMean(Operation):
     def exec(self, env: Environment) -> Environment:
         ids = env.list_resource_ids()
         if len(ids) != 1:
-            raise ValueError("Count algorithm requires exactly one resource")
+            raise ValueError("Mean algorithm requires exactly one resource")
 
         r = ids[0]
 
         noise_sum = env[".init_sum"]
-        noise_num = env[".init_sum"]
+        noise_num = env[".init_num"]
 
         sums_in = env[r]["sums"]
         nums_in = env[r]["nums"]
