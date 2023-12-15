@@ -75,6 +75,11 @@ def clean_protocol_port(protocol: str, port: int) -> tuple[str, str]:
     return _protocol, _port
 
 
+class ProjectConfiguration(BaseModel):
+    name: str
+    token: str
+
+
 class NodeConfiguration(BaseModel):
     name: str = ""
 
@@ -90,6 +95,7 @@ class NodeConfiguration(BaseModel):
     port: int = 1456
 
     token_project_default: str = ""
+    token_projects_initial: list[ProjectConfiguration] = list()
 
     # self-check in seconds when mode=node
     healthcheck: float = 60

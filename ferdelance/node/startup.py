@@ -44,7 +44,7 @@ class NodeStartup(Repository):
         self.remote_key: str
 
     async def create_project(self) -> None:
-        """Create teh initial project with the default token given through
+        """Create the initial project with the default token given through
         configuration files.
         """
         p_token = self.config.node.token_project_default
@@ -54,6 +54,14 @@ class NodeStartup(Repository):
 
         except ValueError:
             LOGGER.warning(f"component={self.self_component.id}: project zero already exists with token={p_token}")
+
+        for p in self.config.node.token_projects_initial:
+            try:
+                await self.pr.create_project(p.name, p.token)
+                LOGGER.info(f"component={self.self_component.id}: created project name={p.name} with token={p.token}")
+
+            except ValueError:
+                LOGGER.warning(f"component={self.self_component.id}: a project with token={p.token} already exists")
 
     async def add_metadata(self) -> None:
         """Add metadata found in the configuration file. The metadata are
