@@ -130,11 +130,14 @@ class Job(Base):
     # When the job has been created in waiting state
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     # When the job has been scheduled
-    scheduling_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
+    scheduling_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     # When the job started
     execution_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # When the job terminated
     termination_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # id of the resource produced by this job
+    resource_id: Mapped[String] = mapped_column(ForeignKey("resources.id"))
 
 
 class JobLock(Base):
@@ -159,27 +162,21 @@ class JobLock(Base):
 
 
 class Resource(Base):
-    """Table that keep track of all the resources produced by each job and stored on the server."""
+    """Table that keep track of all the resources available."""
 
     __tablename__ = "resources"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(default=None, nullable=True)
-    path: Mapped[str] = mapped_column(String)  # this is local for the scheduler, if present
+    path: Mapped[str] = mapped_column(String)  # path local to the node
 
-    is_ready: Mapped[bool] = mapped_column(default=False)
+    is_external: Mapped[bool] = mapped_column(default=False)  # True if created by a workbench
     is_error: Mapped[bool] = mapped_column(default=False)
 
-    iteration: Mapped[int] = mapped_column(default=0)
-
-    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), unique=True)
-    job = relationship("Job")
-
-    artifact_id: Mapped[str] = mapped_column(String(36), ForeignKey("artifacts.id"))
-    artifact = relationship("Artifact")
-
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))  # producer, can be workbench
     component = relationship("Component")
+
+    jobs: Mapped[list[Job]] = relationship()
 
 
 project_datasource = Table(
