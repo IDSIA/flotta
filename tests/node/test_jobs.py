@@ -2,7 +2,7 @@ from ferdelance.const import TYPE_CLIENT
 from ferdelance.core.interfaces import SchedulerJob
 from ferdelance.database.repositories.component import ComponentRepository
 from ferdelance.database.repositories import JobRepository
-from ferdelance.database.tables import Artifact, Component
+from ferdelance.database.tables import Artifact, Component, Resource
 from ferdelance.logging import get_logger
 from ferdelance.shared.status import JobStatus
 
@@ -21,6 +21,10 @@ async def test_jobs_next(session: AsyncSession):
     artifact_id_2: str = "artifact2"
     client_id_1: str = "client1"
     client_id_2: str = "client2"
+
+    resource_id_1: str = "resource1"
+    resource_id_2: str = "resource2"
+    resource_id_3: str = "resource3"
 
     session.add(
         Artifact(
@@ -60,6 +64,28 @@ async def test_jobs_next(session: AsyncSession):
         )
     )
 
+    session.add(
+        Resource(
+            id=resource_id_1,
+            path="",
+            component_id=client_id_1,
+        )
+    )
+    session.add(
+        Resource(
+            id=resource_id_2,
+            path="",
+            component_id=client_id_1,
+        )
+    )
+    session.add(
+        Resource(
+            id=resource_id_3,
+            path="",
+            component_id=client_id_1,
+        )
+    )
+
     await session.commit()
 
     cr = ComponentRepository(session)
@@ -72,9 +98,9 @@ async def test_jobs_next(session: AsyncSession):
 
     jr: JobRepository = JobRepository(session)
 
-    sc_1 = await jr.create_job(artifact_id_1, job_a1_c1)
-    sc_2 = await jr.create_job(artifact_id_1, job_a1_c2)
-    sc_3 = await jr.create_job(artifact_id_2, job_a2_c1)
+    sc_1 = await jr.create_job(artifact_id_1, job_a1_c1, resource_id=resource_id_1)
+    sc_2 = await jr.create_job(artifact_id_1, job_a1_c2, resource_id=resource_id_2)
+    sc_3 = await jr.create_job(artifact_id_2, job_a2_c1, resource_id=resource_id_3)
 
     await jr.schedule_job(sc_1)
 

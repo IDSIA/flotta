@@ -7,7 +7,6 @@ from ferdelance.core.transformers import (
 from . import run
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
 from pathlib import Path
 
 import pandas as pd

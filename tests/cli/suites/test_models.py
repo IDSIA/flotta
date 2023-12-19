@@ -1,7 +1,7 @@
 from ferdelance.cli.fdl_suites.resources.functions import describe_resource, list_resource
 from ferdelance.const import TYPE_CLIENT
-from ferdelance.schemas.database import Resource
 from ferdelance.database.tables import Artifact, Component, Resource as ResourceDB
+from ferdelance.schemas.database import Resource
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,9 +35,7 @@ async def test_resources_list(session: AsyncSession):
     session.add(
         ResourceDB(
             id="mid1",
-            job_id="job-1",
             path=".",
-            artifact_id="aid1",
             component_id="cid1",
         )
     )
@@ -78,11 +76,8 @@ async def test_describe_client(session: AsyncSession):
     session.add(
         ResourceDB(
             id="mid1",
-            job_id="job-1",
             path=".",
-            artifact_id="aid1",
             component_id="cid1",
-            creation_time=None,
         )
     )
 

@@ -11,12 +11,18 @@ from ferdelance.database.repositories import (
     JobRepository,
     ProjectRepository,
 )
-from ferdelance.node.services import JobManagementService, WorkbenchService, TaskManagementService
+from ferdelance.node.services import (
+    JobManagementService,
+    WorkbenchService,
+    TaskManagementService,
+    ResourceManagementService,
+)
 from ferdelance.node.startup import NodeStartup
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Resource
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
+from ferdelance.schemas.resources import ResourceIdentifier
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.tasks.services import ExecutionService
 from ferdelance.tasks.tasks import Task, TaskError
@@ -103,12 +109,10 @@ class ServerlessWorker:
 
         return Resource(
             id=es.env.product_id,
-            artifact_id=task.artifact_id,
-            iteration=task.iteration,
-            job_id=task.job_id,
             component_id=self.component.id,
             creation_time=None,
             path=es.env.product_path(),
+            is_external=False,
             is_error=False,
             is_ready=True,
         )
@@ -143,6 +147,7 @@ class ServerlessExecution:
         self.jobs_service: JobManagementService
         self.task_service: TaskManagementService
         self.workbench_service: WorkbenchService
+        self.resource_service: ResourceManagementService
 
     async def setup(self):
         await NodeStartup(self.session).startup()
@@ -163,6 +168,7 @@ class ServerlessExecution:
         self.jobs_service = JobManagementService(self.session, self.self_component)
         self.task_service = TaskManagementService(self.session, self.self_component, "", "")
         self.workbench_service = WorkbenchService(self.session, self.user_component, self.self_component)
+        self.resource_service = ResourceManagementService(self.session)
 
     async def add_worker(
         self,
@@ -217,4 +223,4 @@ class ServerlessExecution:
         await self.jobs_service.task_failed(TaskError(job_id=job_id))
 
     async def get_resource(self, resource_id: str) -> Resource:
-        return await self.jobs_service.load_resource(resource_id)
+        return await self.resource_service.load_resource(ResourceIdentifier(resource_id=resource_id))
