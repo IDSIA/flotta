@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from ferdelance.logging import get_logger
 from ferdelance.core.environment import Environment
 from ferdelance.core.model_operations import ModelOperation
 from ferdelance.core.metrics import Metrics
+from ferdelance.logging import get_logger
 
 
 LOGGER = get_logger(__name__)

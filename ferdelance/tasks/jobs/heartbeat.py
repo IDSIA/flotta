@@ -9,9 +9,8 @@ from ferdelance.tasks.services.scheduling import ScheduleActionService
 
 from time import sleep
 
-import ray
-
 import json
+import ray
 import requests
 
 

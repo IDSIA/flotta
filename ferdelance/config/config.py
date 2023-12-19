@@ -8,10 +8,9 @@ from ferdelance.shared.exchange import Exchange
 
 from .arguments import setup_config_from_arguments
 
-from pydantic import BaseSettings, BaseModel, root_validator, validator
 from dotenv import load_dotenv
-
 from pathlib import Path
+from pydantic import BaseSettings, BaseModel, root_validator, validator
 
 import os
 import re

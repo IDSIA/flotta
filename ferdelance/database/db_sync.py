@@ -20,7 +20,7 @@ class DataBase:
         self.session_factory: Any
         self.sync_session: Any
 
-    def __new__(cls: type[DataBase]) -> DataBase:
+    def __new__(cls) -> DataBase:
         if not hasattr(cls, "instance"):
             LOGGER.debug("database singleton creation")
             cls.instance = super(DataBase, cls).__new__(cls)

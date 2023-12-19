@@ -1,19 +1,10 @@
 from __future__ import annotations
 
 from ferdelance.core.environment import Environment
+from ferdelance.core.entity import Entity
 from ferdelance.core.queries.features import QueryFeature, QueryFilter, FilterOperation
 from ferdelance.core.queries.stages import QueryStage, QueryTransformer
-
-# from ferdelance.schemas.estimators import (
-#     Estimator,
-#     GenericEstimator,
-#     CountEstimator,
-#     MeanEstimator,
-#     GroupCountEstimator,
-#     GroupMeanEstimator,
-# )
 from ferdelance.core.transformers import FederatedFilter
-from ferdelance.core.entity import Entity
 
 from datetime import datetime
 
@@ -82,27 +73,6 @@ class Query(Entity):
             key = key.name
 
         return self.current()[key]
-
-    # def groupby(self, feature: str | QueryFeature) -> GroupingQuery:
-    #     if isinstance(feature, str):
-    #         feature = self[feature]
-
-    #     return GroupingQuery(feature, self)
-
-    # def count(self) -> QueryEstimate:
-    #     return self.add_estimator(CountEstimator())
-
-    # def mean(self, feature: str | QueryFeature) -> QueryEstimate:
-    #     if isinstance(feature, str):
-    #         feature = self[feature]
-
-    #     return self.add_estimator(MeanEstimator(feature))
-
-    # def add_estimator(self, estimator: GenericEstimator) -> QueryEstimate:
-    #     return QueryEstimate(
-    #         transform=self,
-    #         estimator=estimator.build(),
-    #     )
 
     def add_transformer(self, transformer: QueryTransformer) -> None:
         fs = [f for f in self.features() if f not in transformer.features_in]
@@ -204,30 +174,3 @@ class Query(Entity):
 
     def __hash__(self) -> int:
         return hash(self.stages)
-
-
-# class GroupingQuery:
-#     def __init__(self, feature: QueryFeature, q: Query) -> None:
-#         self.q = q
-#         self.feature = feature
-
-#     def count(self) -> QueryEstimate:
-#         return self.q.add_estimator(
-#             GroupCountEstimator(
-#                 feature_in=self.feature,
-#             )
-#         )
-
-#     def mean(self) -> QueryEstimate:
-#         return self.q.add_estimator(
-#             GroupMeanEstimator(
-#                 feature_in=self.feature,
-#             )
-#         )
-
-
-# class QueryEstimate(Entity):
-#     """A query with an attached estimator."""
-
-#     transform: Query
-#     estimator: Estimator

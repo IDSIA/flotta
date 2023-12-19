@@ -1,5 +1,4 @@
 from ferdelance.config import DatabaseConfiguration, config_manager
-
 from sqlalchemy.engine import URL
 
 
