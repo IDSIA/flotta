@@ -1,9 +1,7 @@
-import json
-import aiofiles
 from ferdelance.config import config_manager
 from ferdelance.core.interfaces import SchedulerJob
 from ferdelance.database.tables import Job as JobDB, JobLock as JobLockDB
-from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.database.repositories import AsyncSession, Repository
 from ferdelance.logging import get_logger
 from ferdelance.schemas.jobs import Job, JobLock
 from ferdelance.shared.status import JobStatus
@@ -11,9 +9,13 @@ from ferdelance.shared.status import JobStatus
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import NoResultFound
 
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
+
+import aiofiles
+import json
+
 
 LOGGER = get_logger(__name__)
 
@@ -51,11 +53,11 @@ class JobRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    # TODO: maybe replace arguments with job object?
     async def create_job(
         self,
         artifact_id: str,
         job: SchedulerJob,
+        resource_id: str,
         status=JobStatus.WAITING,
         job_id: str | None = None,
     ) -> Job:
@@ -92,6 +94,7 @@ class JobRepository(Repository):
             path=str(path),
             status=status.name,
             iteration=job.iteration,
+            resource_id=resource_id,
         )
 
         self.session.add(job_db)

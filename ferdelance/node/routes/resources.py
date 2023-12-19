@@ -2,7 +2,7 @@ from ferdelance.config import config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_NODE, TYPE_USER
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
-from ferdelance.node.services.resource import ResourceManager
+from ferdelance.node.services.resource import ResourceManagementService
 from ferdelance.schemas.resources import ResourceIdentifier
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -40,7 +40,7 @@ async def get_task(
         LOGGER.warn(f"component={args.component.id}: this node does not allow the download of resources")
         raise HTTPException(403)
 
-    rm: ResourceManager = ResourceManager(args.session)
+    rm: ResourceManagementService = ResourceManagementService(args.session)
 
     try:
         resource = await rm.load_resource(res_id)
@@ -65,7 +65,7 @@ async def post_resource(
 ):
     component = args.component
 
-    rm: ResourceManager = ResourceManager(args.session)
+    rm: ResourceManagementService = ResourceManagementService(args.session)
 
     try:
         # get resource from db

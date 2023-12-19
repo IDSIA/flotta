@@ -1,11 +1,11 @@
 from typing import Any
 
-from ferdelance.logging import get_logger
 from ferdelance.config import config_manager
 from ferdelance.core.metrics import Metrics
-from ferdelance.schemas.resources import ResourceIdentifier, ResourceRequest
-from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
+from ferdelance.logging import get_logger
+from ferdelance.schemas.resources import NewResource, ResourceIdentifier
 from ferdelance.shared.exchange import Exchange
+from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 
 from pathlib import Path
 
@@ -71,13 +71,14 @@ class RouteService:
 
         return task
 
-    def get_resource(self, artifact_id: str, job_id: str, resource_id: str, iteration: int) -> Path:
+    def get_resource(self, producer_id: str, artifact_id: str, job_id: str, resource_id: str, iteration: int) -> Path:
         LOGGER.info(f"artifact={artifact_id}: requesting partial resource={resource_id} for job={job_id}")
 
-        req = ResourceRequest(
+        req = ResourceIdentifier(
+            producer_id=producer_id,
             artifact_id=artifact_id,
-            job_id=job_id,
             resource_id=resource_id,
+            iteration=iteration,
         )
 
         headers, payload = self.exc.create(
@@ -86,7 +87,7 @@ class RouteService:
         )
 
         with requests.get(
-            f"{self.remote}/task/resource/{resource_id}",
+            f"{self.remote}/resource",
             headers=headers,
             data=payload,
             stream=True,
@@ -101,10 +102,10 @@ class RouteService:
 
     def post_resource(
         self, artifact_id: str, job_id: str, path_in: Path | None = None, content: Any = None
-    ) -> ResourceRequest:
+    ) -> ResourceIdentifier:
         LOGGER.info(f"artifact={artifact_id}: posting resource for job={job_id}")
 
-        ri = ResourceIdentifier(
+        nr = NewResource(
             artifact_id=artifact_id,
             job_id=job_id,
             file="attached",
@@ -117,7 +118,7 @@ class RouteService:
             headers = self.exc.create_signed_header(
                 self.component_id,
                 checksum,
-                extra_headers=ri.dict(),
+                extra_headers=nr.dict(),
             )
 
             res = requests.post(
@@ -135,7 +136,7 @@ class RouteService:
             headers, payload = self.exc.create(
                 self.component_id,
                 content,
-                extra_headers=ri.dict(),
+                extra_headers=nr.dict(),
             )
 
             _, data = self.exc.stream(payload)
@@ -149,11 +150,11 @@ class RouteService:
             res.raise_for_status()
 
         else:
-            ri.file = "local"
+            nr.file = "local"
 
             headers, _ = self.exc.create(
                 self.component_id,
-                extra_headers=ri.dict(),
+                extra_headers=nr.dict(),
             )
 
             res = requests.post(
@@ -165,7 +166,7 @@ class RouteService:
 
         _, payload = self.exc.get_payload(res.content)
 
-        req = ResourceRequest(**json.loads(payload))
+        req = ResourceIdentifier(**json.loads(payload))
 
         LOGGER.info(f"artifact={artifact_id}: resource for job={job_id} upload successful")
 

@@ -1,13 +1,11 @@
 from ferdelance.config import config_manager
-from ferdelance.schemas.database import Resource
 from ferdelance.database.tables import Job as JobDB, Resource as ResourceDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.schemas.database import Resource
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from pathlib import Path
 from uuid import uuid4
-
-from datetime import datetime
 
 
 def view(resource: ResourceDB) -> Resource:
@@ -18,6 +16,7 @@ def view(resource: ResourceDB) -> Resource:
         creation_time=resource.creation_time,
         is_external=resource.is_external,
         is_error=resource.is_error,
+        is_ready=resource.is_ready,
     )
 
 
@@ -91,6 +90,23 @@ class ResourceRepository(Repository):
         await self.session.refresh(resource_db)
 
         return view(resource_db)
+
+    async def mark_as_done(self, job_id: str) -> Resource:
+        res = await self.session.scalars(
+            select(ResourceDB)
+            .join(JobDB)
+            .where(
+                JobDB.id == job_id,
+            )
+        )
+
+        resource = res.one()
+
+        resource.is_ready = True
+        await self.session.commit()
+        await self.session.refresh(resource)
+
+        return view(resource)
 
     async def mark_as_error(self, job_id: str) -> Resource:
         res = await self.session.scalars(

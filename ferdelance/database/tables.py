@@ -10,11 +10,9 @@ from sqlalchemy import (
     Boolean,
 )
 from sqlalchemy.sql.functions import now
-from sqlalchemy.orm import relationship, mapped_column, Mapped
+from sqlalchemy.orm import relationship, mapped_column, Mapped, DeclarativeBase
 
 from datetime import datetime
-
-from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
@@ -130,7 +128,7 @@ class Job(Base):
     # When the job has been created in waiting state
     creation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=now())
     # When the job has been scheduled
-    scheduling_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    scheduling_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # When the job started
     execution_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # When the job terminated
@@ -172,6 +170,7 @@ class Resource(Base):
 
     is_external: Mapped[bool] = mapped_column(default=False)  # True if created by a workbench
     is_error: Mapped[bool] = mapped_column(default=False)
+    is_ready: Mapped[bool] = mapped_column(default=False)
 
     component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))  # producer, can be workbench
     component = relationship("Component")

@@ -2,8 +2,8 @@ from ferdelance.core.artifacts import ArtifactStatus
 from ferdelance.shared.status import ArtifactJobStatus
 
 from datetime import datetime
-from pydantic import BaseModel
 from pathlib import Path
+from pydantic import BaseModel
 
 
 class ServerArtifact(BaseModel):
@@ -32,6 +32,7 @@ class Resource(BaseModel):
     path: Path
     is_external: bool
     is_error: bool
+    is_ready: bool
 
 
 class ResourceIdentifier(BaseModel):

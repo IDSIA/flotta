@@ -79,6 +79,7 @@ class Execution:
 
                 # path to resource saved locally
                 res_path = node.get_resource(
+                    resource.component_id,
                     resource.artifact_id,
                     resource.job_id,
                     resource.resource_id,

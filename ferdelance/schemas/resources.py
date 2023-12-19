@@ -11,3 +11,9 @@ class ResourceIdentifier(BaseModel):
     artifact_id: str | None = None
     producer_id: str | None = None
     iteration: int | None = None
+
+
+class NewResource(BaseModel):
+    artifact_id: str
+    job_id: str
+    file: str = "attached"
