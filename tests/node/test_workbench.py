@@ -10,6 +10,7 @@ from ferdelance.database.repositories import (
 )
 from ferdelance.node.api import api
 from ferdelance.node.services.jobs import JobManagementService
+from ferdelance.node.services.resource import ResourceManagementService
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
     Project,
@@ -284,6 +285,7 @@ async def test_get_results(session: AsyncSession):
         self_component = await cr.get_self_component()
 
         jms: JobManagementService = JobManagementService(session, self_component)
+        rms: ResourceManagementService = ResourceManagementService(session)
 
         project = await pr.get_by_token(args.project_token)
 
@@ -333,7 +335,7 @@ async def test_get_results(session: AsyncSession):
         job2 = await jr.get_by_id(job2.id)
         assert job2.status == JobStatus.RUNNING
 
-        res = await jms.store_resource(job2.id)
+        res = await rms.store_resource(job2.id, job2.component_id)
 
         await jms.task_completed(job2.id)
         job2 = await jr.get_by_id(job2.id)
@@ -346,12 +348,13 @@ async def test_get_results(session: AsyncSession):
         resource = await rr.get_by_job_id(job2.id)
         assert resource.is_ready
         assert not resource.is_error
+        assert not resource.is_external
 
         os.makedirs(os.path.dirname(resource.path), exist_ok=True)
         with open(resource.path, "w") as f:
             f.write('{"message": "results!"}')
 
-        wbr = WorkbenchResource(resource_id=resource.id)
+        wbr = WorkbenchResource(resource_id=resource.id, producer_id=job2.component_id)
 
         headers, payload = wb_exc.create(args.wb_id, wbr.json())
 

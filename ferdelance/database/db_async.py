@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from typing import Any, AsyncGenerator
 
 from ferdelance.logging import get_logger
@@ -19,7 +18,7 @@ class DataBase:
         self.async_session_factory: Any
         self.async_session: Any
 
-    def __new__(cls: type[DataBase]) -> DataBase:
+    def __new__(cls) -> DataBase:
         if not hasattr(cls, "instance"):
             LOGGER.debug("database singleton creation")
             cls.instance = super(DataBase, cls).__new__(cls)

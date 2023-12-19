@@ -9,7 +9,6 @@ This is related to manage projects, users, clients, etc. As an example:
     - clean space     
     - regenerate server ssh key
 """
-import asyncio
 from typing import List
 
 from ferdelance.cli.base import CLICommandSuite, CLIParser
@@ -21,6 +20,8 @@ from ferdelance.cli.fdl_suites import (
     projects_cli_suite,
     datasources_cli_suite,
 )
+
+import asyncio
 
 
 async def main() -> None:

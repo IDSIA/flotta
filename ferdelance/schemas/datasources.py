@@ -6,8 +6,9 @@ from ferdelance.core.queries import (
     QueryFeature,
     QueryStage,
 )
-from pydantic import BaseModel
+
 from hashlib import sha256
+from pydantic import BaseModel
 
 import pandas as pd
 

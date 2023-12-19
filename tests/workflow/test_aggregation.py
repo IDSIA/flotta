@@ -1,4 +1,5 @@
 from typing import Any
+
 from ferdelance.config import DataSourceConfiguration, DataSourceStorage
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.distributions import Collect
@@ -13,7 +14,6 @@ from tests.serverless import ServerlessExecution
 from tests.utils import TEST_PROJECT_TOKEN, assert_jobs_count
 
 from sklearn.ensemble import RandomForestClassifier
-
 from pathlib import Path
 
 import os

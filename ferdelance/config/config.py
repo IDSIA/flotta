@@ -8,10 +8,9 @@ from ferdelance.shared.exchange import Exchange
 
 from .arguments import setup_config_from_arguments
 
-from pydantic import BaseSettings, BaseModel, root_validator, validator
 from dotenv import load_dotenv
-
 from pathlib import Path
+from pydantic import BaseSettings, BaseModel, root_validator, validator
 
 import os
 import re
@@ -96,6 +95,8 @@ class NodeConfiguration(BaseModel):
 
     token_project_default: str = ""
     token_projects_initial: list[ProjectConfiguration] = list()
+
+    allow_resource_download: bool = False
 
     # self-check in seconds when mode=node
     healthcheck: float = 60
@@ -284,6 +285,14 @@ class Configuration(BaseSettings):
         d = self.storage_artifact(artifact_id, iteration) / job_id
         os.makedirs(d, exist_ok=True)
         return d
+
+    def storage_resource_dir(self) -> Path:
+        return self.get_workdir() / "resources"
+
+    def storage_resource(self, resource_id: str) -> Path:
+        d = self.storage_resource_dir()
+        os.makedirs(d, exist_ok=True)
+        return d / f"{resource_id}.data"
 
     def storage_clients_dir(self) -> Path:
         return self.get_workdir() / "clients"

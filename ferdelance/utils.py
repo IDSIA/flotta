@@ -1,8 +1,8 @@
 from requests import Session
 from requests.adapters import HTTPAdapter, Retry
 
-import json
 import numpy as np
+import json
 
 
 class NumpyEncoder(json.JSONEncoder):

@@ -18,16 +18,16 @@ from ferdelance.node.services import ActionService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import ServerArtifact, Resource
 from ferdelance.schemas.jobs import Job
-from ferdelance.tasks.tasks import Task, TaskError, TaskNode, TaskResource
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
+from ferdelance.tasks.tasks import Task, TaskError, TaskNode, TaskResource
 
 from sqlalchemy.exc import NoResultFound
+from uuid import uuid4
 
 import aiofiles
 import aiofiles.ospath
 import json
-import os
 
 LOGGER = get_logger(__name__)
 
@@ -135,13 +135,22 @@ class JobManagementService(Repository):
 
         # insert jobs in database
         for job in jobs:
+            job_id = str(uuid4())
+
+            resource = await self.rr.create_resource(
+                job_id,
+                artifact.id,
+                job.worker.id,
+                job.iteration,
+            )
+
             job_db = await self.jr.create_job(
                 artifact.id,
                 job,
+                resource.id,
+                job_id=job_id,
             )
             job_map[job.id] = job_db
-
-            await self.rr.create_resource(job_db.id, artifact.id, job.worker.id, job.iteration)
 
         # insert locks in database
         for job in jobs:
@@ -167,28 +176,6 @@ class JobManagementService(Repository):
 
     async def get_scheduled_jobs(self, artifact_id: str) -> list[Job]:
         return await self.jr.list_jobs_by_artifact_id(artifact_id)
-
-    async def store_resource(self, job_id: str, is_error: bool = False) -> Resource:
-        job = await self.jr.get_by_id(job_id)
-
-        # simple check that the artifact exists
-        await self.ar.get_artifact(job.artifact_id)
-
-        await self.rr.mark_as_ready_by_job_id(job_id, is_error)
-
-        return await self.rr.get_by_job_id(job_id)
-
-    async def load_resource(self, resource_id: str) -> Resource:
-        """
-        :raise:
-            NoResultFound if there is no resource on the disk.
-        """
-        resource: Resource = await self.rr.get_by_id(resource_id)
-
-        if not os.path.exists(resource.path):
-            raise NoResultFound()
-
-        return resource
 
     async def check(self, artifact_id: str) -> None:
         jobs = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id)
@@ -296,6 +283,7 @@ class JobManagementService(Repository):
             job = await self.jr.get_by_id(job_id)
             job = await self.jr.complete_execution(job)
 
+            await self.rr.mark_as_done(job.id)
             await self.jr.unlock_job(job)
             await self.check(job.artifact_id)
 
@@ -311,7 +299,7 @@ class JobManagementService(Repository):
 
             await self.jr.failed_execution(job)
 
-            resource = await self.store_resource(error.job_id, True)
+            resource = await self.rr.mark_as_error(job_id=error.job_id)
 
             job = await self.jr.get_by_id(error.job_id)
 

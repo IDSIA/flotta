@@ -1,16 +1,15 @@
 from ferdelance.const import TYPE_NODE
 from ferdelance.config import config_manager
-from ferdelance.database.repositories.jobs import JobRepository
-from ferdelance.logging import get_logger
 from ferdelance.core.artifacts import Artifact
 from ferdelance.database.tables import Artifact as ArtifactDB, Job as JobDB
-from ferdelance.database.repositories import ProjectRepository, ComponentRepository, AsyncSession
+from ferdelance.database.repositories import ProjectRepository, ComponentRepository, AsyncSession, JobRepository
+from ferdelance.logging import get_logger
 from ferdelance.node.api import api
 from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.components import Component
-from ferdelance.tasks.tasks import TaskRequest
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
+from ferdelance.tasks.tasks import TaskRequest
 
 from tests.utils import connect, TEST_PROJECT_TOKEN, create_node
 from tests.dummies import DummyModel

@@ -1,7 +1,7 @@
-from ferdelance.database import DataBase
-from ferdelance.schemas.jobs import Job
-from ferdelance.database.repositories import JobRepository
 from ferdelance.cli.visualization import show_many
+from ferdelance.database import DataBase
+from ferdelance.database.repositories import JobRepository
+from ferdelance.schemas.jobs import Job
 
 
 async def list_jobs(artifact_id: str | None = None, client_id: str | None = None) -> list[Job]:
@@ -15,12 +15,9 @@ async def list_jobs(artifact_id: str | None = None, client_id: str | None = None
         List[Job]: List of Job objects
     """
 
-    #
-
     db = DataBase()
 
     async with db.async_session() as session:
-
         jr = JobRepository(session)
 
         if artifact_id is not None:

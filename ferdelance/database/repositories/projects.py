@@ -1,10 +1,10 @@
-from ferdelance.logging import get_logger
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.datasource import DataSourceRepository
 from ferdelance.database.tables import (
     DataSource as DataSourceDB,
     Project as ProjectDB,
 )
+from ferdelance.logging import get_logger
 from ferdelance.schemas.datasources import DataSource
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import (

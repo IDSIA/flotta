@@ -1,7 +1,5 @@
 from typing import Any
 
-import requests
-
 from ferdelance.config import config_manager
 from ferdelance.const import TYPE_CLIENT
 from ferdelance.database.repositories import AsyncSession, Repository, ComponentRepository
@@ -12,6 +10,9 @@ from ferdelance.schemas.components import Component
 from ferdelance.shared.exchange import Exchange
 from ferdelance.tasks.backends import get_jobs_backend
 from ferdelance.tasks.tasks import Task
+
+import requests
+
 
 LOGGER = get_logger(__name__)
 

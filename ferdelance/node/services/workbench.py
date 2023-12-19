@@ -1,9 +1,6 @@
-from typing import AsyncGenerator
-
-from ferdelance.logging import get_logger
-from ferdelance.database import AsyncSession
 from ferdelance.const import TYPE_USER
 from ferdelance.core.artifacts import ArtifactStatus, Artifact
+from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -11,6 +8,8 @@ from ferdelance.database.repositories import (
     ProjectRepository,
     ResourceRepository,
 )
+from ferdelance.logging import get_logger
+from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Resource
@@ -20,7 +19,6 @@ from ferdelance.schemas.workbench import (
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
 )
-from ferdelance.node.services import JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 

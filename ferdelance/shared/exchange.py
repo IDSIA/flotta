@@ -1,4 +1,3 @@
-import base64
 from typing import Iterator
 from .generate import (
     generate_asymmetric_key,
@@ -24,11 +23,12 @@ from .encode import (
 from .signatures import sign, verify
 from .checksums import str_checksum, file_checksum
 
-from requests import Response
 from pathlib import Path
+from requests import Response
 
-import os
+import base64
 import json
+import os
 
 
 class Exchange:

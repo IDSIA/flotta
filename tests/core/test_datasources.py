@@ -1,5 +1,4 @@
-from ferdelance.schemas.datasources import AggregatedDataSource, Feature, DataSource
-from ferdelance.schemas.datasources import DataType
+from ferdelance.schemas.datasources import AggregatedDataSource, Feature, DataSource, DataType
 
 import json
 

@@ -26,9 +26,9 @@ from pathlib import Path
 from uuid import uuid4
 
 import json
+import os
 import pickle
 import requests
-import os
 
 LOGGER = get_logger(__name__)
 

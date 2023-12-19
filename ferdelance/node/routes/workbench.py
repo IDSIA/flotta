@@ -211,7 +211,7 @@ async def wb_get_resource_list(
 
     res_list = await ws.list_resources(wba.artifact_id)
 
-    return [WorkbenchResource(resource_id=r.id, producer_id=r.component_id, iteration=r.iteration) for r in res_list]
+    return [WorkbenchResource(resource_id=r.id, producer_id=r.component_id) for r in res_list]
 
 
 @workbench_router.get("/resource", response_class=FileResponse)

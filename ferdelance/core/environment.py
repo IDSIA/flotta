@@ -1,8 +1,8 @@
 from typing import Any
 from dataclasses import dataclass, field
 
-from pathlib import Path
 from pandas import DataFrame
+from pathlib import Path
 
 import os
 import pickle

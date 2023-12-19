@@ -1,9 +1,10 @@
+from uuid import uuid4
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.distributions import Collect, Distribute
 from ferdelance.core.interfaces import SchedulerContext
 from ferdelance.core.steps import Finalize, Initialize, Parallel
 from ferdelance.database.tables import JobLock as JobLockDB, Job as JobDB
-from ferdelance.database.repositories import JobRepository, ArtifactRepository
+from ferdelance.database.repositories import JobRepository, ArtifactRepository, ResourceRepository
 from ferdelance.node.api import api
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
@@ -24,6 +25,7 @@ async def test_job_change_status(session: AsyncSession):
     with TestClient(api) as client:
         ar = ArtifactRepository(session)
         jr = JobRepository(session)
+        rr = ResourceRepository(session)
 
         p_token: str = "123456789"
 
@@ -74,7 +76,9 @@ async def test_job_change_status(session: AsyncSession):
         job_map: dict[int, Job] = dict()
 
         for i, job in enumerate(jobs):
-            j = await jr.create_job(a.id, job, job_id=f"job{i}")
+            job_id = f"job{i}"
+            r = await rr.create_resource(job_id, a.id, job.worker.id, job.iteration)
+            j = await jr.create_job(a.id, job, r.id, job_id=job_id)
             job_map[job.id] = j
 
         for job in jobs:

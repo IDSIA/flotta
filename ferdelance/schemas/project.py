@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from ferdelance.schemas.datasources import AggregatedDataSource, Query
 
-from pydantic import BaseModel
 from datetime import datetime
+from pydantic import BaseModel
 
 
 class BaseProject(BaseModel):

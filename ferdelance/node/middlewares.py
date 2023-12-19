@@ -14,6 +14,8 @@ from fastapi.routing import APIRoute
 from starlette.requests import empty_receive, empty_send
 from starlette.types import Receive, Scope, Send
 
+from pathlib import Path
+
 
 LOGGER = get_logger(__name__)
 
@@ -171,7 +173,7 @@ async def encrypt_response(request: SignableRequest, response: Response) -> Resp
     args: SessionArgs = request.args()
 
     if isinstance(response, FileResponse) and args.accept_encrypted:
-        checksum, stream_response = args.security_service.encrypt_file(response.path)
+        checksum, stream_response = args.security_service.encrypt_file(Path(response.path))
 
         headers = args.security_service.exc.create_signed_header(
             args.self_component.id,
