@@ -227,7 +227,7 @@ async def test_task_access(session: AsyncSession):
         assert res.status_code == 403
 
         res = server.get(
-            "/task/resource/none",
+            "/task/resource/none",  # TODO: change this to something similar
             headers=headers,
         )
 

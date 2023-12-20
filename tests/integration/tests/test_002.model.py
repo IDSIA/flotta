@@ -1,4 +1,3 @@
-import resource
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.distributions import Collect
 from ferdelance.core.model_operations import Aggregation, Train, TrainTest
@@ -8,8 +7,9 @@ from ferdelance.core.models import (
 )
 from ferdelance.core.steps import Finalize, Parallel
 from ferdelance.core.transformers import FederatedSplitter
-from ferdelance.workbench import Context
 from ferdelance.logging import get_logger
+from ferdelance.shared.status import ArtifactJobStatus
+from ferdelance.workbench import Context
 
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 
@@ -90,12 +90,12 @@ if __name__ == "__main__":
 
     LOGGER.info(f"Artifact id: {artifact.id}")
 
-    last_state = ""
+    last_state = None
 
     start_time = time.time()
     max_wait, wait_time = 60, 10
 
-    while (status := ctx.status(artifact)).status != "COMPLETED":
+    while (status := ctx.status(artifact)).status != ArtifactJobStatus.COMPLETED:
         if status.status == last_state:
             LOGGER.info(".")
         else:
@@ -117,21 +117,37 @@ if __name__ == "__main__":
         LOGGER.error("Not all models have been produced")
         sys.exit(-1)
 
-    cls_agg = ctx.get_resource(artifact)
+    res_agg = None
+    res_cl1 = None
+    res_cl2 = None
+
+    for r in resources:
+        if r.producer_id == client_id_1:
+            res_cl1 = r
+        elif r.producer_id == client_id_2:
+            res_cl2 = r
+        else:
+            res_agg = r
+
+    assert res_agg is not None
+    assert res_cl1 is not None
+    assert res_cl2 is not None
+
+    cls_agg = ctx.get_resource(res_agg)
 
     LOGGER.info(f"aggregated model fetched: {cls_agg}")
 
-    cls_pa1 = ctx.get_resource(artifact, client_id_1, 0)
+    cls_pa1 = ctx.get_resource(res_cl1)
 
     LOGGER.info(f"partial model 1 fetched:  {cls_pa1}")
 
-    cls_pa2 = ctx.get_resource(artifact, client_id_2, 0)
+    cls_pa2 = ctx.get_resource(res_cl2)
 
     LOGGER.info(f"partial model 2 fetched:  {cls_pa2}")
 
     df = pd.read_csv("/data/california_housing.validation.csv")
 
-    X = df.drop("MedHouseValDiscrete", axis=1).values
+    X = df.drop("MedHouseValDiscrete", axis=1)
     Y = df["MedHouseValDiscrete"]
 
     LOGGER.info("Partial Model 1")
