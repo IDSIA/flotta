@@ -23,7 +23,7 @@ class TaskNode(BaseModel):
     @root_validator
     def force_localhost(cls, values):
         if values["is_local"]:
-            values["url"] = "localhost"
+            values["url"] = "http://localhost"
         return values
 
 

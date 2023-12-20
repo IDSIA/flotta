@@ -353,11 +353,11 @@ class ConfigManager:
             return
 
         if not os.path.exists(config_path):
-            LOGGER.warn(f"configuration file not found at {config_path}")
+            LOGGER.warning(f"configuration file not found at {config_path}")
             self._set_default_config()
             return
 
-        LOGGER.info(f"loading configuration from path={config_path}")
+        LOGGER.debug(f"loading configuration from path={config_path}")
 
         with open(config_path, "r") as f:
             try:

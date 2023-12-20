@@ -44,6 +44,6 @@ class ActionService:
 
         except Exception as e:
             # real exception
-            LOGGER.warn(e)
+            LOGGER.exception(e)
 
         return await self._action_nothing()

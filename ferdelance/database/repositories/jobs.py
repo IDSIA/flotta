@@ -134,7 +134,7 @@ class JobRepository(Repository):
         """
         for locked_job in locked_jobs:
             if locked_job.artifact_id != job.artifact_id:
-                LOGGER.warn(f"job={job.id}: cannot lock locked_job={locked_job.id}, different artifacts!")
+                LOGGER.warning(f"job={job.id}: cannot lock locked_job={locked_job.id}, different artifacts!")
                 continue
 
             lock: JobLockDB = JobLockDB(
@@ -183,7 +183,7 @@ class JobRepository(Repository):
             Job:
                 The updated handler.
         """
-        LOGGER.info(f"component={job.component_id}: scheduled execution of job={job.id} artifact={job.artifact_id}")
+        LOGGER.info(f"component={job.component_id}: scheduling execution of job={job.id} artifact={job.artifact_id}")
         return await self.update_job_status(job, JobStatus.WAITING, JobStatus.SCHEDULED)
 
     async def start_execution(self, job: Job) -> Job:
@@ -197,7 +197,7 @@ class JobRepository(Repository):
             Job:
                 The updated handler.
         """
-        LOGGER.info(f"component={job.component_id}: started execution of job={job.id} artifact={job.artifact_id}")
+        LOGGER.info(f"component={job.component_id}: starting execution of job={job.id} artifact={job.artifact_id}")
         return await self.update_job_status(job, JobStatus.SCHEDULED, JobStatus.RUNNING)
 
     async def complete_execution(self, job: Job) -> Job:
@@ -274,8 +274,8 @@ class JobRepository(Repository):
             await self.session.refresh(job_db)
 
             LOGGER.info(
-                f"component={job_db.component_id}: changed state from={previous_status} to={next_status} "
-                f"for artifact={artifact_id} job={job_id}"
+                f"component={job_db.component_id}: changed state from={previous_status.name} to={next_status.name} "
+                f"for job={job_id} artifact={artifact_id}"
             )
 
             return view(job_db)

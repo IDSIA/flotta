@@ -55,10 +55,10 @@ class TrainTest(ModelOperation):
 
         metrics_list: list[Metrics] = list()
 
-        x_ts = env.X_ts.values
-        y_ts = env.Y_ts
+        X_ts = env.X_ts
+        Y_ts = env.Y_ts
 
-        metrics = self.model.eval(x_ts, y_ts)
+        metrics = self.model.eval(X_ts, Y_ts)
         metrics.source = self.source
         metrics.artifact_id = artifact_id
 
