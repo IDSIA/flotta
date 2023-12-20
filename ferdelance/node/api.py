@@ -4,6 +4,7 @@ from ferdelance.node.middlewares import SignedAPIRoute
 from ferdelance.node.routes import (
     client_router,
     node_router,
+    resource_router,
     task_router,
     workbench_router,
 )
@@ -25,6 +26,7 @@ def init_api() -> FastAPI:
     api.include_router(workbench_router)
     api.include_router(task_router)
     api.include_router(client_router)
+    api.include_router(resource_router)
 
     api.router.route_class = SignedAPIRoute
 

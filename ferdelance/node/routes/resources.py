@@ -14,7 +14,7 @@ import os
 
 LOGGER = get_logger(__name__)
 
-res_router = APIRouter(prefix="/resource", route_class=SignedAPIRoute)
+resource_router = APIRouter(prefix="/resource", route_class=SignedAPIRoute)
 
 
 async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> ValidSessionArgs:
@@ -29,7 +29,7 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
         raise HTTPException(403)
 
 
-@res_router.get("/")
+@resource_router.get("/")
 async def get_task(
     res_id: ResourceIdentifier,
     args: ValidSessionArgs = Depends(allow_access),
@@ -37,7 +37,7 @@ async def get_task(
     LOGGER.info(f"component={args.component.id}: request resource={res_id.resource_id}")
 
     if not config_manager.get().node.allow_resource_download:
-        LOGGER.warn(f"component={args.component.id}: this node does not allow the download of resources")
+        LOGGER.warning(f"component={args.component.id}: this node does not allow the download of resources")
         raise HTTPException(403)
 
     rm: ResourceManagementService = ResourceManagementService(args.session)
@@ -58,7 +58,7 @@ async def get_task(
         raise HTTPException(500)
 
 
-@res_router.post("/")
+@resource_router.post("/")
 async def post_resource(
     request: Request,
     args: ValidSessionArgs = Depends(allow_access),

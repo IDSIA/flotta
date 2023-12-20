@@ -1,6 +1,6 @@
 from ferdelance import __version__
 from ferdelance.config import config_manager, Configuration, DataSourceStorage
-from ferdelance.const import TYPE_CLIENT, COMPONENT_TYPES, TYPE_NODE
+from ferdelance.const import COMPONENT_TYPES
 from ferdelance.database.repositories import (
     Repository,
     AsyncSession,
@@ -100,7 +100,7 @@ class NodeStartup(Repository):
 
             self.self_component = await self.cr.create_component(
                 component_id,
-                TYPE_NODE,
+                self.config.get_node_type(),
                 self.ss.get_public_key(),
                 __version__,
                 self.config.node.name,
@@ -109,7 +109,7 @@ class NodeStartup(Repository):
                 True,
             )
 
-        LOGGER.info(f"component={self.self_component.id}: id assigned")
+        LOGGER.info(f"component={self.self_component.id}: self component id assigned")
 
         # projects
         await self.create_project()
@@ -148,7 +148,7 @@ class NodeStartup(Repository):
             self.remote_key = content.public_key
             self.ss.set_remote_key(self.remote_key)
 
-            type_name = TYPE_NODE if self.config.mode == "node" else TYPE_CLIENT
+            type_name = self.config.get_node_type()
 
             data_to_sign = f"{self.self_component.id}:{self.self_component.public_key}"
 

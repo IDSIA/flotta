@@ -98,6 +98,8 @@ class JobManagementService(Repository):
 
             artifact.id = artifact_db.id
 
+            LOGGER.info(f"component={self.self_component.id}: submitted artifact={artifact.id}")
+
             await self.schedule_tasks(artifact)
 
             return artifact_db.get_status()
@@ -111,6 +113,8 @@ class JobManagementService(Repository):
             artifact (Artifact):
                 Artifact to complete.
         """
+        LOGGER.info(f"artifact={artifact.id}: scheduling jobs")
+
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
 
@@ -169,6 +173,8 @@ class JobManagementService(Repository):
     async def next_task_for_component(self, component_id: str) -> str | None:
         jobs = await self.jr.list_scheduled_jobs_for_component(component_id)
 
+        LOGGER.info(f"component={self.self_component.id}: found {len(jobs)} job(s) for component={component_id}")
+
         if len(jobs) < 1:
             return None
 
@@ -178,6 +184,8 @@ class JobManagementService(Repository):
         return await self.jr.list_jobs_by_artifact_id(artifact_id)
 
     async def check(self, artifact_id: str) -> None:
+        LOGGER.info(f"component={self.self_component.id}: checking changes for artifact={artifact_id}")
+
         jobs = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id)
 
         artifact = await self.ar.get_artifact(artifact_id)
@@ -191,13 +199,15 @@ class JobManagementService(Repository):
                 it = job.iteration
                 job_to_start = True
 
-        if not job_to_start:
-            await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, it)
-            # TODO: check for iteration
-        else:
+        if job_to_start:
             await self.ar.update_status(artifact_id, ArtifactJobStatus.RUNNING, it)
 
+        else:
+            await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, it)
+
     async def get_task_by_job_id(self, job_id: str) -> Task:
+        LOGGER.info(f"component={self.self_component.id}: getting task for job={job_id}")
+
         # TODO: add checks if who is downloading the job is allowed to do so
         # FIXME: this is bad written: multiple queries can be aggregate together
 
@@ -241,7 +251,7 @@ class JobManagementService(Repository):
                     component_id=c.id,
                     public_key=c.public_key,
                     url=c.url,
-                    is_local=c.id == self.self_component.id,
+                    is_local=job.component_id == self.self_component.id,
                 )
             )
 
@@ -265,7 +275,7 @@ class JobManagementService(Repository):
         return task
 
     async def task_started(self, job_id: str) -> None:
-        LOGGER.info(f"job={job_id}: task started")
+        LOGGER.info(f"job={job_id}: task starting")
 
         try:
             job = await self.jr.get_by_id(job_id)
@@ -323,6 +333,8 @@ class JobManagementService(Repository):
             raise ValueError(f"artifact={metrics.artifact_id} assigned to metrics not found")
 
         path = await self.ar.storage_location(artifact.id, f"metrics_{metrics.source}.json")
+
+        LOGGER.info(f"component={self.self_component.id}: saving metrics for job={metrics.job_id}")
 
         async with aiofiles.open(path, "w") as f:
             content = json.dumps(metrics.dict())
