@@ -64,12 +64,21 @@ class Execution:
         try:
             task: Task = scheduler.get_task_data(artifact_id, job_id)
 
+            LOGGER.info(f"artifact={artifact_id}: obtained task with job={job_id}")
+
             es = ExecutionService(task, self.data, self.component_id)
 
             es.load()
 
             # get required resources
+            LOGGER.info(f"artifact={artifact_id}: collecting {len(task.required_resources)} resource(s)")
+
             for resource in task.required_resources:
+                LOGGER.info(
+                    f"artifact={artifact_id}: obtaining resource from "
+                    f"node={resource.component_id} url={resource.url}"
+                )
+
                 node = RouteService(
                     self.component_id,
                     self.private_key,
@@ -88,13 +97,24 @@ class Execution:
                 es.env.add_resource(resource.resource_id, res_path)
 
             # apply work from step
+            LOGGER.info(f"artifact={artifact_id}: starting execution")
+
             es.run()
 
             if es.env.products is None:
+                LOGGER.error(f"artifact={artifact_id}: nothing has been produced!")
                 raise ValueError("Produced resource not available")
 
             # send forward the produced resources
+            LOGGER.error(f"artifact={artifact_id}: sending produced resource to {len(task.next_nodes)} node(s)")
+
             for next_node in task.next_nodes:
+                LOGGER.info(
+                    f"artifact={artifact_id}: job={job_id} sending resource to "
+                    f"component={next_node.component_id} "
+                    f"url={next_node.url} "
+                    f"is_local={next_node.is_local}"
+                )
                 node = RouteService(
                     self.component_id,
                     self.private_key,
@@ -107,7 +127,12 @@ class Execution:
 
             scheduler.post_done(artifact_id, job_id)
 
+            LOGGER.info(f"artifact={artifact_id}: execution of job={job_id} completed with success")
+
         except Exception as e:
+            LOGGER.error(f"artifact={artifact_id}: execution of job={job_id} failed")
+            LOGGER.exception(e)
+
             scheduler.post_error(
                 artifact_id,
                 job_id,

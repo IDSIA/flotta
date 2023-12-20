@@ -94,8 +94,14 @@ async def post_done(
     done: TaskDone,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.warn(f"component={args.component.id}: job={done.job_id} completed")
+    LOGGER.info(f"component={args.component.id}: job={done.job_id} completed")
     jms: JobManagementService = JobManagementService(
+        args.session,
+        args.self_component,
+        args.security_service.get_private_key(),
+        args.security_service.get_public_key(),
+    )
+    tms: TaskManagementService = TaskManagementService(
         args.session,
         args.self_component,
         args.security_service.get_private_key(),
@@ -105,9 +111,13 @@ async def post_done(
     try:
         await jms.task_completed(done.job_id)
         await jms.check(done.artifact_id)
+        await tms.check(done.artifact_id)
 
     except Exception as e:
-        LOGGER.error(f"component={args.component.id}: could not save error to disk for job={done.job_id}")
+        LOGGER.error(
+            f"component={args.self_component.id}: something went wrong with completion of job={done.job_id} "
+            f"from component={args.component.id}"
+        )
         LOGGER.exception(e)
         return HTTPException(500)
 
@@ -117,7 +127,7 @@ async def post_error(
     error: TaskError,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.warn(f"component={args.component.id}: job={error.job_id} in error={error.message}")
+    LOGGER.warning(f"component={args.component.id}: job={error.job_id} in error={error.message}")
     jms: JobManagementService = JobManagementService(
         args.session,
         args.self_component,
@@ -129,6 +139,6 @@ async def post_error(
         await jms.task_failed(error)
 
     except Exception as e:
-        LOGGER.error(f"component={args.component.id}: could not save error to disk for job={error.job_id}")
+        LOGGER.error(f"component={args.component.id}: could not save error for job={error.job_id}")
         LOGGER.exception(e)
         return HTTPException(500)

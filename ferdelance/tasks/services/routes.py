@@ -35,12 +35,18 @@ class RouteService:
         self.exc.set_private_key(private_key)
         self.exc.set_remote_key(remote_public_key)
 
+        LOGGER.info(
+            f"component={self.component_id}: RouteService initialized for remote={self.remote} is_local={self.is_local}"
+        )
+
     def reroute(
         self,
         remote_url: str,
         remote_public_key: str,
         is_local: bool = False,
     ) -> None:
+        LOGGER.info(f"component={self.component_id}: rerouting from {self.remote} to {remote_url}")
+
         self.remote = remote_url
         self.is_local = is_local
         self.exc.set_remote_key(remote_public_key)
@@ -55,8 +61,8 @@ class RouteService:
             req.json(),
         )
 
-        res = requests.post(
-            f"{self.remote}/task/data",
+        res = requests.get(
+            f"{self.remote}/task",
             headers=headers,
             data=payload,
         )
@@ -67,7 +73,12 @@ class RouteService:
 
         task = Task(**json.loads(content))
 
-        LOGGER.info(f"artifact={artifact_id}: context for jon={job_id} upload successful")
+        LOGGER.info(
+            f"artifact={artifact_id}: got task for job={job_id}, "
+            f"produced resource={task.produced_resource_id} "
+            f"from n_resources={len(task.required_resources)}"
+            f"will be sent to n_nodes={len(task.next_nodes)}"
+        )
 
         return task
 
@@ -122,7 +133,7 @@ class RouteService:
             )
 
             res = requests.post(
-                f"{self.remote}/task/resource",
+                f"{self.remote}/resource",
                 headers=headers,
                 data=open(path_out, "rb"),
             )
@@ -142,7 +153,7 @@ class RouteService:
             _, data = self.exc.stream(payload)
 
             res = requests.post(
-                f"{self.remote}/task/resource",
+                f"{self.remote}/resource",
                 headers=headers,
                 data=data,
             )
@@ -158,7 +169,7 @@ class RouteService:
             )
 
             res = requests.post(
-                f"{self.remote}/task/resource",
+                f"{self.remote}/resource",
                 headers=headers,
             )
 
