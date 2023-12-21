@@ -34,7 +34,7 @@ async def get_task(
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(
-        f"component={args.component.id}: request new task with artifact={task_request.artifact_id} and job={task_request.job_id}"
+        f"component={args.component.id}: request task with artifact={task_request.artifact_id} and job={task_request.job_id}"
     )
 
     jms: JobManagementService = JobManagementService(
@@ -44,8 +44,7 @@ async def get_task(
         args.security_service.get_public_key(),
     )
 
-    task = await jms.get_task_by_job_id(task_request.job_id)
-    return task
+    return await jms.get_task_by_job_id(task_request.job_id)
 
 
 @task_router.post("/")

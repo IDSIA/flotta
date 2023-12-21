@@ -190,7 +190,7 @@ class DataSourceRepository(Repository):
         path = await self.storage_location(datasource.id)
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(datasource.dict())
+            content = json.dumps(datasource.dict(), indent=True)
             await f.write(content)
 
         return path

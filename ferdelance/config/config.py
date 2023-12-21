@@ -266,6 +266,9 @@ class Configuration(BaseSettings):
 
         return f"{_protocol}://{self.node.interface.rstrip('/')}{_port}"
 
+    def url_localhost(self) -> str:
+        return f"{self.node.protocol}://localhost:{self.node.port}"
+
     def get_workdir(self) -> Path:
         return Path(self.workdir)
 
@@ -292,7 +295,7 @@ class Configuration(BaseSettings):
     def storage_resource(self, resource_id: str) -> Path:
         d = self.storage_resource_dir()
         os.makedirs(d, exist_ok=True)
-        return d / f"{resource_id}.data"
+        return d / f"{resource_id}.pkl"
 
     def storage_clients_dir(self) -> Path:
         return self.get_workdir() / "clients"
@@ -408,6 +411,9 @@ class ConfigManager:
 
     def get(self) -> Configuration:
         return self.config
+
+    def get_data(self) -> DataSourceStorage:
+        return self.data
 
     def leave(self) -> bool:
         return self._leave

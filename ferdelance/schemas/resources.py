@@ -16,4 +16,5 @@ class ResourceIdentifier(BaseModel):
 class NewResource(BaseModel):
     artifact_id: str
     job_id: str
+    resource_id: str
     file: str = "attached"

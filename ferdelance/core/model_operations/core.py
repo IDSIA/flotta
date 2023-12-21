@@ -20,5 +20,5 @@ class ModelOperation(QueryOperation):
 
     def store_metrics(self, metrics: Metrics, path: Path) -> None:
         with open(path, "w") as f:
-            content = json.dumps(metrics)
+            content = json.dumps(metrics, indent=True)
             f.write(content)
