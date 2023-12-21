@@ -108,9 +108,10 @@ async def post_done(
     )
 
     try:
-        await jms.task_completed(done.job_id)
-        await jms.check(done.artifact_id)
-        await tms.check(done.artifact_id)
+        async with args.lock:
+            await jms.task_completed(done.job_id)
+            await jms.check(done.artifact_id)
+            await tms.check(done.artifact_id)
 
     except Exception as e:
         LOGGER.error(

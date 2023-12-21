@@ -56,8 +56,8 @@ class TaskManagementService(Repository):
 
         artifact = await self.ar.get_artifact(artifact_id)
 
-        if artifact.status != ArtifactJobStatus.COMPLETED:
-            LOGGER.info(f"component={self.self_component.id}: artifact={artifact_id} completed")
+        if artifact.status == ArtifactJobStatus.COMPLETED:
+            LOGGER.info(f"component={self.self_component.id}: artifact={artifact_id} already completed")
             return
 
         if artifact.status != ArtifactJobStatus.RUNNING:

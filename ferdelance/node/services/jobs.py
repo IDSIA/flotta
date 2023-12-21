@@ -190,7 +190,7 @@ class JobManagementService(Repository):
     async def check(self, artifact_id: str) -> None:
         LOGGER.info(f"component={self.self_component.id}: checking changes for artifact={artifact_id}")
 
-        jobs = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id, True)
+        jobs = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id)
 
         artifact = await self.ar.get_artifact(artifact_id)
         it = artifact.iteration
@@ -200,10 +200,8 @@ class JobManagementService(Repository):
         for job in jobs:
             if job.status == JobStatus.WAITING:
                 it = job.iteration
-                await self.jr.schedule_job(job, False)
+                await self.jr.schedule_job(job)
                 jobs_to_start += 1
-
-        await self.session.commit()
 
         if jobs_to_start > 0:
             await self.ar.update_status(artifact_id, ArtifactJobStatus.RUNNING, it)
