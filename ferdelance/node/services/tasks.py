@@ -1,13 +1,19 @@
 from typing import Any
 
-from ferdelance.config import config_manager
+from ferdelance.config import config_manager, Configuration
 from ferdelance.const import TYPE_CLIENT
-from ferdelance.database.repositories import AsyncSession, Repository, ComponentRepository
-from ferdelance.database.repositories.jobs import JobRepository
+from ferdelance.database.repositories import (
+    AsyncSession,
+    ArtifactRepository,
+    ComponentRepository,
+    JobRepository,
+    Repository,
+)
 from ferdelance.logging import get_logger
 from ferdelance.node.services.jobs import JobManagementService
 from ferdelance.schemas.components import Component
 from ferdelance.shared.exchange import Exchange
+from ferdelance.shared.status import ArtifactJobStatus, JobStatus
 from ferdelance.tasks.backends import get_jobs_backend
 from ferdelance.tasks.tasks import Task
 
@@ -27,6 +33,7 @@ class TaskManagementService(Repository):
     ) -> None:
         super().__init__(session)
 
+        self.ar: ArtifactRepository = ArtifactRepository(session)
         self.jr: JobRepository = JobRepository(session)
         self.cr: ComponentRepository = ComponentRepository(self.session)
 
@@ -34,7 +41,9 @@ class TaskManagementService(Repository):
         self.private_key: str = private_key
         self.public_key: str = public_key
 
-        self.local_datasources: list[dict[str, Any]] = [ds.dict() for ds in config_manager.data.ds_configs]
+        self.config: Configuration = config_manager.get()
+
+        self.local_datasources: list[dict[str, Any]] = [ds.dict() for ds in config_manager.get_data().ds_configs]
 
     async def check(self, artifact_id: str) -> None:
         """Checks if there are scheduled tasks that need to be started, locally or remotely.
@@ -43,12 +52,33 @@ class TaskManagementService(Repository):
             artifact_id (str):
                 Id of the artifact we are working on.
         """
+        LOGGER.info(f"component={self.self_component.id}: checking jobs to launch for artifact={artifact_id}")
+
+        artifact = await self.ar.get_artifact(artifact_id)
+
+        if artifact.status != ArtifactJobStatus.COMPLETED:
+            LOGGER.info(f"component={self.self_component.id}: artifact={artifact_id} completed")
+            return
+
+        if artifact.status != ArtifactJobStatus.RUNNING:
+            LOGGER.warning(
+                f"component={self.self_component.id}: artifact={artifact_id} status={artifact.status} not in RUNNING state"
+            )
+            return
+
         scheduled_jobs = await self.jr.list_scheduled_jobs_for_artifact(artifact_id)
 
         LOGGER.info(f"component={self.self_component.id}: found {len(scheduled_jobs)} job(s) in SCHEDULED state")
 
         for job in scheduled_jobs:
-            if job.component_id == self.self_component:
+            if job.status != JobStatus.SCHEDULED:
+                LOGGER.warning(
+                    f"component={self.self_component.id}: job={job.id} "
+                    f"status={job.status} is not in SCHEDULED status anymore"
+                )
+                continue
+
+            if job.component_id == self.self_component.id:
                 await self.start_locally(
                     job.artifact_id,
                     job.id,
@@ -56,6 +86,7 @@ class TaskManagementService(Repository):
                     self.private_key,
                     self.public_key,
                 )
+
             else:
                 await self.start_remote(
                     job.id,
@@ -92,7 +123,7 @@ class TaskManagementService(Repository):
             job_id,
             component_id,
             private_key,
-            "http://localhost/",
+            self.config.url_localhost(),
             public_key,
             self.local_datasources,
             True,

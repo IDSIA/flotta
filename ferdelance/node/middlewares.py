@@ -144,7 +144,11 @@ async def check_signature(db_session: AsyncSession, request: Request) -> Signabl
         LOGGER.debug("checking authentication header")
 
         # decrypt header
-        component_id, request.signed_checksum, signature, extra = request.security.get_headers(given_signature)
+        try:
+            component_id, request.signed_checksum, signature, extra = request.security.get_headers(given_signature)
+        except ValueError as _:
+            LOGGER.warning(f"component=UNKNOWN: invalid signature")
+            raise HTTPException(403, "Access Denied")
 
         # get request's component
         component = await cr.get_by_id(component_id)

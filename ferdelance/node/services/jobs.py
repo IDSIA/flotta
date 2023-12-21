@@ -1,5 +1,6 @@
 from typing import Sequence
 
+from ferdelance.config.config import Configuration, config_manager
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
 from ferdelance.core.interfaces import SchedulerContext, SchedulerJob
 from ferdelance.core.metrics import Metrics
@@ -28,6 +29,7 @@ from uuid import uuid4
 import aiofiles
 import aiofiles.ospath
 import json
+import os
 
 LOGGER = get_logger(__name__)
 
@@ -50,6 +52,8 @@ class JobManagementService(Repository):
         self.jr: JobRepository = JobRepository(session)
         self.pr: ProjectRepository = ProjectRepository(session)
         self.rr: ResourceRepository = ResourceRepository(session)
+
+        self.config: Configuration = config_manager.get()
 
         self.private_key: str = private_key
         self.node_public_key: str = node_public_key
@@ -186,24 +190,44 @@ class JobManagementService(Repository):
     async def check(self, artifact_id: str) -> None:
         LOGGER.info(f"component={self.self_component.id}: checking changes for artifact={artifact_id}")
 
-        jobs = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id)
+        jobs = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id, True)
 
         artifact = await self.ar.get_artifact(artifact_id)
         it = artifact.iteration
 
-        job_to_start = False
+        jobs_to_start = 0
 
         for job in jobs:
             if job.status == JobStatus.WAITING:
-                job = await self.jr.schedule_job(job)
                 it = job.iteration
-                job_to_start = True
+                await self.jr.schedule_job(job, False)
+                jobs_to_start += 1
 
-        if job_to_start:
+        await self.session.commit()
+
+        if jobs_to_start > 0:
             await self.ar.update_status(artifact_id, ArtifactJobStatus.RUNNING, it)
+            LOGGER.info(
+                f"component={self.self_component.id}: updated artifact={artifact_id} "
+                f"to status={ArtifactJobStatus.RUNNING} it={it} with {jobs_to_start} job(s) to start"
+            )
 
-        else:
+        jobs = await self.jr.list_jobs_by_artifact_id(artifact_id)
+
+        all_jobs_completed = True
+
+        for job in jobs:
+            if job.status != JobStatus.COMPLETED:
+                all_jobs_completed = False
+                break
+
+        if all_jobs_completed:
             await self.ar.update_status(artifact_id, ArtifactJobStatus.COMPLETED, it)
+            LOGGER.info(
+                f"component={self.self_component.id}: updated artifact={artifact_id} to status={ArtifactJobStatus.COMPLETED} it={it}"
+            )
+
+        LOGGER.info(f"component={self.self_component.id}: checking completed artifact={artifact_id}")
 
     async def get_task_by_job_id(self, job_id: str) -> Task:
         LOGGER.info(f"component={self.self_component.id}: getting task for job={job_id}")
@@ -223,8 +247,22 @@ class JobManagementService(Repository):
         task_resources = []
 
         for p_job in prev_jobs:
-            c = await self.cr.get_by_id(p_job.component_id)
             r = await self.rr.get_by_job_id(p_job.id)
+
+            if os.path.exists(r.path):
+                available_locally = True
+                url = self.config.url_localhost()
+                component_id = self.self_component.id
+                public_key = self.self_component.public_key
+                path = str(r.path)
+            else:
+                c = await self.cr.get_by_id(p_job.component_id)
+
+                available_locally = False
+                url = c.url
+                component_id = c.id
+                public_key = c.public_key
+                path = None
 
             task_resources.append(
                 TaskResource(
@@ -232,10 +270,11 @@ class JobManagementService(Repository):
                     artifact_id=job.artifact_id,
                     iteration=job.iteration,
                     job_id=p_job.id,
-                    component_id=c.id,
-                    public_key=c.public_key,
-                    url=c.url,
-                    is_local=c.id == self.self_component.id,
+                    component_id=component_id,
+                    public_key=public_key,
+                    url=url,
+                    available_locally=available_locally,
+                    local_path=path,
                 )
             )
 
@@ -251,7 +290,7 @@ class JobManagementService(Repository):
                     component_id=c.id,
                     public_key=c.public_key,
                     url=c.url,
-                    is_local=job.component_id == self.self_component.id,
+                    available_locally=job.component_id == self.self_component.id,
                 )
             )
 
@@ -279,11 +318,20 @@ class JobManagementService(Repository):
 
         try:
             job = await self.jr.get_by_id(job_id)
+
+            if job.status != JobStatus.SCHEDULED:
+                LOGGER.warning(
+                    f"component={self.self_component.id}: job={job_id} in status={job.status} "
+                    f"while expected status={JobStatus.SCHEDULED}"
+                )
+                return
+
             job = await self.jr.start_execution(job)
 
             await self.ar.update_status(job.artifact_id, ArtifactJobStatus.RUNNING)
 
-        except NoResultFound:
+        except Exception as e:
+            LOGGER.exception(e)
             raise ValueError(f"component={self.self_component.id}: job={job_id} does not exists")
 
     async def task_completed(self, job_id: str) -> None:
@@ -295,7 +343,6 @@ class JobManagementService(Repository):
 
             await self.rr.mark_as_done(job.id)
             await self.jr.unlock_job(job)
-            await self.check(job.artifact_id)
 
         except NoResultFound:
             raise ValueError(f"component={self.self_component.id}: job={job_id} does not exists")
@@ -318,7 +365,7 @@ class JobManagementService(Repository):
             await self.ar.update_status(job.artifact_id, ArtifactJobStatus.ERROR)
 
             async with aiofiles.open(resource.path, "w") as out_file:
-                content = json.dumps(error.dict())
+                content = json.dumps(error.dict(), indent=True)
                 await out_file.write(content)
 
             return resource
@@ -337,5 +384,5 @@ class JobManagementService(Repository):
         LOGGER.info(f"component={self.self_component.id}: saving metrics for job={metrics.job_id}")
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(metrics.dict())
+            content = json.dumps(metrics.dict(), indent=True)
             await f.write(content)

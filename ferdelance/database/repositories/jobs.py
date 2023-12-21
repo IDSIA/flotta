@@ -111,7 +111,7 @@ class JobRepository(Repository):
         path = config_manager.get().storage_job(artifact_id, job_id, job.iteration) / "job.json"
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(job.dict())
+            content = json.dumps(job.dict(), indent=True)
             await f.write(content)
 
         return path
@@ -172,7 +172,7 @@ class JobRepository(Repository):
 
         return any(res.all())
 
-    async def schedule_job(self, job: Job) -> Job:
+    async def schedule_job(self, job: Job, commit: bool = True) -> Job:
         """Change the state of a job from WAITING to SCHEDULED.
 
         Args:
@@ -184,7 +184,7 @@ class JobRepository(Repository):
                 The updated handler.
         """
         LOGGER.info(f"component={job.component_id}: scheduling execution of job={job.id} artifact={job.artifact_id}")
-        return await self.update_job_status(job, JobStatus.WAITING, JobStatus.SCHEDULED)
+        return await self.update_job_status(job, JobStatus.WAITING, JobStatus.SCHEDULED, commit)
 
     async def start_execution(self, job: Job) -> Job:
         """Change the state of a job from SCHEDULED to RUNNING.
@@ -228,7 +228,13 @@ class JobRepository(Repository):
         LOGGER.error(f"component={job.component_id}: failed execution of job={job.id} artifact={job.artifact_id}")
         return await self.update_job_status(job, JobStatus.RUNNING, JobStatus.ERROR)
 
-    async def update_job_status(self, job: Job, previous_status: JobStatus, next_status: JobStatus) -> Job:
+    async def update_job_status(
+        self,
+        job: Job,
+        previous_status: JobStatus,
+        next_status: JobStatus,
+        commit: bool = True,
+    ) -> Job:
         """Changes the state of the given job to JobStatus.RUNNING. An exception
         is raised if the job is not in JobStatus.SCHEDULED state, or if the job
         does not exists.
@@ -270,8 +276,9 @@ class JobRepository(Repository):
             if next_status == JobStatus.COMPLETED or next_status == JobStatus.ERROR:
                 job_db.termination_time = now
 
-            await self.session.commit()
-            await self.session.refresh(job_db)
+            if commit:
+                await self.session.commit()
+                await self.session.refresh(job_db)
 
             LOGGER.info(
                 f"component={job_db.component_id}: changed state from={previous_status.name} to={next_status.name} "
@@ -281,12 +288,7 @@ class JobRepository(Repository):
             return view(job_db)
 
         except NoResultFound:
-            message = (
-                f"component={component_id}: artifact={artifact_id} with job={job_id} in status "
-                f"{previous_status} not found"
-            )
-            LOGGER.error(message)
-            raise ValueError(message)
+            raise ValueError(f"artifact={artifact_id}: job={job_id} in status {previous_status} not found")
 
     async def get_by_id(self, job_id: str) -> Job:
         """Gets an handler to the job associated with the given job_id.
@@ -382,7 +384,7 @@ class JobRepository(Repository):
 
         return [view_lock(lock) for lock in locks.all()]
 
-    async def list_unlocked_jobs_by_artifact_id(self, artifact_id: str) -> list[Job]:
+    async def list_unlocked_jobs_by_artifact_id(self, artifact_id: str, with_for_update: bool = False) -> list[Job]:
         """Lists all jobs that are not locked by any constraint for the given
         artifact_id. Jobs can be in different states.
 
@@ -394,19 +396,23 @@ class JobRepository(Repository):
             list[Job]:
                 A list of jobs that are not locked by any constraint.
         """
-        jobs = await self.session.scalars(
-            select(JobDB).where(
-                JobDB.artifact_id == artifact_id,
-                JobDB.id.not_in(
-                    select(JobLockDB.next_id)
-                    .where(
-                        JobLockDB.locked.is_(True),
-                        JobLockDB.artifact_id == artifact_id,
-                    )
-                    .distinct()
-                ),
-            )
+        q = select(JobDB).where(
+            JobDB.artifact_id == artifact_id,
+            # This is NOT IN...
+            JobDB.id.not_in(
+                select(JobLockDB.next_id)
+                .where(
+                    JobLockDB.locked.is_(True),
+                    JobLockDB.artifact_id == artifact_id,
+                )
+                .distinct()
+            ),
         )
+
+        if with_for_update:
+            q = q.with_for_update()
+
+        jobs = await self.session.scalars(q)
 
         return [view(j) for j in jobs.all()]
 
@@ -425,6 +431,7 @@ class JobRepository(Repository):
         jobs = await self.session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact_id,
+                # ...and this is IN! Do not mix them
                 JobDB.id.in_(
                     select(JobLockDB.next_id)
                     .where(

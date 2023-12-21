@@ -1,10 +1,12 @@
 from typing import Any
 
-from ferdelance.config import DataSourceConfiguration
+from ferdelance.config import DataSourceConfiguration, config_manager
 from ferdelance.config.config import DataSourceStorage
 from ferdelance.logging import get_logger
 from ferdelance.tasks.services import RouteService, ExecutionService
 from ferdelance.tasks.tasks import Task, TaskError
+
+from pathlib import Path
 
 import ray
 import traceback
@@ -45,13 +47,13 @@ class Execution:
         self.scheduler_is_local: bool = scheduler_is_local
 
     def __repr__(self) -> str:
-        return f"Job artifact={self.artifact_id} job={self.job_id}"
+        return f"Job={self.job_id} artifact={self.artifact_id}"
 
     def run(self):
         artifact_id: str = self.artifact_id
         job_id: str = self.job_id
 
-        LOGGER.info(f"artifact={artifact_id}: received new task with job={job_id}")
+        LOGGER.info(f"JOB job={job_id}: received task")
 
         scheduler = RouteService(
             self.component_id,
@@ -64,77 +66,91 @@ class Execution:
         try:
             task: Task = scheduler.get_task_data(artifact_id, job_id)
 
-            LOGGER.info(f"artifact={artifact_id}: obtained task with job={job_id}")
+            LOGGER.info(f"JOB job={job_id}: obtained task")
 
             es = ExecutionService(task, self.data, self.component_id)
 
             es.load()
 
             # get required resources
-            LOGGER.info(f"artifact={artifact_id}: collecting {len(task.required_resources)} resource(s)")
+            LOGGER.info(f"JOB job={job_id}: collecting {len(task.required_resources)} resource(s)")
 
             for resource in task.required_resources:
                 LOGGER.info(
-                    f"artifact={artifact_id}: obtaining resource from "
-                    f"node={resource.component_id} url={resource.url}"
+                    f"JOB job={job_id}: obtaining resource from node={resource.component_id} url={resource.url}"
                 )
 
-                node = RouteService(
-                    self.component_id,
-                    self.private_key,
-                    resource.url,
-                    resource.public_key,
-                )
+                if resource.available_locally:
+                    if resource.local_path is None:
+                        raise ValueError("Resource available locally has no path!")
 
-                # path to resource saved locally
-                res_path = node.get_resource(
-                    resource.component_id,
-                    resource.artifact_id,
-                    resource.job_id,
-                    resource.resource_id,
-                    resource.iteration,
-                )
+                    res_path = Path(resource.local_path)
+
+                else:
+                    node = RouteService(
+                        self.component_id,
+                        self.private_key,
+                        resource.url,
+                        resource.public_key,
+                    )
+
+                    # path to resource saved locally
+                    res_path: Path = node.get_resource(
+                        resource.component_id,
+                        resource.artifact_id,
+                        resource.job_id,
+                        resource.resource_id,
+                        resource.iteration,
+                    )
+
                 es.env.add_resource(resource.resource_id, res_path)
 
             # apply work from step
-            LOGGER.info(f"artifact={artifact_id}: starting execution")
+            LOGGER.info(f"JOB job={job_id}: starting execution")
 
             es.run()
 
             if es.env.products is None:
-                LOGGER.error(f"artifact={artifact_id}: nothing has been produced!")
+                LOGGER.error(f"JOB job={job_id}: nothing has been produced!")
                 raise ValueError("Produced resource not available")
 
             # send forward the produced resources
-            LOGGER.error(f"artifact={artifact_id}: sending produced resource to {len(task.next_nodes)} node(s)")
+            LOGGER.info(
+                f"JOB job={job_id}: sending produced resource={task.produced_resource_id} "
+                f"to {len(task.next_nodes)} node(s)"
+            )
 
             for next_node in task.next_nodes:
                 LOGGER.info(
-                    f"artifact={artifact_id}: job={job_id} sending resource to "
+                    f"JOB job={job_id}: sending resource={task.produced_resource_id} to "
                     f"component={next_node.component_id} "
-                    f"url={next_node.url} "
-                    f"is_local={next_node.is_local}"
+                    f"via url={next_node.url} "
+                    f"is_local={next_node.available_locally}"
                 )
                 node = RouteService(
                     self.component_id,
                     self.private_key,
                     next_node.url,
                     next_node.public_key,
-                    next_node.is_local,
+                    next_node.available_locally,
                 )
 
-                node.post_resource(artifact_id, job_id, es.env.product_path())
+                if next_node.component_id == self.component_id:
+                    # This is local
+                    node.post_resource(artifact_id, job_id, task.produced_resource_id)
+
+                else:
+                    node.post_resource(artifact_id, job_id, task.produced_resource_id, es.env.product_path())
 
             scheduler.post_done(artifact_id, job_id)
 
-            LOGGER.info(f"artifact={artifact_id}: execution of job={job_id} completed with success")
+            LOGGER.info(f"JOB job={job_id}: execution completed with success")
 
         except Exception as e:
-            LOGGER.error(f"artifact={artifact_id}: execution of job={job_id} failed")
+            LOGGER.error(f"JOB job={job_id}: execution failed")
             LOGGER.exception(e)
 
             scheduler.post_error(
-                artifact_id,
                 job_id,
                 TaskError(
                     job_id=job_id,
