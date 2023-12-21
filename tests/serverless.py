@@ -218,6 +218,7 @@ class ServerlessExecution:
 
     async def task_completed(self, task: Task) -> None:
         await self.jobs_service.task_completed(task.job_id)
+        await self.jobs_service.check(task.artifact_id)
 
     async def task_failed(self, job_id: str) -> None:
         await self.jobs_service.task_failed(TaskError(job_id=job_id))

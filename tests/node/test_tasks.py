@@ -165,6 +165,7 @@ async def test_task_endpoints(session: AsyncSession):
         job = await _test_for_status(session, artifact.id, sc_id, JobStatus.WAITING, 1, 0)
 
         await jms.task_completed(cl_job_id)
+        await jms.check(artifact.id)
 
         job = await _test_for_status(session, artifact.id, cl_id, JobStatus.COMPLETED, 1, 0)
         job = await _test_for_status(session, artifact.id, sc_id, JobStatus.SCHEDULED, 1, 0)
@@ -196,6 +197,7 @@ async def test_task_endpoints(session: AsyncSession):
         job = await _test_for_status(session, artifact.id, sc_id, JobStatus.RUNNING, 1, 0)
 
         await jms.task_completed(sc_job_id)
+        await jms.check(artifact.id)
 
         job = await _test_for_status(session, artifact.id, sc_id, JobStatus.COMPLETED, 1, 0)
 

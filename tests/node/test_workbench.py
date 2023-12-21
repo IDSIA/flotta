@@ -321,6 +321,8 @@ async def test_get_results(session: AsyncSession):
         assert job1.status == JobStatus.RUNNING
 
         await jms.task_completed(job1.id)
+        await jms.check(artifact.id)
+
         job1 = await jr.get_by_id(job1.id)
         assert job1.status == JobStatus.COMPLETED
 
@@ -338,6 +340,8 @@ async def test_get_results(session: AsyncSession):
         res = await rms.store_resource(job2.id, job2.component_id)
 
         await jms.task_completed(job2.id)
+        await jms.check(artifact.id)
+
         job2 = await jr.get_by_id(job2.id)
         assert job2.status == JobStatus.COMPLETED
 
