@@ -1,6 +1,7 @@
 from ferdelance.const import TYPE_NODE
 from ferdelance.config import config_manager
 from ferdelance.core.artifacts import Artifact
+from ferdelance.database.repositories.artifact import ArtifactRepository
 from ferdelance.database.tables import Artifact as ArtifactDB, Job as JobDB
 from ferdelance.database.repositories import ProjectRepository, ComponentRepository, AsyncSession, JobRepository
 from ferdelance.logging import get_logger
@@ -92,6 +93,7 @@ async def test_task_endpoints(session: AsyncSession):
     with TestClient(api) as server:
         cr: ComponentRepository = ComponentRepository(session)
         jr: JobRepository = JobRepository(session)
+        ar: ArtifactRepository = ArtifactRepository(session)
 
         args = await connect(server, session)
 
@@ -108,7 +110,7 @@ async def test_task_endpoints(session: AsyncSession):
         pr: ProjectRepository = ProjectRepository(session)
         project = await pr.get_by_token(TEST_PROJECT_TOKEN)
 
-        model = DummyModel(query=project.data.extract())
+        model = DummyModel(query=project.extract())
 
         artifact = Artifact(
             id="",
@@ -129,6 +131,10 @@ async def test_task_endpoints(session: AsyncSession):
         assert status.status is not None
         assert status.status == ArtifactJobStatus.SCHEDULED
 
+        await jms.check(artifact.id)
+        status = await ar.get_status(artifact.id)
+        assert status.status == ArtifactJobStatus.RUNNING
+
         res = await session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact.id).limit(1))
         art_db: ArtifactDB = res.one()
 
@@ -136,6 +142,12 @@ async def test_task_endpoints(session: AsyncSession):
         assert os.path.exists(art_db.path)
 
         await _count_jobs(session, artifact.id, 2)
+
+        sc_job = await jr.get_by_artifact(artifact.id, sc_id, 0)
+        sc_job_id = sc_job.id
+
+        cl_job = await jr.get_by_artifact(artifact.id, cl_id, 0)
+        cl_job_id = cl_job.id
 
         unlocked_jobs = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
         locked_jobs = await jr.list_locked_jobs_by_artifact_id(artifact.id)
@@ -146,11 +158,8 @@ async def test_task_endpoints(session: AsyncSession):
         assert unlocked_jobs[0].component_id == cl_id
         assert locked_jobs[0].component_id == sc_id
 
-        job = await _test_for_status(session, artifact.id, cl_id, JobStatus.SCHEDULED, 1, 0)
-        cl_job_id = job.id
-
-        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.WAITING, 1, 0)
-        sc_job_id = job.id
+        await _test_for_status(session, artifact.id, cl_id, JobStatus.SCHEDULED, 1)
+        await _test_for_status(session, artifact.id, sc_id, JobStatus.WAITING, 1)
 
         # simulate client accept task
         next_cl_job = await jms.next_task_for_component(cl_id)
@@ -159,16 +168,16 @@ async def test_task_endpoints(session: AsyncSession):
 
         await jms.task_started(cl_job_id)
 
-        job = await _test_for_status(session, artifact.id, cl_id, JobStatus.RUNNING, 1, 0)
+        await _test_for_status(session, artifact.id, cl_id, JobStatus.RUNNING, 1)
 
         # simulate client run task
-        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.WAITING, 1, 0)
+        await _test_for_status(session, artifact.id, sc_id, JobStatus.WAITING, 1)
 
         await jms.task_completed(cl_job_id)
         await jms.check(artifact.id)
 
-        job = await _test_for_status(session, artifact.id, cl_id, JobStatus.COMPLETED, 1, 0)
-        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.SCHEDULED, 1, 0)
+        await _test_for_status(session, artifact.id, cl_id, JobStatus.COMPLETED, 1)
+        await _test_for_status(session, artifact.id, sc_id, JobStatus.SCHEDULED, 1)
 
         # check for unlocks
         unlocked_jobs = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
@@ -194,12 +203,12 @@ async def test_task_endpoints(session: AsyncSession):
 
         await jms.task_started(sc_job_id)
 
-        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.RUNNING, 1, 0)
+        await _test_for_status(session, artifact.id, sc_id, JobStatus.RUNNING, 1)
 
         await jms.task_completed(sc_job_id)
         await jms.check(artifact.id)
 
-        job = await _test_for_status(session, artifact.id, sc_id, JobStatus.COMPLETED, 1, 0)
+        await _test_for_status(session, artifact.id, sc_id, JobStatus.COMPLETED, 1)
 
         # check status of artifact
         res = await session.scalars(

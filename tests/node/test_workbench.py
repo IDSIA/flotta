@@ -225,7 +225,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         assert status.status is not None
         assert artifact_id is not None
-        assert status.status == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.RUNNING
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
@@ -245,7 +245,7 @@ async def test_workflow_submit(session: AsyncSession):
         status = ArtifactStatus(**json.loads(res_payload))
 
         assert status.status is not None
-        assert status.status == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.RUNNING
 
         headers, payload = wb_exc.create(args.wb_id, wba.json())
 
@@ -299,6 +299,7 @@ async def test_get_results(session: AsyncSession):
         # simulate artifact submission
         status = await jms.submit_artifact(artifact)
         artifact.id = status.id
+        await jms.check(artifact.id)
 
         jobs = await jr.list_jobs_by_artifact_id(artifact.id)
 

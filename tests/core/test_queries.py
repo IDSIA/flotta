@@ -127,7 +127,6 @@ def test_query_composition():
     assert f2 in s.features
 
     # adding a filter
-
     f: QueryFilter = q[f1] > 3
 
     assert isinstance(f, QueryFilter)

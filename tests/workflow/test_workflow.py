@@ -50,7 +50,6 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         cl_exc = args.cl_exc
 
         # workbench part
-
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
         headers, payload = wb_exc.create(args.wb_id, wpt.json())
@@ -126,7 +125,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         assert status.status is not None
         assert artifact_id is not None
-        assert status.status == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.RUNNING
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
@@ -147,7 +146,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         assert status.status is not None
         assert status.id is not None
 
-        assert status.status == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.RUNNING
 
         headers, payload = wb_exc.create(args.wb_id, wba.json())
 

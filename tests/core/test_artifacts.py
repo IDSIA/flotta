@@ -3,22 +3,11 @@ from ferdelance.core.distributions import Collect, Distribute
 from ferdelance.core.estimators.counters import CountEstimator
 from ferdelance.core.models import FederatedRandomForestClassifier
 from ferdelance.core.operations import SubtractMatrix, SumMatrix, UniformMatrix
-from ferdelance.core.steps import Finalize, Initialize, Parallel, SchedulerContext
-from ferdelance.schemas.components import Component
+from ferdelance.core.steps import Finalize, Initialize, Parallel
+
+from tests.utils import get_scheduler_context
 
 import json
-
-
-def get_scheduler_context(n_workers: int = 2) -> SchedulerContext:
-    s = Component(id="S", type_name="NODE", public_key="")
-
-    workers = [Component(id=f"W{w}", type_name="NODE", public_key="") for w in range(n_workers)]
-
-    return SchedulerContext(
-        artifact_id="artifact",
-        initiator=s,
-        workers=workers,
-    )
 
 
 def test_simple_artifact():
