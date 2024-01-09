@@ -8,14 +8,12 @@ from ferdelance.core.models import (
 from ferdelance.core.steps import Finalize, Parallel
 from ferdelance.core.transformers import FederatedSplitter
 from ferdelance.logging import get_logger
-from ferdelance.shared.status import ArtifactJobStatus
 from ferdelance.workbench import Context
 
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 
 import pandas as pd
 
-import time
 import os
 import sys
 
@@ -90,24 +88,11 @@ if __name__ == "__main__":
 
     LOGGER.info(f"Artifact id: {artifact.id}")
 
-    last_state = None
-
-    start_time = time.time()
-    max_wait, wait_time = 60, 10
-
-    while (status := ctx.status(artifact)).status != ArtifactJobStatus.COMPLETED:
-        if status.status == last_state:
-            LOGGER.info(".")
-        else:
-            last_state = status.status
-            start_time = time.time()
-            LOGGER.info(last_state)
-
-        time.sleep(wait_time)
-
-        if time.time() - start_time > max_wait:
-            LOGGER.error("reached max wait time")
-            sys.exit(-1)
+    try:
+        ctx.wait(artifact)
+    except ValueError as e:
+        LOGGER.exception(e)
+        sys.exit(-1)
 
     LOGGER.info("done!")
 
@@ -133,31 +118,35 @@ if __name__ == "__main__":
     assert res_cl1 is not None
     assert res_cl2 is not None
 
-    cls_agg = ctx.get_resource(res_agg)
-
-    LOGGER.info(f"aggregated model fetched: {cls_agg}")
-
     cls_pa1 = ctx.get_resource(res_cl1)
-
-    LOGGER.info(f"partial model 1 fetched:  {cls_pa1}")
+    LOGGER.info(f"Partial model 1 fetched")
+    for item in cls_pa1["metrics_list"]:
+        LOGGER.info(f"{item}")
 
     cls_pa2 = ctx.get_resource(res_cl2)
+    LOGGER.info(f"Partial model 2 fetched")
+    for item in cls_pa2["metrics_list"]:
+        LOGGER.info(f"{item}")
 
-    LOGGER.info(f"partial model 2 fetched:  {cls_pa2}")
+    cls_agg = ctx.get_resource(res_agg)
+    LOGGER.info(f"Aggregated model fetched")
 
     df = pd.read_csv("/data/california_housing.validation.csv")
 
     X = df.drop("MedHouseValDiscrete", axis=1)
     Y = df["MedHouseValDiscrete"]
 
+    LOGGER.info("Performance evaluation")
+    LOGGER.info("")
+
     LOGGER.info("Partial Model 1")
-    evaluate(cls_pa1, X, Y)
+    evaluate(cls_pa1["model"], X, Y)
     LOGGER.info("")
 
     LOGGER.info("Partial Model 2")
-    evaluate(cls_pa2, X, Y)
+    evaluate(cls_pa2["model"], X, Y)
     LOGGER.info("")
 
     LOGGER.info("Aggregated model")
-    evaluate(cls_agg, X, Y)
+    evaluate(cls_agg["model"], X, Y)
     LOGGER.info("")
