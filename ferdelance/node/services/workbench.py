@@ -100,7 +100,7 @@ class WorkbenchService:
 
         project = await pr.get_by_token(project_token)
 
-        LOGGER.info(f"user={self.wb_component.id}: loaded project with project={project.id}")
+        LOGGER.info(f"user={self.wb_component.id}: loaded project={project.id}")
 
         return project
 
@@ -132,11 +132,9 @@ class WorkbenchService:
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        return await self.jms.submit_artifact(artifact)
-
-    # async def store_resource(self, request_stream: AsyncGenerator[bytes, None]) -> str:
-    #     # TODO: find a way to manage resources without artifacts and with multiple artifacts
-    #     return await self.jms.store_resource(request_stream)
+        status = await self.jms.submit_artifact(artifact)
+        await self.jms.check(status.id)
+        return await self.get_status_artifact(status.id)
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """

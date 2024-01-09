@@ -76,7 +76,7 @@ class RouteService:
         LOGGER.info(
             f"JOB job={job_id}: got task with "
             f"produced resource={task.produced_resource_id} "
-            f"from n_resources={len(task.required_resources)}"
+            f"from n_resources={len(task.required_resources)} "
             f"will be sent to n_nodes={len(task.next_nodes)}"
         )
 
@@ -114,7 +114,7 @@ class RouteService:
     def post_resource(
         self, artifact_id: str, job_id: str, resource_id: str, path_in: Path | None = None, content: Any = None
     ) -> ResourceIdentifier:
-        LOGGER.info(f"JOB job={job_id}: posting resource for ")
+        LOGGER.info(f"JOB job={job_id}: posting resource to {self.remote}")
 
         nr = NewResource(
             artifact_id=artifact_id,

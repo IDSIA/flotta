@@ -15,7 +15,7 @@ from ferdelance.schemas.workbench import (
 )
 from ferdelance.shared.checksums import str_checksum
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from sqlalchemy.exc import SQLAlchemyError, MultipleResultsFound, NoResultFound

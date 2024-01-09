@@ -117,7 +117,7 @@ class JobManagementService(Repository):
             artifact (Artifact):
                 Artifact to complete.
         """
-        LOGGER.info(f"artifact={artifact.id}: scheduling jobs")
+        LOGGER.info(f"artifact={artifact.id}: collecting jobs to be scheduled")
 
         project = await self.pr.get_by_id(artifact.project_id)
         datasources_ids = await self.pr.list_datasources_ids(project.token)
@@ -167,13 +167,6 @@ class JobManagementService(Repository):
 
             await self.jr.add_locks(job_db, unlocks)
 
-        # set first job to scheduled
-        jobs_ready = await self.jr.list_unlocked_jobs_by_artifact_id(artifact.id)
-
-        for job in jobs_ready:
-            LOGGER.info(f"artifact={artifact.id}: scheduling initial job={job.id}")
-            await self.jr.schedule_job(job)
-
     async def next_task_for_component(self, component_id: str) -> str | None:
         jobs = await self.jr.list_scheduled_jobs_for_component(component_id)
 
@@ -190,14 +183,14 @@ class JobManagementService(Repository):
     async def check(self, artifact_id: str) -> None:
         LOGGER.info(f"component={self.self_component.id}: checking changes for artifact={artifact_id}")
 
-        jobs = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id)
+        jobs_ready = await self.jr.list_unlocked_jobs_by_artifact_id(artifact_id)
 
         artifact = await self.ar.get_artifact(artifact_id)
         it = artifact.iteration
 
         jobs_to_start = 0
 
-        for job in jobs:
+        for job in jobs_ready:
             if job.status == JobStatus.WAITING:
                 it = job.iteration
                 await self.jr.schedule_job(job)
@@ -210,11 +203,11 @@ class JobManagementService(Repository):
                 f"to status={ArtifactJobStatus.RUNNING} it={it} with {jobs_to_start} job(s) to start"
             )
 
-        jobs = await self.jr.list_jobs_by_artifact_id(artifact_id)
+        jobs_ready = await self.jr.list_jobs_by_artifact_id(artifact_id)
 
         all_jobs_completed = True
 
-        for job in jobs:
+        for job in jobs_ready:
             if job.status != JobStatus.COMPLETED:
                 all_jobs_completed = False
                 break
@@ -225,7 +218,7 @@ class JobManagementService(Repository):
                 f"component={self.self_component.id}: updated artifact={artifact_id} to status={ArtifactJobStatus.COMPLETED} it={it}"
             )
 
-        LOGGER.info(f"component={self.self_component.id}: checking completed artifact={artifact_id}")
+        LOGGER.info(f"component={self.self_component.id}: checking done for artifact={artifact_id}")
 
     async def get_task_by_job_id(self, job_id: str) -> Task:
         LOGGER.info(f"component={self.self_component.id}: getting task for job={job_id}")
@@ -234,8 +227,19 @@ class JobManagementService(Repository):
         # FIXME: this is bad written: multiple queries can be aggregate together
 
         job = await self.jr.get_by_id(job_id)
+        artifact_id: str = job.artifact_id
+        it = job.iteration
+
         scheduler_job = await self.jr.load(job)
-        artifact = await self.ar.load(job.artifact_id)
+        artifact = await self.ar.load(artifact_id)
+
+        art_db = await self.ar.get_status(artifact_id)
+        if art_db == ArtifactJobStatus.SCHEDULED:
+            await self.ar.update_status(artifact_id, ArtifactJobStatus.RUNNING, it)
+            LOGGER.info(
+                f"component={self.self_component.id}: updated artifact={artifact_id} "
+                f"to status={ArtifactJobStatus.RUNNING} it={it}"
+            )
 
         project = await self.pr.get_by_id(artifact.project_id)
 

@@ -14,6 +14,7 @@ from ferdelance.schemas.workbench import (
 )
 from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.checksums import str_checksum
+from ferdelance.shared.status import ArtifactJobStatus
 from ferdelance.workbench.interface import (
     Project,
     Client,
@@ -29,6 +30,7 @@ import json
 import os
 import pickle
 import requests
+import time
 
 LOGGER = get_logger(__name__)
 
@@ -305,6 +307,40 @@ class Context:
 
         return ArtifactStatus(**json.loads(data))
 
+    def wait(self, artifact: Artifact | ArtifactStatus, max_wait: int = 60, wait_time: int = 10) -> None:
+        """Waiting loop for artifact status until completion or waiting time is
+        reached.
+
+        Args:
+            artifact (Artifact | ArtifactStatus):
+                Artifact or ArtifactStatus to wait for.
+            max_wait (int, optional):
+                Max waiting time in seconds.
+                Defaults to 60.
+            wait_time (int, optional):
+                Wait interval in seconds.
+                Defaults to 10.
+        Raises:
+            ValueError:
+                When max waiting time is reached.
+        """
+        last_state = None
+
+        start_time = time.time()
+        while (status := self.status(artifact)).status != ArtifactJobStatus.COMPLETED:
+            if status.status == last_state:
+                LOGGER.info(".")
+            else:
+                last_state = status.status
+                start_time = time.time()
+                LOGGER.info(last_state)
+
+            time.sleep(wait_time)
+
+            if time.time() - start_time > max_wait:
+                LOGGER.error("reached max wait time")
+                raise ValueError("Reached max wait time")
+
     def get_artifact(self, artifact_id: str) -> Artifact:
         """Get the specified artifact from the server.
 
@@ -338,7 +374,7 @@ class Context:
         headers, payload = self.exc.create(self.id, wba.json())
 
         res = requests.get(
-            f"{self.server}/resource/list",
+            f"{self.server}/workbench/resource/list",
             headers=headers,
             data=payload,
         )
