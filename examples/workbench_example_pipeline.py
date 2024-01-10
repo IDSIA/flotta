@@ -1,9 +1,6 @@
 # %%
-from ferdelance.workbench.context import Context
-from ferdelance.schemas.queries import Query
-from ferdelance.schemas.datasources import DataSource
-from ferdelance.schemas.project import Project
-from ferdelance.schemas.transformers import (
+from ferdelance.core.queries import Query
+from ferdelance.core.transformers import (
     FederatedPipeline,
     FederatedMinMaxScaler,
     FederatedSimpleImputer,
@@ -14,9 +11,12 @@ from ferdelance.schemas.transformers import (
     FederatedOneHotEncoder,
     FederatedClamp,
 )
+from ferdelance.schemas.datasources import DataSource
+from ferdelance.schemas.project import Project
+from ferdelance.workbench.context import Context
 
 # %% create the context
-ctx = Context("http://ferdelance.artemis.idsia.ch")
+ctx = Context("http://localhost:1456")
 
 p: Project = ctx.project("")
 
@@ -33,20 +33,20 @@ all_features = q.features()
 
 f1, f2, f3, f4, f5, f6, f7, f8, f9 = all_features
 
-mms = FederatedMinMaxScaler(all_features, all_features)
-im = FederatedSimpleImputer([f1, f2], [f1, f2])
-cl = FederatedClamp(f1, f1)
-bi = FederatedBinarizer(f2, f2)
+mms = FederatedMinMaxScaler(features_in=all_features, features_out=all_features)
+im = FederatedSimpleImputer(features_in=[f1, f2], features_out=[f1, f2])
+cl = FederatedClamp(features_in=[f1], features_out=[f1])
+bi = FederatedBinarizer(features_in=[f2], features_out=[f2])
 
-ohe1 = FederatedOneHotEncoder(f3)
-ohe2 = FederatedOneHotEncoder(f4)
-rm = FederatedDrop(ohe1.features_out[2])
+ohe1 = FederatedOneHotEncoder(features_in=[f3])
+ohe2 = FederatedOneHotEncoder(features_in=[f4])
+rm = FederatedDrop(features_in=[ohe1.features_out[2]])
 
-dsc = FederatedKBinsDiscretizer(f5, f5)
-le = FederatedLabelBinarizer(f9, f9)
+dsc = FederatedKBinsDiscretizer(features_in=[f5], features_out=[f5])
+le = FederatedLabelBinarizer(features_in=[f9], features_out=[f9])
 
 pipe = FederatedPipeline(
-    [
+    stages=[
         mms,
         im,
         cl,
