@@ -1,9 +1,10 @@
+from uuid import uuid4
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.distributions import Collect, Distribute
 from ferdelance.core.interfaces import SchedulerContext
 from ferdelance.core.steps import Finalize, Initialize, Parallel
 from ferdelance.database.tables import JobLock as JobLockDB, Job as JobDB
-from ferdelance.database.repositories import JobRepository, ArtifactRepository
+from ferdelance.database.repositories import JobRepository, ArtifactRepository, ResourceRepository
 from ferdelance.node.api import api
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
@@ -24,6 +25,7 @@ async def test_job_change_status(session: AsyncSession):
     with TestClient(api) as client:
         ar = ArtifactRepository(session)
         jr = JobRepository(session)
+        rr = ResourceRepository(session)
 
         p_token: str = "123456789"
 
@@ -74,7 +76,9 @@ async def test_job_change_status(session: AsyncSession):
         job_map: dict[int, Job] = dict()
 
         for i, job in enumerate(jobs):
-            j = await jr.create_job(a.id, job, job_id=f"job{i}")
+            job_id = f"job{i}"
+            r = await rr.create_resource(job_id, a.id, job.worker.id, job.iteration)
+            j = await jr.create_job(a.id, job, r.id, job_id=job_id)
             job_map[job.id] = j
 
         for job in jobs:
@@ -102,6 +106,8 @@ async def test_job_change_status(session: AsyncSession):
                 print("job: id=", j.id)
             print()
 
+            return jobs
+
         async def list_unlocks():
             print("list all unlocks")
             unlocks = await session.scalars(select(JobLockDB))
@@ -111,6 +117,8 @@ async def test_job_change_status(session: AsyncSession):
                 print(f"unlock: id={u.id:2} job_id={u.job_id} next_job={u.next_id} locked={u.locked}")
             print()
 
+            return unlocks
+
         async def list_unlocked_jobs():
             print("list unlocked jobs")
             jobs = await jr.list_unlocked_jobs_by_artifact_id(a.id)
@@ -118,6 +126,7 @@ async def test_job_change_status(session: AsyncSession):
             for job in jobs:
                 print("job: id=", job.id)
             print()
+            return jobs
 
         async def unlock(job):
             print(f"unlock {job.id}")
@@ -125,18 +134,24 @@ async def test_job_change_status(session: AsyncSession):
 
         await list_jobs()
         await list_unlocks()
-        await list_unlocked_jobs()
+        unlocked = await list_unlocked_jobs()
+
+        assert len(unlocked) == 1
+        assert unlocked[0].id == job0.id
 
         await unlock(job0)
 
-        await list_unlocked_jobs()
         await list_unlocks()
+        unlocked = await list_unlocked_jobs()
+        assert len(unlocked) == 4
 
         await unlock(job1)
         await unlock(job2)
 
-        await list_unlocked_jobs()
+        unlocked = await list_unlocked_jobs()
+        assert len(unlocked) == 4
 
         await unlock(job3)
 
-        await list_unlocked_jobs()
+        unlocked = await list_unlocked_jobs()
+        assert len(unlocked) == 5

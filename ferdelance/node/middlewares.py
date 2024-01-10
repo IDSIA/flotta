@@ -14,6 +14,10 @@ from fastapi.routing import APIRoute
 from starlette.requests import empty_receive, empty_send
 from starlette.types import Receive, Scope, Send
 
+from pathlib import Path
+
+import asyncio
+
 
 LOGGER = get_logger(__name__)
 
@@ -26,6 +30,8 @@ class SessionArgs:
     self_component: Component
 
     ip_address: str
+
+    lock: asyncio.Lock
 
     content_encrypted: bool = False
     accept_encrypted: bool = False
@@ -46,6 +52,7 @@ class SignableRequest(Request):
         self,
         db_session: AsyncSession,
         self_component: Component,
+        lock: asyncio.Lock,
         scope: Scope,
         receive: Receive = empty_receive,
         send: Send = empty_send,
@@ -54,6 +61,8 @@ class SignableRequest(Request):
 
         self.db_session: AsyncSession = db_session
         self.security: SecurityService = SecurityService()
+
+        self.lock: asyncio.Lock = lock
 
         self.content_encrypted: bool = "encrypted" in self.headers.get("Content-Encoding", "").split("/")
         self.accept_encrypted: bool = "encrypted" in self.headers.get("Accept-Encoding", "").split("/")
@@ -77,6 +86,7 @@ class SignableRequest(Request):
             accept_encrypted=self.accept_encrypted,
             ip_address=self.ip_address,
             identity=self.component is not None,
+            lock=self.lock,
         )
 
     def valid_args(self) -> ValidSessionArgs:
@@ -94,6 +104,7 @@ class SignableRequest(Request):
             checksum=self.checksum,
             component=self.component,
             extra_headers=self.extra_headers,
+            lock=self.lock,
         )
 
     async def body(self) -> bytes:
@@ -131,18 +142,22 @@ class SignableRequest(Request):
         return self._body
 
 
-async def check_signature(db_session: AsyncSession, request: Request) -> SignableRequest:
+async def check_signature(db_session: AsyncSession, request: Request, lock: asyncio.Lock) -> SignableRequest:
     cr: ComponentRepository = ComponentRepository(db_session)
     self_component = await cr.get_self_component()
 
-    request = SignableRequest(db_session, self_component, request.scope, request.receive)
+    request = SignableRequest(db_session, self_component, lock, request.scope, request.receive)
 
     given_signature = request.headers.get("Signature", "")
     if given_signature:
         LOGGER.debug("checking authentication header")
 
         # decrypt header
-        component_id, request.signed_checksum, signature, extra = request.security.get_headers(given_signature)
+        try:
+            component_id, request.signed_checksum, signature, extra = request.security.get_headers(given_signature)
+        except ValueError as _:
+            LOGGER.warning(f"component=UNKNOWN: invalid signature")
+            raise HTTPException(403, "Access Denied")
 
         # get request's component
         component = await cr.get_by_id(component_id)
@@ -171,7 +186,7 @@ async def encrypt_response(request: SignableRequest, response: Response) -> Resp
     args: SessionArgs = request.args()
 
     if isinstance(response, FileResponse) and args.accept_encrypted:
-        checksum, stream_response = args.security_service.encrypt_file(response.path)
+        checksum, stream_response = args.security_service.encrypt_file(Path(response.path))
 
         headers = args.security_service.exc.create_signed_header(
             args.self_component.id,
@@ -203,12 +218,16 @@ async def encrypt_response(request: SignableRequest, response: Response) -> Resp
 
 
 class SignedAPIRoute(APIRoute):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lock = asyncio.Lock()
+
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         original_route_handler = super().get_route_handler()
 
         async def custom_route_handler(request: Request) -> Response:
             async with DataBase().session() as db_session:
-                request = await check_signature(db_session, request)
+                request = await check_signature(db_session, request, self.lock)
 
                 response = await original_route_handler(request)
 

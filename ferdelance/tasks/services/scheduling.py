@@ -35,9 +35,10 @@ class ScheduleActionService:
             artifact_id,
             job_id,
             remote_url,
-            self.private_key,
             remote_public_key,
+            self.private_key,
             [d.dict() for d in dsc],
+            False,
         )
         _ = actor_handler.run.remote()  # type: ignore
 

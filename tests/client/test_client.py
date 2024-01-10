@@ -1,9 +1,9 @@
-from ferdelance.logging import get_logger
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.database.tables import DataSource as DataSourceDB
-from ferdelance.schemas.components import Component  # , Event
-from ferdelance.schemas.metadata import Metadata
+from ferdelance.logging import get_logger
 from ferdelance.node.api import api
+from ferdelance.schemas.components import Component
+from ferdelance.schemas.metadata import Metadata
 from ferdelance.shared.actions import Action
 from ferdelance.shared.exchange import Exchange
 

@@ -5,9 +5,16 @@ from ferdelance.core.model_operations.train import Train, TrainTest
 from ferdelance.core.operations.core import QueryOperation
 from ferdelance.core.steps import Finalize, Parallel
 from ferdelance.core.transformers.splitters import FederatedSplitter
-from ferdelance.logging import get_logger
 from ferdelance.database.tables import Job
+from ferdelance.logging import get_logger
 from ferdelance.node.api import api
+from ferdelance.schemas.updates import UpdateData
+from ferdelance.schemas.workbench import (
+    WorkbenchProjectToken,
+    WorkbenchArtifact,
+)
+from ferdelance.shared.actions import Action
+from ferdelance.shared.status import ArtifactJobStatus
 from ferdelance.tasks.tasks import Task
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
@@ -16,19 +23,7 @@ from ferdelance.workbench.interface import (
     ArtifactStatus,
 )
 
-# from ferdelance.schemas.models import Model
-from ferdelance.schemas.updates import UpdateData
-
-# from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.schemas.workbench import (
-    WorkbenchProjectToken,
-    WorkbenchArtifact,
-)
-
-from ferdelance.shared.actions import Action
-from ferdelance.shared.status import ArtifactJobStatus
 from tests.dummies import DummyModel
-
 from tests.utils import (
     connect,
     client_update,
@@ -55,7 +50,6 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         cl_exc = args.cl_exc
 
         # workbench part
-
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
         headers, payload = wb_exc.create(args.wb_id, wpt.json())
@@ -131,7 +125,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         assert status.status is not None
         assert artifact_id is not None
-        assert status.status == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.RUNNING
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
@@ -152,7 +146,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         assert status.status is not None
         assert status.id is not None
 
-        assert status.status == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.RUNNING
 
         headers, payload = wb_exc.create(args.wb_id, wba.json())
 

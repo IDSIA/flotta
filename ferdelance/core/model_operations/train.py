@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from ferdelance.logging import get_logger
 from ferdelance.core.environment import Environment
 from ferdelance.core.model_operations import ModelOperation
 from ferdelance.core.metrics import Metrics
+from ferdelance.logging import get_logger
 
 
 LOGGER = get_logger(__name__)
@@ -55,10 +55,10 @@ class TrainTest(ModelOperation):
 
         metrics_list: list[Metrics] = list()
 
-        x_ts = env.X_ts.values
-        y_ts = env.Y_ts
+        X_ts = env.X_ts
+        Y_ts = env.Y_ts
 
-        metrics = self.model.eval(x_ts, y_ts)
+        metrics = self.model.eval(X_ts, Y_ts)
         metrics.source = self.source
         metrics.artifact_id = artifact_id
 

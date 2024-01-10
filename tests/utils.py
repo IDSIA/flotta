@@ -1,17 +1,18 @@
 from typing import Any
-from ferdelance.database.repositories.artifact import ArtifactRepository
-from ferdelance.database.repositories.jobs import JobRepository
 
-from ferdelance.logging import get_logger
 from ferdelance.const import TYPE_CLIENT
-from ferdelance.database.repositories import ProjectRepository, AsyncSession
+from ferdelance.core.interfaces import SchedulerContext
+from ferdelance.database.repositories import ProjectRepository, AsyncSession, ArtifactRepository, JobRepository
+from ferdelance.logging import get_logger
 from ferdelance.schemas.client import ClientUpdate
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.workbench import WorkbenchJoinRequest
 from ferdelance.shared.actions import Action
 from ferdelance.shared.checksums import str_checksum
 from ferdelance.shared.exchange import Exchange
+from ferdelance.shared.status import JobStatus
 
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
@@ -19,7 +20,6 @@ from pydantic import BaseModel
 import json
 import uuid
 
-from ferdelance.shared.status import JobStatus
 
 LOGGER = get_logger(__name__)
 
@@ -310,3 +310,15 @@ async def assert_jobs_count(
     assert job_running_count == exp_jobs_running
     assert job_completed_count == exp_jobs_completed
     assert job_failed_count == exp_jobs_failed
+
+
+def get_scheduler_context(n_workers: int = 2) -> SchedulerContext:
+    s = Component(id="S", type_name="NODE", public_key="")
+
+    workers = [Component(id=f"W{w}", type_name="NODE", public_key="") for w in range(n_workers)]
+
+    return SchedulerContext(
+        artifact_id="artifact",
+        initiator=s,
+        workers=workers,
+    )

@@ -6,6 +6,13 @@ import os
 import sys
 
 
+def get_log_formatter() -> logging.Formatter:
+    return logging.Formatter(
+        fmt="%(asctime)s,%(msecs)03d %(levelname)8s %(name)48.48s:%(lineno)-3s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+
 def get_logger(name: str) -> logging.Logger:
     # log level
     level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -16,10 +23,7 @@ def get_logger(name: str) -> logging.Logger:
     logger.setLevel(level)
 
     # formatter
-    log_formatter = logging.Formatter(
-        fmt="%(asctime)s %(levelname)8s %(name)48.48s:%(lineno)-3s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    log_formatter = get_log_formatter()
 
     # file handler
     path = Path("logs")

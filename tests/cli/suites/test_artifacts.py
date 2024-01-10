@@ -4,7 +4,6 @@ from ferdelance.schemas.database import ServerArtifact
 from ferdelance.shared.status import ArtifactJobStatus
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from pathlib import Path
 
 import pytest

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from ferdelance.logging import get_logger
 from ferdelance.core.metrics import Metrics
 from ferdelance.core.model import Model
 from ferdelance.core.operations import QueryOperation
+from ferdelance.logging import get_logger
 
 from pathlib import Path
 
@@ -20,5 +20,5 @@ class ModelOperation(QueryOperation):
 
     def store_metrics(self, metrics: Metrics, path: Path) -> None:
         with open(path, "w") as f:
-            content = json.dumps(metrics)
+            content = json.dumps(metrics, indent=True)
             f.write(content)

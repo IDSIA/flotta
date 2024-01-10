@@ -1,5 +1,6 @@
-from argparse import ArgumentParser, Namespace
 from typing import Any
+from argparse import ArgumentParser, Namespace
+
 from ferdelance.cli.base import CLICommand, CLICommandSuite
 
 

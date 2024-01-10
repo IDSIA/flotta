@@ -2,10 +2,13 @@ workdir: ./storage
 mode: client
 
 node:
-  name: Client2
+  name: Client1
   healthcheck: 120.0
   heartbeat: 10.0
-  token_project_default: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
+
+  token_projects_initial:
+    - name: california_clients
+      token: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
 
 join:
   first: False
@@ -20,8 +23,8 @@ database:
   host: ./sqlite.db
 
 datasources:
-  - name: california2
+  - name: california1
     type: csv
-    path: "/ferdelance/data/california_housing.MedInc2.csv"
+    path: "/ferdelance/data/california_housing.MedInc1.csv"
     kind: file
     token: 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94

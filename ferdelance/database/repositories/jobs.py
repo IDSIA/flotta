@@ -1,9 +1,7 @@
-import json
-import aiofiles
 from ferdelance.config import config_manager
 from ferdelance.core.interfaces import SchedulerJob
 from ferdelance.database.tables import Job as JobDB, JobLock as JobLockDB
-from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.database.repositories import AsyncSession, Repository
 from ferdelance.logging import get_logger
 from ferdelance.schemas.jobs import Job, JobLock
 from ferdelance.shared.status import JobStatus
@@ -11,9 +9,13 @@ from ferdelance.shared.status import JobStatus
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import NoResultFound
 
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
+
+import aiofiles
+import json
+
 
 LOGGER = get_logger(__name__)
 
@@ -51,11 +53,11 @@ class JobRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    # TODO: maybe replace arguments with job object?
     async def create_job(
         self,
         artifact_id: str,
         job: SchedulerJob,
+        resource_id: str,
         status=JobStatus.WAITING,
         job_id: str | None = None,
     ) -> Job:
@@ -92,6 +94,7 @@ class JobRepository(Repository):
             path=str(path),
             status=status.name,
             iteration=job.iteration,
+            resource_id=resource_id,
         )
 
         self.session.add(job_db)
@@ -108,7 +111,7 @@ class JobRepository(Repository):
         path = config_manager.get().storage_job(artifact_id, job_id, job.iteration) / "job.json"
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(job.dict())
+            content = json.dumps(job.dict(), indent=True)
             await f.write(content)
 
         return path
@@ -131,7 +134,7 @@ class JobRepository(Repository):
         """
         for locked_job in locked_jobs:
             if locked_job.artifact_id != job.artifact_id:
-                LOGGER.warn(f"job={job.id}: cannot lock locked_job={locked_job.id}, different artifacts!")
+                LOGGER.warning(f"job={job.id}: cannot lock locked_job={locked_job.id}, different artifacts!")
                 continue
 
             lock: JobLockDB = JobLockDB(
@@ -180,7 +183,7 @@ class JobRepository(Repository):
             Job:
                 The updated handler.
         """
-        LOGGER.info(f"component={job.component_id}: scheduled execution of job={job.id} artifact={job.artifact_id}")
+        LOGGER.info(f"component={job.component_id}: scheduling execution of job={job.id} artifact={job.artifact_id}")
         return await self.update_job_status(job, JobStatus.WAITING, JobStatus.SCHEDULED)
 
     async def start_execution(self, job: Job) -> Job:
@@ -194,7 +197,7 @@ class JobRepository(Repository):
             Job:
                 The updated handler.
         """
-        LOGGER.info(f"component={job.component_id}: started execution of job={job.id} artifact={job.artifact_id}")
+        LOGGER.info(f"component={job.component_id}: starting execution of job={job.id} artifact={job.artifact_id}")
         return await self.update_job_status(job, JobStatus.SCHEDULED, JobStatus.RUNNING)
 
     async def complete_execution(self, job: Job) -> Job:
@@ -271,19 +274,14 @@ class JobRepository(Repository):
             await self.session.refresh(job_db)
 
             LOGGER.info(
-                f"component={job_db.component_id}: changed state from={previous_status} to={next_status} "
-                f"for artifact={artifact_id} job={job_id}"
+                f"component={job_db.component_id}: changed state from={previous_status.name} to={next_status.name} "
+                f"for job={job_id} artifact={artifact_id}"
             )
 
             return view(job_db)
 
         except NoResultFound:
-            message = (
-                f"component={component_id}: artifact={artifact_id} with job={job_id} in status "
-                f"{previous_status} not found"
-            )
-            LOGGER.error(message)
-            raise ValueError(message)
+            raise ValueError(f"artifact={artifact_id}: job={job_id} in status {previous_status} not found")
 
     async def get_by_id(self, job_id: str) -> Job:
         """Gets an handler to the job associated with the given job_id.
@@ -394,6 +392,7 @@ class JobRepository(Repository):
         jobs = await self.session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact_id,
+                # This is NOT IN...
                 JobDB.id.not_in(
                     select(JobLockDB.next_id)
                     .where(
@@ -422,6 +421,7 @@ class JobRepository(Repository):
         jobs = await self.session.scalars(
             select(JobDB).where(
                 JobDB.artifact_id == artifact_id,
+                # ...and this is IN! Do not mix them
                 JobDB.id.in_(
                     select(JobLockDB.next_id)
                     .where(

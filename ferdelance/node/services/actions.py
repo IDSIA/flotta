@@ -1,9 +1,9 @@
-from ferdelance.logging import get_logger
 from ferdelance.database.repositories import (
     AsyncSession,
     ComponentRepository,
     JobRepository,
 )
+from ferdelance.logging import get_logger
 from ferdelance.shared.actions import Action
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
@@ -44,6 +44,6 @@ class ActionService:
 
         except Exception as e:
             # real exception
-            LOGGER.warn(e)
+            LOGGER.exception(e)
 
         return await self._action_nothing()

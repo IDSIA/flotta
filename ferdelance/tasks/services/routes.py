@@ -1,11 +1,11 @@
 from typing import Any
 
-from ferdelance.logging import get_logger
 from ferdelance.config import config_manager
 from ferdelance.core.metrics import Metrics
-from ferdelance.schemas.resources import ResourceIdentifier, ResourceRequest
-from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
+from ferdelance.logging import get_logger
+from ferdelance.schemas.resources import NewResource, ResourceIdentifier
 from ferdelance.shared.exchange import Exchange
+from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 
 from pathlib import Path
 
@@ -35,18 +35,24 @@ class RouteService:
         self.exc.set_private_key(private_key)
         self.exc.set_remote_key(remote_public_key)
 
+        LOGGER.info(
+            f"component={self.component_id}: RouteService initialized for remote={self.remote} is_local={self.is_local}"
+        )
+
     def reroute(
         self,
         remote_url: str,
         remote_public_key: str,
         is_local: bool = False,
     ) -> None:
+        LOGGER.info(f"component={self.component_id}: rerouting from {self.remote} to {remote_url}")
+
         self.remote = remote_url
         self.is_local = is_local
         self.exc.set_remote_key(remote_public_key)
 
     def get_task_data(self, artifact_id: str, job_id: str) -> Task:
-        LOGGER.info(f"artifact={artifact_id}: getting context for job={job_id}")
+        LOGGER.info(f"JOB job={job_id}: getting task data")
 
         req = TaskRequest(artifact_id=artifact_id, job_id=job_id)
 
@@ -55,8 +61,8 @@ class RouteService:
             req.json(),
         )
 
-        res = requests.post(
-            f"{self.remote}/task/data",
+        res = requests.get(
+            f"{self.remote}/task",
             headers=headers,
             data=payload,
         )
@@ -67,17 +73,23 @@ class RouteService:
 
         task = Task(**json.loads(content))
 
-        LOGGER.info(f"artifact={artifact_id}: context for jon={job_id} upload successful")
+        LOGGER.info(
+            f"JOB job={job_id}: got task with "
+            f"produced resource={task.produced_resource_id} "
+            f"from n_resources={len(task.required_resources)} "
+            f"will be sent to n_nodes={len(task.next_nodes)}"
+        )
 
         return task
 
-    def get_resource(self, artifact_id: str, job_id: str, resource_id: str, iteration: int) -> Path:
-        LOGGER.info(f"artifact={artifact_id}: requesting partial resource={resource_id} for job={job_id}")
+    def get_resource(self, producer_id: str, artifact_id: str, job_id: str, resource_id: str, iteration: int) -> Path:
+        LOGGER.info(f"JOB job={job_id}: requesting resource={resource_id}")
 
-        req = ResourceRequest(
+        req = ResourceIdentifier(
+            producer_id=producer_id,
             artifact_id=artifact_id,
-            job_id=job_id,
             resource_id=resource_id,
+            iteration=iteration,
         )
 
         headers, payload = self.exc.create(
@@ -86,7 +98,7 @@ class RouteService:
         )
 
         with requests.get(
-            f"{self.remote}/task/resource/{resource_id}",
+            f"{self.remote}/resource",
             headers=headers,
             data=payload,
             stream=True,
@@ -100,13 +112,14 @@ class RouteService:
             return path
 
     def post_resource(
-        self, artifact_id: str, job_id: str, path_in: Path | None = None, content: Any = None
-    ) -> ResourceRequest:
-        LOGGER.info(f"artifact={artifact_id}: posting resource for job={job_id}")
+        self, artifact_id: str, job_id: str, resource_id: str, path_in: Path | None = None, content: Any = None
+    ) -> ResourceIdentifier:
+        LOGGER.info(f"JOB job={job_id}: posting resource to {self.remote}")
 
-        ri = ResourceIdentifier(
+        nr = NewResource(
             artifact_id=artifact_id,
             job_id=job_id,
+            resource_id=resource_id,
             file="attached",
         )
 
@@ -117,11 +130,11 @@ class RouteService:
             headers = self.exc.create_signed_header(
                 self.component_id,
                 checksum,
-                extra_headers=ri.dict(),
+                extra_headers=nr.dict(),
             )
 
             res = requests.post(
-                f"{self.remote}/task/resource",
+                f"{self.remote}/resource",
                 headers=headers,
                 data=open(path_out, "rb"),
             )
@@ -135,13 +148,13 @@ class RouteService:
             headers, payload = self.exc.create(
                 self.component_id,
                 content,
-                extra_headers=ri.dict(),
+                extra_headers=nr.dict(),
             )
 
             _, data = self.exc.stream(payload)
 
             res = requests.post(
-                f"{self.remote}/task/resource",
+                f"{self.remote}/resource",
                 headers=headers,
                 data=data,
             )
@@ -149,15 +162,15 @@ class RouteService:
             res.raise_for_status()
 
         else:
-            ri.file = "local"
+            nr.file = "local"
 
             headers, _ = self.exc.create(
                 self.component_id,
-                extra_headers=ri.dict(),
+                extra_headers=nr.dict(),
             )
 
             res = requests.post(
-                f"{self.remote}/task/resource",
+                f"{self.remote}/resource",
                 headers=headers,
             )
 
@@ -165,14 +178,14 @@ class RouteService:
 
         _, payload = self.exc.get_payload(res.content)
 
-        req = ResourceRequest(**json.loads(payload))
+        req = ResourceIdentifier(**json.loads(payload))
 
-        LOGGER.info(f"artifact={artifact_id}: resource for job={job_id} upload successful")
+        LOGGER.info(f"JOB job={job_id}: resource={resource_id} upload successful")
 
         return req
 
-    def post_metrics(self, artifact_id: str, job_id: str, metrics: Metrics):
-        LOGGER.info(f"artifact={artifact_id}: posting metrics for job={job_id}")
+    def post_metrics(self, job_id: str, metrics: Metrics):
+        LOGGER.info(f"JOB job={job_id}: posting metrics")
 
         headers, payload = self.exc.create(
             self.component_id,
@@ -192,8 +205,8 @@ class RouteService:
             f"metrics for job={metrics.job_id} from source={metrics.source} upload successful"
         )
 
-    def post_error(self, artifact_id: str, job_id: str, error: TaskError) -> None:
-        LOGGER.error(f"artifact={artifact_id} job={job_id}: error_message={error.message}")
+    def post_error(self, job_id: str, error: TaskError) -> None:
+        LOGGER.error(f"JOB job={job_id}: error_message={error.message}")
 
         headers, payload = self.exc.create(
             self.component_id,
@@ -209,7 +222,7 @@ class RouteService:
         res.raise_for_status()
 
     def post_done(self, artifact_id: str, job_id: str) -> None:
-        LOGGER.info(f"artifact={artifact_id} job={job_id}: done")
+        LOGGER.info(f"JOB job={job_id}: work done")
 
         done = TaskDone(
             artifact_id=artifact_id,

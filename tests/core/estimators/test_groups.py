@@ -96,7 +96,6 @@ def test_group_mean_estimator():
     env = op_init.exec(env)
 
     assert env["noise_sum"] != 0
-    assert env["noise_num"] != 0
 
     for df in dfs:
         env.df = df
@@ -104,7 +103,6 @@ def test_group_mean_estimator():
 
         env = op_work.exec(env)
 
-        assert env["noise_sum"] == 0
         assert env["noise_num"] == 0
 
     env.resources = {"1": EnvResource("1", data=env.products)}

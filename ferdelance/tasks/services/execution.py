@@ -62,7 +62,8 @@ class ExecutionService:
 
             dfs.append(datasource)
 
-        self.env.df = pd.concat(dfs)
+        if dfs:
+            self.env.df = pd.concat(dfs)
 
     def run(self) -> None:
         self.env = self.task.run(self.env)

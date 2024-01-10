@@ -18,13 +18,7 @@ class TaskNode(BaseModel):
     component_id: str
     public_key: str
     url: str
-    is_local: bool = False
-
-    @root_validator
-    def force_localhost(cls, values):
-        if values["is_local"]:
-            values["url"] = "localhost"
-        return values
+    available_locally: bool = False
 
 
 class TaskResource(TaskNode):
@@ -34,6 +28,7 @@ class TaskResource(TaskNode):
     artifact_id: str
     job_id: str
     iteration: int
+    local_path: str | None = None
 
 
 class Task(Entity):

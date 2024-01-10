@@ -9,7 +9,7 @@ PATH="/venv/bin:${PATH}"
 
 pip install --upgrade pip
 
-pip install --index-url http://${REPOSITORY_HOST}/simple/ --trusted-host ${REPOSITORY_HOST} ferdelance[workbench]
+pip install --index-url http://${REPOSITORY_HOST}/simple/ --trusted-host ${REPOSITORY_HOST} ferdelance
 
 python /tests/health_check.py
 
