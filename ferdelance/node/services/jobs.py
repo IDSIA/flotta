@@ -111,11 +111,11 @@ class JobManagementService(Repository):
             raise e
 
     async def schedule_tasks(self, artifact: Artifact) -> None:
-        """Schedules all the jobs for the given artifact in the given iteration.
+        """Schedules all the jobs for the given artifact in the current iteration.
 
         Args:
             artifact (Artifact):
-                Artifact to complete.
+                Artifact to schedule jobs for.
         """
         LOGGER.info(f"artifact={artifact.id}: collecting jobs to be scheduled")
 

@@ -42,7 +42,7 @@ class Exchange:
         if private_key_path is not None:
             self.load_key(private_key_path)
 
-    def generate_key(self) -> None:
+    def generate_keys(self) -> None:
         """Generates a new pair of asymmetric keys."""
         self.private_key = generate_asymmetric_key()
         self.public_key = self.private_key.public_key()
@@ -145,7 +145,7 @@ class Exchange:
         self.private_key = private_key_from_str(decode_from_transfer(private_key, self.encoding))
         self.public_key = self.private_key.public_key()
 
-    def set_key_bytes(self, private_key_bytes: bytes) -> None:
+    def set_private_key_bytes(self, private_key_bytes: bytes) -> None:
         """Set the private key and the public key from a private key
         in bytes format.
 

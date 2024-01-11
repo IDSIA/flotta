@@ -19,6 +19,11 @@ LOGGER = get_logger(__name__)
 
 @ray.remote
 class Heartbeat:
+    """Heartbeat is a continuous task launched by a node in client mode. This
+    task will contact a regular intervals the reference scheduler node for new
+    task to execute. Once a task has been found, it will be executed locally.
+    """
+
     def __init__(self, client_id: str, remote_public_key: str) -> None:
         # possible states are: work, exit, update, install
         self.status: Action = Action.INIT
