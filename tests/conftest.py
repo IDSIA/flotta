@@ -4,7 +4,7 @@ from ferdelance.config import config_manager
 from ferdelance.const import COMPONENT_TYPES
 from ferdelance.database import Base, DataBase
 from ferdelance.database.tables import ComponentType
-from ferdelance.shared.exchange import Exchange
+from ferdelance.security.exchange import Exchange
 
 from .utils import TEST_PROJECT_TOKEN
 
@@ -81,6 +81,6 @@ async def session() -> AsyncGenerator[AsyncSession, None]:
 @pytest.fixture()
 def exchange() -> Exchange:
     exc = Exchange()
-    exc.generate_key()
+    exc.generate_keys()
 
     return exc

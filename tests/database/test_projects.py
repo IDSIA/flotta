@@ -1,6 +1,6 @@
 from ferdelance.database.repositories import ProjectRepository
 from ferdelance.node.api import api
-from ferdelance.shared.exchange import Exchange
+from ferdelance.security.exchange import Exchange
 
 from tests.utils import create_project, create_node, get_metadata, send_metadata
 

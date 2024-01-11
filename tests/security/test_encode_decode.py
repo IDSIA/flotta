@@ -1,12 +1,12 @@
 from ferdelance.logging import get_logger
-from ferdelance.shared.generate import generate_asymmetric_key, RSAPrivateKey, RSAPublicKey
-from ferdelance.shared.encode import (
+from ferdelance.security.generate import generate_asymmetric_key, RSAPrivateKey, RSAPublicKey
+from ferdelance.security.encode import (
     encode_to_transfer,
     encrypt,
     generate_hybrid_encryption_key,
     HybridEncrypter,
 )
-from ferdelance.shared.decode import (
+from ferdelance.security.decode import (
     decode_from_transfer,
     decrypt,
     decrypt_hybrid_key,

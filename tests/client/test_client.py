@@ -4,8 +4,8 @@ from ferdelance.logging import get_logger
 from ferdelance.node.api import api
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.metadata import Metadata
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.actions import Action
-from ferdelance.shared.exchange import Exchange
 
 from tests.utils import (
     create_node,

@@ -9,9 +9,9 @@ from ferdelance.schemas.components import Component
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.workbench import WorkbenchJoinRequest
+from ferdelance.security.checksums import str_checksum
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.actions import Action
-from ferdelance.shared.checksums import str_checksum
-from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus
 
 from fastapi.testclient import TestClient
@@ -26,7 +26,7 @@ LOGGER = get_logger(__name__)
 
 def setup_exchange() -> Exchange:
     exc = Exchange()
-    exc.generate_key()
+    exc.generate_keys()
     return exc
 
 

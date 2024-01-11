@@ -8,7 +8,7 @@ from ferdelance.logging import get_logger
 from ferdelance.node.api import api
 from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.components import Component
-from ferdelance.shared.exchange import Exchange
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.status import JobStatus, ArtifactJobStatus
 from ferdelance.tasks.tasks import TaskRequest
 

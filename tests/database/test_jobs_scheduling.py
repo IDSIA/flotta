@@ -1,4 +1,3 @@
-from uuid import uuid4
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.distributions import Collect, Distribute
 from ferdelance.core.interfaces import SchedulerContext
