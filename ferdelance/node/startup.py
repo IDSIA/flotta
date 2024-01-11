@@ -13,7 +13,7 @@ from ferdelance.node.services import NodeService
 from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
-from ferdelance.shared.checksums import str_checksum
+from ferdelance.security.checksums import str_checksum
 from ferdelance.tasks.backends import get_jobs_backend
 
 from sqlalchemy.exc import NoResultFound

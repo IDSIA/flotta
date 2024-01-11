@@ -12,8 +12,8 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchResource,
 )
-from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.checksums import str_checksum
+from ferdelance.security.exchange import Exchange
+from ferdelance.security.checksums import str_checksum
 from ferdelance.shared.status import ArtifactJobStatus
 from ferdelance.workbench.interface import (
     Project,

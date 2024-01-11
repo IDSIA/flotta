@@ -13,7 +13,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
-from ferdelance.shared.checksums import str_checksum
+from ferdelance.security.checksums import str_checksum
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse

@@ -4,7 +4,7 @@ from ferdelance.config import config_manager
 from ferdelance.core.metrics import Metrics
 from ferdelance.logging import get_logger
 from ferdelance.schemas.resources import NewResource, ResourceIdentifier
-from ferdelance.shared.exchange import Exchange
+from ferdelance.security.exchange import Exchange
 from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 
 from pathlib import Path

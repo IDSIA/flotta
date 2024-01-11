@@ -12,7 +12,7 @@ from ferdelance.database.repositories import (
 from ferdelance.logging import get_logger
 from ferdelance.node.services.jobs import JobManagementService
 from ferdelance.schemas.components import Component
-from ferdelance.shared.exchange import Exchange
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus, JobStatus
 from ferdelance.tasks.backends import get_jobs_backend
 from ferdelance.tasks.tasks import Task

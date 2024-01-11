@@ -4,7 +4,7 @@ from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.datasources import DataSourceDB, DataSourceFile
 from ferdelance.logging import get_logger
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.shared.exchange import Exchange
+from ferdelance.security.exchange import Exchange
 
 from .arguments import setup_config_from_arguments
 

@@ -6,7 +6,7 @@ from ferdelance.node.services import NodeService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata, NodePublicKey
-from ferdelance.shared.checksums import str_checksum
+from ferdelance.security.checksums import str_checksum
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 

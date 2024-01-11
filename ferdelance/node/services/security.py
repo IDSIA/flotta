@@ -2,9 +2,9 @@ from typing import Iterator
 
 from ferdelance.config import config_manager
 from ferdelance.logging import get_logger
-from ferdelance.shared.checksums import file_checksum
-from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.decode import HybridDecrypter
+from ferdelance.security.checksums import file_checksum
+from ferdelance.security.exchange import Exchange
+from ferdelance.security.decode import HybridDecrypter
 
 from fastapi import Request
 from fastapi.responses import StreamingResponse, Response

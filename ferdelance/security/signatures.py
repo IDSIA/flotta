@@ -6,6 +6,23 @@ import base64
 
 
 def sign(private_key: RSAPrivateKey, data: str | bytes, encoding: str = "utf8") -> str:
+    """Generates a signature string for the given data using the given
+    private key.
+
+    Args:
+        private_key (RSAPrivateKey):
+            Private key to use.
+        data (str | bytes):
+            Message to sign.
+        encoding (str, optional):
+            Encoding to use.
+            Defaults to "utf8".
+
+    Returns:
+        str:
+            The signature that can be verified by using the relative
+            public key.
+    """
     if isinstance(data, str):
         data = data.encode(encoding)
 
@@ -25,7 +42,7 @@ def verify(public_key: RSAPublicKey, data: str | bytes, signature: str | bytes, 
     Args:
         public_key (RSAPublicKey):
             Public key to use.
-        message (str):
+        data (data: str | bytes):
             Received message to verify.
         signature (str):
             Received signature to compare with.

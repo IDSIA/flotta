@@ -21,7 +21,7 @@ from .encode import (
     encrypt,
 )
 from .signatures import sign, verify
-from .checksums import str_checksum, file_checksum
+from ..security.checksums import str_checksum, file_checksum
 
 from pathlib import Path
 from requests import Response
