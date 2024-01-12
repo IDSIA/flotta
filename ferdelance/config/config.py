@@ -385,7 +385,7 @@ class ConfigManager:
         if os.path.exists(path_private_key):
             # use existing one
             LOGGER.info(f"private key found at {path_private_key}")
-            exc.load_key(path_private_key)
+            exc.load_private_key(path_private_key)
 
         else:
             # generate new key

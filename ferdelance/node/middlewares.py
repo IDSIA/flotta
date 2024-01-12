@@ -188,7 +188,7 @@ async def encrypt_response(request: SignableRequest, response: Response) -> Resp
     if isinstance(response, FileResponse) and args.accept_encrypted:
         checksum, stream_response = args.security_service.encrypt_file(Path(response.path))
 
-        headers = args.security_service.exc.create_signed_header(
+        headers = args.security_service.exc.create_signed_headers(
             args.self_component.id,
             checksum,
             args.accept_encrypted,
@@ -202,14 +202,14 @@ async def encrypt_response(request: SignableRequest, response: Response) -> Resp
         response.headers["Content-Length"] = f"{len(payload)}"
         response.body = payload
 
-        headers = args.security_service.exc.create_signed_header(
+        headers = args.security_service.exc.create_signed_headers(
             args.self_component.id,
             checksum,
             args.accept_encrypted,
         )
     else:
         checksum = ""  # TODO: maybe set this to something and use it...
-        headers = args.security_service.exc.create_header(False)
+        headers = args.security_service.exc.create_headers(False)
 
     for k, v in headers.items():
         response.headers[k] = v

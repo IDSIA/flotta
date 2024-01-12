@@ -82,7 +82,7 @@ class Context:
                 if os.path.exists(ssh_key_path):
                     LOGGER.debug(f"loading private key from {ssh_key_path}")
 
-                    self.exc.load_key(ssh_key_path)
+                    self.exc.load_private_key(ssh_key_path)
 
                 else:
                     LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
@@ -95,12 +95,12 @@ class Context:
 
                 LOGGER.debug(f"loading private key from {ssh_key_path}")
 
-                self.exc.load_key(ssh_key_path)
+                self.exc.load_private_key(ssh_key_path)
 
         else:
             LOGGER.debug(f"loading private key from {ssh_key_path}")
 
-            self.exc.load_key(ssh_key_path)
+            self.exc.load_private_key(ssh_key_path)
 
         if isinstance(id_path, str):
             if id_path == "":
@@ -124,7 +124,7 @@ class Context:
                 self.id: str = f.read()
 
         # connecting to server
-        headers = self.exc.create_header(False)
+        headers = self.exc.create_headers(False)
 
         response_key = requests.get(
             f"{self.server}/node/key",
@@ -154,7 +154,7 @@ class Context:
         )
 
         _, payload = self.exc.create_payload(wjr.json())
-        headers = self.exc.create_header(True)
+        headers = self.exc.create_headers(True)
 
         res = requests.post(
             f"{self.server}/workbench/connect",

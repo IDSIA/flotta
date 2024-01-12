@@ -241,7 +241,7 @@ class RouteService:
             path_out = path_in.parent / f"{path_in.name}.enc"
 
             checksum = self.exc_comm.encrypt_file_for_remote(path_in, path_out)  # TODO: this should be optional!
-            headers = self.exc_comm.create_signed_header(
+            headers = self.exc_comm.create_signed_headers(
                 self.component_id,
                 checksum,
                 extra_headers=nr.dict(),

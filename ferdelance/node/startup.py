@@ -168,7 +168,7 @@ class NodeStartup(Repository):
             )
 
             _, join_req_payload = self.ss.exc.create_payload(join_req.json())
-            headers = self.ss.exc.create_header(True)
+            headers = self.ss.exc.create_headers(True)
 
             res = requests.post(
                 f"{remote}/node/join",

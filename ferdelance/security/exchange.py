@@ -3,7 +3,6 @@ from typing import Iterator
 from ferdelance.security.algorithms.hybrid import HybridDecryptionAlgorithm, HybridEncryptionAlgorithm
 from ferdelance.security.checksums import str_checksum, file_checksum
 from ferdelance.security.keys.asymmetric import PrivateKey, PublicKey
-from ferdelance.security.utils import decode_from_transfer, encode_to_transfer
 
 from base64 import b64decode, b64encode
 from pathlib import Path
@@ -22,14 +21,14 @@ class Exchange:
         self.encoding = encoding
 
         if private_key_path is not None:
-            self.load_key(private_key_path)
+            self.load_private_key(private_key_path)
 
     def generate_keys(self) -> None:
         """Generates a new pair of asymmetric keys."""
         self.private_key = PrivateKey()
         self.public_key = self.private_key.public_key()
 
-    def load_key(self, path: Path) -> None:
+    def load_private_key(self, path: Path) -> None:
         """Load a private key from disk.
 
         :param path:
@@ -117,40 +116,18 @@ class Exchange:
             pk_bytes: bytes = self.remote_key.bytes()
             f.write(pk_bytes)
 
-    def set_private_key(self, private_key: str | bytes) -> None:
+    def set_private_key(self, data: str | bytes) -> None:
         """Set the private key and the public key from a private key
         in string format and encoded for transfer.
 
-        :param private_key:
+        :param data:
             Private key stored in memory and in string encoded for transfer format.
         """
-        if isinstance(private_key, str):
-            private_key = decode_from_transfer(private_key, self.encoding)
+        if isinstance(data, str):
+            data = data.encode(self.encoding)
 
-        self.private_key = PrivateKey(private_key)
+        self.private_key = PrivateKey(data, self.encoding)
         self.public_key = self.private_key.public_key()
-
-    def get_private_bytes(self) -> bytes:
-        """Get the private key in bytes format to be stored somewhere.
-
-        :raise:
-            ValueError if there is no private key.
-        """
-        if self.private_key is None:
-            raise ValueError("No private key available")
-
-        return self.private_key.bytes()
-
-    def get_public_bytes(self) -> bytes:
-        """Get the public key in bytes format to be stored somewhere.
-
-        :raise:
-            ValueError if there is no public key.
-        """
-        if self.public_key is None:
-            raise ValueError("No public key available")
-
-        return self.public_key.bytes()
 
     def set_remote_key(self, data: str | bytes) -> None:
         """Decode and set a public key from a remote host.
@@ -158,20 +135,12 @@ class Exchange:
         :param data:
             String content not yet decoded.
         """
+        if isinstance(data, str):
+            data = data.encode(self.encoding)
+
         self.remote_key = PublicKey(data, self.encoding)
 
-    def transfer_public_key(self) -> str:
-        """Encode the stored public key for secure transfer to remote host.
-
-        :return:
-            An encoded public key in string format.
-        :raise:
-            ValueError if there is no public key available.
-        """
-        if self.public_key is None:
-            raise ValueError("public key not set")
-
-        return encode_to_transfer(self.public_key.bytes())
+    # -------------------------------------------------------
 
     def transfer_private_key(self) -> str:
         """Encode the stored private key for secure transfer as string.
@@ -184,7 +153,20 @@ class Exchange:
         if self.private_key is None:
             raise ValueError("public key not set")
 
-        return encode_to_transfer(self.private_key.bytes(), self.encoding)
+        return self.private_key.bytes().decode(self.encoding)
+
+    def transfer_public_key(self) -> str:
+        """Encode the stored public key for secure transfer to remote host.
+
+        :return:
+            An encoded public key in string format.
+        :raise:
+            ValueError if there is no public key available.
+        """
+        if self.public_key is None:
+            raise ValueError("public key not set")
+
+        return self.public_key.bytes().decode(self.encoding)
 
     def transfer_remote_key(self) -> str:
         """Encode the stored private key for secure transfer as string.
@@ -197,9 +179,9 @@ class Exchange:
         if self.remote_key is None:
             raise ValueError("remote public key not set")
 
-        return encode_to_transfer(self.remote_key.bytes(), self.encoding)
+        return self.remote_key.bytes().decode(self.encoding)
 
-    def encrypt(self, content: str) -> bytes:
+    def encrypt(self, content: str | bytes) -> bytes:
         """Encrypt a text for the remote host using the stored remote public key.
 
         :param content:
@@ -212,7 +194,7 @@ class Exchange:
 
         return self.remote_key.encrypt(content, self.encoding)
 
-    def decrypt(self, content: str) -> bytes:
+    def decrypt(self, content: str | bytes) -> bytes:
         """Decrypt a text encrypted by the remote host with the public key,
         using the stored private key.
 
@@ -234,13 +216,13 @@ class Exchange:
 
         return b64encode(signature).decode(self.encoding)
 
-    def verify(self, content: str, signature: str) -> None:
+    def verify(self, content: str | bytes, signature: str | bytes) -> None:
         if self.remote_key is None:
             raise ValueError("Remote key not set")
 
         self.remote_key.verify(content, b64decode(signature), self.encoding)
 
-    def create_header(self, set_encryption: bool = True) -> dict[str, str]:
+    def create_headers(self, set_encryption: bool = True) -> dict[str, str]:
         if set_encryption:
             content_encoding = f"encrypted/{self.encoding}"
             accept_encoding = f"encrypted/{self.encoding}"
@@ -253,7 +235,7 @@ class Exchange:
             "Accept-Encoding": accept_encoding,
         }
 
-    def create_signed_header(
+    def create_signed_headers(
         self,
         component_id: str,
         checksum: str,
@@ -279,7 +261,7 @@ class Exchange:
         data_b64 = b64encode(data_enc)
         data = data_b64.decode(self.encoding)
 
-        return self.create_header(set_encryption) | {
+        return self.create_headers(set_encryption) | {
             "Signature": data,
         }
 
@@ -358,7 +340,7 @@ class Exchange:
         extra_headers: dict[str, str] = dict(),
     ) -> tuple[dict[str, str], bytes]:
         checksum, payload = self.create_payload(content)
-        headers = self.create_signed_header(component_id, checksum, set_encryption, extra_headers)
+        headers = self.create_signed_headers(component_id, checksum, set_encryption, extra_headers)
 
         return headers, payload
 

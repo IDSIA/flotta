@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.padding import PSS, MGF1
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey, generate_private_key
 from cryptography.hazmat.primitives.hashes import SHA256
-from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_ssh_public_key
 
 
 class PrivateKey:
@@ -111,7 +111,7 @@ class PublicKey:
             if isinstance(data, str):
                 data = data.encode(encoding)
 
-            self.key: RSAPublicKey = load_pem_public_key(data)  # type: ignore
+            self.key: RSAPublicKey = load_ssh_public_key(data)  # type: ignore
 
     def bytes(self) -> bytes:
         return self.key.public_bytes(
