@@ -4,7 +4,7 @@ from ferdelance.config import config_manager
 from ferdelance.logging import get_logger
 from ferdelance.security.checksums import file_checksum
 from ferdelance.security.exchange import Exchange
-from ferdelance.security.decode import HybridDecrypter
+from ferdelance.security.algorithms.hybrid import HybridDecryptionAlgorithm
 
 from fastapi import Request
 from fastapi.responses import StreamingResponse, Response
@@ -69,10 +69,10 @@ class SecurityService:
     def sign(self, content: str) -> str:
         return self.exc.sign(content)
 
-    def encrypt(self, content: str) -> str:
+    def encrypt(self, content: str) -> bytes:
         return self.exc.encrypt(content)
 
-    def decrypt(self, content: str) -> str:
+    def decrypt(self, content: str) -> bytes:
         return self.exc.decrypt(content)
 
     def get_headers(self, signature_data: str) -> tuple[str, str, str, dict[str, str]]:
@@ -111,7 +111,7 @@ class SecurityService:
             LOGGER.info("destination path already exists")
             return file_checksum(path)
 
-        dec = HybridDecrypter(self.exc.private_key)
+        dec = HybridDecryptionAlgorithm(self.exc.private_key)
 
         async with aiofiles.open(path, "wb") as f:
             await f.write(dec.start())
@@ -130,7 +130,7 @@ class SecurityService:
         if self.exc.private_key is None:
             raise ValueError("Missing local private key, i exchange object initialized?")
 
-        dec = HybridDecrypter(self.exc.private_key)
+        dec = HybridDecryptionAlgorithm(self.exc.private_key)
 
         data: bytearray = bytearray()
         data.extend(dec.start())

@@ -392,7 +392,7 @@ class ConfigManager:
             LOGGER.info("private key location not found: creating a new one")
 
             exc.generate_keys()
-            exc.save_private_key(path_private_key)
+            exc.store_private_key(path_private_key)
 
     def _set_directories(self) -> None:
         LOGGER.info("directory initialization")

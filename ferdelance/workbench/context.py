@@ -88,7 +88,7 @@ class Context:
                     LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
 
                     self.exc.generate_keys()
-                    self.exc.save_private_key(ssh_key_path)
+                    self.exc.store_private_key(ssh_key_path)
 
             else:
                 ssh_key_path = HOME / ".ssh" / "rsa_id"
