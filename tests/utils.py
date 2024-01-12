@@ -18,6 +18,8 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 import json
+import random
+import string
 import uuid
 
 
@@ -36,7 +38,7 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
         Component id for this new client.
     """
 
-    headers = exc.create_header(False)
+    headers = exc.create_headers(False)
 
     response_key = api.get(
         "/node/key",
@@ -72,7 +74,7 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
     )
 
     _, payload = exc.create_payload(cjr.json())
-    headers = exc.create_header(True)
+    headers = exc.create_headers(True)
 
     response_join = api.post(
         "/node/join",
@@ -195,7 +197,7 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     send_metadata(client_id, api, cl_exc, metadata)
 
     # this is to connect a new workbench
-    headers = wb_exc.create_header(False)
+    headers = wb_exc.create_headers(False)
 
     response_key = api.get(
         "/node/key",
@@ -228,7 +230,7 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     )
 
     _, payload = wb_exc.create_payload(wjr.json())
-    headers = wb_exc.create_header(True)
+    headers = wb_exc.create_headers(True)
 
     res_connect = api.post(
         "/workbench/connect",
@@ -322,3 +324,7 @@ def get_scheduler_context(n_workers: int = 2) -> SchedulerContext:
         initiator=s,
         workers=workers,
     )
+
+
+def random_string(length: int) -> str:
+    return "".join(random.choice(string.ascii_letters) for _ in range(length))
