@@ -63,7 +63,9 @@ async def node_join(
             raise ValueError("Checksum failed")
 
         ns: NodeService = NodeService(args.session)
-        return await ns.connect(data, args.ip_address)
+        join_data = await ns.connect(data, args.ip_address)
+        args.exc.set_remote_key(data.public_key)
+        return join_data
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)

@@ -1,3 +1,4 @@
+from base64 import b64decode
 from typing import Callable, Coroutine, Any
 from dataclasses import dataclass
 
@@ -73,6 +74,7 @@ class SignedRequest(Request):
         self.checksum: str = ""
 
         self.signed_in: bool = False
+        self.encrypted: bool = False
 
         self.self_component: Component = self_component
         self.source: Component | None = None
@@ -125,6 +127,18 @@ class SignedRequest(Request):
 
                     body = payload
 
+                elif self.encrypted:
+                    # decrypt body
+                    LOGGER.debug(f"Received unknown request with encrypted data")
+
+                    self.checksum, payload = self.exc.get_payload(body)
+
+                    if self.source_checksum != self.checksum:
+                        LOGGER.warning(f"Unknown request: Checksum failed")
+                        raise HTTPException(403)
+
+                    body = payload
+
             except Exception as e:
                 LOGGER.warning(f"Secure checks failed: {e}")
                 LOGGER.exception(e)
@@ -149,6 +163,13 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
             # decrypt header
             headers: SignedHeaders = request.exc.get_headers(given_signature)
 
+            if headers.target_id == "JOIN":
+                # this is for decrypting a new join request
+                request.encrypted = True
+                request.extra_headers = headers.extra
+                request.source_checksum = headers.checksum
+                return request
+
             # get request's component
             source = await cr.get_by_id(headers.source_id)
 
@@ -161,9 +182,9 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
                 raise HTTPException(403, "Access Denied")
 
             # verify signature data
-            request.exc.verify(f"{headers.source_id}:{request.source_checksum}", headers.signature)
-
             request.exc.set_remote_key(source.public_key)
+            request.exc.verify(f"{headers.source_id}:{headers.checksum}", headers.signature)
+
             request.source = source
 
             # check target id
@@ -177,9 +198,15 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
             request.extra_headers = headers.extra
 
             request.signed_in = True
+            request.encrypted = True
 
-        except InvalidSignature | ValueError as _:
+        except InvalidSignature as _:
             LOGGER.warning(f"component=UNKNOWN: invalid signature")
+            raise HTTPException(403, "Access Denied")
+
+        except ValueError as e:
+            LOGGER.warning(f"component=UNKNOWN: access denied")
+            LOGGER.exception(e)
             raise HTTPException(403, "Access Denied")
 
         except Exception as e:
@@ -209,7 +236,7 @@ async def encrypt_response(request: SignedRequest, response: Response) -> Respon
             media_type="application/octet-stream",
         )
 
-    elif request.signed_in:
+    elif request.signed_in or request.encrypted:
         checksum, payload = request.exc.create_payload(response.body)
 
         response.headers["Content-Length"] = f"{len(payload)}"

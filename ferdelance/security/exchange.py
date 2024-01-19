@@ -258,11 +258,11 @@ class Exchange:
 
         enc = self.algorithm.enc(self.remote_key, self.encoding)
 
-        data_json = json.dumps(header)
-        data = enc.encrypt(data_json).decode("utf8")
-        # data_enc = enc.encrypt(data_json)
-        # data_b64 = b64encode(data_enc)
-        # data = data_b64.decode(self.encoding)
+        data_json = header.json()
+        # data = enc.encrypt(data_json)  # .decode(self.encoding)
+        data_enc = enc.encrypt(data_json)
+        data_b64 = b64encode(data_enc)
+        data = data_b64.decode(self.encoding)
 
         return {
             "Signature": data,
@@ -275,7 +275,9 @@ class Exchange:
         dec = self.algorithm.dec(self.private_key, self.encoding)
 
         data = content.encode(self.encoding)
-        return SignedHeaders(**json.loads(dec.decrypt(data)))
+        data_b64 = b64decode(data)
+        dec_data = dec.decrypt(data_b64)
+        return SignedHeaders(**json.loads(dec_data))
 
         # data_b64 = b64decode(data)
         # data_enc = dec.decrypt(data_b64)
@@ -297,7 +299,7 @@ class Exchange:
             ValueError if the remote key is not set.
 
         :return:
-            The headers to use and the data to send.
+            The checksum of teh data and the data to send.
         """
         if self.remote_key is None:
             raise ValueError("No public remote key available")
