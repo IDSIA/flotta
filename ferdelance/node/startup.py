@@ -10,12 +10,13 @@ from ferdelance.database.repositories import (
 )
 from ferdelance.logging import get_logger
 from ferdelance.node.services import NodeService
-from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
 from ferdelance.security.checksums import str_checksum
+from ferdelance.security.exchange import Exchange
 from ferdelance.tasks.backends import get_jobs_backend
 
+from pathlib import Path
 from sqlalchemy.exc import NoResultFound
 
 import json
@@ -32,7 +33,8 @@ class NodeStartup(Repository):
         self.pr: ProjectRepository = ProjectRepository(session)
         self.kvs = KeyValueStore(session)
 
-        self.ss: SecurityService = SecurityService()
+        private_key_path: Path = config_manager.get().private_key_location()
+        self.exc: Exchange = Exchange(private_key_path)
 
         self.config: Configuration = config_manager.get()
 
@@ -42,6 +44,7 @@ class NodeStartup(Repository):
 
         self.self_component: Component
         self.remote_key: str
+        self.remote_id: str
 
     async def create_project(self) -> None:
         """Create the initial project with the default token given through
@@ -101,7 +104,7 @@ class NodeStartup(Repository):
             self.self_component = await self.cr.create_component(
                 component_id,
                 self.config.get_node_type(),
-                self.ss.get_public_key(),
+                self.exc.transfer_public_key(),
                 __version__,
                 self.config.node.name,
                 "127.0.0.1",
@@ -129,8 +132,9 @@ class NodeStartup(Repository):
                 f"component={self.self_component.id}: node already joined to remote node "
                 f"component={join_component.id} url={join_component.url}"
             )
+            self.remote_id = join_component.id
             self.remote_key = join_component.public_key
-            self.ss.set_remote_key(self.remote_key)
+            self.exc.set_remote_key(self.remote_key)
 
             return
 
@@ -146,39 +150,37 @@ class NodeStartup(Repository):
 
             content = NodePublicKey(**res.json())
             self.remote_key = content.public_key
-            self.ss.set_remote_key(self.remote_key)
+            self.exc.set_remote_key(self.remote_key)
 
             type_name = self.config.get_node_type()
 
             data_to_sign = f"{self.self_component.id}:{self.self_component.public_key}"
 
             checksum = str_checksum(data_to_sign)
-            signature = self.ss.sign(data_to_sign)
+            signature = self.exc.sign(data_to_sign)
 
             # send join data
             join_req = NodeJoinRequest(
                 id=self.self_component.id,
                 name=self.config.node.name,
                 type_name=type_name,
-                public_key=self.ss.get_public_key(),
+                public_key=self.exc.transfer_public_key(),
                 version=__version__,
                 url=self.config.url_extern(),
                 checksum=checksum,
                 signature=signature,
             )
 
-            _, join_req_payload = self.ss.exc.create_payload(join_req.json())
-            headers = self.ss.exc.create_headers(True)
+            _, join_req_payload = self.exc.create_payload(join_req.json())
 
             res = requests.post(
                 f"{remote}/node/join",
-                headers=headers,
                 data=join_req_payload,
             )
 
             res.raise_for_status()
 
-            _, payload = self.ss.exc.get_payload(res.content)
+            _, payload = self.exc.get_payload(res.content)
 
             # get node list
             join_data = JoinData(**json.loads(payload))
@@ -213,6 +215,7 @@ class NodeStartup(Repository):
 
             get_jobs_backend().start_heartbeat(
                 self.self_component.id,
+                self.remote_id,
                 self.remote_key,
             )
 

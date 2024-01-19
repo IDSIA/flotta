@@ -1,7 +1,6 @@
 from ferdelance.security.algorithms.core import EncryptionAlgorithm, DecryptionAlgorithm
 from ferdelance.security.commons import DEFAULT_SEPARATOR
-from ferdelance.security.keys.symmetric import SymmetricKey
-from ferdelance.security.keys.asymmetric import PrivateKey, PublicKey
+from ferdelance.security.keys import PrivateKey, PublicKey
 
 from hashlib import sha256
 
@@ -9,7 +8,7 @@ from hashlib import sha256
 class NoEncryptionAlgorithm(EncryptionAlgorithm):
     """This algorithm does not apply any encryption to the data."""
 
-    def __init__(self, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = "utf8") -> None:
+    def __init__(self, _: PublicKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = "utf8") -> None:
         """
         :param SEPARATOR:
             Single or sequence of bytes that separates the first part of the stream
@@ -56,7 +55,7 @@ class NoEncryptionAlgorithm(EncryptionAlgorithm):
 class NoDecryptionAlgorithm(DecryptionAlgorithm):
     """This algorithm does not decrypt any data."""
 
-    def __init__(self, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = "utf8") -> None:
+    def __init__(self, _: PrivateKey, SEPARATOR: bytes = DEFAULT_SEPARATOR, encoding: str = "utf8") -> None:
         """
         :param private_key:
             Server private key.

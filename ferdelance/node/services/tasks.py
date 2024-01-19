@@ -12,6 +12,7 @@ from ferdelance.database.repositories import (
 from ferdelance.logging import get_logger
 from ferdelance.node.services.jobs import JobManagementService
 from ferdelance.schemas.components import Component
+from ferdelance.security.algorithms import Algorithm
 from ferdelance.security.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus, JobStatus
 from ferdelance.tasks.backends import get_jobs_backend
@@ -168,7 +169,7 @@ class TaskManagementService(Repository):
         exc.set_private_key(private_key)
         exc.set_remote_key(remote.public_key)
 
-        headers, payload = exc.create(self.self_component.id, task.json())
+        headers, payload = exc.create(self.self_component.id, remote.id, task.json())
 
         res = requests.post(
             f"{remote.url}/task",

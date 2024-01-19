@@ -1,3 +1,4 @@
+from ferdelance.config import config_manager
 from ferdelance.const import TYPE_NODE
 from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
@@ -6,14 +7,16 @@ from ferdelance.database.repositories import (
     DataSourceRepository,
     ProjectRepository,
 )
-from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata
 
+from pathlib import Path
 from sqlalchemy.exc import NoResultFound
 
 import requests
+
+from ferdelance.security.exchange import Exchange
 
 
 LOGGER = get_logger(__name__)
@@ -23,12 +26,13 @@ class NodeService:
     def __init__(self, session: AsyncSession, component: Component | None = None) -> None:
         self.session: AsyncSession = session
 
-        self.ss: SecurityService = SecurityService()
+        private_key_path: Path = config_manager.get().private_key_location()
+        self.exc: Exchange = Exchange(private_key_path)
         self.cr: ComponentRepository = ComponentRepository(self.session)
 
         if component:
             self.component: Component = component
-            self.ss.set_remote_key(component.public_key)
+            self.exc.set_remote_key(component.public_key)
 
         else:
             self.component: Component
@@ -67,7 +71,7 @@ class NodeService:
             data.url,
         )
 
-        self.ss.set_remote_key(data.public_key)
+        self.exc.set_remote_key(data.public_key)
 
         LOGGER.info(f"component={self.component.id}: created as new {data.type_name}")
 
@@ -165,9 +169,9 @@ class NodeService:
 
             LOGGER.info(f"component={self.component.id}: distributing node add to component={node.id}")
 
-            self.ss.set_remote_key(node.public_key)
+            self.exc.set_remote_key(node.public_key)
 
-            headers, payload = self.ss.create(self.component.id, new_component.json())
+            headers, payload = self.exc.create(self.component.id, node.id, new_component.json())
 
             res = requests.put(
                 f"{node.url}/node/add",
@@ -193,7 +197,7 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
-            headers, payload = self.ss.create(self.component.id, component.json())
+            headers, payload = self.exc.create(self.component.id, node.id, component.json())
 
             res = requests.put(
                 f"{node.url}/node/remove",
@@ -221,9 +225,9 @@ class NodeService:
 
             LOGGER.info(f"component={self.component.id}: sending metadata to component={node.id}")
 
-            self.ss.set_remote_key(node.public_key)
+            self.exc.set_remote_key(node.public_key)
 
-            headers, payload = self.ss.create(self.component.id, node_metadata.json())
+            headers, payload = self.exc.create(self.component.id, node.id, node_metadata.json())
 
             res = requests.put(
                 f"{node.url}/node/metadata",

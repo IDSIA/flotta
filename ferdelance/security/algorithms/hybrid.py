@@ -1,12 +1,12 @@
 from ferdelance.security.algorithms.core import EncryptionAlgorithm, DecryptionAlgorithm
 from ferdelance.security.commons import DEFAULT_SEPARATOR
-from ferdelance.security.keys.symmetric import SymmetricKey
-from ferdelance.security.keys.asymmetric import PrivateKey, PublicKey
+from ferdelance.security.keys import SymmetricKey, PrivateKey, PublicKey
 
 from hashlib import sha256
 
 
 class HybridEncryptionAlgorithm(EncryptionAlgorithm):
+
     """Encryption object that uses an hybrid-encryption algorithm.
 
     The output data is composed by two parts: the first part contains the symmetric

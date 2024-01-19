@@ -52,8 +52,8 @@ async def populate_database() -> None:
             LOGGER.info("database creation completed")
 
         async with inst.async_session() as session:
-            ss = NodeStartup(session)
-            await ss.startup()
+            ns = NodeStartup(session)
+            await ns.startup()
 
     except Exception as e:
         LOGGER.exception(e)

@@ -39,7 +39,7 @@ async def node_home():
 async def node_get_public_key(
     args: SessionArgs = Depends(session_args),
 ):
-    pk = args.security_service.get_public_key()
+    pk = args.exc.transfer_public_key()
 
     return NodePublicKey(public_key=pk)
 
@@ -54,9 +54,9 @@ async def node_join(
     try:
         data_to_sign = f"{data.id}:{data.public_key}"
 
-        args.security_service.set_remote_key(data.public_key)
+        args.exc.set_remote_key(data.public_key)
 
-        args.security_service.exc.verify(data_to_sign, data.signature)
+        args.exc.verify(data_to_sign, data.signature)
         checksum = str_checksum(data_to_sign)
 
         if data.checksum != checksum:

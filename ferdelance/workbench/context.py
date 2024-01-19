@@ -12,6 +12,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchResource,
 )
+from ferdelance.security.algorithms import Algorithm
 from ferdelance.security.exchange import Exchange
 from ferdelance.security.checksums import str_checksum
 from ferdelance.shared.status import ArtifactJobStatus
@@ -124,11 +125,8 @@ class Context:
                 self.id: str = f.read()
 
         # connecting to server
-        headers = self.exc.create_headers(False)
-
         response_key = requests.get(
             f"{self.server}/node/key",
-            headers=headers,
         )
 
         response_key.raise_for_status()
@@ -154,11 +152,9 @@ class Context:
         )
 
         _, payload = self.exc.create_payload(wjr.json())
-        headers = self.exc.create_headers(True)
 
         res = requests.post(
             f"{self.server}/workbench/connect",
-            headers=headers,
             data=payload,
         )
 

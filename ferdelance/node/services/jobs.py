@@ -39,8 +39,6 @@ class JobManagementService(Repository):
         self,
         session: AsyncSession,
         component: Component,
-        private_key: str = "",
-        node_public_key: str = "",
     ) -> None:
         super().__init__(session)
 
@@ -54,9 +52,6 @@ class JobManagementService(Repository):
         self.rr: ResourceRepository = ResourceRepository(session)
 
         self.config: Configuration = config_manager.get()
-
-        self.private_key: str = private_key
-        self.node_public_key: str = node_public_key
 
     async def update(self, component: Component) -> UpdateData:
         """This method is used to get an update for a client. Such update consists in the next action to execute and

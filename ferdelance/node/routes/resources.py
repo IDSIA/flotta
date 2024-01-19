@@ -87,7 +87,7 @@ async def post_resource(
         # use resource's path
         if "file" in args.extra_headers and args.extra_headers["file"] == "attached":
             LOGGER.info(f"component={component.id}: decrypting resource file to path={resource.path}")
-            await args.security_service.stream_decrypt_file(request, resource.path)
+            await args.exc.stream_decrypt_file(request.stream(), resource.path)
 
         elif os.path.exists(resource.path):
             LOGGER.info(f"component={component.id}: found local resource file at path={resource.path}")

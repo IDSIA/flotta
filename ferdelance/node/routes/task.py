@@ -40,8 +40,6 @@ async def get_task(
     jms: JobManagementService = JobManagementService(
         args.session,
         args.self_component,
-        args.security_service.get_private_key(),
-        args.security_service.get_public_key(),
     )
 
     return await jms.get_task_by_job_id(task_request.job_id)
@@ -57,8 +55,8 @@ async def post_task(
     tms: TaskManagementService = TaskManagementService(
         args.session,
         args.component,
-        args.security_service.get_private_key(),
-        args.security_service.get_public_key(),
+        args.exc.transfer_private_key(),
+        args.exc.transfer_public_key(),
     )
 
     status = await tms.start_task(task, args.component.id)
@@ -79,8 +77,6 @@ async def post_metrics(
     jms: JobManagementService = JobManagementService(
         args.session,
         args.self_component,
-        args.security_service.get_private_key(),
-        args.security_service.get_public_key(),
     )
 
     await jms.metrics(metrics)
@@ -97,14 +93,12 @@ async def post_done(
     jms: JobManagementService = JobManagementService(
         args.session,
         args.self_component,
-        args.security_service.get_private_key(),
-        args.security_service.get_public_key(),
     )
     tms: TaskManagementService = TaskManagementService(
         args.session,
         args.self_component,
-        args.security_service.get_private_key(),
-        args.security_service.get_public_key(),
+        args.exc.transfer_private_key(),
+        args.exc.transfer_public_key(),
     )
 
     try:
@@ -131,8 +125,6 @@ async def post_error(
     jms: JobManagementService = JobManagementService(
         args.session,
         args.self_component,
-        args.security_service.get_private_key(),
-        args.security_service.get_public_key(),
     )
 
     try:

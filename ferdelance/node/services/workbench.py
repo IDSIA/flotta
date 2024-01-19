@@ -77,8 +77,6 @@ class WorkbenchService:
         session: AsyncSession,
         wb_component: Component,
         self_component: Component,
-        private_key: str = "",
-        node_public_key: str = "",
     ) -> None:
         self.session: AsyncSession = session
         self.wb_component: Component = wb_component
@@ -87,8 +85,6 @@ class WorkbenchService:
         self.jms: JobManagementService = JobManagementService(
             self.session,
             self.self_component,
-            private_key,
-            node_public_key,
         )
 
     async def project(self, project_token: str) -> Project:

@@ -55,9 +55,9 @@ async def wb_connect(
     try:
         data_to_sign = f"{data.id}:{data.public_key}"
 
-        args.security_service.set_remote_key(data.public_key)
+        args.exc.set_remote_key(data.public_key)
 
-        args.security_service.exc.verify(data_to_sign, data.signature)
+        args.exc.verify(data_to_sign, data.signature)
         checksum = str_checksum(data_to_sign)
 
         if data.checksum != checksum:
@@ -131,14 +131,12 @@ async def wb_post_artifact_submit(
         args.session,
         args.component,
         args.self_component,
-        args.security_service.get_private_key(),
-        args.security_service.get_remote_key(),
     )
     tms: TaskManagementService = TaskManagementService(
         args.session,
         args.self_component,
-        args.security_service.get_private_key(),
-        args.security_service.get_public_key(),
+        args.exc.transfer_private_key(),
+        args.exc.transfer_public_key(),
     )
 
     try:
