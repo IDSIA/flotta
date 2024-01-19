@@ -19,13 +19,13 @@ resource_router = APIRouter(prefix="/resource", route_class=SignedAPIRoute)
 
 async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> ValidSessionArgs:
     try:
-        if args.component.type_name not in (TYPE_CLIENT, TYPE_NODE, TYPE_USER):
-            LOGGER.warning(f"component={args.component.id}: type={args.component.type_name} cannot access this route")
+        if args.source.type_name not in (TYPE_CLIENT, TYPE_NODE, TYPE_USER):
+            LOGGER.warning(f"component={args.source.id}: type={args.source.type_name} cannot access this route")
 
         return args
 
     except NoResultFound:
-        LOGGER.warning(f"component={args.component.id}: not found")
+        LOGGER.warning(f"component={args.source.id}: not found")
         raise HTTPException(403)
 
 
@@ -34,10 +34,10 @@ async def get_task(
     res_id: ResourceIdentifier,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component={args.component.id}: request resource={res_id.resource_id}")
+    LOGGER.info(f"component={args.source.id}: request resource={res_id.resource_id}")
 
     if not config_manager.get().node.allow_resource_download:
-        LOGGER.warning(f"component={args.component.id}: this node does not allow the download of resources")
+        LOGGER.warning(f"component={args.source.id}: this node does not allow the download of resources")
         raise HTTPException(403)
 
     rm: ResourceManagementService = ResourceManagementService(args.session)
@@ -48,12 +48,12 @@ async def get_task(
         return FileResponse(resource.path)
 
     except NoResultFound as e:
-        LOGGER.error(f"component={args.component.id}: resource={res_id.resource_id} not found")
+        LOGGER.error(f"component={args.source.id}: resource={res_id.resource_id} not found")
         LOGGER.exception(e)
         raise HTTPException(404)
 
     except Exception as e:
-        LOGGER.error(f"component={args.component.id}: {e}")
+        LOGGER.error(f"component={args.source.id}: {e}")
         LOGGER.exception(e)
         raise HTTPException(500)
 
@@ -63,13 +63,13 @@ async def post_resource(
     request: Request,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    component = args.component
+    component = args.source
 
     rm: ResourceManagementService = ResourceManagementService(args.session)
 
     try:
         # get resource from db
-        if args.component.type_name == TYPE_USER:
+        if args.source.type_name == TYPE_USER:
             LOGGER.info(f"component={component.id}: adding external resource")
             resource = await rm.create_resource_external(component.id)
 
@@ -82,7 +82,7 @@ async def post_resource(
 
             LOGGER.info(f"component={component.id}: adding resource as product of job={job_id}")
 
-            resource = await rm.store_resource(job_id, args.component.id)
+            resource = await rm.store_resource(job_id, args.source.id)
 
         # use resource's path
         if "file" in args.extra_headers and args.extra_headers["file"] == "attached":

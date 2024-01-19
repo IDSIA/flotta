@@ -12,7 +12,6 @@ from ferdelance.database.repositories import (
 from ferdelance.logging import get_logger
 from ferdelance.node.services.jobs import JobManagementService
 from ferdelance.schemas.components import Component
-from ferdelance.security.algorithms import Algorithm
 from ferdelance.security.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus, JobStatus
 from ferdelance.tasks.backends import get_jobs_backend
@@ -124,6 +123,7 @@ class TaskManagementService(Repository):
             job_id,
             component_id,
             private_key,
+            component_id,
             self.config.url_localhost(),
             public_key,
             self.local_datasources,
@@ -138,6 +138,7 @@ class TaskManagementService(Repository):
             task.job_id,
             self.self_component.id,
             self.private_key,
+            scheduler_node.id,
             scheduler_node.url,
             scheduler_node.public_key,
             self.local_datasources,

@@ -1,6 +1,6 @@
 from typing import Sequence
-
 from ferdelance.config.config import Configuration, config_manager
+from ferdelance.const import TYPE_CLIENT
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
 from ferdelance.core.interfaces import SchedulerContext, SchedulerJob
 from ferdelance.core.metrics import Metrics
@@ -252,6 +252,7 @@ class JobManagementService(Repository):
                 component_id = self.self_component.id
                 public_key = self.self_component.public_key
                 path = str(r.path)
+
             else:
                 c = await self.cr.get_by_id(p_job.component_id)
 
@@ -263,13 +264,16 @@ class JobManagementService(Repository):
 
             task_resources.append(
                 TaskResource(
+                    # resource
                     resource_id=r.id,
                     artifact_id=job.artifact_id,
                     iteration=job.iteration,
                     job_id=p_job.id,
+                    # who has the resource
                     component_id=component_id,
-                    public_key=public_key,
-                    url=url,
+                    component_public_key=public_key,
+                    component_url=url,
+                    # local data
                     available_locally=available_locally,
                     local_path=path,
                 )
@@ -284,10 +288,12 @@ class JobManagementService(Repository):
             c = await self.cr.get_by_id(n_job.component_id)
             next_nodes.append(
                 TaskNode(
-                    component_id=c.id,
-                    public_key=c.public_key,
-                    url=c.url,
-                    available_locally=job.component_id == self.self_component.id,
+                    # target_data
+                    target_id=c.id,
+                    target_public_key=c.public_key,
+                    target_url=c.url,
+                    # use scheduler as proxy since target is a CLIENT
+                    use_scheduler_as_proxy=c.type_name == TYPE_CLIENT,
                 )
             )
 

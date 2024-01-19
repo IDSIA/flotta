@@ -29,15 +29,18 @@ class SymmetricKey:
             Size of the initialization vector.
         """
 
+        self.key: bytes
+        self.iv: bytes
+
         if data is not None:
             d: dict[str, bytes] = pickle.loads(data)
 
-            self.key: bytes = d["key"]
-            self.iv: bytes = d["iv"]
+            self.key = d["key"]
+            self.iv = d["iv"]
 
         else:
-            self.key: bytes = key if key else os.urandom(key_size)
-            self.iv: bytes = iv if iv else os.urandom(iv_size)
+            self.key = key if key else os.urandom(key_size)
+            self.iv = iv if iv else os.urandom(iv_size)
 
         self.cipher: Cipher = Cipher(algorithms.AES(self.key), modes.CTR(self.iv), backend=default_backend())
 

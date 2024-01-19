@@ -18,13 +18,13 @@ task_router = APIRouter(prefix="/task", route_class=SignedAPIRoute)
 
 async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> ValidSessionArgs:
     try:
-        if args.component.type_name not in (TYPE_CLIENT, TYPE_NODE):
-            LOGGER.warning(f"component={args.component.id}: type={args.component.type_name} cannot access this route")
+        if args.source.type_name not in (TYPE_CLIENT, TYPE_NODE):
+            LOGGER.warning(f"component={args.source.id}: type={args.source.type_name} cannot access this route")
             raise HTTPException(403)
 
         return args
     except NoResultFound:
-        LOGGER.warning(f"component={args.component.id}: not found")
+        LOGGER.warning(f"component={args.source.id}: not found")
         raise HTTPException(403)
 
 
@@ -34,7 +34,7 @@ async def get_task(
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(
-        f"component={args.component.id}: request task with artifact={task_request.artifact_id} and job={task_request.job_id}"
+        f"component={args.source.id}: request task with artifact={task_request.artifact_id} and job={task_request.job_id}"
     )
 
     jms: JobManagementService = JobManagementService(
@@ -50,18 +50,18 @@ async def post_task(
     task: Task,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component={args.component.id}: new task execution")
+    LOGGER.info(f"component={args.source.id}: new task execution")
 
     tms: TaskManagementService = TaskManagementService(
         args.session,
-        args.component,
+        args.source,
         args.exc.transfer_private_key(),
         args.exc.transfer_public_key(),
     )
 
-    status = await tms.start_task(task, args.component.id)
+    status = await tms.start_task(task, args.source.id)
 
-    LOGGER.info(f"component={args.component.id}: executing {status}")
+    LOGGER.info(f"component={args.source.id}: executing {status}")
 
 
 @task_router.post("/metrics")
@@ -70,7 +70,7 @@ async def post_metrics(
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(
-        f"component={args.component.id}: submitted new metrics for "
+        f"component={args.source.id}: submitted new metrics for "
         f"artifact={metrics.artifact_id} source={metrics.source}"
     )
 
@@ -89,7 +89,7 @@ async def post_done(
     done: TaskDone,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"component={args.component.id}: job={done.job_id} completed")
+    LOGGER.info(f"component={args.source.id}: job={done.job_id} completed")
     jms: JobManagementService = JobManagementService(
         args.session,
         args.self_component,
@@ -110,7 +110,7 @@ async def post_done(
     except Exception as e:
         LOGGER.error(
             f"component={args.self_component.id}: something went wrong with completion of job={done.job_id} "
-            f"from component={args.component.id}"
+            f"from component={args.source.id}"
         )
         LOGGER.exception(e)
         return HTTPException(500)
@@ -121,7 +121,7 @@ async def post_error(
     error: TaskError,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.warning(f"component={args.component.id}: job={error.job_id} in error={error.message}")
+    LOGGER.warning(f"component={args.source.id}: job={error.job_id} in error={error.message}")
     jms: JobManagementService = JobManagementService(
         args.session,
         args.self_component,
@@ -131,6 +131,6 @@ async def post_error(
         await jms.task_failed(error)
 
     except Exception as e:
-        LOGGER.error(f"component={args.component.id}: could not save error for job={error.job_id}")
+        LOGGER.error(f"component={args.source.id}: could not save error for job={error.job_id}")
         LOGGER.exception(e)
         return HTTPException(500)

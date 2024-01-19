@@ -24,8 +24,9 @@ class ScheduleActionService:
 
     def start(
         self,
-        remote_url: str,
-        remote_public_key: str,
+        scheduler_id: str,
+        scheduler_url: str,
+        scheduler_public_key: str,
         artifact_id: str,
         job_id: str,
         dsc: list[DataSourceConfiguration],
@@ -34,8 +35,9 @@ class ScheduleActionService:
             self.component_id,
             artifact_id,
             job_id,
-            remote_url,
-            remote_public_key,
+            scheduler_id,
+            scheduler_url,
+            scheduler_public_key,
             self.private_key,
             [d.dict() for d in dsc],
             False,
@@ -46,8 +48,9 @@ class ScheduleActionService:
 
     def schedule(
         self,
-        remote_url: str,
-        remote_public_key: str,
+        scheduler_id: str,
+        scheduler_url: str,
+        scheduler_public_key: str,
         update_data: UpdateData,
         dsc: list[DataSourceConfiguration],
     ) -> Action:
@@ -55,8 +58,9 @@ class ScheduleActionService:
 
         if action == Action.EXECUTE:
             return self.start(
-                remote_url,
-                remote_public_key,
+                scheduler_id,
+                scheduler_url,
+                scheduler_public_key,
                 update_data.artifact_id,
                 update_data.job_id,
                 dsc,

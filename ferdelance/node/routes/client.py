@@ -17,15 +17,15 @@ client_router = APIRouter(prefix="/client", route_class=SignedAPIRoute)
 
 async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> ValidSessionArgs:
     try:
-        if args.component.type_name != TYPE_CLIENT:
+        if args.source.type_name != TYPE_CLIENT:
             LOGGER.warning(
-                f"component={args.component.id}: client of type={args.component.type_name} cannot access this route"
+                f"component={args.source.id}: client of type={args.source.type_name} cannot access this route"
             )
             raise HTTPException(403)
 
         return args
     except NoResultFound:
-        LOGGER.warning(f"component={args.component.id} not found")
+        LOGGER.warning(f"component={args.source.id} not found")
         raise HTTPException(403)
 
 
@@ -45,13 +45,13 @@ async def client_update(
     - new client app package
     - nothing (keep alive)
     """
-    LOGGER.debug(f"component={args.component.id}: update request")
+    LOGGER.debug(f"component={args.source.id}: update request")
 
     jms: JobManagementService = JobManagementService(
         args.session,
         args.self_component,
     )
 
-    next_action = await jms.update(args.component)
+    next_action = await jms.update(args.source)
 
     return next_action

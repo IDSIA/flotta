@@ -1,12 +1,13 @@
 from ferdelance.config import config_manager
 from ferdelance.exceptions import ConfigError, ErrorClient, UpdateClient
 from ferdelance.logging import get_logger
-from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.client import ClientUpdate
 from ferdelance.schemas.updates import UpdateData
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.actions import Action
 from ferdelance.tasks.services.scheduling import ScheduleActionService
 
+from pathlib import Path
 from time import sleep
 
 import json
@@ -24,18 +25,21 @@ class Heartbeat:
     task to execute. Once a task has been found, it will be executed locally.
     """
 
-    def __init__(self, client_id: str, remote_public_key: str) -> None:
+    def __init__(self, client_id: str, remote_id: str, remote_public_key: str) -> None:
         # possible states are: work, exit, update, install
         self.status: Action = Action.INIT
 
         self.config = config_manager.get()
         self.leave = config_manager.leave()
 
-        self.security_service: SecurityService = SecurityService(remote_public_key)
+        private_key_path: Path = config_manager.get().private_key_location()
+        self.exc: Exchange = Exchange(private_key_path)
+        self.exc.set_remote_key(remote_public_key)
 
         if self.config.join.url is None:
             raise ValueError("No remote server available")
 
+        self.remote_id: str = remote_id
         self.remote_url: str = self.config.join.url
         self.remote_public_key: str = remote_public_key
 
@@ -49,10 +53,9 @@ class Heartbeat:
     def _leave(self) -> None:
         """Send a leave request to the server."""
 
-        headers, payload = self.security_service.create(
+        headers, payload = self.exc.create(
             self.client_id,
-            "",
-            True,
+            self.remote_id,
         )
 
         res = requests.post(
@@ -70,8 +73,9 @@ class Heartbeat:
         """Heartbeat command to check for an update from the server."""
         LOGGER.debug("requesting update")
 
-        headers, payload = self.security_service.create(
+        headers, payload = self.exc.create(
             self.client_id,
+            self.remote_id,
             content.json(),
         )
 
@@ -83,7 +87,7 @@ class Heartbeat:
 
         res.raise_for_status()
 
-        _, res_payload = self.security_service.exc.get_payload(res.content)
+        _, res_payload = self.exc.get_payload(res.content)
 
         return UpdateData(**json.loads(res_payload))
 
@@ -103,7 +107,7 @@ class Heartbeat:
 
             scheduler = ScheduleActionService(
                 self.client_id,
-                self.security_service.exc.transfer_private_key(),
+                self.exc.transfer_private_key(),
             )
 
             while self.status != Action.CLIENT_EXIT and not self.stop:
@@ -115,6 +119,7 @@ class Heartbeat:
                     LOGGER.debug(f"update: action={update_data.action}")
 
                     self.status = scheduler.schedule(
+                        self.remote_id,
                         self.remote_url,
                         self.remote_public_key,
                         update_data,

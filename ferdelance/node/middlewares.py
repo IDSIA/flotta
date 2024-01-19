@@ -8,6 +8,7 @@ from ferdelance.logging import get_logger
 from ferdelance.schemas.components import Component
 from ferdelance.security.algorithms import Algorithm
 from ferdelance.security.exchange import Exchange
+from ferdelance.security.headers import SignedHeaders
 
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import FileResponse, StreamingResponse
@@ -37,24 +38,17 @@ class SessionArgs:
 
     lock: asyncio.Lock
 
-    content_encrypted: bool
-    content_algorithm: Algorithm
-    accept_encrypted: bool
-    accept_algorithm: Algorithm
-
-    identity: bool = False
-
 
 @dataclass(kw_only=True)
 class ValidSessionArgs(SessionArgs):
     checksum: str
-    component: Component
+    source: Component
     target: Component
 
     extra_headers: dict[str, str]
 
 
-class SignableRequest(Request):
+class SignedRequest(Request):
     def __init__(
         self,
         db_session: AsyncSession,
@@ -70,41 +64,19 @@ class SignableRequest(Request):
 
         self.lock: asyncio.Lock = lock
 
-        content_encryption = self.headers.get("Content-Encryption", "").split("/")
-        if "encrypted" in content_encryption:
-            self.content_encrypted: bool = True
-            self.content_algorithm: Algorithm = Algorithm[content_encryption[1]]
-        else:
-            self.content_encrypted: bool = False
-            self.content_algorithm: Algorithm = Algorithm.NO_ENCRYPTION
-
-        accept_encryption = self.headers.get("Accept-Encryption", "").split("/")
-        if "encrypted" in accept_encryption:
-            self.accept_encrypted: bool = True
-            self.accept_algorithm: Algorithm = Algorithm[accept_encryption[1]]
-        else:
-            self.accept_encrypted: bool = False
-            self.accept_algorithm: Algorithm = Algorithm.NO_ENCRYPTION
-
         private_key_path: Path = config_manager.get().private_key_location()
-        self.exc: Exchange = Exchange(private_key_path, self.content_algorithm)
+        self.exc: Exchange = Exchange(private_key_path)
 
         self.ip_address: str = self.client.host if self.client else ""
 
-        self.signed_checksum: str = ""
+        self.source_checksum: str = ""
         self.checksum: str = ""
 
-        self.self_component: Component = self_component
-        self.component: Component | None = None
-        self.target: Component | None = None
+        self.signed_in: bool = False
 
-        if (
-            self.component is not None
-            and self.target is not None
-            and self.component.id != self.target.id
-            and self.content_encrypted
-        ):
-            self.content_algorithm = Algorithm.NO_ENCRYPTION
+        self.self_component: Component = self_component
+        self.source: Component | None = None
+        self.target: Component | None = None
 
         self.extra_headers: dict[str, str] = dict()
 
@@ -113,17 +85,12 @@ class SignableRequest(Request):
             session=self.db_session,
             exc=self.exc,
             self_component=self.self_component,
-            content_encrypted=self.content_encrypted,
-            content_algorithm=self.content_algorithm,
-            accept_encrypted=self.accept_encrypted,
-            accept_algorithm=self.accept_algorithm,
             ip_address=self.ip_address,
-            identity=self.component is not None,
             lock=self.lock,
         )
 
     def valid_args(self) -> ValidSessionArgs:
-        if self.component is None:
+        if self.source is None:
             raise HTTPException(403, "Access Denied")
 
         if self.target is None:
@@ -133,14 +100,9 @@ class SignableRequest(Request):
             session=self.db_session,
             exc=self.exc,
             self_component=self.self_component,
-            content_encrypted=self.content_encrypted,
-            content_algorithm=self.content_algorithm,
-            accept_encrypted=self.accept_encrypted,
-            accept_algorithm=self.accept_algorithm,
             ip_address=self.ip_address,
-            identity=self.component is not None,
             checksum=self.checksum,
-            component=self.component,
+            source=self.source,
             target=self.target,
             extra_headers=self.extra_headers,
             lock=self.lock,
@@ -151,26 +113,17 @@ class SignableRequest(Request):
             body: bytes = await super().body()
 
             try:
-                if self.content_encrypted and self.signed_checksum and self.component:
+                if self.signed_in and self.source_checksum and self.source:
                     # decrypt body
-                    LOGGER.debug(f"component={self.component.id}: Received signed request with encrypted data")
+                    LOGGER.debug(f"component={self.source.id}: Received signed request with encrypted data")
 
                     self.checksum, payload = self.exc.get_payload(body)
 
-                    if self.signed_checksum != self.checksum:
-                        LOGGER.warning(f"component={self.component.id}: Checksum failed")
+                    if self.source_checksum != self.checksum:
+                        LOGGER.warning(f"component={self.source.id}: Checksum failed")
                         raise HTTPException(403)
 
                     body = payload
-
-                else:
-                    LOGGER.debug("not signed request")
-
-                    if self.content_encrypted:
-                        # decrypt body
-                        LOGGER.debug("received not signed request with encrypted data")
-
-                        self.checksum, body = self.exc.get_payload(body)
 
             except Exception as e:
                 LOGGER.warning(f"Secure checks failed: {e}")
@@ -181,11 +134,11 @@ class SignableRequest(Request):
         return self._body
 
 
-async def check_signature(db_session: AsyncSession, request: Request, lock: asyncio.Lock) -> SignableRequest:
+async def check_signature(db_session: AsyncSession, request: Request, lock: asyncio.Lock) -> SignedRequest:
     cr: ComponentRepository = ComponentRepository(db_session)
     self_component = await cr.get_self_component()
 
-    request = SignableRequest(db_session, self_component, lock, request.scope, request.receive)
+    request = SignedRequest(db_session, self_component, lock, request.scope, request.receive)
 
     given_signature = request.headers.get("Signature", "")
 
@@ -194,25 +147,24 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
 
         try:
             # decrypt header
-            headers = request.exc.get_headers(given_signature)
+            headers: SignedHeaders = request.exc.get_headers(given_signature)
 
             # get request's component
-            component = await cr.get_by_id(headers.source_id)
+            source = await cr.get_by_id(headers.source_id)
 
-            if not component.active:
-                LOGGER.warning(f"component={component.id}: request denied to inactive component")
+            if not source.active:
+                LOGGER.warning(f"component={source.id}: request denied to inactive component")
                 raise HTTPException(403, "Inactive component")
 
-            if component.blacklisted:
-                LOGGER.warning(f"component={component.id}: request denied to blacklisted component")
+            if source.blacklisted:
+                LOGGER.warning(f"component={source.id}: request denied to blacklisted component")
                 raise HTTPException(403, "Access Denied")
 
-            request.exc.set_remote_key(component.public_key)
-
-            request.component = component
-
             # verify signature data
-            request.exc.verify(f"{headers.source_id}:{request.signed_checksum}", headers.signature)
+            request.exc.verify(f"{headers.source_id}:{request.source_checksum}", headers.signature)
+
+            request.exc.set_remote_key(source.public_key)
+            request.source = source
 
             # check target id
             if headers.target_id == self_component.id:
@@ -220,7 +172,11 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
             else:
                 request.target = await cr.get_by_id(headers.target_id)
 
+            request.exc.algorithm = Algorithm[headers.encryption]
+            request.source_checksum = headers.checksum
             request.extra_headers = headers.extra
+
+            request.signed_in = True
 
         except InvalidSignature | ValueError as _:
             LOGGER.warning(f"component=UNKNOWN: invalid signature")
@@ -233,38 +189,39 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
     return request
 
 
-async def encrypt_response(request: SignableRequest, response: Response) -> Response:
-    args: SessionArgs = request.args()
+async def encrypt_response(request: SignedRequest, response: Response) -> Response:
+    target_id = "" if request.source is None else request.source.id
 
-    target_id = "" if request.component is None else request.component.id
+    # TODO: modify response so that it can change encryption algorithm
 
-    if isinstance(response, FileResponse) and args.accept_encrypted:
+    if isinstance(response, FileResponse) and request.signed_in:
         path = Path(response.path)
-        checksum, it = args.exc.encrypt_file_to_stream(path)
-        stream_response = StreamingResponse(it, media_type="application/octet-stream")
+        checksum, it = request.exc.encrypt_file_to_stream(path)
 
-        headers = args.exc.create_signed_headers(
-            args.self_component.id,
+        headers = request.exc.create_signed_headers(
+            request.self_component.id,
             checksum,
             target_id,
         )
 
-        response = stream_response
+        response = StreamingResponse(
+            it,
+            media_type="application/octet-stream",
+        )
 
-    elif args.accept_encrypted:
-        checksum, payload = args.exc.create_payload(response.body)
+    elif request.signed_in:
+        checksum, payload = request.exc.create_payload(response.body)
 
         response.headers["Content-Length"] = f"{len(payload)}"
         response.body = payload
 
-        headers = args.exc.create_signed_headers(
-            args.self_component.id,
+        headers = request.exc.create_signed_headers(
+            request.self_component.id,
             checksum,
             target_id,
         )
+
     else:
-        checksum = ""  # TODO: maybe set this to something and use it...
-        args.exc.algorithm = Algorithm.NO_ENCRYPTION
         headers = {}
 
     for k, v in headers.items():
@@ -292,9 +249,9 @@ class SignedAPIRoute(APIRoute):
         return custom_route_handler
 
 
-async def session_args(request: SignableRequest) -> SessionArgs:
+async def session_args(request: SignedRequest) -> SessionArgs:
     return request.args()
 
 
-async def valid_session_args(request: SignableRequest) -> ValidSessionArgs:
+async def valid_session_args(request: SignedRequest) -> ValidSessionArgs:
     return request.valid_args()

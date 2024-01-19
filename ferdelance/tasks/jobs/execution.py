@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.config import DataSourceConfiguration, config_manager
+from ferdelance.config import DataSourceConfiguration
 from ferdelance.config.config import DataSourceStorage
 from ferdelance.logging import get_logger
 from ferdelance.tasks.services import RouteService, ExecutionService
@@ -22,8 +22,10 @@ class Execution:
         component_id: str,
         # id of the artifact to run
         artifact_id: str,
-        # id of the job to download
+        # id of the job to fetch
         job_id: str,
+        # component id of the scheduler node (if localhost, same as component_id)
+        scheduler_id: str,
         # url of the remote node to use (if localhost, same node)
         scheduler_url: str,
         # public key of the remote node (if none, same node)
@@ -38,6 +40,7 @@ class Execution:
         self.artifact_id: str = artifact_id
         self.job_id: str = job_id
 
+        self.scheduler_id: str = scheduler_id
         self.scheduler_url: str = scheduler_url
         self.scheduler_public_key: str = scheduler_public_key
         self.private_key: str = private_key
@@ -58,6 +61,7 @@ class Execution:
         scheduler = RouteService(
             self.component_id,
             self.private_key,
+            self.scheduler_id,
             self.scheduler_url,
             self.scheduler_public_key,
             self.scheduler_is_local,
@@ -76,13 +80,11 @@ class Execution:
             LOGGER.info(f"JOB job={job_id}: collecting {len(task.required_resources)} resource(s)")
 
             for resource in task.required_resources:
-                LOGGER.info(
-                    f"JOB job={job_id}: obtaining resource from node={resource.component_id} url={resource.url}"
-                )
-
                 if resource.available_locally:
                     if resource.local_path is None:
                         raise ValueError("Resource available locally has no path!")
+
+                    LOGGER.info(f"JOB job={job_id}: obtaining resource locally")
 
                     res_path = Path(resource.local_path)
 
@@ -90,8 +92,13 @@ class Execution:
                     node = RouteService(
                         self.component_id,
                         self.private_key,
-                        resource.url,
-                        resource.public_key,
+                        resource.component_id,
+                        resource.component_url,
+                        resource.component_public_key,
+                    )
+
+                    LOGGER.info(
+                        f"JOB job={job_id}: obtaining resource from node={resource.component_id} url={resource.component_url}"
                     )
 
                     # path to resource saved locally
@@ -121,26 +128,30 @@ class Execution:
             )
 
             for next_node in task.next_nodes:
+                is_local = next_node.target_id == self.component_id
+
                 LOGGER.info(
                     f"JOB job={job_id}: sending resource={task.produced_resource_id} to "
-                    f"component={next_node.component_id} "
-                    f"via url={next_node.url} "
-                    f"is_local={next_node.available_locally}"
+                    f"component={next_node.target_id} "
+                    f"via url={next_node.target_url} "
+                    f"is_local={is_local}"
                 )
                 node = RouteService(
                     self.component_id,
                     self.private_key,
-                    next_node.url,
-                    next_node.public_key,
-                    next_node.available_locally,
+                    next_node.target_id,
+                    next_node.target_url,
+                    next_node.target_public_key,
+                    is_local,
                 )
 
-                if next_node.component_id == self.component_id:
-                    # This is local
-                    node.post_resource(artifact_id, job_id, task.produced_resource_id)
+                if is_local:
+                    node.post_resource(next_node.target_id, artifact_id, job_id, task.produced_resource_id)
 
                 else:
-                    node.post_resource(artifact_id, job_id, task.produced_resource_id, es.env.product_path())
+                    node.post_resource(
+                        next_node.target_id, artifact_id, job_id, task.produced_resource_id, es.env.product_path()
+                    )
 
             scheduler.post_done(artifact_id, job_id)
 

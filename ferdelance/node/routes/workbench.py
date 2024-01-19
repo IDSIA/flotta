@@ -28,13 +28,13 @@ workbench_router = APIRouter(prefix="/workbench", route_class=SignedAPIRoute)
 
 async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> SessionArgs:
     try:
-        if args.component.type_name != TYPE_USER:
-            LOGGER.warning(f"client of type={args.component.type_name} cannot access this route")
+        if args.source.type_name != TYPE_USER:
+            LOGGER.warning(f"client of type={args.source.type_name} cannot access this route")
             raise HTTPException(403)
 
         return args
     except NoResultFound:
-        LOGGER.warning(f"component={args.component.id} not found")
+        LOGGER.warning(f"component={args.source.id} not found")
         raise HTTPException(403)
 
 
@@ -84,15 +84,15 @@ async def wb_get_project(
     wpt: WorkbenchProjectToken,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> Project:
-    LOGGER.info(f"user={args.component.id}: requested a project given its token")
+    LOGGER.info(f"user={args.source.id}: requested a project given its token")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.source, args.self_component)
 
     try:
         return await ws.project(wpt.token)
 
     except NoResultFound:
-        LOGGER.warning(f"user={args.component.id}: request project with invalid token={wpt.token}")
+        LOGGER.warning(f"user={args.source.id}: request project with invalid token={wpt.token}")
         raise HTTPException(404)
 
 
@@ -101,9 +101,9 @@ async def wb_get_client_list(
     wpt: WorkbenchProjectToken,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> WorkbenchClientList:
-    LOGGER.info(f"user={args.component.id}: requested a list of clients")
+    LOGGER.info(f"user={args.source.id}: requested a list of clients")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.source, args.self_component)
 
     return await ws.get_client_list(wpt.token)
 
@@ -113,9 +113,9 @@ async def wb_get_datasource_list(
     wpt: WorkbenchProjectToken,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> WorkbenchDataSourceIdList:
-    LOGGER.info(f"user={args.component.id}: requested a list of available data source")
+    LOGGER.info(f"user={args.source.id}: requested a list of available data source")
 
-    wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+    wb: WorkbenchService = WorkbenchService(args.session, args.source, args.self_component)
 
     return await wb.get_datasource_list(wpt.token)
 
@@ -125,11 +125,11 @@ async def wb_post_artifact_submit(
     artifact: Artifact,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> ArtifactStatus:
-    LOGGER.info(f"user={args.component.id}: submitted a new artifact")
+    LOGGER.info(f"user={args.source.id}: submitted a new artifact")
 
     wb: WorkbenchService = WorkbenchService(
         args.session,
-        args.component,
+        args.source,
         args.self_component,
     )
     tms: TaskManagementService = TaskManagementService(
@@ -157,9 +157,9 @@ async def wb_get_artifact_status(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ) -> ArtifactStatus:
-    LOGGER.info(f"user={args.component.id}: requested status of artifact")
+    LOGGER.info(f"user={args.source.id}: requested status of artifact")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.source, args.self_component)
 
     try:
         return await ws.get_status_artifact(wba.artifact_id)
@@ -174,9 +174,9 @@ async def wb_get_artifact(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user={args.component.id}: requested details on artifact")
+    LOGGER.info(f"user={args.source.id}: requested details on artifact")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.source, args.self_component)
 
     try:
         artifact = await ws.get_artifact(wba.artifact_id)
@@ -203,9 +203,9 @@ async def wb_get_resource_list(
     wba: WorkbenchArtifact,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user={args.component.id}: requested resource list for artifact={wba.artifact_id}")
+    LOGGER.info(f"user={args.source.id}: requested resource list for artifact={wba.artifact_id}")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.source, args.self_component)
 
     res_list = await ws.list_resources(wba.artifact_id)
 
@@ -217,9 +217,9 @@ async def wb_get_resource(
     wbr: WorkbenchResource,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user={args.component.id}: requested resource={wbr.resource_id}")
+    LOGGER.info(f"user={args.source.id}: requested resource={wbr.resource_id}")
 
-    ws: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
+    ws: WorkbenchService = WorkbenchService(args.session, args.source, args.self_component)
 
     try:
         resource = await ws.get_resource(wbr.resource_id)
