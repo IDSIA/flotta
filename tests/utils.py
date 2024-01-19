@@ -9,6 +9,7 @@ from ferdelance.schemas.components import Component
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
 from ferdelance.schemas.workbench import WorkbenchJoinRequest
+from ferdelance.security.algorithms import Algorithm
 from ferdelance.security.checksums import str_checksum
 from ferdelance.security.exchange import Exchange
 from ferdelance.shared.actions import Action
@@ -32,17 +33,15 @@ def setup_exchange() -> Exchange:
     return exc
 
 
-def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, client_id: str = "") -> str:
+def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, client_id: str = "") -> tuple[str, str]:
     """Creates and register a new client.
     :return:
         Component id for this new client.
+        Component id of the joined node.
     """
-
-    headers = exc.create_headers(False)
 
     response_key = api.get(
         "/node/key",
-        headers=headers,
     )
 
     response_key.raise_for_status()
@@ -73,8 +72,8 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
         signature=signature,
     )
 
-    _, payload = exc.create_payload(cjr.json())
-    headers = exc.create_headers(True)
+    payload_checksum, payload = exc.create_payload(cjr.json())
+    headers = exc.create_signed_headers(client_id, payload_checksum, "JOIN")
 
     response_join = api.post(
         "/node/join",
@@ -92,7 +91,7 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
 
     LOGGER.info(f"component={client_id}: successfully created new client")
 
-    return cjr.id
+    return cjr.id, jd.component_id
 
 
 TEST_PROJECT_TOKEN: str = "a02a9e2ad5901e39bf53388d19e4be46d3ac7efd1366a961cf54c4a4eeb7faa0"
@@ -149,8 +148,8 @@ def get_metadata(
     )
 
 
-def send_metadata(component_id: str, api: TestClient, exc: Exchange, metadata: Metadata) -> None:
-    headers, payload = exc.create(component_id, metadata.json())
+def send_metadata(source_id: str, target_id: str, api: TestClient, exc: Exchange, metadata: Metadata) -> None:
+    headers, payload = exc.create(source_id, target_id, metadata.json())
 
     upload_response = api.post(
         "/node/metadata",
@@ -191,17 +190,14 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     wb_exc = setup_exchange()
 
     # this is to have a client
-    client_id = create_node(api, cl_exc)
+    client_id, server_id = create_node(api, cl_exc)
 
     metadata: Metadata = get_metadata()
-    send_metadata(client_id, api, cl_exc, metadata)
+    send_metadata(client_id, server_id, api, cl_exc, metadata)
 
     # this is to connect a new workbench
-    headers = wb_exc.create_headers(False)
-
     response_key = api.get(
         "/node/key",
-        headers=headers,
     )
 
     response_key.raise_for_status()
@@ -230,11 +226,9 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     )
 
     _, payload = wb_exc.create_payload(wjr.json())
-    headers = wb_exc.create_headers(True)
 
     res_connect = api.post(
         "/workbench/connect",
-        headers=headers,
         content=payload,
     )
 
@@ -249,10 +243,10 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
     )
 
 
-def client_update(component_id: str, api: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
+def client_update(source_id: str, target_id: str, api: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
     update = ClientUpdate(action=Action.DO_NOTHING.name)
 
-    headers, payload = exchange.create(component_id, update.json())
+    headers, payload = exchange.create(source_id, target_id, update.json())
 
     response = api.request(
         method="GET",

@@ -53,7 +53,7 @@ async def test_client_connect_successful(session: AsyncSession, exchange: Exchan
     """
 
     with TestClient(api) as client:
-        client_id = create_node(client, exchange)
+        client_id, _ = create_node(client, exchange)
 
         cr: ComponentRepository = ComponentRepository(session)
 
@@ -72,7 +72,7 @@ async def test_client_already_exists(session: AsyncSession, exchange: Exchange):
     """This test will send twice the access information and expect the second time to receive a 403 error."""
 
     with TestClient(api) as client:
-        client_id = create_node(client, exchange)
+        client_id, _ = create_node(client, exchange)
 
         cr: ComponentRepository = ComponentRepository(session)
 
@@ -91,11 +91,11 @@ async def test_client_update(session: AsyncSession, exchange: Exchange):
     """This will test the endpoint for updates."""
 
     with TestClient(api) as client:
-        client_id = create_node(client, exchange)
+        client_id, server_id = create_node(client, exchange)
 
         # cr: ComponentRepository = ComponentRepository(session)
 
-        status_code, action, _ = client_update(client_id, client, exchange)
+        status_code, action, _ = client_update(client_id, server_id, client, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.DO_NOTHING
@@ -113,11 +113,11 @@ async def test_client_update(session: AsyncSession, exchange: Exchange):
 async def test_client_leave(session: AsyncSession, exchange: Exchange):
     """This will test the endpoint for leave a client."""
     with TestClient(api) as client:
-        client_id = create_node(client, exchange)
+        client_id, server_id = create_node(client, exchange)
 
         cr: ComponentRepository = ComponentRepository(session)
 
-        headers, payload = exchange.create(client_id, "", True)
+        headers, payload = exchange.create(client_id, server_id)
 
         response_leave = client.post(
             "/node/leave",
@@ -130,7 +130,7 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        status_code, _, _ = client_update(client_id, client, exchange)
+        status_code, _, _ = client_update(client_id, server_id, client, exchange)
 
         assert status_code == 403
 
@@ -151,12 +151,12 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
 @pytest.mark.asyncio
 async def test_update_metadata(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
-        client_id = create_node(client, exchange)
+        client_id, server_id = create_node(client, exchange)
 
         assert client_id is not None
 
         metadata: Metadata = get_metadata()
-        send_metadata(client_id, client, exchange, metadata)
+        send_metadata(client_id, server_id, client, exchange, metadata)
 
         res = await session.execute(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
         ds_db: DataSourceDB = res.scalar_one()
@@ -172,9 +172,9 @@ async def test_update_metadata(session: AsyncSession, exchange: Exchange):
 @pytest.mark.asyncio
 async def test_client_access(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as client:
-        client_id = create_node(client, exchange)
+        client_id, server_id = create_node(client, exchange)
 
-        headers, payload = exchange.create(client_id, '{"action":""}')
+        headers, payload = exchange.create(client_id, server_id, '{"action":""}')
 
         res = client.request(
             method="GET",

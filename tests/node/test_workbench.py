@@ -11,6 +11,7 @@ from ferdelance.database.repositories import (
 from ferdelance.node.api import api
 from ferdelance.node.services.jobs import JobManagementService
 from ferdelance.node.services.resource import ResourceManagementService
+from ferdelance.security.algorithms import Algorithm
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
     Project,
@@ -66,7 +67,7 @@ async def test_workbench_read_home(session: AsyncSession):
         args = await connect(server, session)
         wb_exc = args.wb_exc
 
-        headers, _ = wb_exc.create(args.wb_id, set_encryption=False)
+        headers, _ = wb_exc.create(args.wb_id, "", Algorithm.NO_ENCRYPTION)
 
         res = server.get(
             "/workbench",
@@ -88,7 +89,7 @@ async def test_workbench_get_project(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, "", Algorithm.NO_ENCRYPTION, wpt.json())
 
         res = server.request(
             method="GET",
@@ -118,7 +119,7 @@ async def test_workbench_list_client(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, "", wpt.json())
 
         res = server.request(
             method="GET",
@@ -145,7 +146,7 @@ async def test_workbench_list_datasources(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, "", wpt.json())
 
         res = server.request(
             method="GET",

@@ -29,10 +29,10 @@ async def test_job_change_status(session: AsyncSession):
         p_token: str = "123456789"
 
         await create_project(session, p_token)
-        node = create_node(client, setup_exchange())
-        worker1 = create_node(client, setup_exchange())
-        worker2 = create_node(client, setup_exchange())
-        worker3 = create_node(client, setup_exchange())
+        node, _ = create_node(client, setup_exchange())
+        worker1, _ = create_node(client, setup_exchange())
+        worker2, _ = create_node(client, setup_exchange())
+        worker3, _ = create_node(client, setup_exchange())
 
         a = Artifact(
             id="artifact",

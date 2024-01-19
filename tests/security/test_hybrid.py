@@ -22,7 +22,7 @@ def test_stream_from_memory():
     for chunk in enc.encrypt_content_to_stream(content):
         chunks_encrypted.append(chunk)
 
-    dec_content = dec.decrypt_content_stream(iter(chunks_encrypted))
+    dec_content = dec.decrypt_stream(iter(chunks_encrypted))
 
     assert content == dec_content.decode("utf8")
 

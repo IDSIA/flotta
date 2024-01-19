@@ -28,14 +28,14 @@ LOGGER = get_logger(__name__)
 @pytest.mark.asyncio
 async def test_task_task_not_found(session: AsyncSession, exchange: Exchange):
     with TestClient(api) as server:
-        node_id = create_node(server, exchange, TYPE_NODE)
+        node_id, server_id = create_node(server, exchange, TYPE_NODE)
 
         tpr = TaskRequest(
             artifact_id=str(uuid.uuid4()),
             job_id=str(uuid.uuid4()),
         )
 
-        headers, payload = exchange.create(node_id, tpr.json())
+        headers, payload = exchange.create(node_id, server_id, tpr.json())
 
         res = server.request(
             "GET",
@@ -228,7 +228,7 @@ async def test_task_access(session: AsyncSession):
 
         nd_id = args.cl_id
         nd_exc = args.cl_exc
-        headers, _ = nd_exc.create(nd_id)
+        headers, _ = nd_exc.create(nd_id, "")
 
         res = server.get(
             "/client/update",
