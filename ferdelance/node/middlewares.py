@@ -209,6 +209,9 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
             LOGGER.exception(e)
             raise HTTPException(403, "Access Denied")
 
+        except HTTPException as e:
+            raise e
+
         except Exception as e:
             LOGGER.exception(e)
             raise HTTPException(500, "Internal server error")
