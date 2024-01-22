@@ -1,11 +1,11 @@
-from ferdelance.config import config_manager
-from ferdelance.exceptions import ConfigError, ErrorClient, UpdateClient
+from ferdelance.config import config_manager, DataSourceConfiguration
+from ferdelance.exceptions import ConfigError, ErrorClient, UpdateClient, InvalidAction
 from ferdelance.logging import get_logger
 from ferdelance.schemas.client import ClientUpdate
 from ferdelance.schemas.updates import UpdateData
 from ferdelance.security.exchange import Exchange
 from ferdelance.shared.actions import Action
-from ferdelance.tasks.services.scheduling import ScheduleActionService
+from ferdelance.tasks.jobs.execution import Execution
 
 from pathlib import Path
 from time import sleep
@@ -91,6 +91,27 @@ class Heartbeat:
 
         return UpdateData(**json.loads(res_payload))
 
+    def _start_execution(
+        self,
+        artifact_id: str,
+        job_id: str,
+    ) -> Action:
+        dsc: list[DataSourceConfiguration] = self.config.datasources
+        actor_handler = Execution.remote(
+            self.client_id,
+            artifact_id,
+            job_id,
+            self.remote_id,
+            self.remote_url,
+            self.remote_public_key,
+            self.exc.transfer_private_key(),
+            [d.dict() for d in dsc],
+            False,
+        )
+        _ = actor_handler.run.remote()  # type: ignore
+
+        return Action.DO_NOTHING
+
     def run(self) -> int:
         """Main loop where the client contact the server node for updates.
 
@@ -105,29 +126,35 @@ class Heartbeat:
                 self._leave()
                 return 0
 
-            scheduler = ScheduleActionService(
-                self.client_id,
-                self.exc.transfer_private_key(),
-            )
-
             while self.status != Action.CLIENT_EXIT and not self.stop:
                 try:
                     LOGGER.debug("requesting update")
 
                     update_data = self._update(ClientUpdate(action=self.status.name))
 
-                    LOGGER.debug(f"update: action={update_data.action}")
+                    action = Action[update_data.action]
 
-                    self.status = scheduler.schedule(
-                        self.remote_id,
-                        self.remote_url,
-                        self.remote_public_key,
-                        update_data,
-                        self.config.datasources,
-                    )
+                    LOGGER.debug(f"update: action={action}")
 
-                    if self.status == Action.CLIENT_UPDATE:
+                    # schedule action
+                    if action == Action.EXECUTE:
+                        LOGGER.info(
+                            f"update: starting execution for artifact={update_data.artifact_id} job={update_data.job_id}"
+                        )
+                        self.status = self._start_execution(
+                            update_data.artifact_id,
+                            update_data.job_id,
+                        )
+
+                    elif action == Action.DO_NOTHING:
+                        LOGGER.debug("nothing new from the server node")
+                        self.status = Action.DO_NOTHING
+
+                    elif self.status == Action.CLIENT_UPDATE:
                         raise UpdateClient()
+
+                    else:
+                        raise InvalidAction(f"cannot complete action={action}")
 
                 except UpdateClient as e:
                     raise e

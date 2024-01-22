@@ -17,6 +17,10 @@ class WorkbenchJoinRequest(BaseModel):
     signature: str
 
 
+class WorkbenchJoinResponse(BaseModel):
+    component_id: str
+
+
 class WorkbenchProjectToken(BaseModel):
     token: str
 

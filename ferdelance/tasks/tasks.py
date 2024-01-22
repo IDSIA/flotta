@@ -1,4 +1,3 @@
-from unittest.util import strclass
 from ferdelance.core.entity import Entity
 from ferdelance.core.environment import Environment
 from ferdelance.core.interfaces import Step

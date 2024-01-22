@@ -9,12 +9,12 @@ from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
+    WorkbenchJoinResponse,
     WorkbenchProjectToken,
     WorkbenchResource,
 )
-from ferdelance.security.algorithms import Algorithm
-from ferdelance.security.exchange import Exchange
 from ferdelance.security.checksums import str_checksum
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus
 from ferdelance.workbench.interface import (
     Project,
@@ -62,7 +62,7 @@ class Context:
             If True and `ssh_key` is None, then a new SSH key will be generated locally. Otherwise
             if False, the key stored in `HOME/.ssh/rsa_id` will be used.
         """
-        self.server: str = server.rstrip("/")
+        self.server_url: str = server.rstrip("/")
 
         self.exc: Exchange = Exchange()
 
@@ -126,7 +126,7 @@ class Context:
 
         # connecting to server
         response_key = requests.get(
-            f"{self.server}/node/key",
+            f"{self.server_url}/node/key",
         )
 
         response_key.raise_for_status()
@@ -151,14 +151,22 @@ class Context:
             signature=signature,
         )
 
-        _, payload = self.exc.create_payload(wjr.json())
+        payload_checksum, payload = self.exc.create_payload(wjr.json())
+        headers = self.exc.create_signed_headers(self.id, payload_checksum, "JOIN")
 
         res = requests.post(
-            f"{self.server}/workbench/connect",
+            f"{self.server_url}/workbench/connect",
+            headers=headers,
             data=payload,
         )
 
         res.raise_for_status()
+
+        _, payload = self.exc.get_payload(res.content)
+
+        join_data = WorkbenchJoinResponse(**(json.loads(payload)))
+
+        self.server_id = join_data.component_id
 
     def project(self, token: str | None = None) -> Project:
         if token is None:
@@ -172,10 +180,10 @@ class Context:
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(self.id, self.server_id, wpt.json())
 
         res = requests.get(
-            f"{self.server}/workbench/project",
+            f"{self.server_url}/workbench/project",
             headers=headers,
             data=payload,
         )
@@ -198,10 +206,10 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(self.id, self.server_id, wpt.json())
 
         res = requests.get(
-            f"{self.server}/workbench/clients",
+            f"{self.server_url}/workbench/clients",
             headers=headers,
             data=payload,
         )
@@ -224,10 +232,10 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(self.id, self.server_id, wpt.json())
 
         res = requests.get(
-            f"{self.server}/workbench/datasources",
+            f"{self.server_url}/workbench/datasources",
             headers=headers,
             data=payload,
         )
@@ -257,10 +265,10 @@ class Context:
             steps=steps,
         )
 
-        headers, payload = self.exc.create(self.id, artifact.json())
+        headers, payload = self.exc.create(self.id, self.server_id, artifact.json())
 
         res = requests.post(
-            f"{self.server}/workbench/artifact/submit",
+            f"{self.server_url}/workbench/artifact/submit",
             headers=headers,
             data=payload,
         )
@@ -289,10 +297,10 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(self.id, self.server_id, wba.json())
 
         res = requests.get(
-            f"{self.server}/workbench/artifact/status",
+            f"{self.server_url}/workbench/artifact/status",
             headers=headers,
             data=payload,
         )
@@ -350,10 +358,10 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(self.id, self.server_id, wba.json())
 
         res = requests.get(
-            f"{self.server}/workbench/artifact",
+            f"{self.server_url}/workbench/artifact",
             headers=headers,
             data=payload,
         )
@@ -367,10 +375,10 @@ class Context:
     def list_resources(self, artifact: Artifact) -> list[WorkbenchResource]:
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(self.id, self.server_id, wba.json())
 
         res = requests.get(
-            f"{self.server}/workbench/resource/list",
+            f"{self.server_url}/workbench/resource/list",
             headers=headers,
             data=payload,
         )
@@ -384,10 +392,10 @@ class Context:
         return [WorkbenchResource(**d) for d in js]
 
     def get_resource(self, resource: WorkbenchResource) -> Any:
-        headers, payload = self.exc.create(self.id, resource.json())
+        headers, payload = self.exc.create(self.id, self.server_id, resource.json())
 
         with requests.get(
-            f"{self.server}/workbench/resource",
+            f"{self.server_url}/workbench/resource",
             headers=headers,
             data=payload,
             stream=True,

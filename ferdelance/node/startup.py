@@ -171,10 +171,12 @@ class NodeStartup(Repository):
                 signature=signature,
             )
 
-            _, join_req_payload = self.exc.create_payload(join_req.json())
+            payload_checksum, join_req_payload = self.exc.create_payload(join_req.json())
+            headers = self.exc.create_signed_headers(self.self_component.id, payload_checksum, "JOIN")
 
             res = requests.post(
                 f"{remote}/node/join",
+                headers=headers,
                 data=join_req_payload,
             )
 
@@ -184,6 +186,7 @@ class NodeStartup(Repository):
 
             # get node list
             join_data = JoinData(**json.loads(payload))
+            self.remote_id = join_data.component_id
 
             LOGGER.info(f"component={self.self_component.id}: joined node component={join_data.component_id}")
 

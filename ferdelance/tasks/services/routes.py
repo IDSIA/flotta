@@ -85,6 +85,7 @@ class RouteService:
 
         headers, payload = self.exc.create(
             self.component_id,
+            self.remote_id,
             req.json(),
         )
 
@@ -155,7 +156,7 @@ class RouteService:
 
         headers, payload = self.exc.create(
             self.component_id,
-            producer_id,
+            producer_id,  # TODO: check if we need the producer or the remote id
             req.json(),
         )
 

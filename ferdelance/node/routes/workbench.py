@@ -9,6 +9,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
+    WorkbenchJoinResponse,
     WorkbenchResource,
     WorkbenchProjectToken,
     WorkbenchArtifact,
@@ -43,7 +44,7 @@ async def wb_home():
     return "Workbench 🔧"
 
 
-@workbench_router.post("/connect")
+@workbench_router.post("/connect", response_model=WorkbenchJoinResponse)
 async def wb_connect(
     data: WorkbenchJoinRequest,
     args: SessionArgs = Depends(session_args),
@@ -64,6 +65,10 @@ async def wb_connect(
             raise ValueError("Checksum failed")
 
         await wb.register(data, args.ip_address)
+
+        return WorkbenchJoinResponse(
+            component_id=args.self_component.id,
+        )
 
     except SQLAlchemyError as e:
         LOGGER.exception(e)
