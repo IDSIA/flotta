@@ -64,14 +64,8 @@ async def test_workbench_connect(session: AsyncSession):
 async def test_workbench_read_home(session: AsyncSession):
     """Generic test to check if the home works."""
     with TestClient(api) as server:
-        args = await connect(server, session)
-        wb_exc = args.wb_exc
-
-        headers, _ = wb_exc.create(args.wb_id, "", Algorithm.NO_ENCRYPTION)
-
         res = server.get(
             "/workbench",
-            headers=headers,
         )
 
         assert res.status_code == 200
@@ -84,12 +78,13 @@ async def test_workbench_get_project(session: AsyncSession):
 
     with TestClient(api) as server:
         args = await connect(server, session)
+        server_id = args.sv_id
         wb_exc = args.wb_exc
         token = args.project_token
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = wb_exc.create(args.wb_id, "", Algorithm.NO_ENCRYPTION, wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wpt.json())
 
         res = server.request(
             method="GET",
@@ -115,11 +110,12 @@ async def test_workbench_get_project(session: AsyncSession):
 async def test_workbench_list_client(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
+        server_id = args.sv_id
         wb_exc = args.wb_exc
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, "", wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wpt.json())
 
         res = server.request(
             method="GET",
@@ -142,11 +138,12 @@ async def test_workbench_list_client(session: AsyncSession):
 async def test_workbench_list_datasources(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
+        server_id = args.sv_id
         wb_exc = args.wb_exc
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, "", wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wpt.json())
 
         res = server.request(
             method="GET",
@@ -168,11 +165,12 @@ async def test_workbench_list_datasources(session: AsyncSession):
 async def test_workflow_submit(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
+        server_id = args.sv_id
         wb_exc = args.wb_exc
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wpt.json())
 
         res = server.request(
             method="GET",
@@ -208,7 +206,7 @@ async def test_workflow_submit(session: AsyncSession):
             steps=model.get_steps(),
         )
 
-        headers, payload = wb_exc.create(args.wb_id, artifact.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, artifact.json())
 
         res = server.post(
             "/workbench/artifact/submit",
@@ -230,7 +228,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = wb_exc.create(args.wb_id, wba.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wba.json())
 
         res = server.request(
             method="GET",
@@ -248,7 +246,7 @@ async def test_workflow_submit(session: AsyncSession):
         assert status.status is not None
         assert status.status == ArtifactJobStatus.RUNNING
 
-        headers, payload = wb_exc.create(args.wb_id, wba.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wba.json())
 
         res = server.request(
             method="GET",
@@ -275,6 +273,7 @@ async def test_workflow_submit(session: AsyncSession):
 async def test_get_results(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
+        server_id = args.sv_id
         wb_exc = args.wb_exc
 
         cr: ComponentRepository = ComponentRepository(session)
@@ -362,7 +361,7 @@ async def test_get_results(session: AsyncSession):
 
         wbr = WorkbenchResource(resource_id=resource.id, producer_id=job2.component_id)
 
-        headers, payload = wb_exc.create(args.wb_id, wbr.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wbr.json())
 
         res = server.request(
             "GET",
@@ -387,12 +386,13 @@ async def test_get_results(session: AsyncSession):
 async def test_workbench_access(session):
     with TestClient(api) as server:
         args = await connect(server, session)
+        server_id = args.sv_id
         wb_exc = args.wb_exc
 
         project_token = args.project_token
         wpt = WorkbenchProjectToken(token=project_token)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wpt.json())
 
         res = server.get(
             "/client/update",

@@ -45,6 +45,7 @@ LOGGER = get_logger(__name__)
 async def test_workflow_wb_submit_client_get(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
+        server_id = args.sv_id
         client_id = args.cl_id
         wb_exc = args.wb_exc
         cl_exc = args.cl_exc
@@ -52,7 +53,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         # workbench part
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wpt.json())
 
         res = server.request(
             "GET",
@@ -108,7 +109,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
             ],
         )
 
-        headers, payload = wb_exc.create(args.wb_id, artifact.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, artifact.json())
 
         res = server.post(
             "/workbench/artifact/submit",
@@ -129,7 +130,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = wb_exc.create(args.wb_id, wba.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wba.json())
 
         res = server.request(
             "GET",
@@ -148,7 +149,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         assert status.status == ArtifactJobStatus.RUNNING
 
-        headers, payload = wb_exc.create(args.wb_id, wba.json())
+        headers, payload = wb_exc.create(args.wb_id, server_id, wba.json())
 
         res = server.request(
             "GET",
@@ -183,7 +184,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         LOGGER.info("update client")
 
-        status_code, action, data = client_update(client_id, server, cl_exc)
+        status_code, action, data = client_update(client_id, server_id, server, cl_exc)
 
         assert status_code == 200
         assert Action[action] == Action.EXECUTE
@@ -194,7 +195,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         LOGGER.info("get task for client")
 
-        headers, payload = cl_exc.create(args.cl_id, update_execute.json())
+        headers, payload = cl_exc.create(args.cl_id, server_id, update_execute.json())
 
         task_response = server.request(
             method="GET",

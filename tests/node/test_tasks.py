@@ -226,9 +226,10 @@ async def test_task_access(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
 
+        sv_id = args.sv_id
         nd_id = args.cl_id
         nd_exc = args.cl_exc
-        headers, _ = nd_exc.create(nd_id, "")
+        headers, _ = nd_exc.create(nd_id, sv_id)
 
         res = server.get(
             "/client/update",

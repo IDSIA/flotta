@@ -173,6 +173,7 @@ async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKE
 
 
 class ConnectionArguments(BaseModel):
+    sv_id: str
     cl_id: str
     wb_id: str
     cl_exc: Exchange
@@ -225,16 +226,19 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
         signature=signature,
     )
 
-    _, payload = wb_exc.create_payload(wjr.json())
+    payload_checksum, payload = wb_exc.create_payload(wjr.json())
+    headers = wb_exc.create_signed_headers(wb_id, payload_checksum, "JOIN")
 
     res_connect = api.post(
         "/workbench/connect",
+        headers=headers,
         content=payload,
     )
 
     res_connect.raise_for_status()
 
     return ConnectionArguments(
+        sv_id=server_id,
         cl_id=client_id,
         cl_exc=cl_exc,
         wb_id=wb_id,
