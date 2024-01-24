@@ -11,7 +11,6 @@ from ferdelance.database.repositories import (
 from ferdelance.node.api import api
 from ferdelance.node.services.jobs import JobManagementService
 from ferdelance.node.services.resource import ResourceManagementService
-from ferdelance.security.algorithms import Algorithm
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
     Project,

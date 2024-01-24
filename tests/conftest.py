@@ -31,6 +31,8 @@ conf.node.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a
 conf.node.token_project_default = TEST_PROJECT_TOKEN
 conf.workdir = os.path.join("tests", "storage")
 
+conf.node.allow_resource_download = True
+
 conf.dump()
 
 config_manager.setup()
