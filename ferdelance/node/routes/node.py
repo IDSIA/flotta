@@ -54,7 +54,7 @@ async def node_join(
     try:
         data_to_sign = f"{data.id}:{data.public_key}"
 
-        args.exc.set_remote_key(data.public_key)
+        args.exc.set_remote_key(data.id, data.public_key)
 
         args.exc.verify(data_to_sign, data.signature)
         checksum = str_checksum(data_to_sign)
@@ -62,9 +62,9 @@ async def node_join(
         if data.checksum != checksum:
             raise ValueError("Checksum failed")
 
-        ns: NodeService = NodeService(args.session)
+        ns: NodeService = NodeService(args.session, args.self_component)
         join_data = await ns.connect(data, args.ip_address)
-        args.exc.set_remote_key(data.public_key)
+
         return join_data
 
     except SQLAlchemyError as e:
@@ -88,9 +88,9 @@ async def node_leave(
     """API for existing client to be removed"""
     LOGGER.info(f"component={args.source.id}: request to leave")
 
-    ns: NodeService = NodeService(args.session, args.source)
+    ns: NodeService = NodeService(args.session, args.self_component)
 
-    await ns.leave()
+    await ns.leave(args.source)
 
 
 @node_router.post("/metadata", response_model=Metadata)
@@ -105,9 +105,9 @@ async def node_metadata(
     """
     LOGGER.info(f"component={args.source.id}: update metadata request")
 
-    ns: NodeService = NodeService(args.session, args.source)
+    ns: NodeService = NodeService(args.session, args.self_component)
 
-    return await ns.metadata(metadata)
+    return await ns.metadata(args.source, metadata)
 
 
 @node_router.put("/add")
@@ -118,7 +118,7 @@ async def node_update_add(
     LOGGER.info(f"component={args.source.id}: adding new node component={new_component.id}")
 
     try:
-        ns: NodeService = NodeService(args.session, args.source)
+        ns: NodeService = NodeService(args.session, args.self_component)
 
         await ns.add(new_component)
 
@@ -134,7 +134,7 @@ async def node_update_remove(
     args: ValidSessionArgs = Depends(allow_access),
 ):
     LOGGER.info(f"component={args.source.id}: removing node")
-    ns: NodeService = NodeService(args.session, args.source)
+    ns: NodeService = NodeService(args.session, args.self_component)
 
     try:
         await ns.remove(component)
@@ -156,6 +156,6 @@ async def node_update_metadata(
 
     component = await cr.get_by_id(node_metadata.id)
 
-    ns: NodeService = NodeService(args.session, component)
+    ns: NodeService = NodeService(args.session, args.self_component)
 
-    await ns.metadata(node_metadata.metadata)
+    await ns.metadata(component, node_metadata.metadata)

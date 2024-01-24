@@ -33,8 +33,8 @@ class Heartbeat:
         self.leave = config_manager.leave()
 
         private_key_path: Path = config_manager.get().private_key_location()
-        self.exc: Exchange = Exchange(private_key_path)
-        self.exc.set_remote_key(remote_public_key)
+        self.exc: Exchange = Exchange(client_id, private_key_path=private_key_path)
+        self.exc.set_remote_key(remote_id, remote_public_key)
 
         if self.config.join.url is None:
             raise ValueError("No remote server available")
@@ -53,10 +53,7 @@ class Heartbeat:
     def _leave(self) -> None:
         """Send a leave request to the server."""
 
-        headers, payload = self.exc.create(
-            self.client_id,
-            self.remote_id,
-        )
+        headers, payload = self.exc.create()
 
         res = requests.post(
             f"{self.remote_url}/node/leave",
@@ -74,8 +71,6 @@ class Heartbeat:
         LOGGER.debug("requesting update")
 
         headers, payload = self.exc.create(
-            self.client_id,
-            self.remote_id,
             content.json(),
         )
 

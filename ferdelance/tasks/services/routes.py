@@ -55,9 +55,8 @@ class RouteService:
         self.is_local: bool = is_local
 
         # used for communication and header signing
-        self.exc: Exchange = Exchange()
-        self.exc.set_private_key(private_key)
-        self.exc.set_remote_key(remote_public_key)
+        self.exc: Exchange = Exchange(component_id, private_key=private_key)
+        self.exc.set_remote_key(remote_id, remote_public_key)
 
         LOGGER.info(
             f"component={self.component_id}: RouteService initialized for "
@@ -83,11 +82,7 @@ class RouteService:
 
         req = TaskRequest(artifact_id=artifact_id, job_id=job_id)
 
-        headers, payload = self.exc.create(
-            self.component_id,
-            self.remote_id,
-            req.json(),
-        )
+        headers, payload = self.exc.create(req.json())
 
         res = requests.get(
             f"{self.remote_url}/task",
@@ -154,11 +149,7 @@ class RouteService:
             iteration=iteration,
         )
 
-        headers, payload = self.exc.create(
-            self.component_id,
-            producer_id,  # TODO: check if we need the producer or the remote id
-            req.json(),
-        )
+        headers, payload = self.exc.create(req.json())
 
         with requests.get(
             f"{self.remote_url}/resource",
@@ -185,7 +176,6 @@ class RouteService:
 
     def post_resource(
         self,
-        target_id: str,
         artifact_id: str,
         job_id: str,
         resource_id: str,
@@ -206,9 +196,7 @@ class RouteService:
 
             checksum = self.exc.encrypt_file_for_remote(path_in, path_out)  # TODO: this should be optional!
             headers = self.exc.create_signed_headers(
-                self.component_id,
                 checksum,
-                target_id,
                 extra_headers=nr.dict(),
             )
 
@@ -224,12 +212,7 @@ class RouteService:
             res.raise_for_status()
 
         elif content is not None:
-            headers, payload = self.exc.create(
-                self.component_id,
-                target_id,
-                content,
-                extra_headers=nr.dict(),
-            )
+            headers, payload = self.exc.create(extra_headers=nr.dict())
 
             _, data = self.exc.encrypt_to_stream(payload)
 
@@ -244,11 +227,7 @@ class RouteService:
         else:
             nr.file = "local"
 
-            headers, _ = self.exc.create(
-                self.component_id,
-                target_id,
-                extra_headers=nr.dict(),
-            )
+            headers, _ = self.exc.create(extra_headers=nr.dict())
 
             res = requests.post(
                 f"{self.remote_url}/resource",
@@ -268,11 +247,7 @@ class RouteService:
     def post_metrics(self, job_id: str, metrics: Metrics):
         LOGGER.info(f"JOB job={job_id}: posting metrics")
 
-        headers, payload = self.exc.create(
-            self.component_id,
-            self.remote_id,
-            metrics.json(),
-        )
+        headers, payload = self.exc.create(metrics.json())
 
         res = requests.post(
             f"{self.remote_url}/task/metrics",
@@ -290,11 +265,7 @@ class RouteService:
     def post_error(self, job_id: str, error: TaskError) -> None:
         LOGGER.error(f"JOB job={job_id}: error_message={error.message}")
 
-        headers, payload = self.exc.create(
-            self.component_id,
-            self.remote_id,
-            error.json(),
-        )
+        headers, payload = self.exc.create(error.json())
 
         res = requests.post(
             f"{self.remote_url}/task/error",
@@ -312,11 +283,7 @@ class RouteService:
             job_id=job_id,
         )
 
-        headers, payload = self.exc.create(
-            self.component_id,
-            self.remote_id,
-            done.json(),
-        )
+        headers, payload = self.exc.create(done.json())
 
         res = requests.post(
             f"{self.remote_url}/task/done",

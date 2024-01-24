@@ -64,44 +64,11 @@ class Context:
         """
         self.server_url: str = server.rstrip("/")
 
-        self.exc: Exchange = Exchange()
+        self.exc: Exchange
 
         os.makedirs(DATA_DIR, exist_ok=True)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         os.makedirs(CACHE_DIR, exist_ok=True)
-
-        if isinstance(ssh_key_path, str):
-            if ssh_key_path == "":
-                ssh_key_path = None
-            else:
-                ssh_key_path = Path(ssh_key_path)
-
-        if ssh_key_path is None:
-            if generate_keys:
-                ssh_key_path = DATA_DIR / "rsa_id"
-
-                if os.path.exists(ssh_key_path):
-                    LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-                    self.exc.load_private_key(ssh_key_path)
-
-                else:
-                    LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
-
-                    self.exc.generate_keys()
-                    self.exc.store_private_key(ssh_key_path)
-
-            else:
-                ssh_key_path = HOME / ".ssh" / "rsa_id"
-
-                LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-                self.exc.load_private_key(ssh_key_path)
-
-        else:
-            LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-            self.exc.load_private_key(ssh_key_path)
 
         if isinstance(id_path, str):
             if id_path == "":
@@ -124,6 +91,42 @@ class Context:
             with open(id_path, "r") as f:
                 self.id: str = f.read()
 
+        if isinstance(ssh_key_path, str):
+            if ssh_key_path == "":
+                ssh_key_path = None
+            else:
+                ssh_key_path = Path(ssh_key_path)
+
+        if ssh_key_path is None:
+            if generate_keys:
+                ssh_key_path = DATA_DIR / "rsa_id"
+
+                if os.path.exists(ssh_key_path):
+                    LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+                    self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
+                else:
+                    LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
+
+                    self.exc = Exchange(self.id)
+                    self.exc.store_private_key(ssh_key_path)
+
+            else:
+                ssh_key_path = HOME / ".ssh" / "rsa_id"
+
+                if not os.path.exists(ssh_key_path):
+                    raise ValueError(f"Key not found at {ssh_key_path}, please set flag for generate a new one.")
+
+                LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+                self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
+        else:
+            LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+            self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
         # connecting to server
         response_key = requests.get(
             f"{self.server_url}/node/key",
@@ -133,7 +136,7 @@ class Context:
 
         spk = NodePublicKey(**response_key.json())
 
-        self.exc.set_remote_key(spk.public_key)
+        self.exc.set_remote_key("JOIN", spk.public_key)
 
         public_key = self.exc.transfer_public_key()
 
@@ -151,8 +154,7 @@ class Context:
             signature=signature,
         )
 
-        payload_checksum, payload = self.exc.create_payload(wjr.json())
-        headers = self.exc.create_signed_headers(self.id, payload_checksum, "JOIN")
+        headers, payload = self.exc.create(wjr.json())
 
         res = requests.post(
             f"{self.server_url}/workbench/connect",
@@ -165,6 +167,8 @@ class Context:
         _, payload = self.exc.get_payload(res.content)
 
         join_data = WorkbenchJoinResponse(**(json.loads(payload)))
+
+        self.exc.set_remote_key(join_data.component_id, spk.public_key)
 
         self.server_id = join_data.component_id
 
@@ -180,7 +184,7 @@ class Context:
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = self.exc.create(self.id, self.server_id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
         res = requests.get(
             f"{self.server_url}/workbench/project",
@@ -206,7 +210,7 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(self.id, self.server_id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
         res = requests.get(
             f"{self.server_url}/workbench/clients",
@@ -232,7 +236,7 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(self.id, self.server_id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
         res = requests.get(
             f"{self.server_url}/workbench/datasources",
@@ -265,7 +269,7 @@ class Context:
             steps=steps,
         )
 
-        headers, payload = self.exc.create(self.id, self.server_id, artifact.json())
+        headers, payload = self.exc.create(artifact.json())
 
         res = requests.post(
             f"{self.server_url}/workbench/artifact/submit",
@@ -297,7 +301,7 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(self.id, self.server_id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
         res = requests.get(
             f"{self.server_url}/workbench/artifact/status",
@@ -358,7 +362,7 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = self.exc.create(self.id, self.server_id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
         res = requests.get(
             f"{self.server_url}/workbench/artifact",
@@ -375,7 +379,7 @@ class Context:
     def list_resources(self, artifact: Artifact) -> list[WorkbenchResource]:
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(self.id, self.server_id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
         res = requests.get(
             f"{self.server_url}/workbench/resource/list",
@@ -392,7 +396,7 @@ class Context:
         return [WorkbenchResource(**d) for d in js]
 
     def get_resource(self, resource: WorkbenchResource) -> Any:
-        headers, payload = self.exc.create(self.id, self.server_id, resource.json())
+        headers, payload = self.exc.create(resource.json())
 
         with requests.get(
             f"{self.server_url}/workbench/resource",

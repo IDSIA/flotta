@@ -148,11 +148,11 @@ class TaskManagementService(Repository):
     async def start_remote(
         self,
         job_id: str,
-        component_id: str,
+        remote_component_id: str,
         # this node private key used for communication
         private_key: str,
     ) -> None:
-        remote = await self.cr.get_by_id(component_id)
+        remote = await self.cr.get_by_id(remote_component_id)
 
         if remote.type_name == TYPE_CLIENT:
             LOGGER.info(
@@ -166,11 +166,10 @@ class TaskManagementService(Repository):
 
         task: Task = await jms.get_task_by_job_id(job_id)
 
-        exc: Exchange = Exchange()
-        exc.set_private_key(private_key)
-        exc.set_remote_key(remote.public_key)
+        exc: Exchange = Exchange(self.self_component.id, private_key)
+        exc.set_remote_key(remote.id, remote.public_key)
 
-        headers, payload = exc.create(self.self_component.id, remote.id, task.json())
+        headers, payload = exc.create(task.json())
 
         res = requests.post(
             f"{remote.url}/task",

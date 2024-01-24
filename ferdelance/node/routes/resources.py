@@ -22,6 +22,7 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
     try:
         if args.source.type_name not in (TYPE_CLIENT, TYPE_NODE, TYPE_USER):
             LOGGER.warning(f"component={args.source.id}: type={args.source.type_name} cannot access this route")
+            raise HTTPException(403, "Access Denied")
 
         return args
 

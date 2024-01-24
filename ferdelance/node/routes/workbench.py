@@ -56,7 +56,7 @@ async def wb_connect(
     try:
         data_to_sign = f"{data.id}:{data.public_key}"
 
-        args.exc.set_remote_key(data.public_key)
+        args.exc.set_remote_key(data.id, data.public_key)
 
         args.exc.verify(data_to_sign, data.signature)
         checksum = str_checksum(data_to_sign)

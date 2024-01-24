@@ -145,13 +145,18 @@ class Execution:
                     is_local,
                 )
 
+                # TODO: consider proxy!!!
+
+                # if next_node.target_id != self.scheduler_id:
+                #     LOGGER.info(f"JOB job={job_id}: target node={next_node.target_id} is not the ")
+                #     node.exc.set_remote_key(next_node.target_id, next_node.target_public_key)
+                #     node.exc.set_proxy_key(self.scheduler_public_key)
+
                 if is_local:
-                    node.post_resource(next_node.target_id, artifact_id, job_id, task.produced_resource_id)
+                    node.post_resource(artifact_id, job_id, task.produced_resource_id)
 
                 else:
-                    node.post_resource(
-                        next_node.target_id, artifact_id, job_id, task.produced_resource_id, es.env.product_path()
-                    )
+                    node.post_resource(artifact_id, job_id, task.produced_resource_id, es.env.product_path())
 
             scheduler.post_done(artifact_id, job_id)
 

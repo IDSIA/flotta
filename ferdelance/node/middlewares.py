@@ -66,7 +66,7 @@ class SignedRequest(Request):
         self.lock: asyncio.Lock = lock
 
         private_key_path: Path = config_manager.get().private_key_location()
-        self.exc: Exchange = Exchange(private_key_path)
+        self.exc: Exchange = Exchange(self_component.id, private_key_path=private_key_path)
 
         self.ip_address: str = self.client.host if self.client else ""
 
@@ -116,7 +116,12 @@ class SignedRequest(Request):
             body: bytes = await super().body()
 
             try:
-                if self.signed_in and self.source_checksum and self.source:
+                if self.target is not None and self.target.id != self.self_component.id:
+                    # do nothing
+                    LOGGER.debug(f"Received proxy request with encrypted data")
+                    body = body
+
+                elif self.signed_in and self.source_checksum and self.source:
                     # decrypt body
                     LOGGER.debug(f"component={self.source.id}: Received signed request with encrypted data")
 
@@ -139,10 +144,6 @@ class SignedRequest(Request):
                         raise HTTPException(403)
 
                     body = payload
-
-                elif self.target is not None and self.target.id != self.self_component.id:
-                    LOGGER.debug(f"Received proxy request with encrypted data")
-                    body = body
 
             except Exception as e:
                 LOGGER.warning(f"Secure checks failed: {e}")
@@ -187,7 +188,7 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
                 raise HTTPException(403, "Access Denied")
 
             # verify signature data
-            request.exc.set_remote_key(source.public_key)
+            request.exc.set_remote_key(source.id, source.public_key)
             request.exc.verify(f"{headers.source_id}:{headers.checksum}", headers.signature)
 
             request.source = source
@@ -228,8 +229,6 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
 
 
 async def encrypt_response(request: SignedRequest, response: Response) -> Response:
-    target_id = "" if request.source is None else request.source.id
-
     encrypted_for = response.headers.get("Encrypted_for", "")
 
     if encrypted_for:
@@ -241,11 +240,7 @@ async def encrypt_response(request: SignedRequest, response: Response) -> Respon
         path = Path(response.path)
         checksum, it = request.exc.encrypt_file_to_stream(path)
 
-        headers = request.exc.create_signed_headers(
-            request.self_component.id,
-            checksum,
-            target_id,
-        )
+        headers = request.exc.create_signed_headers(checksum)
 
         response = StreamingResponse(
             it,
@@ -259,11 +254,7 @@ async def encrypt_response(request: SignedRequest, response: Response) -> Respon
         response.headers["Content-Length"] = f"{len(payload)}"
         response.body = payload
 
-        headers = request.exc.create_signed_headers(
-            request.self_component.id,
-            checksum,
-            target_id,
-        )
+        headers = request.exc.create_signed_headers(checksum)
 
     else:
         headers = {}

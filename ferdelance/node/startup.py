@@ -34,7 +34,7 @@ class NodeStartup(Repository):
         self.kvs = KeyValueStore(session)
 
         private_key_path: Path = config_manager.get().private_key_location()
-        self.exc: Exchange = Exchange(private_key_path)
+        self.exc: Exchange = Exchange("", private_key_path=private_key_path)
 
         self.config: Configuration = config_manager.get()
 
@@ -112,6 +112,8 @@ class NodeStartup(Repository):
                 True,
             )
 
+            self.exc.source_id = self.self_component.id
+
         LOGGER.info(f"component={self.self_component.id}: self component id assigned")
 
         # projects
@@ -134,7 +136,7 @@ class NodeStartup(Repository):
             )
             self.remote_id = join_component.id
             self.remote_key = join_component.public_key
-            self.exc.set_remote_key(self.remote_key)
+            self.exc.set_remote_key(self.remote_id, self.remote_key)
 
             return
 
@@ -150,7 +152,7 @@ class NodeStartup(Repository):
 
             content = NodePublicKey(**res.json())
             self.remote_key = content.public_key
-            self.exc.set_remote_key(self.remote_key)
+            self.exc.set_remote_key("JOIN", self.remote_key)
 
             type_name = self.config.get_node_type()
 
@@ -171,8 +173,7 @@ class NodeStartup(Repository):
                 signature=signature,
             )
 
-            payload_checksum, join_req_payload = self.exc.create_payload(join_req.json())
-            headers = self.exc.create_signed_headers(self.self_component.id, payload_checksum, "JOIN")
+            headers, join_req_payload = self.exc.create(join_req.json())
 
             res = requests.post(
                 f"{remote}/node/join",
@@ -186,7 +187,9 @@ class NodeStartup(Repository):
 
             # get node list
             join_data = JoinData(**json.loads(payload))
+
             self.remote_id = join_data.component_id
+            self.exc.set_remote_key(self.remote_id, self.remote_key)
 
             LOGGER.info(f"component={self.self_component.id}: joined node component={join_data.component_id}")
 

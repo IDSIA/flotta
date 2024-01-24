@@ -378,21 +378,19 @@ class ConfigManager:
         self.config.dump()
 
     def _set_keys(self) -> None:
-        exc = Exchange()
+        private_key_path = self.config.private_key_location()
 
-        path_private_key = self.config.private_key_location()
-
-        if os.path.exists(path_private_key):
+        if os.path.exists(private_key_path):
             # use existing one
-            LOGGER.info(f"private key found at {path_private_key}")
-            exc.load_private_key(path_private_key)
+            LOGGER.info(f"private key found at {private_key_path}")
+            exc = Exchange("", private_key_path=private_key_path)
 
         else:
             # generate new key
             LOGGER.info("private key location not found: creating a new one")
 
-            exc.generate_keys()
-            exc.store_private_key(path_private_key)
+            exc = Exchange("")
+            exc.store_private_key(private_key_path)
 
     def _set_directories(self) -> None:
         LOGGER.info("directory initialization")

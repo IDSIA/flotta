@@ -25,7 +25,6 @@ class NoEncryptionAlgorithm(EncryptionAlgorithm):
         self.checksum = sha256()
 
         content = bytearray()
-        # content += self.SEPARATOR
 
         return bytes(content)
 

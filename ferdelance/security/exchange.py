@@ -15,19 +15,45 @@ import os
 class Exchange:
     def __init__(
         self,
+        source_id: str,
+        private_key: PrivateKey | str | bytes | None = None,
+        remote_id: str | None = None,
+        remote_key: PublicKey | str | bytes | None = None,
+        proxy_key: PublicKey | str | bytes | None = None,
         private_key_path: Path | None = None,
         algorithm: Algorithm = Algorithm.HYBRID,
         encoding: str = "utf8",
     ) -> None:
+        self.source_id: str = source_id
+        self.target_id: str | None = None
+
         self.private_key: PrivateKey | None = None
         self.public_key: PublicKey | None = None
+
         self.remote_key: PublicKey | None = None
+        self.proxy_key: PublicKey | None = None
 
         self.algorithm: Algorithm = algorithm
         self.encoding: str = encoding
 
-        if private_key_path is not None:
+        if private_key is not None:
+            if not isinstance(private_key, PrivateKey):
+                private_key = PrivateKey(private_key)
+
+            self.private_key = private_key
+            self.public_key = self.private_key.public_key()
+
+        elif private_key_path is not None:
             self.load_private_key(private_key_path)
+
+        else:
+            self.generate_keys()
+
+        if remote_key is not None and remote_id is not None:
+            self.set_remote_key(remote_id, remote_key)
+
+        if proxy_key is not None:
+            self.set_proxy_key(proxy_key)
 
     # --- key management ----------------
 
@@ -137,16 +163,31 @@ class Exchange:
         self.private_key = PrivateKey(data, self.encoding)
         self.public_key = self.private_key.public_key()
 
-    def set_remote_key(self, data: str | bytes) -> None:
+    def set_remote_key(self, target_id: str, public_key: PublicKey | str | bytes) -> None:
         """Decode and set a public key from a remote host.
 
         :param data:
             String content not yet decoded.
         """
-        if isinstance(data, str):
-            data = data.encode(self.encoding)
+        if not isinstance(public_key, PublicKey):
+            public_key = PublicKey(public_key, self.encoding)
 
-        self.remote_key = PublicKey(data, self.encoding)
+        self.remote_key = public_key
+        self.target_id = target_id
+
+    def set_proxy_key(self, proxy_key: PublicKey | str | bytes) -> None:
+        """Decode and set a public key from a proxy host.
+
+        :param data:
+            String content not yet decoded.
+        """
+        if not isinstance(proxy_key, PublicKey):
+            proxy_key = PublicKey(proxy_key, self.encoding)
+
+        self.proxy_key = proxy_key
+
+    def clear_proxy(self) -> None:
+        self.proxy_key = None
 
     def transfer_private_key(self) -> str:
         """Encode the stored private key for secure transfer as string.
@@ -186,6 +227,19 @@ class Exchange:
             raise ValueError("remote public key not set")
 
         return self.remote_key.bytes().decode(self.encoding)
+
+    def transfer_proxy_key(self) -> str:
+        """Encode the stored proxy key for secure transfer as string.
+
+        :return:
+            The encoded remote public key in string format.
+        :raise:
+            ValueError if there is no remote key available.
+        """
+        if self.proxy_key is None:
+            raise ValueError("proxy public key not set")
+
+        return self.proxy_key.bytes().decode(self.encoding)
 
     # --- body en/decryption with keys --
 
@@ -236,30 +290,37 @@ class Exchange:
 
     def create_signed_headers(
         self,
-        source_id: str,
         checksum: str,
-        target_id: str,
         extra_headers: dict[str, str] = dict(),
     ) -> dict[str, str]:
-        if self.remote_key is None:
-            raise ValueError("No public remote key available")
+        key: PublicKey
 
-        data_to_sign = f"{source_id}:{checksum}"
+        if self.proxy_key is None:
+            if self.remote_key is None:
+                raise ValueError("No public remote key available")
+            else:
+                key = self.remote_key
+        else:
+            key = self.proxy_key
+
+        if self.target_id is None:
+            raise ValueError("No remote target_id set")
+
+        data_to_sign = f"{self.source_id}:{checksum}"
         signature = self.sign(data_to_sign)
 
         header = SignedHeaders(
-            source_id=source_id,
-            target_id=target_id,
+            source_id=self.source_id,
+            target_id=self.target_id,
             checksum=checksum,
             signature=signature,
             encryption=self.algorithm.name,
             extra=extra_headers,
         )
 
-        enc = Algorithm.HYBRID.enc(self.remote_key, self.encoding)
+        enc = Algorithm.HYBRID.enc(key, self.encoding)
 
         data_json = header.json()
-        # data = enc.encrypt(data_json)  # .decode(self.encoding)
         data_enc = enc.encrypt(data_json)
         data_b64 = b64encode(data_enc)
         data = data_b64.decode(self.encoding)
@@ -278,15 +339,6 @@ class Exchange:
         data_b64 = b64decode(data)
         dec_data = dec.decrypt(data_b64)
         return SignedHeaders(**json.loads(dec_data))
-
-        # data_b64 = b64decode(data)
-        # data_enc = dec.decrypt(data_b64)
-
-        # component_id, checksum, signature = data["id"], data["checksum"], data["signature"]
-
-        # extra = {k: v for k, v in data.items() if k not in ("id", "checksum", "signature")}
-
-        # return component_id, checksum, signature, extra
 
     def create_payload(self, content: str | bytes) -> tuple[str, bytes]:
         """Convert a dictionary of a JSON object in string format, then
@@ -340,72 +392,11 @@ class Exchange:
 
     def create(
         self,
-        source_id: str,
-        target_id: str,
         content: str | bytes = "",
         extra_headers: dict[str, str] = dict(),
     ) -> tuple[dict[str, str], bytes]:
         checksum, payload = self.create_payload(content)
-        headers = self.create_signed_headers(source_id, checksum, target_id, extra_headers)
-
-        return headers, payload
-
-    """
-        TODO: 
-        the following method should be a reference for how this class must work
-        refactor it (once more) so that it can work with proxies
-    """
-
-    def create_proxy(
-        self,
-        source_id: str,
-        target_id: str,
-        target_public_key: str | bytes | PublicKey,
-        proxy_public_key: str | bytes | PublicKey,
-        content: str | bytes = "",
-        extra_headers: dict[str, str] = dict(),
-    ) -> tuple[dict[str, str], bytes]:
-        if not isinstance(target_public_key, PublicKey):
-            target_public_key = PublicKey(target_public_key)
-
-        if not isinstance(proxy_public_key, PublicKey):
-            proxy_public_key = PublicKey(proxy_public_key)
-
-        # encrypt payload for target
-        enc: EncryptionAlgorithm = self.algorithm.enc(
-            target_public_key,
-            self.encoding,
-        )
-
-        payload = enc.encrypt(content)
-        checksum = enc.get_checksum()
-
-        # encrypt signature for proxy
-        data_to_sign = f"{source_id}:{checksum}"
-        signature = self.sign(data_to_sign)
-
-        header = SignedHeaders(
-            source_id=source_id,
-            target_id=target_id,
-            checksum=checksum,
-            signature=signature,
-            encryption=self.algorithm.name,
-            extra=extra_headers,
-        )
-
-        enc = Algorithm.HYBRID.enc(
-            proxy_public_key,
-            self.encoding,
-        )
-
-        data_json = header.json()
-        data_enc = enc.encrypt(data_json)
-        data_b64 = b64encode(data_enc)
-        data = data_b64.decode(self.encoding)
-
-        headers = {
-            "Signature": data,
-        }
+        headers = self.create_signed_headers(checksum, extra_headers)
 
         return headers, payload
 
