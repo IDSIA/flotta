@@ -28,7 +28,7 @@ LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_client_read_home(exchange: Exchange):
+async def test_client_read_home():
     """Generic test to check if the home works."""
     with TestClient(api) as client:
         response = client.get("/")
@@ -38,7 +38,7 @@ async def test_client_read_home(exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_client_connect_successful(session: AsyncSession, exchange: Exchange):
+async def test_client_connect_successful(session: AsyncSession):
     """Simulates the arrival of a new client. The client will connect with a set of hardcoded values:
     - operative system
     - mac address
@@ -53,7 +53,8 @@ async def test_client_connect_successful(session: AsyncSession, exchange: Exchan
     """
 
     with TestClient(api) as client:
-        client_id, _ = create_node(client, exchange)
+        exchange: Exchange = create_node(client)
+        client_id = exchange.source_id
 
         cr: ComponentRepository = ComponentRepository(session)
 
@@ -61,25 +62,21 @@ async def test_client_connect_successful(session: AsyncSession, exchange: Exchan
 
         assert db_client.active
 
-        # db_events: list[Event] = await cr.list_events(client_id)
-
-        # assert len(db_events) == 1
-        # assert db_events[0].event == "creation"
-
 
 @pytest.mark.asyncio
-async def test_client_already_exists(session: AsyncSession, exchange: Exchange):
+async def test_client_already_exists(session: AsyncSession):
     """This test will send twice the access information and expect the second time to receive a 403 error."""
 
     with TestClient(api) as client:
-        client_id, _ = create_node(client, exchange)
+        exchange: Exchange = create_node(client)
+        client_id = exchange.source_id
 
         cr: ComponentRepository = ComponentRepository(session)
 
         await cr.get_client_by_id(client_id)
 
         try:
-            create_node(client, exchange, client_id)
+            create_node(client, client_id=client_id)
             assert False
 
         except HTTPStatusError as e:
@@ -87,37 +84,28 @@ async def test_client_already_exists(session: AsyncSession, exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_client_update(session: AsyncSession, exchange: Exchange):
+async def test_client_update(session: AsyncSession):
     """This will test the endpoint for updates."""
 
     with TestClient(api) as client:
-        client_id, server_id = create_node(client, exchange)
+        exchange: Exchange = create_node(client)
 
-        # cr: ComponentRepository = ComponentRepository(session)
-
-        status_code, action, _ = client_update(client_id, server_id, client, exchange)
+        status_code, action, _ = client_update(client, exchange)
 
         assert status_code == 200
         assert Action[action] == Action.DO_NOTHING
 
-        # db_events: list[Event] = await cr.list_events(client_id)
-        # events: list[str] = [e.event for e in db_events]
-
-        # assert len(events) == 3
-        # assert "creation" in events
-        # assert "update" in events
-        # assert f"action:{Action.DO_NOTHING.name}" in events
-
 
 @pytest.mark.asyncio
-async def test_client_leave(session: AsyncSession, exchange: Exchange):
+async def test_client_leave(session: AsyncSession):
     """This will test the endpoint for leave a client."""
     with TestClient(api) as client:
-        client_id, server_id = create_node(client, exchange)
+        exchange: Exchange = create_node(client)
+        client_id = exchange.source_id
 
         cr: ComponentRepository = ComponentRepository(session)
 
-        headers, payload = exchange.create(client_id, server_id)
+        headers, payload = exchange.create()
 
         response_leave = client.post(
             "/node/leave",
@@ -130,7 +118,7 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
         assert response_leave.status_code == 200
 
         # cannot get other updates
-        status_code, _, _ = client_update(client_id, server_id, client, exchange)
+        status_code, _, _ = client_update(client, exchange)
 
         assert status_code == 403
 
@@ -140,23 +128,17 @@ async def test_client_leave(session: AsyncSession, exchange: Exchange):
         assert db_client.active is False
         assert db_client.left
 
-        # db_events: list[Event] = await cr.list_events(client_id)
-        # events: list[str] = [e.event for e in db_events]
-
-        # assert "creation" in events
-        # assert "left" in events
-        # assert "update" not in events
-
 
 @pytest.mark.asyncio
-async def test_update_metadata(session: AsyncSession, exchange: Exchange):
+async def test_update_metadata(session: AsyncSession):
     with TestClient(api) as client:
-        client_id, server_id = create_node(client, exchange)
+        exchange: Exchange = create_node(client)
+        client_id = exchange.source_id
 
         assert client_id is not None
 
         metadata: Metadata = get_metadata()
-        send_metadata(client_id, server_id, client, exchange, metadata)
+        send_metadata(client, exchange, metadata)
 
         res = await session.execute(select(DataSourceDB).where(DataSourceDB.component_id == client_id))
         ds_db: DataSourceDB = res.scalar_one()
@@ -170,11 +152,11 @@ async def test_update_metadata(session: AsyncSession, exchange: Exchange):
 
 
 @pytest.mark.asyncio
-async def test_client_access(session: AsyncSession, exchange: Exchange):
+async def test_client_access(session: AsyncSession):
     with TestClient(api) as client:
-        client_id, server_id = create_node(client, exchange)
+        exchange: Exchange = create_node(client)
 
-        headers, payload = exchange.create(client_id, server_id, '{"action":""}')
+        headers, payload = exchange.create('{"action":""}')
 
         res = client.request(
             method="GET",

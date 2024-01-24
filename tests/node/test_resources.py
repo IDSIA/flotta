@@ -53,9 +53,10 @@ async def setup_resource(session: AsyncSession, client_id: str) -> tuple[str, st
 
 
 @pytest.mark.asyncio
-async def test_submit_and_download_resource(session: AsyncSession, exchange: Exchange):
+async def test_submit_and_download_resource(session: AsyncSession):
     with TestClient(api) as server:
-        client_id, server_id = create_node(server, exchange)
+        exchange: Exchange = create_node(server)
+        client_id = exchange.source_id
 
         artifact_id, job_id, resource = await setup_resource(session, client_id)
 
@@ -63,8 +64,6 @@ async def test_submit_and_download_resource(session: AsyncSession, exchange: Exc
         resource_content = "some resource"
 
         headers, payload = exchange.create(
-            source_id=client_id,
-            target_id=server_id,
             content=resource_content,
             extra_headers=NewResource(
                 artifact_id=artifact_id,
@@ -89,11 +88,7 @@ async def test_submit_and_download_resource(session: AsyncSession, exchange: Exc
         assert ri.resource_id == resource.id
 
         # get resource
-        headers, payload = exchange.create(
-            client_id,
-            server_id,
-            ri.json(),
-        )
+        headers, payload = exchange.create(ri.json())
 
         with server.stream(
             "GET",
@@ -109,9 +104,13 @@ async def test_submit_and_download_resource(session: AsyncSession, exchange: Exc
 
 
 @pytest.mark.asyncio
-async def test_proxy_resource(session: AsyncSession, exchange: Exchange):
+async def test_proxy_resource(session: AsyncSession):
     with TestClient(api) as server:
-        client_id, server_id = create_node(server, exchange)
+        exchange: Exchange = create_node(server)
+        client_id = exchange.source_id
+        server_id = exchange.target_id
+
+        assert server_id is not None
 
         artifact_id, job_id, resource = await setup_resource(session, client_id)
 
@@ -123,11 +122,10 @@ async def test_proxy_resource(session: AsyncSession, exchange: Exchange):
         # send resource
         resource_content = "some resource"
 
-        headers, payload = exchange.create_proxy(
-            source_id=client_id,
-            target_id=client_id,  # only client_id will be able to read the message
-            target_public_key=cl.public_key,
-            proxy_public_key=sv.public_key,
+        exchange.set_remote_key(cl.id, cl.public_key)
+        exchange.set_proxy_key(sv.public_key)
+
+        headers, payload = exchange.create(
             content=resource_content,
             extra_headers=NewResource(
                 artifact_id=artifact_id,
@@ -159,11 +157,10 @@ async def test_proxy_resource(session: AsyncSession, exchange: Exchange):
                 assert True
 
         # get resource
-        headers, payload = exchange.create(
-            client_id,
-            server_id,
-            ri.json(),
-        )
+        exchange.clear_proxy()
+        exchange.set_remote_key(sv.id, sv.public_key)
+
+        headers, payload = exchange.create(ri.json())
 
         with server.stream(
             "GET",

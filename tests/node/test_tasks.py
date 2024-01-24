@@ -26,16 +26,16 @@ LOGGER = get_logger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_task_task_not_found(session: AsyncSession, exchange: Exchange):
+async def test_task_task_not_found(session: AsyncSession):
     with TestClient(api) as server:
-        node_id, server_id = create_node(server, exchange, TYPE_NODE)
+        exchange: Exchange = create_node(server, TYPE_NODE)
 
         tpr = TaskRequest(
             artifact_id=str(uuid.uuid4()),
             job_id=str(uuid.uuid4()),
         )
 
-        headers, payload = exchange.create(node_id, server_id, tpr.json())
+        headers, payload = exchange.create(tpr.json())
 
         res = server.request(
             "GET",
@@ -103,8 +103,10 @@ async def test_task_endpoints(session: AsyncSession):
         # server: he who schedule jobs
         sc: Component = await cr.get_self_component()
         sc_id = sc.id
-        sc_exc = Exchange(config_manager.get().private_key_location())
-        sc_exc.set_remote_key(sc.public_key)
+
+        private_key_path = config_manager.get().private_key_location()
+        sc_exc = Exchange(args.cl_id, private_key_path=private_key_path)
+        sc_exc.set_remote_key(args.sv_id, sc.public_key)
 
         # prepare new artifact
         pr: ProjectRepository = ProjectRepository(session)
@@ -226,10 +228,7 @@ async def test_task_access(session: AsyncSession):
     with TestClient(api) as server:
         args = await connect(server, session)
 
-        sv_id = args.sv_id
-        nd_id = args.cl_id
-        nd_exc = args.cl_exc
-        headers, _ = nd_exc.create(nd_id, sv_id)
+        headers, _ = args.cl_exc.create()
 
         res = server.get(
             "/client/update",

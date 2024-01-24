@@ -12,14 +12,16 @@ import json
 
 
 @pytest.mark.asyncio
-async def test_load_project(session: AsyncSession, exchange: Exchange):
+async def test_load_project(session: AsyncSession):
     with TestClient(api) as client:
         p_token: str = "123456789"
         metadata = get_metadata(project_token=p_token)
 
         await create_project(session, p_token)
-        client_id, server_id = create_node(client, exchange)
-        send_metadata(client_id, server_id, client, exchange, metadata)
+
+        exchange: Exchange = create_node(client)
+
+        send_metadata(client, exchange, metadata)
 
         pr: ProjectRepository = ProjectRepository(session)
 
