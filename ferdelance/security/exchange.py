@@ -256,7 +256,7 @@ class Exchange:
             extra=extra_headers,
         )
 
-        enc = self.algorithm.enc(self.remote_key, self.encoding)
+        enc = Algorithm.HYBRID.enc(self.remote_key, self.encoding)
 
         data_json = header.json()
         # data = enc.encrypt(data_json)  # .decode(self.encoding)
@@ -347,6 +347,65 @@ class Exchange:
     ) -> tuple[dict[str, str], bytes]:
         checksum, payload = self.create_payload(content)
         headers = self.create_signed_headers(source_id, checksum, target_id, extra_headers)
+
+        return headers, payload
+
+    """
+        TODO: 
+        the following method should be a reference for how this class must work
+        refactor it (once more) so that it can work with proxies
+    """
+
+    def create_proxy(
+        self,
+        source_id: str,
+        target_id: str,
+        target_public_key: str | bytes | PublicKey,
+        proxy_public_key: str | bytes | PublicKey,
+        content: str | bytes = "",
+        extra_headers: dict[str, str] = dict(),
+    ) -> tuple[dict[str, str], bytes]:
+        if not isinstance(target_public_key, PublicKey):
+            target_public_key = PublicKey(target_public_key)
+
+        if not isinstance(proxy_public_key, PublicKey):
+            proxy_public_key = PublicKey(proxy_public_key)
+
+        # encrypt payload for target
+        enc: EncryptionAlgorithm = self.algorithm.enc(
+            target_public_key,
+            self.encoding,
+        )
+
+        payload = enc.encrypt(content)
+        checksum = enc.get_checksum()
+
+        # encrypt signature for proxy
+        data_to_sign = f"{source_id}:{checksum}"
+        signature = self.sign(data_to_sign)
+
+        header = SignedHeaders(
+            source_id=source_id,
+            target_id=target_id,
+            checksum=checksum,
+            signature=signature,
+            encryption=self.algorithm.name,
+            extra=extra_headers,
+        )
+
+        enc = Algorithm.HYBRID.enc(
+            proxy_public_key,
+            self.encoding,
+        )
+
+        data_json = header.json()
+        data_enc = enc.encrypt(data_json)
+        data_b64 = b64encode(data_enc)
+        data = data_b64.decode(self.encoding)
+
+        headers = {
+            "Signature": data,
+        }
 
         return headers, payload
 
@@ -481,6 +540,16 @@ class Exchange:
 
         dec = self.algorithm.dec(self.private_key, self.encoding)
         return dec.decrypt_file(path_in, path_out)
+
+    def stream_decrypt(self, stream: Iterator[bytes]) -> tuple[str, bytes]:
+        if self.private_key is None:
+            raise ValueError("No private key available")
+
+        dec = self.algorithm.dec(self.private_key, self.encoding)
+
+        data = dec.decrypt_stream(stream)
+
+        return dec.get_checksum(), data
 
     async def stream_decrypt_file(self, stream: AsyncGenerator[bytes, None], path_out: Path) -> str:
         if self.private_key is None:

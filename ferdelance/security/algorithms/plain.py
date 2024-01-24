@@ -25,7 +25,7 @@ class NoEncryptionAlgorithm(EncryptionAlgorithm):
         self.checksum = sha256()
 
         content = bytearray()
-        content += self.SEPARATOR
+        # content += self.SEPARATOR
 
         return bytes(content)
 
@@ -101,28 +101,8 @@ class NoDecryptionAlgorithm(DecryptionAlgorithm):
         if self.checksum is None or self.data is None:
             raise ValueError("Call the start() method before update(...)")
 
-        if not self.preamble_found:
-            self.data.extend(content)
-
-            pos = self.data.find(self.SEPARATOR)
-
-            if pos > 0:
-                self.preamble_found = True
-
-                data = bytes(self.data)
-
-                data: bytes = data[pos + len(self.SEPARATOR) :]
-                self.checksum.update(data)
-                return data
-
-            return b""
-
-        else:
-            if self.checksum is None:
-                raise ValueError("Cannot decrypt, data may be corrupted")
-
-            self.checksum.update(content)
-            return content
+        self.checksum.update(content)
+        return content
 
     def end(self) -> bytes:
         """Finalize and end the decryption process.

@@ -195,7 +195,6 @@ class RouteService:
         LOGGER.info(f"JOB job={job_id}: posting resource to {self.remote_url}")
 
         nr = NewResource(
-            target_id=target_id,
             artifact_id=artifact_id,
             job_id=job_id,
             resource_id=resource_id,

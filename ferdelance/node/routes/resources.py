@@ -12,6 +12,7 @@ from sqlalchemy.exc import NoResultFound
 
 import os
 
+
 LOGGER = get_logger(__name__)
 
 resource_router = APIRouter(prefix="/resource", route_class=SignedAPIRoute)
@@ -45,7 +46,17 @@ async def get_task(
     try:
         resource = await rm.load_resource(res_id)
 
-        return FileResponse(resource.path)
+        if resource.encrypted_for is not None and resource.encrypted_for != args.source.id:
+            LOGGER.warn(f"component={args.source.id}: tried to fetch resource for component={resource.encrypted_for}")
+            raise HTTPException(403)
+
+        # this is for the middleware
+        if resource.encrypted_for is not None:
+            headers = {"Encrypted_for": resource.encrypted_for}
+        else:
+            headers = {}
+
+        return FileResponse(path=resource.path, headers=headers)
 
     except NoResultFound as e:
         LOGGER.error(f"component={args.source.id}: resource={res_id.resource_id} not found")
@@ -83,6 +94,10 @@ async def post_resource(
             LOGGER.info(f"component={component.id}: adding resource as product of job={job_id}")
 
             resource = await rm.store_resource(job_id, args.source.id)
+
+            if args.target.id != args.self_component.id:
+                # proxy
+                resource = await rm.set_encrypted_for(resource, args.target.id)
 
         # use resource's path
         if "file" in args.extra_headers and args.extra_headers["file"] == "attached":

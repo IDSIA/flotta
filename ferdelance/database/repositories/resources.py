@@ -17,6 +17,7 @@ def view(resource: ResourceDB) -> Resource:
         is_external=resource.is_external,
         is_error=resource.is_error,
         is_ready=resource.is_ready,
+        encrypted_for=resource.encrypted_for,
     )
 
 
@@ -120,6 +121,22 @@ class ResourceRepository(Repository):
         resource = res.one()
 
         resource.is_error = True
+        await self.session.commit()
+        await self.session.refresh(resource)
+
+        return view(resource)
+
+    async def set_encrypted_for(self, resource_id: str, component_id: str) -> Resource:
+        res = await self.session.scalars(
+            select(ResourceDB).where(
+                ResourceDB.id == resource_id,
+            )
+        )
+
+        resource = res.one()
+
+        resource.encrypted_for = component_id
+
         await self.session.commit()
         await self.session.refresh(resource)
 

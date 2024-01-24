@@ -1,4 +1,3 @@
-from base64 import b64decode
 from typing import Callable, Coroutine, Any
 from dataclasses import dataclass
 
@@ -7,6 +6,7 @@ from ferdelance.database import DataBase, AsyncSession
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.logging import get_logger
 from ferdelance.schemas.components import Component
+from ferdelance.schemas.resources import ResourceIdentifier
 from ferdelance.security.algorithms import Algorithm
 from ferdelance.security.exchange import Exchange
 from ferdelance.security.headers import SignedHeaders
@@ -75,6 +75,7 @@ class SignedRequest(Request):
 
         self.signed_in: bool = False
         self.encrypted: bool = False
+        self.encryption: str = ""
 
         self.self_component: Component = self_component
         self.source: Component | None = None
@@ -139,6 +140,10 @@ class SignedRequest(Request):
 
                     body = payload
 
+                elif self.target is not None and self.target.id != self.self_component.id:
+                    LOGGER.debug(f"Received proxy request with encrypted data")
+                    body = body
+
             except Exception as e:
                 LOGGER.warning(f"Secure checks failed: {e}")
                 LOGGER.exception(e)
@@ -190,10 +195,13 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
             # check target id
             if headers.target_id == self_component.id:
                 request.target = self_component
+                request.exc.algorithm = Algorithm[headers.encryption]
+
             else:
+                request.exc.algorithm = Algorithm.NO_ENCRYPTION
                 request.target = await cr.get_by_id(headers.target_id)
 
-            request.exc.algorithm = Algorithm[headers.encryption]
+            request.encryption = headers.encryption
             request.source_checksum = headers.checksum
             request.extra_headers = headers.extra
 
@@ -222,7 +230,12 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
 async def encrypt_response(request: SignedRequest, response: Response) -> Response:
     target_id = "" if request.source is None else request.source.id
 
-    # TODO: modify response so that it can change encryption algorithm
+    encrypted_for = response.headers.get("Encrypted_for", "")
+
+    if encrypted_for:
+        request.exc.algorithm = Algorithm.NO_ENCRYPTION
+    elif request.encryption:
+        request.exc.algorithm = Algorithm[request.encryption]
 
     if isinstance(response, FileResponse) and request.signed_in:
         path = Path(response.path)
@@ -236,6 +249,7 @@ async def encrypt_response(request: SignedRequest, response: Response) -> Respon
 
         response = StreamingResponse(
             it,
+            headers=headers,
             media_type="application/octet-stream",
         )
 

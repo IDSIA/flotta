@@ -14,7 +14,6 @@ class ResourceIdentifier(BaseModel):
 
 
 class NewResource(BaseModel):
-    target_id: str
     artifact_id: str
     job_id: str
     resource_id: str

@@ -45,3 +45,6 @@ class ResourceManagementService(Repository):
             return await self.rr.get_by_producer_id(res.artifact_id, res.producer_id, res.iteration)
 
         raise NoResultFound()
+
+    async def set_encrypted_for(self, resource: Resource, component_id: str) -> Resource:
+        return await self.rr.set_encrypted_for(resource.id, component_id)
