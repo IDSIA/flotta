@@ -18,24 +18,40 @@ LOGGER = get_logger(__name__)
 class Execution:
     def __init__(
         self,
-        # the worker node id
         component_id: str,
-        # id of the artifact to run
         artifact_id: str,
-        # id of the job to fetch
         job_id: str,
-        # component id of the scheduler node (if localhost, same as component_id)
         scheduler_id: str,
-        # url of the remote node to use (if localhost, same node)
         scheduler_url: str,
-        # public key of the remote node (if none, same node)
         scheduler_public_key: str,
-        # this node private key (for communication)
         private_key: str,
         datasources: list[dict[str, Any]],
-        # if true, we don't have to send data to the remote server
         scheduler_is_local: bool,
     ) -> None:
+        """Task that is capable of executing jobs.
+
+        Args:
+            component_id (str):
+                The worker node id.
+            artifact_id (str):
+                Id of the artifact to run.
+            job_id (str):
+                Id of the job to fetch from the scheduler.
+            scheduler_id (str):
+                Component id of the scheduler node. In case the scheduler is local
+                (localhost), this argument is the same as `component_id`.
+            scheduler_url (str):
+                URL of the remote node to use. When the scheduler is on the same
+                node, it is set to `http://localhost`.
+            scheduler_public_key (str):
+                Public key of the remote node.
+            private_key (str):
+                The private key in string format for this node.
+            datasources (list[dict[str, Any]]):
+                List of maps to available datasources. Can be obtained from node configuration.
+            scheduler_is_local (bool):
+                Set to True when we don't have to send data to a remote server.
+        """
         self.component_id: str = component_id
         self.artifact_id: str = artifact_id
         self.job_id: str = job_id
@@ -62,9 +78,9 @@ class Execution:
             self.component_id,
             self.private_key,
             self.scheduler_id,
-            self.scheduler_url,
             self.scheduler_public_key,
-            self.scheduler_is_local,
+            self.scheduler_url,
+            is_local=self.scheduler_is_local,
         )
 
         try:
@@ -134,29 +150,29 @@ class Execution:
                     f"JOB job={job_id}: sending resource={task.produced_resource_id} to "
                     f"component={next_node.target_id} "
                     f"via url={next_node.target_url} "
+                    f"proxy={next_node.use_scheduler_as_proxy}"
                     f"is_local={is_local}"
                 )
+                if next_node.use_scheduler_as_proxy:
+                    remote_url = self.scheduler_url
+                    remote_key = self.scheduler_public_key
+                else:
+                    remote_url = next_node.target_url
+                    remote_key = None
+
                 node = RouteService(
                     self.component_id,
                     self.private_key,
                     next_node.target_id,
-                    next_node.target_url,
                     next_node.target_public_key,
+                    remote_url,
+                    remote_key,
                     is_local,
                 )
 
-                # TODO: consider proxy!!!
+                path = None if is_local else es.env.product_path()
 
-                # if next_node.target_id != self.scheduler_id:
-                #     LOGGER.info(f"JOB job={job_id}: target node={next_node.target_id} is not the ")
-                #     node.exc.set_remote_key(next_node.target_id, next_node.target_public_key)
-                #     node.exc.set_proxy_key(self.scheduler_public_key)
-
-                if is_local:
-                    node.post_resource(artifact_id, job_id, task.produced_resource_id)
-
-                else:
-                    node.post_resource(artifact_id, job_id, task.produced_resource_id, es.env.product_path())
+                node.post_resource(artifact_id, job_id, task.produced_resource_id, path)
 
             scheduler.post_done(artifact_id, job_id)
 

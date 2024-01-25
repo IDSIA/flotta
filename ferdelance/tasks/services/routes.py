@@ -24,23 +24,26 @@ class RouteService:
         self,
         component_id: str,
         private_key: str,
-        remote_id: str,
+        target_id: str,
+        target_public_key: str,
         remote_url: str,
-        remote_public_key: str,
+        remote_public_key: str | None = None,
         is_local: bool = False,
     ) -> None:
         """
         Args:
             component_id (str):
-                Identifier string of this component running the task.
+                Identifier of the component running the task.
             private_key (str):
-                Private key in string format for this component running the task.
-            remote_id (str):
-                Component id of the remote node used for communication.
+                Private key in string format for the component running the task.
+            target_id (str):
+                Component id of the remote that will receive the payload.
+            target_public_key (str):
+                Public key in string format for the node receiving the payload.
             remote_url (str):
-                Base url of the remote node receiving the communication and data.
+                Base url of the remote node receiving the payload.
             remote_public_key (str):
-                Public key in string format for the node receiving the communication data.
+                Public key in string format for the node receiving the payload.
             is_local (bool, optional):
                 Set to True when the remote node is the same node that is running the task.
                 Defaults to False.
@@ -48,15 +51,20 @@ class RouteService:
 
         self.component_id: str = component_id
 
-        self.remote_id: str = remote_id
+        self.target_id: str = target_id
+        self.target_public_key: str = target_public_key
+
         self.remote_url: str = remote_url
-        self.remote_public_key: str = remote_public_key
+        self.remote_public_key: str | None = remote_public_key
 
         self.is_local: bool = is_local
 
         # used for communication and header signing
         self.exc: Exchange = Exchange(component_id, private_key=private_key)
-        self.exc.set_remote_key(remote_id, remote_public_key)
+        self.exc.set_remote_key(target_id, target_public_key)
+
+        if remote_public_key is not None and target_public_key != remote_public_key:
+            self.exc.set_proxy_key(remote_public_key)
 
         LOGGER.info(
             f"component={self.component_id}: RouteService initialized for "
@@ -182,6 +190,31 @@ class RouteService:
         path_in: Path | None = None,
         content: Any = None,
     ) -> ResourceIdentifier:
+        """Send a produced resource to a node.
+
+        The required parameters are specified by the content that can be fetch
+        using the get_task_data method.
+
+        Args:
+            artifact_id (str):
+                Artifact id of the resource.
+            job_id (str):
+                Job id that produced the resource.
+            resource_id (str):
+                Id assigned to the requested resource.
+            path_in (Path | None, optional):
+                Path to the resource saved locally. If set, the content will be
+                read from this path.
+                Defaults to None.
+            content (Any, optional):
+                Content to be send. If set, this parameter will be converted to
+                string and sent to the remote node.
+                Defaults to None.
+
+        Returns:
+            ResourceIdentifier:
+                The response from the remote node.
+        """
         LOGGER.info(f"JOB job={job_id}: posting resource to {self.remote_url}")
 
         nr = NewResource(
@@ -244,7 +277,15 @@ class RouteService:
 
         return req
 
-    def post_metrics(self, job_id: str, metrics: Metrics):
+    def post_metrics(self, job_id: str, metrics: Metrics) -> None:
+        """Send metrics and evaluation results to the remote node.
+
+        Args:
+            job_id (str):
+                Job id that produced the metrics.
+            metrics (Metrics):
+                The evaluation metrics to send to the remote node.
+        """
         LOGGER.info(f"JOB job={job_id}: posting metrics")
 
         headers, payload = self.exc.create(metrics.json())
@@ -263,6 +304,14 @@ class RouteService:
         )
 
     def post_error(self, job_id: str, error: TaskError) -> None:
+        """Send an error message to the remote node
+
+        Args:
+            job_id (str):
+                Job id that produced the metrics.
+            error (TaskError):
+                Error message to send to the remote node.
+        """
         LOGGER.error(f"JOB job={job_id}: error_message={error.message}")
 
         headers, payload = self.exc.create(error.json())
@@ -276,6 +325,14 @@ class RouteService:
         res.raise_for_status()
 
     def post_done(self, artifact_id: str, job_id: str) -> None:
+        """Notifies the successful completion of the assigned job.
+
+        Args:
+            artifact_id (str):
+                Id of th artifact for the task to fetch.
+            job_id (str):
+                Job id that produced the metrics.
+        """
         LOGGER.info(f"JOB job={job_id}: work done")
 
         done = TaskDone(
