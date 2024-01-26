@@ -10,13 +10,12 @@ from ferdelance.database.repositories import (
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata
+from ferdelance.security.exchange import Exchange
 
 from pathlib import Path
 from sqlalchemy.exc import NoResultFound
 
-import requests
-
-from ferdelance.security.exchange import Exchange
+import httpx
 
 
 LOGGER = get_logger(__name__)
@@ -169,10 +168,10 @@ class NodeService:
 
             headers, payload = self.exc.create(new_component.json())
 
-            res = requests.put(
+            res = httpx.put(
                 f"{node.url}/node/add",
                 headers=headers,
-                data=payload,
+                content=payload,
             )
 
             if res.status_code != 200:
@@ -195,10 +194,10 @@ class NodeService:
 
             headers, payload = self.exc.create(component.json())
 
-            res = requests.put(
+            res = httpx.put(
                 f"{node.url}/node/remove",
                 headers=headers,
-                data=payload,
+                content=payload,
             )
             if res.status_code != 200:
                 LOGGER.error(
@@ -226,10 +225,10 @@ class NodeService:
 
             headers, payload = self.exc.create(node_metadata.json())
 
-            res = requests.put(
+            res = httpx.put(
                 f"{node.url}/node/metadata",
                 headers=headers,
-                data=payload,
+                content=payload,
             )
 
             if res.status_code != 200:

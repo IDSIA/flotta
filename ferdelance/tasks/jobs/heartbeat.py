@@ -10,9 +10,9 @@ from ferdelance.tasks.jobs.execution import Execution
 from pathlib import Path
 from time import sleep
 
+import httpx
 import json
 import ray
-import requests
 
 
 LOGGER = get_logger(__name__)
@@ -55,10 +55,10 @@ class Heartbeat:
 
         headers, payload = self.exc.create()
 
-        res = requests.post(
+        res = httpx.post(
             f"{self.remote_url}/node/leave",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -74,10 +74,11 @@ class Heartbeat:
             content.json(),
         )
 
-        res = requests.get(
+        res = httpx.request(
+            "GET",
             f"{self.remote_url}/client/update",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -158,12 +159,12 @@ class Heartbeat:
                     # TODO: discriminate between bad and acceptable exceptions
                     LOGGER.exception(e)
 
-                except requests.HTTPError as e:
+                except httpx.RequestError as e:
+                    LOGGER.error("connection refused")
                     LOGGER.exception(e)
                     # TODO what to do in this case?
 
-                except requests.exceptions.RequestException as e:
-                    LOGGER.error("connection refused")
+                except httpx.HTTPError as e:
                     LOGGER.exception(e)
                     # TODO what to do in this case?
 

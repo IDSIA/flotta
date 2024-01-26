@@ -27,10 +27,10 @@ from ferdelance.workbench.interface import (
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
 import json
 import os
 import pickle
-import requests
 import time
 
 LOGGER = get_logger(__name__)
@@ -128,7 +128,7 @@ class Context:
             self.exc = Exchange(self.id, private_key_path=ssh_key_path)
 
         # connecting to server
-        response_key = requests.get(
+        response_key = httpx.get(
             f"{self.server_url}/node/key",
         )
 
@@ -156,10 +156,10 @@ class Context:
 
         headers, payload = self.exc.create(wjr.json())
 
-        res = requests.post(
+        res = httpx.post(
             f"{self.server_url}/workbench/connect",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -186,10 +186,11 @@ class Context:
 
         headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
+        res = httpx.request(
+            "GET",
             f"{self.server_url}/workbench/project",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -212,10 +213,11 @@ class Context:
 
         headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
+        res = httpx.request(
+            "GET",
             f"{self.server_url}/workbench/clients",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -238,10 +240,11 @@ class Context:
 
         headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
+        res = httpx.request(
+            "GET",
             f"{self.server_url}/workbench/datasources",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -271,10 +274,10 @@ class Context:
 
         headers, payload = self.exc.create(artifact.json())
 
-        res = requests.post(
+        res = httpx.post(
             f"{self.server_url}/workbench/artifact/submit",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -303,10 +306,11 @@ class Context:
 
         headers, payload = self.exc.create(wba.json())
 
-        res = requests.get(
+        res = httpx.request(
+            "GET",
             f"{self.server_url}/workbench/artifact/status",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -364,10 +368,11 @@ class Context:
 
         headers, payload = self.exc.create(wba.json())
 
-        res = requests.get(
+        res = httpx.request(
+            "GET",
             f"{self.server_url}/workbench/artifact",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -381,10 +386,11 @@ class Context:
 
         headers, payload = self.exc.create(wba.json())
 
-        res = requests.get(
+        res = httpx.request(
+            "GET",
             f"{self.server_url}/workbench/resource/list",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -398,15 +404,15 @@ class Context:
     def get_resource(self, resource: WorkbenchResource) -> Any:
         headers, payload = self.exc.create(resource.json())
 
-        with requests.get(
+        with httpx.stream(
+            "GET",
             f"{self.server_url}/workbench/resource",
             headers=headers,
-            data=payload,
-            stream=True,
+            content=payload,
         ) as res:
             res.raise_for_status()
 
-            data, _ = self.exc.stream_response(res.iter_content())
+            data, _ = self.exc.stream_response(res.iter_bytes())
 
             obj = pickle.loads(data)
 

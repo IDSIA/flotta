@@ -19,8 +19,8 @@ from ferdelance.tasks.backends import get_jobs_backend
 from pathlib import Path
 from sqlalchemy.exc import NoResultFound
 
+import httpx
 import json
-import requests
 import uuid
 
 LOGGER = get_logger(__name__)
@@ -78,7 +78,7 @@ class NodeStartup(Repository):
 
         ns: NodeService = NodeService(self.session, self.self_component)
 
-        await ns.metadata(metadata)
+        await ns.metadata(self.self_component, metadata)
         await ns.distribute_metadata(metadata)
 
     async def populate_database(self) -> None:
@@ -146,7 +146,7 @@ class NodeStartup(Repository):
         remote = self.config.join.url.rstrip("/")
         try:
             # get remote public key (this is also a check for valid node)
-            res = requests.get(f"{remote}/node/key")
+            res = httpx.get(f"{remote}/node/key")
 
             res.raise_for_status()
 
@@ -175,10 +175,10 @@ class NodeStartup(Repository):
 
             headers, join_req_payload = self.exc.create(join_req.json())
 
-            res = requests.post(
+            res = httpx.post(
                 f"{remote}/node/join",
                 headers=headers,
-                data=join_req_payload,
+                content=join_req_payload,
             )
 
             res.raise_for_status()

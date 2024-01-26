@@ -17,7 +17,7 @@ from ferdelance.shared.status import ArtifactJobStatus, JobStatus
 from ferdelance.tasks.backends import get_jobs_backend
 from ferdelance.tasks.tasks import Task
 
-import requests
+import httpx
 
 
 LOGGER = get_logger(__name__)
@@ -171,10 +171,10 @@ class TaskManagementService(Repository):
 
         headers, payload = exc.create(task.json())
 
-        res = requests.post(
+        res = httpx.post(
             f"{remote.url}/task",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
