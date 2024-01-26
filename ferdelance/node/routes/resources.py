@@ -28,7 +28,7 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
 
     except NoResultFound:
         LOGGER.warning(f"component={args.source.id}: not found")
-        raise HTTPException(403)
+        raise HTTPException(403, "Access Denied")
 
 
 @resource_router.get("/")
@@ -40,7 +40,7 @@ async def get_task(
 
     if not config_manager.get().node.allow_resource_download:
         LOGGER.warning(f"component={args.source.id}: this node does not allow the download of resources")
-        raise HTTPException(403)
+        raise HTTPException(403, "Access Denied")
 
     rm: ResourceManagementService = ResourceManagementService(args.session)
 
@@ -48,8 +48,10 @@ async def get_task(
         resource = await rm.load_resource(res_id)
 
         if resource.encrypted_for is not None and resource.encrypted_for != args.source.id:
-            LOGGER.warn(f"component={args.source.id}: tried to fetch resource for component={resource.encrypted_for}")
-            raise HTTPException(403)
+            LOGGER.warn(
+                f"component={args.source.id}: tried to fetch resource for another component={resource.encrypted_for}"
+            )
+            raise HTTPException(403, "Access Denied")
 
         # this is for the middleware
         if resource.encrypted_for is not None:
@@ -88,7 +90,7 @@ async def post_resource(
         else:
             if "job_id" not in args.extra_headers:
                 LOGGER.error(f"component={component.id}: missing header job_id")
-                raise HTTPException(403)
+                raise HTTPException(404, "Not Found")
 
             job_id = args.extra_headers["job_id"]
 

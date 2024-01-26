@@ -31,12 +31,12 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
     try:
         if args.source.type_name != TYPE_USER:
             LOGGER.warning(f"client of type={args.source.type_name} cannot access this route")
-            raise HTTPException(403)
+            raise HTTPException(403, "Access Denied")
 
         return args
     except NoResultFound:
         LOGGER.warning(f"component={args.source.id} not found")
-        raise HTTPException(403)
+        raise HTTPException(403, "Access Denied")
 
 
 @workbench_router.get("/")
@@ -154,7 +154,7 @@ async def wb_post_artifact_submit(
     except ValueError as e:
         LOGGER.error("artifact already exists")
         LOGGER.exception(e)
-        raise HTTPException(403)
+        raise HTTPException(403, "Invalid Data")
 
 
 @workbench_router.get("/artifact/status", response_model=ArtifactStatus)

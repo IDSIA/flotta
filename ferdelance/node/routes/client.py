@@ -21,12 +21,12 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
             LOGGER.warning(
                 f"component={args.source.id}: client of type={args.source.type_name} cannot access this route"
             )
-            raise HTTPException(403)
+            raise HTTPException(403, "Access Denied")
 
         return args
     except NoResultFound:
         LOGGER.warning(f"component={args.source.id} not found")
-        raise HTTPException(403)
+        raise HTTPException(403, "Access Denied")
 
 
 @client_router.get("/")

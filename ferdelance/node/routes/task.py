@@ -20,12 +20,12 @@ async def allow_access(args: ValidSessionArgs = Depends(valid_session_args)) -> 
     try:
         if args.source.type_name not in (TYPE_CLIENT, TYPE_NODE):
             LOGGER.warning(f"component={args.source.id}: type={args.source.type_name} cannot access this route")
-            raise HTTPException(403)
+            raise HTTPException(403, "Access Denied")
 
         return args
     except NoResultFound:
         LOGGER.warning(f"component={args.source.id}: not found")
-        raise HTTPException(403)
+        raise HTTPException(403, "Access Denied")
 
 
 @task_router.get("/")

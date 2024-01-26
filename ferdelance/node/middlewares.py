@@ -6,7 +6,6 @@ from ferdelance.database import DataBase, AsyncSession
 from ferdelance.database.repositories import ComponentRepository
 from ferdelance.logging import get_logger
 from ferdelance.schemas.components import Component
-from ferdelance.schemas.resources import ResourceIdentifier
 from ferdelance.security.algorithms import Algorithm
 from ferdelance.security.exchange import Exchange
 from ferdelance.security.headers import SignedHeaders
@@ -94,6 +93,7 @@ class SignedRequest(Request):
 
     def valid_args(self) -> ValidSessionArgs:
         if self.source is None:
+            LOGGER.warning(f"component=UNKNOWN: no source id defined!")
             raise HTTPException(403, "Access Denied")
 
         if self.target is None:
@@ -129,7 +129,7 @@ class SignedRequest(Request):
 
                     if self.source_checksum != self.checksum:
                         LOGGER.warning(f"component={self.source.id}: Checksum failed")
-                        raise HTTPException(403)
+                        raise HTTPException(403, "Invalid Data")
 
                     body = payload
 
@@ -141,14 +141,14 @@ class SignedRequest(Request):
 
                     if self.source_checksum != self.checksum:
                         LOGGER.warning(f"Unknown request: Checksum failed")
-                        raise HTTPException(403)
+                        raise HTTPException(403, "Invalid Data")
 
                     body = payload
 
             except Exception as e:
                 LOGGER.warning(f"Secure checks failed: {e}")
                 LOGGER.exception(e)
-                raise HTTPException(403)
+                raise HTTPException(403, "Access Denied")
 
             self._body = body
         return self._body
@@ -181,7 +181,7 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
 
             if not source.active:
                 LOGGER.warning(f"component={source.id}: request denied to inactive component")
-                raise HTTPException(403, "Inactive component")
+                raise HTTPException(403, "Inactive Component")
 
             if source.blacklisted:
                 LOGGER.warning(f"component={source.id}: request denied to blacklisted component")
@@ -219,6 +219,8 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
             raise HTTPException(403, "Access Denied")
 
         except HTTPException as e:
+            LOGGER.warning(f"component=UNKNOWN: HTTPException {e}")
+            LOGGER.exception(e)
             raise e
 
         except Exception as e:
