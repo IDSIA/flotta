@@ -181,6 +181,56 @@ class ConnectionArguments(BaseModel):
         arbitrary_types_allowed = True
 
 
+def create_workbench(
+    api: TestClient,
+    remote_key: str,
+    id: str | None = None,
+    name: str = "test_workbench",
+) -> Exchange:
+    if not id:
+        id = str(uuid.uuid4())
+    exc = Exchange(id)
+
+    exc.set_remote_key("JOIN", remote_key)
+
+    assert exc.remote_key is not None
+
+    public_key = exc.transfer_public_key()
+
+    data_to_sign = f"{id}:{public_key}"
+
+    checksum = str_checksum(data_to_sign)
+    signature = exc.sign(data_to_sign)
+
+    wjr = WorkbenchJoinRequest(
+        id=id,
+        name=name,
+        public_key=exc.transfer_public_key(),
+        version="test",
+        checksum=checksum,
+        signature=signature,
+    )
+
+    payload_checksum, payload = exc.create_payload(wjr.json())
+    headers = exc.create_signed_headers(payload_checksum)
+
+    res_connect = api.post(
+        "/workbench/connect",
+        headers=headers,
+        content=payload,
+    )
+
+    res_connect.raise_for_status()
+
+    _, payload = exc.get_payload(res_connect.content)
+
+    jr = WorkbenchJoinResponse(**json.loads(payload))
+
+    exc.set_remote_key(jr.component_id, remote_key)
+
+    return exc
+
+
 async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> ConnectionArguments:
     await create_project(session, p_token)
 
@@ -203,51 +253,13 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
 
     spk = NodePublicKey(**response_key.json())
 
-    wb_id = str(uuid.uuid4())
-    wb_exc = Exchange(wb_id)
-
-    wb_exc.set_remote_key("JOIN", spk.public_key)
-
-    assert wb_exc.remote_key is not None
-
-    public_key = wb_exc.transfer_public_key()
-
-    data_to_sign = f"{wb_id}:{public_key}"
-
-    checksum = str_checksum(data_to_sign)
-    signature = wb_exc.sign(data_to_sign)
-
-    wjr = WorkbenchJoinRequest(
-        id=wb_id,
-        name="test_workbench",
-        public_key=wb_exc.transfer_public_key(),
-        version="test",
-        checksum=checksum,
-        signature=signature,
-    )
-
-    payload_checksum, payload = wb_exc.create_payload(wjr.json())
-    headers = wb_exc.create_signed_headers(payload_checksum)
-
-    res_connect = api.post(
-        "/workbench/connect",
-        headers=headers,
-        content=payload,
-    )
-
-    res_connect.raise_for_status()
-
-    _, payload = wb_exc.get_payload(res_connect.content)
-
-    jr = WorkbenchJoinResponse(**json.loads(payload))
-
-    wb_exc.set_remote_key(jr.component_id, spk.public_key)
+    wb_exc = create_workbench(api, spk.public_key)
 
     return ConnectionArguments(
         sv_id=server_id,
         cl_id=client_id,
         cl_exc=cl_exc,
-        wb_id=wb_id,
+        wb_id=wb_exc.source_id,
         wb_exc=wb_exc,
         project_token=p_token,
     )
