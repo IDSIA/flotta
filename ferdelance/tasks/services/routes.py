@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Iterator
 
 from ferdelance.config import config_manager
 from ferdelance.core.metrics import Metrics
@@ -10,9 +10,9 @@ from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 
 from pathlib import Path
 
+import httpx
 import json
 import os
-import requests
 
 LOGGER = get_logger(__name__)
 
@@ -24,11 +24,6 @@ class RouteService:
         self,
         component_id: str,
         private_key: str,
-        target_id: str,
-        target_public_key: str,
-        remote_url: str,
-        remote_public_key: str | None = None,
-        is_local: bool = False,
     ) -> None:
         """
         Args:
@@ -36,6 +31,23 @@ class RouteService:
                 Identifier of the component running the task.
             private_key (str):
                 Private key in string format for the component running the task.
+        """
+
+        self.component_id: str = component_id
+
+        # used for communication and header signing
+        self.exc: Exchange = Exchange(component_id, private_key=private_key)
+
+    def change_route(
+        self,
+        target_id: str,
+        target_public_key: str,
+        remote_url: str,
+        remote_public_key: str | None = None,
+    ) -> None:
+        """Change the parameters used for connecting to the current route.
+
+        Args:
             target_id (str):
                 Component id of the remote that will receive the payload.
             target_public_key (str):
@@ -44,31 +56,38 @@ class RouteService:
                 Base url of the remote node receiving the payload.
             remote_public_key (str):
                 Public key in string format for the node receiving the payload.
-            is_local (bool, optional):
-                Set to True when the remote node is the same node that is running the task.
-                Defaults to False.
+                Defaults to None.
         """
-
-        self.component_id: str = component_id
-
-        self.target_id: str = target_id
-        self.target_public_key: str = target_public_key
-
-        self.remote_url: str = remote_url
-        self.remote_public_key: str | None = remote_public_key
-
-        self.is_local: bool = is_local
-
-        # used for communication and header signing
-        self.exc: Exchange = Exchange(component_id, private_key=private_key)
+        self.remote_url = remote_url
         self.exc.set_remote_key(target_id, target_public_key)
+
+        LOGGER.info(f"component={self.component_id}: changed route to remote={self.remote_url}")
 
         if remote_public_key is not None and target_public_key != remote_public_key:
             self.exc.set_proxy_key(remote_public_key)
+            LOGGER.info(f"component={self.component_id}: using proxy")
 
-        LOGGER.info(
-            f"component={self.component_id}: RouteService initialized for "
-            f"remote={self.remote_url} is_local={self.is_local}"
+    def _stream_get(self, url: str, headers: dict[str, str], data: Any = None):
+        return httpx.stream(
+            "GET",
+            url,
+            headers=headers,
+            content=data,
+        )
+
+    def _get(self, url: str, headers: dict[str, str], data: Any = None) -> httpx.Response:
+        return httpx.request(
+            "GET",
+            url,
+            headers=headers,
+            content=data,
+        )
+
+    def _post(self, url: str, headers: dict[str, str], data: Any = None) -> httpx.Response:
+        return httpx.post(
+            url,
+            headers=headers,
+            content=data,
         )
 
     def get_task_data(self, artifact_id: str, job_id: str) -> Task:
@@ -92,7 +111,7 @@ class RouteService:
 
         headers, payload = self.exc.create(req.json())
 
-        res = requests.get(
+        res = self._get(
             f"{self.remote_url}/task",
             headers=headers,
             data=payload,
@@ -107,7 +126,7 @@ class RouteService:
         LOGGER.info(
             f"JOB job={job_id}: got task with "
             f"produced resource={task.produced_resource_id} "
-            f"from n_resources={len(task.required_resources)} "
+            f"and n_resources={len(task.required_resources)} "
             f"will be sent to n_nodes={len(task.next_nodes)}"
         )
 
@@ -159,11 +178,10 @@ class RouteService:
 
         headers, payload = self.exc.create(req.json())
 
-        with requests.get(
+        with self._stream_get(
             f"{self.remote_url}/resource",
             headers=headers,
             data=payload,
-            stream=True,
         ) as res:
             res.raise_for_status()
 
@@ -174,7 +192,7 @@ class RouteService:
 
             path = config_manager.get().storage_job(artifact_id, job_id, iteration) / f"{resource_id}.pkl"
 
-            it = res.iter_content(chunk_size=CHUNK_SIZE)
+            it = res.iter_bytes(chunk_size=CHUNK_SIZE)
 
             self.exc.stream_response_to_file(it, path)
 
@@ -233,7 +251,7 @@ class RouteService:
                 extra_headers=nr.dict(),
             )
 
-            res = requests.post(
+            res = self._post(
                 f"{self.remote_url}/resource",
                 headers=headers,
                 data=open(path_out, "rb"),
@@ -249,7 +267,7 @@ class RouteService:
 
             _, data = self.exc.encrypt_to_stream(payload)
 
-            res = requests.post(
+            res = self._post(
                 f"{self.remote_url}/resource",
                 headers=headers,
                 data=data,
@@ -262,7 +280,7 @@ class RouteService:
 
             headers, _ = self.exc.create(extra_headers=nr.dict())
 
-            res = requests.post(
+            res = self._post(
                 f"{self.remote_url}/resource",
                 headers=headers,
             )
@@ -290,7 +308,7 @@ class RouteService:
 
         headers, payload = self.exc.create(metrics.json())
 
-        res = requests.post(
+        res = self._post(
             f"{self.remote_url}/task/metrics",
             headers=headers,
             data=payload,
@@ -316,7 +334,7 @@ class RouteService:
 
         headers, payload = self.exc.create(error.json())
 
-        res = requests.post(
+        res = self._post(
             f"{self.remote_url}/task/error",
             headers=headers,
             data=payload,
@@ -342,10 +360,15 @@ class RouteService:
 
         headers, payload = self.exc.create(done.json())
 
-        res = requests.post(
+        res = self._post(
             f"{self.remote_url}/task/done",
             headers=headers,
             data=payload,
         )
 
         res.raise_for_status()
+
+        _, payload = self.exc.get_payload(res.content)
+        content = json.loads(payload)
+
+        print(content)

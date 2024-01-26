@@ -4,6 +4,8 @@ from ferdelance.core.environment import Environment
 from ferdelance.logging import get_logger
 from ferdelance.tasks.tasks import Task
 
+from pathlib import Path
+
 import json
 import pandas as pd
 
@@ -29,7 +31,7 @@ class ExecutionService:
         self.env: Environment = Environment(self.artifact_id, self.project_token, task.produced_resource_id, wd)
 
         with open(self.env.working_dir / "task.json", "w") as f:
-            json.dump(self.task.dict(), f)
+            json.dump(self.task.dict(), f, indent=True)
 
     def load(self):
         if self.data is None:
@@ -64,6 +66,12 @@ class ExecutionService:
 
         if dfs:
             self.env.df = pd.concat(dfs)
+
+    def add_resource(self, resource_id: str, res_path: Path) -> None:
+        self.env.add_resource(resource_id, res_path)
+
+    def has_product(self) -> bool:
+        return self.env.products is not None
 
     def run(self) -> None:
         self.env = self.task.run(self.env)
