@@ -102,7 +102,6 @@ class Heartbeat:
             self.remote_public_key,
             self.exc.transfer_private_key(),
             [d.dict() for d in dsc],
-            False,
         )
         _ = actor_handler.run.remote()  # type: ignore
 

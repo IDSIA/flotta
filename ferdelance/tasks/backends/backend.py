@@ -31,7 +31,6 @@ class Backend:
         scheduler_url: str,
         scheduler_public_key: str,
         datasources: list[dict[str, Any]],
-        scheduler_is_local: bool,
     ) -> None:
         LOGGER.info(f"artifact={artifact_id}: scheduling job={job_id}")
 
@@ -44,7 +43,6 @@ class Backend:
             scheduler_public_key,
             private_key,
             datasources,
-            scheduler_is_local,
         )
 
         task_handler = actor_handler.run.remote()  # type: ignore

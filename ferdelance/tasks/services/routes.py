@@ -70,7 +70,7 @@ class RouteService:
     def _stream_get(self, url: str, headers: dict[str, str], data: Any = None):
         return httpx.stream(
             "GET",
-            url,
+            f"{self.remote_url}/{url}",
             headers=headers,
             content=data,
         )
@@ -78,14 +78,14 @@ class RouteService:
     def _get(self, url: str, headers: dict[str, str], data: Any = None) -> httpx.Response:
         return httpx.request(
             "GET",
-            url,
+            f"{self.remote_url}/{url}",
             headers=headers,
             content=data,
         )
 
     def _post(self, url: str, headers: dict[str, str], data: Any = None) -> httpx.Response:
         return httpx.post(
-            url,
+            f"{self.remote_url}/{url}",
             headers=headers,
             content=data,
         )
@@ -112,7 +112,7 @@ class RouteService:
         headers, payload = self.exc.create(req.json())
 
         res = self._get(
-            f"{self.remote_url}/task",
+            "/task",
             headers=headers,
             data=payload,
         )
@@ -139,8 +139,9 @@ class RouteService:
         job_id: str,
         resource_id: str,
         iteration: int,
+        path_out: Path,
         CHUNK_SIZE: int = 4096,
-    ) -> Path:
+    ) -> None:
         """Contact the remote node to get a specific resource.
 
         The required parameters are specified by the content that can be fetch
@@ -179,7 +180,7 @@ class RouteService:
         headers, payload = self.exc.create(req.json())
 
         with self._stream_get(
-            f"{self.remote_url}/resource",
+            "/resource",
             headers=headers,
             data=payload,
         ) as res:
@@ -190,15 +191,11 @@ class RouteService:
             prev_algo = self.exc.algorithm
             self.exc.algorithm = Algorithm[headers.encryption]
 
-            path = config_manager.get().storage_job(artifact_id, job_id, iteration) / f"{resource_id}.pkl"
-
             it = res.iter_bytes(chunk_size=CHUNK_SIZE)
 
-            self.exc.stream_response_to_file(it, path)
+            self.exc.stream_response_to_file(it, path_out)
 
             self.exc.algorithm = prev_algo
-
-            return path
 
     def post_resource(
         self,
@@ -252,7 +249,7 @@ class RouteService:
             )
 
             res = self._post(
-                f"{self.remote_url}/resource",
+                "/resource",
                 headers=headers,
                 data=open(path_out, "rb"),
             )
@@ -260,20 +257,16 @@ class RouteService:
             if os.path.exists(path_out):
                 os.remove(path_out)
 
-            res.raise_for_status()
-
         elif content is not None:
             headers, payload = self.exc.create(extra_headers=nr.dict())
 
             _, data = self.exc.encrypt_to_stream(payload)
 
             res = self._post(
-                f"{self.remote_url}/resource",
+                "/resource",
                 headers=headers,
                 data=data,
             )
-
-            res.raise_for_status()
 
         else:
             nr.file = "local"
@@ -281,11 +274,11 @@ class RouteService:
             headers, _ = self.exc.create(extra_headers=nr.dict())
 
             res = self._post(
-                f"{self.remote_url}/resource",
+                "/resource",
                 headers=headers,
             )
 
-            res.raise_for_status()
+        res.raise_for_status()
 
         _, payload = self.exc.get_payload(res.content)
 
@@ -309,7 +302,7 @@ class RouteService:
         headers, payload = self.exc.create(metrics.json())
 
         res = self._post(
-            f"{self.remote_url}/task/metrics",
+            "/task/metrics",
             headers=headers,
             data=payload,
         )
@@ -335,7 +328,7 @@ class RouteService:
         headers, payload = self.exc.create(error.json())
 
         res = self._post(
-            f"{self.remote_url}/task/error",
+            "/task/error",
             headers=headers,
             data=payload,
         )
@@ -361,7 +354,7 @@ class RouteService:
         headers, payload = self.exc.create(done.json())
 
         res = self._post(
-            f"{self.remote_url}/task/done",
+            "/task/done",
             headers=headers,
             data=payload,
         )
