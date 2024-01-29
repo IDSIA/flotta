@@ -24,7 +24,7 @@ from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.resources import ResourceIdentifier
 from ferdelance.schemas.updates import UpdateData
-from ferdelance.tasks.services import ExecutionService
+from ferdelance.tasks.services.execution import load_environment
 from ferdelance.tasks.tasks import Task, TaskError
 
 from tests.utils import create_project
@@ -88,12 +88,13 @@ class ServerlessWorker:
         await self.node.task_completed(task)
 
     async def execute(self, task: Task) -> Resource:
-        es = ExecutionService(task, self.data, self.component.id)
+        if self.data is None:
+            raise ValueError("No data to working on available")
 
-        es.load()
+        env = load_environment(self.data, task, self.config.get_workdir())
 
         for resource in task.required_resources:
-            es.env.add_resource(
+            env.add_resource(
                 resource.resource_id,
                 self.config.storage_job(
                     resource.artifact_id,
@@ -103,15 +104,15 @@ class ServerlessWorker:
                 / f"{resource.resource_id}.pkl",
             )
 
-        es.run()
+        env = task.run(env)
 
-        assert es.env.products is not None
+        assert env.products is not None
 
         return Resource(
-            id=es.env.product_id,
+            id=env.product_id,
             component_id=self.component.id,
             creation_time=None,
-            path=es.env.product_path(),
+            path=env.product_path(),
             is_external=False,
             is_error=False,
             is_ready=True,

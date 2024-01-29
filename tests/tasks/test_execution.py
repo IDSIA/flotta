@@ -1,19 +1,21 @@
 from typing import Any
 
 from requests.models import Response as Response
+from ferdelance.commons import storage_job
 
 from ferdelance.config.config import DataSourceConfiguration, DataSourceStorage, config_manager
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.estimators import MeanEstimator
 from ferdelance.database.repositories import AsyncSession, ComponentRepository, JobRepository
-from ferdelance.database.repositories.artifact import ArtifactRepository
 from ferdelance.node.api import api
 from ferdelance.node.services.jobs import JobManagementService
+from ferdelance.schemas.components import Component
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.workbench import WorkbenchProjectToken
 from ferdelance.security.exchange import Exchange
-from ferdelance.tasks.jobs.execution import TaskExecutor
-from ferdelance.tasks.services.routes import RouteService
+from ferdelance.shared.status import JobStatus
+from ferdelance.tasks.services import RouteService, TaskExecutionService
+from ferdelance.tasks.tasks import TaskError
 
 from tests.utils import TEST_PROJECT_TOKEN, create_node, create_workbench, send_metadata
 
@@ -22,9 +24,12 @@ from fastapi.testclient import TestClient
 from pathlib import Path
 
 import httpx
+import logging
 import json
 import os
 import pytest
+
+LOGGER = logging.getLogger(__name__)
 
 
 class SimpleNode:
@@ -47,6 +52,21 @@ class SimpleNode:
     def remote_id(self) -> str:
         assert self.exc.target_id
         return self.exc.target_id
+
+
+class SchedulerNode(SimpleNode):
+    def __init__(self, session: AsyncSession, component: Component, url: str, private_key_path: Path) -> None:
+        super().__init__(Exchange(component.id, private_key_path=private_key_path))
+
+        self.component: Component = component
+        self.url: str = url
+        self.jms: JobManagementService = JobManagementService(session, self.component)
+
+        self.exc.set_remote_key(self.id(), self.public_key())
+
+    async def done(self, artifact_id: str, job_id: str) -> None:
+        await self.jms.task_completed(job_id)
+        await self.jms.check(artifact_id)
 
 
 class ClientNode(SimpleNode):
@@ -83,12 +103,9 @@ class WorkBenchNode(SimpleNode):
         _, res_payload = self.exc.get_payload(res.content)
         return Project(**json.loads(res_payload))
 
-    async def submit(self, session: AsyncSession, artifact: Artifact) -> Artifact:
-        cr = ComponentRepository(session)
-        component = await cr.get_by_id(self.remote_id())
-
-        jms = JobManagementService(session, component)
-        status = await jms.submit_artifact(artifact)
+    async def submit(self, scheduler: SchedulerNode, artifact: Artifact) -> Artifact:
+        status = await scheduler.jms.submit_artifact(artifact)
+        await scheduler.jms.check(status.id)
 
         artifact.id = status.id
 
@@ -124,15 +141,38 @@ class TestRouteService(RouteService):
             content=data,
         )
 
+    def post_done(self, artifact_id: str, job_id: str) -> None:
+        LOGGER.info("Submitting done!")
+
+    def post_error(self, job_id: str, error: TaskError) -> None:
+        LOGGER.error(error.message)
+        LOGGER.error(error.stack_trace)
+        assert False
+
+
+def check_files_exists(work_directory: Path, artifact_id: str, job_id: str, iteration: int = 0):
+    base_path: Path = storage_job(artifact_id, job_id, iteration, work_directory)
+
+    assert os.path.exists(base_path / "job.json")
+    assert os.path.exists(base_path / "task.json")
+    with open(base_path / "task.json", "r") as f:
+        task_json = json.load(f)
+        assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
+        assert not os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl.enc')
+
 
 @pytest.mark.asyncio
 async def test_execution(session: AsyncSession):
     cr: ComponentRepository = ComponentRepository(session)
-    ar: ArtifactRepository = ArtifactRepository(session)
     jr: JobRepository = JobRepository(session)
 
     DATA_PATH_1 = Path("tests") / "integration" / "data" / "california_housing.MedInc1.csv"
     DATA_PATH_2 = Path("tests") / "integration" / "data" / "california_housing.MedInc2.csv"
+
+    BASE_WORK_DIR = Path("tests") / "storage"
+    SCHEDULER_WORK_DIR = BASE_WORK_DIR / "artifacts"
+    NODE_1_WORK_DIR = BASE_WORK_DIR / "node_1"
+    NODE_2_WORK_DIR = BASE_WORK_DIR / "node_2"
 
     assert os.path.exists(DATA_PATH_1)
     assert os.path.exists(DATA_PATH_2)
@@ -162,14 +202,15 @@ async def test_execution(session: AsyncSession):
 
     with TestClient(api) as server:
         # setup scheduler
-        sc_component = await cr.get_self_component()
+        scheduler_component = await cr.get_self_component()
+
         private_key_path: Path = config_manager.get().private_key_location()
-
-        scheduler_url = str(server.base_url)
-        scheduler_id = sc_component.id
-
-        scheduler: SimpleNode = SimpleNode(Exchange(sc_component.id, private_key_path=private_key_path))
-        scheduler.exc.set_remote_key(scheduler_id, scheduler.public_key())
+        scheduler: SchedulerNode = SchedulerNode(
+            session,
+            scheduler_component,
+            str(server.base_url),
+            private_key_path,
+        )
 
         # setup clients
         client_1: ClientNode = ClientNode(server, data_1)
@@ -191,7 +232,7 @@ async def test_execution(session: AsyncSession):
             steps=MeanEstimator().get_steps(),
         )
 
-        artifact = await workbench.submit(session, artifact)
+        artifact = await workbench.submit(scheduler, artifact)
 
         # checks available tasks
         jobs = await jr.list_jobs_by_artifact_id(artifact.id)
@@ -199,87 +240,143 @@ async def test_execution(session: AsyncSession):
         assert len(jobs) == 4
 
         # get first task: preparation
-        jobs = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
+        next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
 
-        assert len(jobs) == 1
-        job = jobs[0]
+        assert len(next_jobs) == 1
+        job = next_jobs[0]
 
         assert job.component_id == scheduler.id()
+        assert job.status == JobStatus.SCHEDULED
         worker = scheduler
 
-        executor = TaskExecutor(
+        executor = TaskExecutionService(
             TestRouteService(worker.id(), worker.private_key(), server),
             worker.id(),
             artifact.id,
             job.id,
-            scheduler_id,
-            scheduler_url,
+            scheduler.id(),
+            scheduler.url,
             worker.remote_key(),
             list(),
+            SCHEDULER_WORK_DIR,
         )
 
         executor.run()
+
+        job = await jr.get_by_id(job.id)
+        assert job.status == JobStatus.RUNNING
+
+        await scheduler.done(artifact.id, job.id)
+
+        # test files
+        base_path: Path = storage_job(artifact.id, job.id, 0, SCHEDULER_WORK_DIR)
+
+        assert os.path.exists(base_path / "job.json")
+        assert os.path.exists(base_path / "task.json")
+        with open(base_path / "task.json", "r") as f:
+            task_json = json.load(f)
+            assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
+            assert not os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl.enc')
 
         # get second task: client 1 execution
-        jobs = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
+        next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
 
-        assert len(jobs) == 1
-        job = jobs[0]
+        assert len(next_jobs) == 1
+        job = next_jobs[0]
+        assert job.status == JobStatus.SCHEDULED
 
         worker = clients[job.component_id]
 
-        executor = TaskExecutor(
+        executor = TaskExecutionService(
             TestRouteService(worker.id(), worker.private_key(), server),
             worker.id(),
             artifact.id,
             job.id,
-            scheduler_id,
-            scheduler_url,
+            scheduler.id(),
+            scheduler.url,
             worker.remote_key(),
-            list(),
+            worker.datasources(),
+            NODE_1_WORK_DIR,
         )
 
         executor.run()
+
+        job = await jr.get_by_id(job.id)
+        assert job.status == JobStatus.RUNNING
+
+        await scheduler.done(artifact.id, job.id)
+
+        # test files
+        base_path: Path = storage_job(artifact.id, job.id, 0, NODE_1_WORK_DIR)
+
+        assert os.path.exists(base_path / "task.json")
+        with open(base_path / "task.json", "r") as f:
+            task_json = json.load(f)
+
+        assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
+        assert not os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl.enc')
+
+        base_path: Path = storage_job(artifact.id, job.id, 0, SCHEDULER_WORK_DIR)
+
+        assert os.path.exists(base_path / "job.json")
+        assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
 
         # get third task: client 2 execution
-        jobs = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
+        next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
 
-        assert len(jobs) == 1
-        job = jobs[0]
+        assert len(next_jobs) == 1
+        assert job.status == JobStatus.SCHEDULED
+        job = next_jobs[0]
 
         worker = clients[job.component_id]
 
-        executor = TaskExecutor(
+        executor = TaskExecutionService(
             TestRouteService(worker.id(), worker.private_key(), server),
             worker.id(),
             artifact.id,
             job.id,
-            scheduler_id,
-            scheduler_url,
+            scheduler.id(),
+            scheduler.url,
             worker.remote_key(),
-            list(),
+            worker.datasources(),
+            NODE_2_WORK_DIR,
         )
 
         executor.run()
 
-        # get last task: scheduler completion
-        jobs = await jr.list_unlocked_jobs_by_artifact_id(artifact.id)
+        job = await jr.get_by_id(job.id)
+        assert job.status == JobStatus.RUNNING
 
-        assert len(jobs) == 1
-        job = jobs[0]
+        await scheduler.done(artifact.id, job.id)
+
+        # get last task: scheduler completion
+        next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
+
+        assert len(next_jobs) == 1
+        assert job.status == JobStatus.SCHEDULED
+        job = next_jobs[0]
 
         assert job.component_id == scheduler.id
         worker = scheduler
 
-        executor = TaskExecutor(
+        executor = TaskExecutionService(
             TestRouteService(worker.id(), worker.private_key(), server),
             worker.id(),
             artifact.id,
             job.id,
-            scheduler_id,
-            scheduler_url,
+            scheduler.id(),
+            scheduler.url,
             worker.private_key(),
             list(),
+            SCHEDULER_WORK_DIR,
         )
 
         executor.run()
+
+        job = await jr.get_by_id(job.id)
+        assert job.status == JobStatus.RUNNING
+
+        await scheduler.done(artifact.id, job.id)
+
+        next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
+        assert len(next_jobs) == 0
