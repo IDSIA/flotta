@@ -246,7 +246,7 @@ class JobManagementService(Repository):
         for p_job in prev_jobs:
             r = await self.rr.get_by_job_id(p_job.id)
 
-            if os.path.exists(r.path):
+            if job.component_id == p_job.component_id:
                 available_locally = True
                 url = self.config.url_localhost()
                 component_id = self.self_component.id

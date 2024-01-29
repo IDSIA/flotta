@@ -11,7 +11,7 @@ from ferdelance.security.exchange import Exchange
 from ferdelance.security.headers import SignedHeaders
 
 from fastapi import HTTPException, Request, Response
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.routing import APIRoute
 
 from starlette.requests import empty_receive, empty_send
@@ -22,6 +22,7 @@ from cryptography.exceptions import InvalidSignature
 from pathlib import Path
 
 import asyncio
+import json
 
 
 LOGGER = get_logger(__name__)
@@ -233,21 +234,33 @@ async def check_signature(db_session: AsyncSession, request: Request, lock: asyn
 async def encrypt_response(request: SignedRequest, response: Response) -> Response:
     encrypted_for = response.headers.get("Encrypted_for", "")
 
+    algorithm_for_client = None
+
     if encrypted_for:
         request.exc.algorithm = Algorithm.NO_ENCRYPTION
+        # TODO: `algorithm_for_client` should be set based on the encryption initially used (and save in database)
+        algorithm_for_client = Algorithm[request.encryption]
     elif request.encryption:
         request.exc.algorithm = Algorithm[request.encryption]
+
+    if isinstance(response, JSONResponse):
+        # fastapi return a JSON with "status_code" which is different from response.status_code
+        # this is a fix to let errors be returned as error and not 200
+        response_json = json.loads(response.body)
+        if response_json and "status_code" in response_json:
+            response.status_code = int(response_json["status_code"])
 
     if isinstance(response, FileResponse) and request.signed_in:
         path = Path(response.path)
         checksum, it = request.exc.encrypt_file_to_stream(path)
 
-        headers = request.exc.create_signed_headers(checksum)
+        headers = request.exc.create_signed_headers(checksum, algorithm=algorithm_for_client)
 
         response = StreamingResponse(
             it,
             headers=headers,
             media_type="application/octet-stream",
+            status_code=response.status_code,
         )
 
     elif request.signed_in or request.encrypted:

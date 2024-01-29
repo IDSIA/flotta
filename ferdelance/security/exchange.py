@@ -292,6 +292,7 @@ class Exchange:
         self,
         checksum: str,
         extra_headers: dict[str, str] = dict(),
+        algorithm: Algorithm | None = None,
     ) -> dict[str, str]:
         key: PublicKey
 
@@ -309,12 +310,17 @@ class Exchange:
         data_to_sign = f"{self.source_id}:{checksum}"
         signature = self.sign(data_to_sign)
 
+        if algorithm:
+            algorithm_name = algorithm.name
+        else:
+            algorithm_name = self.algorithm.name
+
         header = SignedHeaders(
             source_id=self.source_id,
             target_id=self.target_id,
             checksum=checksum,
             signature=signature,
-            encryption=self.algorithm.name,
+            encryption=algorithm_name,
             extra=extra_headers,
         )
 

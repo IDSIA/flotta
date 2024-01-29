@@ -127,7 +127,6 @@ class TaskManagementService(Repository):
             self.config.url_localhost(),
             public_key,
             self.local_datasources,
-            True,
         )
 
     async def start_task(self, task: Task, scheduler_id: str) -> None:
@@ -142,7 +141,6 @@ class TaskManagementService(Repository):
             scheduler_node.url,
             scheduler_node.public_key,
             self.local_datasources,
-            False,
         )
 
     async def start_remote(
