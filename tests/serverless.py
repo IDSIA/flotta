@@ -88,9 +88,6 @@ class ServerlessWorker:
         await self.node.task_completed(task)
 
     async def execute(self, task: Task) -> Resource:
-        if self.data is None:
-            raise ValueError("No data to working on available")
-
         env = load_environment(self.data, task, self.config.get_workdir())
 
         for resource in task.required_resources:

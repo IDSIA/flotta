@@ -1,8 +1,6 @@
 from typing import Any
 
-from requests.models import Response as Response
 from ferdelance.commons import storage_job
-
 from ferdelance.config.config import DataSourceConfiguration, DataSourceStorage, config_manager
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.estimators import MeanEstimator
@@ -23,10 +21,12 @@ from fastapi.testclient import TestClient
 
 from pathlib import Path
 
+import pandas as pd
 import httpx
 import logging
 import json
 import os
+import pickle
 import pytest
 
 LOGGER = logging.getLogger(__name__)
@@ -226,6 +226,12 @@ async def test_execution(session: AsyncSession):
 
         project = workbench.project(TEST_PROJECT_TOKEN)
 
+        # print ids
+        print("scheduler", scheduler.id())
+        print("client_1 ", client_1.id())
+        print("client_2 ", client_2.id())
+        print("workbench", workbench.id())
+
         # setup artifact and jobs
         artifact = Artifact(
             project_id=project.id,
@@ -239,7 +245,7 @@ async def test_execution(session: AsyncSession):
 
         assert len(jobs) == 4
 
-        # get first task: preparation
+        # get first task: preparation -----------------------------------------
         next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
 
         assert len(next_jobs) == 1
@@ -278,7 +284,7 @@ async def test_execution(session: AsyncSession):
             assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
             assert not os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl.enc')
 
-        # get second task: client 1 execution
+        # get second task: client 1 execution ---------------------------------
         next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
 
         assert len(next_jobs) == 1
@@ -321,12 +327,12 @@ async def test_execution(session: AsyncSession):
         assert os.path.exists(base_path / "job.json")
         assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
 
-        # get third task: client 2 execution
+        # get third task: client 2 execution ----------------------------------
         next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
 
         assert len(next_jobs) == 1
-        assert job.status == JobStatus.SCHEDULED
         job = next_jobs[0]
+        assert job.status == JobStatus.SCHEDULED
 
         worker = clients[job.component_id]
 
@@ -349,14 +355,29 @@ async def test_execution(session: AsyncSession):
 
         await scheduler.done(artifact.id, job.id)
 
-        # get last task: scheduler completion
+        # test files
+        base_path: Path = storage_job(artifact.id, job.id, 0, NODE_2_WORK_DIR)
+
+        assert os.path.exists(base_path / "task.json")
+        with open(base_path / "task.json", "r") as f:
+            task_json = json.load(f)
+
+        assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
+        assert not os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl.enc')
+
+        base_path: Path = storage_job(artifact.id, job.id, 0, SCHEDULER_WORK_DIR)
+
+        assert os.path.exists(base_path / "job.json")
+        assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
+
+        # get last task: scheduler completion ---------------------------------
         next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
 
         assert len(next_jobs) == 1
-        assert job.status == JobStatus.SCHEDULED
         job = next_jobs[0]
+        assert job.status == JobStatus.SCHEDULED
 
-        assert job.component_id == scheduler.id
+        assert job.component_id == scheduler.id()
         worker = scheduler
 
         executor = TaskExecutionService(
@@ -366,7 +387,7 @@ async def test_execution(session: AsyncSession):
             job.id,
             scheduler.id(),
             scheduler.url,
-            worker.private_key(),
+            worker.remote_key(),
             list(),
             SCHEDULER_WORK_DIR,
         )
@@ -380,3 +401,35 @@ async def test_execution(session: AsyncSession):
 
         next_jobs = await jr.list_scheduled_jobs_for_artifact(artifact.id)
         assert len(next_jobs) == 0
+
+        # test files
+        base_path: Path = storage_job(artifact.id, job.id, 0, SCHEDULER_WORK_DIR)
+
+        assert os.path.exists(base_path / "job.json")
+        assert os.path.exists(base_path / "task.json")
+        with open(base_path / "task.json", "r") as f:
+            task_json = json.load(f)
+
+        assert os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl')
+        assert not os.path.exists(base_path / f'{task_json["produced_resource_id"]}.pkl.enc')
+
+        # check result
+
+        with open(base_path / f'{task_json["produced_resource_id"]}.pkl', "rb") as f:
+            result = pickle.load(f)
+
+        assert isinstance(result, dict)
+
+        mean_df = result["mean"]
+
+        assert isinstance(mean_df, pd.Series)
+
+        data_df = pd.concat([pd.read_csv(DATA_PATH_1), pd.read_csv(DATA_PATH_2)], axis=0)
+        expected_df = data_df.mean()
+
+        assert type(mean_df) == type(expected_df)
+
+        assert all(mean_df.index == expected_df.index)
+
+        for i in mean_df.index:
+            assert abs(mean_df[i] - expected_df[i]) < 1e6
