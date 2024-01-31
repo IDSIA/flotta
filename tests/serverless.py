@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ferdelance import __version__
+from ferdelance.commons import storage_job
 from ferdelance.config import DataSourceStorage, Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_USER
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
@@ -88,7 +89,15 @@ class ServerlessWorker:
         await self.node.task_completed(task)
 
     async def execute(self, task: Task) -> Resource:
-        env = load_environment(self.data, task, self.config.get_workdir())
+        env = load_environment(
+            self.data,
+            task,
+            self.config.storage_job(
+                task.artifact_id,
+                task.job_id,
+                task.iteration,
+            ),
+        )
 
         for resource in task.required_resources:
             env.add_resource(
@@ -102,6 +111,8 @@ class ServerlessWorker:
             )
 
         env = task.run(env)
+
+        env.store()
 
         assert env.products is not None
 
