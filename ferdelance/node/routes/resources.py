@@ -94,12 +94,13 @@ async def post_resource(
 
             job_id = args.extra_headers["job_id"]
 
-            LOGGER.info(f"component={component.id}: adding resource as product of job={job_id}")
+            LOGGER.info(f"component={component.id}: adding resource as product of job={job_id} for {args.target.id}")
 
             resource = await rm.store_resource(job_id, args.source.id)
 
             if args.target.id != args.self_component.id:
                 # proxy
+                LOGGER.info(f"component={component.id}: proxy resource from {args.source.id} to {args.target.id}")
                 resource = await rm.set_encrypted_for(resource, args.target.id)
 
         # use resource's path

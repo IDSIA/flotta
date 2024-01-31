@@ -16,7 +16,7 @@ import traceback
 LOGGER = get_logger(__name__)
 
 
-def load_environment(data: DataSourceStorage, task: Task, work_directory: Path) -> Environment:
+def load_environment(data: DataSourceStorage | None, task: Task, work_directory: Path) -> Environment:
     env: Environment = Environment(task.artifact_id, task.project_token, task.produced_resource_id, work_directory)
 
     if data is None:

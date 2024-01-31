@@ -34,6 +34,7 @@ class RouteService:
         """
 
         self.component_id: str = component_id
+        self.remote_url: str = ""
 
         # used for communication and header signing
         self.exc: Exchange = Exchange(component_id, private_key=private_key)
@@ -242,7 +243,7 @@ class RouteService:
         if path_in is not None:
             path_out = path_in.parent / f"{path_in.name}.enc"
 
-            checksum = self.exc.encrypt_file_for_remote(path_in, path_out)  # TODO: this should be optional!
+            checksum = self.exc.encrypt_file_for_remote(path_in, path_out)
             headers = self.exc.create_signed_headers(
                 checksum,
                 extra_headers=nr.dict(),

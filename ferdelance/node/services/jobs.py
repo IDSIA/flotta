@@ -1,3 +1,4 @@
+from sched import scheduler
 from typing import Sequence
 from ferdelance.config.config import Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT
@@ -225,6 +226,8 @@ class JobManagementService(Repository):
         artifact_id: str = job.artifact_id
         it = job.iteration
 
+        worker = await self.cr.get_by_id(job.component_id)
+
         scheduler_job = await self.jr.load(job)
         artifact = await self.ar.load(artifact_id)
 
@@ -246,21 +249,32 @@ class JobManagementService(Repository):
         for p_job in prev_jobs:
             r = await self.rr.get_by_job_id(p_job.id)
 
-            if job.component_id == p_job.component_id:
+            if worker.id == self.self_component.id:
+                # job for scheduler
                 available_locally = True
-                url = self.config.url_localhost()
                 component_id = self.self_component.id
                 public_key = self.self_component.public_key
                 path = str(r.path)
+                url = self.config.url_localhost()
+
+            elif worker.type_name == TYPE_CLIENT:
+                # job for clients
+                available_locally = False
+                component_id = self.self_component.id
+                public_key = self.self_component.public_key
+                path = None
+                url = self.config.url_extern()
 
             else:
+                # job for nodes
                 c = await self.cr.get_by_id(p_job.component_id)
 
-                available_locally = False
-                url = c.url
+                # TODO: This depends if resources need to be collected or not...
+                available_locally = True
                 component_id = c.id
                 public_key = c.public_key
-                path = None
+                path = str(r.path)
+                url = c.url
 
             task_resources.append(
                 TaskResource(
