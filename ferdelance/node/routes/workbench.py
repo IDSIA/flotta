@@ -192,17 +192,6 @@ async def wb_get_artifact(
         raise HTTPException(404)
 
 
-# @workbench_router.post("/resource", response_model=WorkbenchResource)
-# async def wb_post_resource(
-#     request: Request,
-#     args: ValidSessionArgs = Depends(allow_access),
-# ):
-#   TODO: find a way to manage resources
-#     wb: WorkbenchService = WorkbenchService(args.session, args.component, args.self_component)
-#     resource_id = await wb.store_resource(request.stream())
-#     return WorkbenchResource(resource_id=resource_id)
-
-
 @workbench_router.get("/resource/list", response_model=list[WorkbenchResource])
 async def wb_get_resource_list(
     wba: WorkbenchArtifact,

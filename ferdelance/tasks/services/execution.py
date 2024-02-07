@@ -149,6 +149,9 @@ class TaskExecutionService:
 
         self.work_directory = storage_job(artifact_id, job_id, task.iteration, self.base_directory)
 
+        LOGGER.info(f"base directory:    {self.base_directory}")
+        LOGGER.info(f"working directory: {self.work_directory}")
+
         with open(self.work_directory / "task.json", "w") as f:
             json.dump(task.dict(), f, indent=True)
 

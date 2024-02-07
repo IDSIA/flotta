@@ -59,7 +59,8 @@ class RouteService:
                 Public key in string format for the node receiving the payload.
                 Defaults to None.
         """
-        self.remote_url = remote_url
+        self.remote_url = remote_url.rstrip("/")
+
         self.exc.set_remote_key(target_id, target_public_key)
 
         LOGGER.info(f"component={self.component_id}: changed route to remote={self.remote_url}")
@@ -71,7 +72,7 @@ class RouteService:
     def _stream_get(self, url: str, headers: dict[str, str], data: Any = None):
         return httpx.stream(
             "GET",
-            f"{self.remote_url}/{url}",
+            f"{self.remote_url}{url}",
             headers=headers,
             content=data,
         )
@@ -79,14 +80,14 @@ class RouteService:
     def _get(self, url: str, headers: dict[str, str], data: Any = None) -> httpx.Response:
         return httpx.request(
             "GET",
-            f"{self.remote_url}/{url}",
+            f"{self.remote_url}{url}",
             headers=headers,
             content=data,
         )
 
     def _post(self, url: str, headers: dict[str, str], data: Any = None) -> httpx.Response:
         return httpx.post(
-            f"{self.remote_url}/{url}",
+            f"{self.remote_url}{url}",
             headers=headers,
             content=data,
         )
@@ -113,7 +114,7 @@ class RouteService:
         headers, payload = self.exc.create(req.json())
 
         res = self._get(
-            "/task",
+            "/task/",
             headers=headers,
             data=payload,
         )
@@ -181,7 +182,7 @@ class RouteService:
         headers, payload = self.exc.create(req.json())
 
         with self._stream_get(
-            "/resource",
+            "/resource/",
             headers=headers,
             data=payload,
         ) as res:
@@ -250,7 +251,7 @@ class RouteService:
             )
 
             res = self._post(
-                "/resource",
+                "/resource/",
                 headers=headers,
                 data=open(path_out, "rb"),
             )
@@ -264,7 +265,7 @@ class RouteService:
             _, data = self.exc.encrypt_to_stream(payload)
 
             res = self._post(
-                "/resource",
+                "/resource/",
                 headers=headers,
                 data=data,
             )
@@ -275,7 +276,7 @@ class RouteService:
             headers, _ = self.exc.create(extra_headers=nr.dict())
 
             res = self._post(
-                "/resource",
+                "/resource/",
                 headers=headers,
             )
 

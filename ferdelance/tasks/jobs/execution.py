@@ -60,7 +60,7 @@ class Execution:
             scheduler_url,
             scheduler_public_key,
             datasources,
-            config.get_workdir(),
+            config.storage_artifact_dir(),
         )
 
     def run(self) -> None:

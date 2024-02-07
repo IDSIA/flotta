@@ -170,7 +170,7 @@ class TaskManagementService(Repository):
         headers, payload = exc.create(task.json())
 
         res = httpx.post(
-            f"{remote.url}/task",
+            f"{remote.url.rstrip('/')}/task/",
             headers=headers,
             content=payload,
         )
