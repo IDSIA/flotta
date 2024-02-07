@@ -4,7 +4,6 @@ from ferdelance.config import config_manager
 from ferdelance.const import COMPONENT_TYPES
 from ferdelance.database import Base, DataBase
 from ferdelance.database.tables import ComponentType
-from ferdelance.shared.exchange import Exchange
 
 from .utils import TEST_PROJECT_TOKEN
 
@@ -30,6 +29,8 @@ conf.database.host = db_file
 conf.node.main_password = "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1"
 conf.node.token_project_default = TEST_PROJECT_TOKEN
 conf.workdir = os.path.join("tests", "storage")
+
+conf.node.allow_resource_download = True
 
 conf.dump()
 
@@ -76,11 +77,3 @@ async def session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await conn.run_sync(Base.metadata.drop_all)
             delete_dirs()
-
-
-@pytest.fixture()
-def exchange() -> Exchange:
-    exc = Exchange()
-    exc.generate_key()
-
-    return exc

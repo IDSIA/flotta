@@ -1,6 +1,6 @@
 from ferdelance.core.queries import Query, QueryFilter, QueryFeature
-from ferdelance.schemas.datasources import Feature, DataSource
 from ferdelance.core.transformers import FederatedBinarizer
+from ferdelance.schemas.datasources import Feature, DataSource
 
 DS1_NAME, DS1_ID = "data_source_1", "ds1"
 DS2_NAME, DS2_ID = "data_source_2", "ds2"
@@ -127,7 +127,6 @@ def test_query_composition():
     assert f2 in s.features
 
     # adding a filter
-
     f: QueryFilter = q[f1] > 3
 
     assert isinstance(f, QueryFilter)

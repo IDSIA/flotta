@@ -1,26 +1,24 @@
 from ferdelance.config import config_manager
-from ferdelance.schemas.database import Resource
-from ferdelance.database.tables import Resource as ResourceDB
+from ferdelance.database.tables import Job as JobDB, Resource as ResourceDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
-
-from sqlalchemy import select, update
-from pathlib import Path
-from uuid import uuid4
+from ferdelance.schemas.database import Resource
 
 from datetime import datetime
+from sqlalchemy import select
+from pathlib import Path
+from uuid import uuid4
 
 
 def view(resource: ResourceDB) -> Resource:
     return Resource(
         id=resource.id,
-        job_id=resource.job_id,
-        artifact_id=resource.artifact_id,
         component_id=resource.component_id,
         path=Path(resource.path),
         creation_time=resource.creation_time,
-        iteration=resource.iteration,
-        is_ready=resource.is_ready,
+        is_external=resource.is_external,
         is_error=resource.is_error,
+        is_ready=resource.is_ready,
+        encrypted_for=resource.encrypted_for,
     )
 
 
@@ -32,6 +30,27 @@ class ResourceRepository(Repository):
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
+
+    async def create_resource_external(
+        self,
+        producer_id: str,
+    ) -> Resource:
+        resource_id: str = str(uuid4())
+
+        out_path = config_manager.get().storage_resource(resource_id)
+
+        resource_db = ResourceDB(
+            id=resource_id,
+            path=str(out_path),
+            is_external=True,
+            component_id=producer_id,
+        )
+
+        self.session.add(resource_db)
+        await self.session.commit()
+        await self.session.refresh(resource_db)
+
+        return view(resource_db)
 
     async def create_resource(
         self,
@@ -65,10 +84,7 @@ class ResourceRepository(Repository):
         resource_db = ResourceDB(
             id=resource_id,
             path=str(out_path),
-            job_id=job_id,
-            artifact_id=artifact_id,
             component_id=producer_id,
-            iteration=iteration,
         )
 
         self.session.add(resource_db)
@@ -77,19 +93,56 @@ class ResourceRepository(Repository):
 
         return view(resource_db)
 
-    async def mark_as_ready_by_job_id(self, job_id: str, is_error: bool = False) -> None:
-        now = datetime.now()
-
-        await self.session.execute(
-            update(ResourceDB)
-            .where(ResourceDB.job_id == job_id)
-            .values(
-                is_ready=True,
-                is_error=is_error,
-                creation_time=now,
+    async def mark_as_done(self, job_id: str) -> Resource:
+        res = await self.session.scalars(
+            select(ResourceDB)
+            .join(JobDB)
+            .where(
+                JobDB.id == job_id,
             )
         )
+
+        resource = res.one()
+
+        resource.is_ready = True
+        resource.creation_time = datetime.now()
         await self.session.commit()
+        await self.session.refresh(resource)
+
+        return view(resource)
+
+    async def mark_as_error(self, job_id: str) -> Resource:
+        res = await self.session.scalars(
+            select(ResourceDB)
+            .join(JobDB)
+            .where(
+                JobDB.id == job_id,
+            )
+        )
+
+        resource = res.one()
+
+        resource.is_error = True
+        await self.session.commit()
+        await self.session.refresh(resource)
+
+        return view(resource)
+
+    async def set_encrypted_for(self, resource_id: str, component_id: str) -> Resource:
+        res = await self.session.scalars(
+            select(ResourceDB).where(
+                ResourceDB.id == resource_id,
+            )
+        )
+
+        resource = res.one()
+
+        resource.encrypted_for = component_id
+
+        await self.session.commit()
+        await self.session.refresh(resource)
+
+        return view(resource)
 
     async def get_by_id(self, resource_id: str) -> Resource:
         """Get the resource given its resource_id.
@@ -130,8 +183,10 @@ class ResourceRepository(Repository):
                 The handler to the resource, if one is found.
         """
         res = await self.session.scalars(
-            select(ResourceDB).where(
-                ResourceDB.job_id == job_id,
+            select(ResourceDB)
+            .join(JobDB)
+            .where(
+                JobDB.id == job_id,
             )
         )
         return view(res.one())
@@ -150,12 +205,18 @@ class ResourceRepository(Repository):
                 Note that his list can also be empty.
         """
         conditions = [
-            ResourceDB.artifact_id == artifact_id,
+            JobDB.artifact_id == artifact_id,
         ]
         if iteration > -1:
-            conditions.append(ResourceDB.iteration == iteration)
+            conditions.append(JobDB.iteration == iteration)
 
-        res = await self.session.scalars(select(ResourceDB).where(*conditions))
+        res = await self.session.scalars(
+            select(ResourceDB)
+            .join(JobDB)
+            .where(
+                *conditions,
+            )
+        )
         return [view(m) for m in res.all()]
 
     async def list_resources(self) -> list[Resource]:
@@ -174,7 +235,7 @@ class ResourceRepository(Repository):
         res = await self.session.scalars(select(ResourceDB))
         return [view(m) for m in res.all()]
 
-    async def get_by_client_id(self, artifact_id: str, client_id: str, iteration: int) -> Resource:
+    async def get_by_producer_id(self, artifact_id: str, producer_id: str, iteration: int) -> Resource:
         """Get the resource, considered as a partial model or estimation, given
         the artifact_id it belongs to and the client_id that produced the resource.
 
@@ -196,10 +257,12 @@ class ResourceRepository(Repository):
                 The handler to the resource, if one is found.
         """
         res = await self.session.scalars(
-            select(ResourceDB).where(
-                ResourceDB.artifact_id == artifact_id,
-                ResourceDB.component_id == client_id,
-                ResourceDB.iteration == iteration,
+            select(ResourceDB)
+            .join(JobDB)
+            .where(
+                ResourceDB.component_id == producer_id,
+                JobDB.artifact_id == artifact_id,
+                JobDB.iteration == iteration,
             )
         )
         return view(res.one())

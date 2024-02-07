@@ -10,6 +10,7 @@ from ferdelance.database.repositories import (
 )
 from ferdelance.node.api import api
 from ferdelance.node.services.jobs import JobManagementService
+from ferdelance.node.services.resource import ResourceManagementService
 from ferdelance.workbench.interface import (
     AggregatedDataSource,
     Project,
@@ -62,14 +63,8 @@ async def test_workbench_connect(session: AsyncSession):
 async def test_workbench_read_home(session: AsyncSession):
     """Generic test to check if the home works."""
     with TestClient(api) as server:
-        args = await connect(server, session)
-        wb_exc = args.wb_exc
-
-        headers, _ = wb_exc.create(args.wb_id, set_encryption=False)
-
         res = server.get(
             "/workbench",
-            headers=headers,
         )
 
         assert res.status_code == 200
@@ -87,7 +82,7 @@ async def test_workbench_get_project(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(wpt.json())
 
         res = server.request(
             method="GET",
@@ -117,7 +112,7 @@ async def test_workbench_list_client(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(wpt.json())
 
         res = server.request(
             method="GET",
@@ -144,7 +139,7 @@ async def test_workbench_list_datasources(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(wpt.json())
 
         res = server.request(
             method="GET",
@@ -170,7 +165,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(wpt.json())
 
         res = server.request(
             method="GET",
@@ -206,7 +201,7 @@ async def test_workflow_submit(session: AsyncSession):
             steps=model.get_steps(),
         )
 
-        headers, payload = wb_exc.create(args.wb_id, artifact.json())
+        headers, payload = wb_exc.create(artifact.json())
 
         res = server.post(
             "/workbench/artifact/submit",
@@ -224,11 +219,11 @@ async def test_workflow_submit(session: AsyncSession):
 
         assert status.status is not None
         assert artifact_id is not None
-        assert status.status == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.RUNNING
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = wb_exc.create(args.wb_id, wba.json())
+        headers, payload = wb_exc.create(wba.json())
 
         res = server.request(
             method="GET",
@@ -244,9 +239,9 @@ async def test_workflow_submit(session: AsyncSession):
         status = ArtifactStatus(**json.loads(res_payload))
 
         assert status.status is not None
-        assert status.status == ArtifactJobStatus.SCHEDULED
+        assert status.status == ArtifactJobStatus.RUNNING
 
-        headers, payload = wb_exc.create(args.wb_id, wba.json())
+        headers, payload = wb_exc.create(wba.json())
 
         res = server.request(
             method="GET",
@@ -284,6 +279,7 @@ async def test_get_results(session: AsyncSession):
         self_component = await cr.get_self_component()
 
         jms: JobManagementService = JobManagementService(session, self_component)
+        rms: ResourceManagementService = ResourceManagementService(session)
 
         project = await pr.get_by_token(args.project_token)
 
@@ -297,6 +293,7 @@ async def test_get_results(session: AsyncSession):
         # simulate artifact submission
         status = await jms.submit_artifact(artifact)
         artifact.id = status.id
+        await jms.check(artifact.id)
 
         jobs = await jr.list_jobs_by_artifact_id(artifact.id)
 
@@ -319,6 +316,8 @@ async def test_get_results(session: AsyncSession):
         assert job1.status == JobStatus.RUNNING
 
         await jms.task_completed(job1.id)
+        await jms.check(artifact.id)
+
         job1 = await jr.get_by_id(job1.id)
         assert job1.status == JobStatus.COMPLETED
 
@@ -333,9 +332,11 @@ async def test_get_results(session: AsyncSession):
         job2 = await jr.get_by_id(job2.id)
         assert job2.status == JobStatus.RUNNING
 
-        res = await jms.store_resource(job2.id)
+        res = await rms.store_resource(job2.id, job2.component_id)
 
         await jms.task_completed(job2.id)
+        await jms.check(artifact.id)
+
         job2 = await jr.get_by_id(job2.id)
         assert job2.status == JobStatus.COMPLETED
 
@@ -346,14 +347,15 @@ async def test_get_results(session: AsyncSession):
         resource = await rr.get_by_job_id(job2.id)
         assert resource.is_ready
         assert not resource.is_error
+        assert not resource.is_external
 
         os.makedirs(os.path.dirname(resource.path), exist_ok=True)
         with open(resource.path, "w") as f:
             f.write('{"message": "results!"}')
 
-        wbr = WorkbenchResource(resource_id=resource.id)
+        wbr = WorkbenchResource(resource_id=resource.id, producer_id=job2.component_id)
 
-        headers, payload = wb_exc.create(args.wb_id, wbr.json())
+        headers, payload = wb_exc.create(wbr.json())
 
         res = server.request(
             "GET",
@@ -383,7 +385,7 @@ async def test_workbench_access(session):
         project_token = args.project_token
         wpt = WorkbenchProjectToken(token=project_token)
 
-        headers, payload = wb_exc.create(args.wb_id, wpt.json())
+        headers, payload = wb_exc.create(wpt.json())
 
         res = server.get(
             "/client/update",

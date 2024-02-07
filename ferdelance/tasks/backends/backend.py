@@ -10,11 +10,12 @@ class Backend:
     def __init__(self) -> None:
         super().__init__()
 
-    def start_heartbeat(self, component_id: str, remote_key: str) -> None:
+    def start_heartbeat(self, component_id: str, remote_id: str, remote_key: str) -> None:
         LOGGER.info(f"component={component_id}: start heartbeat")
 
         client = Heartbeat.remote(
             component_id,
+            remote_id,
             remote_key,
         )
 
@@ -26,10 +27,10 @@ class Backend:
         job_id: str,
         component_id: str,
         private_key: str,
-        node_url: str,
-        node_public_key: str,
+        scheduler_id: str,
+        scheduler_url: str,
+        scheduler_public_key: str,
         datasources: list[dict[str, Any]],
-        scheduler_is_local: bool,
     ) -> None:
         LOGGER.info(f"artifact={artifact_id}: scheduling job={job_id}")
 
@@ -37,11 +38,11 @@ class Backend:
             component_id,
             artifact_id,
             job_id,
-            node_url,
-            node_public_key,
+            scheduler_id,
+            scheduler_url,
+            scheduler_public_key,
             private_key,
             datasources,
-            scheduler_is_local,
         )
 
         task_handler = actor_handler.run.remote()  # type: ignore

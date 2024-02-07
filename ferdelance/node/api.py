@@ -4,6 +4,7 @@ from ferdelance.node.middlewares import SignedAPIRoute
 from ferdelance.node.routes import (
     client_router,
     node_router,
+    resource_router,
     task_router,
     workbench_router,
 )
@@ -25,6 +26,7 @@ def init_api() -> FastAPI:
     api.include_router(workbench_router)
     api.include_router(task_router)
     api.include_router(client_router)
+    api.include_router(resource_router)
 
     api.router.route_class = SignedAPIRoute
 
@@ -50,8 +52,8 @@ async def populate_database() -> None:
             LOGGER.info("database creation completed")
 
         async with inst.async_session() as session:
-            ss = NodeStartup(session)
-            await ss.startup()
+            ns = NodeStartup(session)
+            await ns.startup()
 
     except Exception as e:
         LOGGER.exception(e)

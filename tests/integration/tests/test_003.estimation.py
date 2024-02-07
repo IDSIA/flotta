@@ -1,6 +1,8 @@
-from ferdelance.schemas.queries import Query, QueryEstimate
-from ferdelance.workbench.context import Context
+from ferdelance.core import Artifact
+from ferdelance.core.estimators import MeanEstimator
+from ferdelance.core.queries import Query
 from ferdelance.logging import get_logger
+from ferdelance.workbench.context import Context
 
 import os
 import sys
@@ -24,8 +26,28 @@ if __name__ == "__main__":
     project = ctx.project(project_id)
 
     q: Query = project.extract()
-    e_mean: QueryEstimate = q.mean(q["HouseAge"])
 
-    mean = ctx.execute(project, e_mean)
+    me = MeanEstimator(query=q)
 
-    LOGGER.info(mean.mean)
+    artifact: Artifact = ctx.submit(project, me.get_steps())
+
+    try:
+        ctx.wait(artifact)
+    except ValueError as e:
+        LOGGER.exception(e)
+        sys.exit(-1)
+
+    LOGGER.info("done!")
+
+    resources = ctx.list_resources(artifact)
+
+    resources.sort(key=lambda x: x.creation_time.timestamp() if x.creation_time else -1)
+
+    for r in resources:
+        LOGGER.info(f"resource: {r.resource_id} produced by {r.producer_id} at {r.creation_time}")
+
+    assert len(resources) == 4
+
+    mean = ctx.get_resource(resources[-1])
+
+    LOGGER.info(mean)

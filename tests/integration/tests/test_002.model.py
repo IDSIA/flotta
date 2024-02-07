@@ -1,18 +1,19 @@
-from ferdelance.schemas.artifacts import Artifact
-from ferdelance.schemas.models import (
+from ferdelance.core.artifacts import Artifact
+from ferdelance.core.distributions import Collect
+from ferdelance.core.model_operations import Aggregation, Train, TrainTest
+from ferdelance.core.models import (
     FederatedRandomForestClassifier,
     StrategyRandomForestClassifier,
-    ParametersRandomForestClassifier,
 )
-from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.workbench.context import Context
+from ferdelance.core.steps import Finalize, Parallel
+from ferdelance.core.transformers import FederatedSplitter
 from ferdelance.logging import get_logger
+from ferdelance.workbench import Context
 
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 
 import pandas as pd
 
-import time
 import os
 import sys
 
@@ -41,11 +42,11 @@ if __name__ == "__main__":
     server: str = os.environ.get("SERVER", "")
 
     if not project_id:
-        LOGGER.info("Project id not found")
+        LOGGER.error("Project id not found")
         sys.exit(-1)
 
     if not server:
-        LOGGER.info("Server host not found")
+        LOGGER.error("Server host not found")
         sys.exit(-1)
 
     ctx = Context(server)
@@ -56,67 +57,97 @@ if __name__ == "__main__":
 
     client_id_1, client_id_2 = [c.id for c in clients]
 
-    q = project.extract()
-
-    q = q.add_plan(TrainTestSplit("MedHouseValDiscrete", 0.2))
-
-    q = q.add_model(
-        FederatedRandomForestClassifier(
-            strategy=StrategyRandomForestClassifier.MERGE,
-            parameters=ParametersRandomForestClassifier(n_estimators=10),
-        )
+    model = FederatedRandomForestClassifier(
+        n_estimators=10,
+        strategy=StrategyRandomForestClassifier.MERGE,
     )
 
-    a: Artifact = ctx.submit(project, q)
+    label = "MedHouseValDiscrete"
 
-    LOGGER.info(f"Artifact id: {a.id}")
+    steps = [
+        Parallel(
+            TrainTest(
+                query=project.extract().add(
+                    FederatedSplitter(
+                        random_state=42,
+                        test_percentage=0.2,
+                        label=label,
+                    )
+                ),
+                trainer=Train(model=model),
+                model=model,
+            ),
+            Collect(),
+        ),
+        Finalize(
+            Aggregation(model=model),
+        ),
+    ]
 
-    last_state = ""
+    artifact: Artifact = ctx.submit(project, steps)
 
-    start_time = time.time()
-    max_wait, wait_time = 60, 10
+    LOGGER.info(f"Artifact id: {artifact.id}")
 
-    while (status := ctx.status(a)).status != "COMPLETED":
-        if status.status == last_state:
-            LOGGER.info(".")
-        else:
-            last_state = status.status
-            start_time = time.time()
-            LOGGER.info(last_state)
-
-        time.sleep(wait_time)
-
-        if time.time() - start_time > max_wait:
-            LOGGER.info("reached max wait time")
-            sys.exit(-1)
+    try:
+        ctx.wait(artifact)
+    except ValueError as e:
+        LOGGER.exception(e)
+        sys.exit(-1)
 
     LOGGER.info("done!")
 
-    cls_agg = ctx.get_result(a)
+    resources = ctx.list_resources(artifact)
 
-    LOGGER.info(f"aggregated model fetched: {cls_agg}")
+    if not len(resources) == 3:
+        LOGGER.error("Not all models have been produced")
+        sys.exit(-1)
 
-    cls_pa1 = ctx.get_partial_result(a, client_id_1, 0)
+    res_agg = None
+    res_cl1 = None
+    res_cl2 = None
 
-    LOGGER.info(f"partial model 1 fetched:  {cls_pa1}")
+    for r in resources:
+        LOGGER.info(f"found resource: {r.resource_id} produced by {r.producer_id}")
+        if r.producer_id == client_id_1:
+            res_cl1 = r
+        elif r.producer_id == client_id_2:
+            res_cl2 = r
+        else:
+            res_agg = r
 
-    cls_pa2 = ctx.get_partial_result(a, client_id_2, 0)
+    assert res_agg is not None
+    assert res_cl1 is not None
+    assert res_cl2 is not None
 
-    LOGGER.info(f"partial model 2 fetched:  {cls_pa2}")
+    cls_pa1 = ctx.get_resource(res_cl1)
+    LOGGER.info(f"Partial model 1 fetched")
+    for item in cls_pa1["metrics_list"]:
+        LOGGER.info(f"{item}")
+
+    cls_pa2 = ctx.get_resource(res_cl2)
+    LOGGER.info(f"Partial model 2 fetched")
+    for item in cls_pa2["metrics_list"]:
+        LOGGER.info(f"{item}")
+
+    cls_agg = ctx.get_resource(res_agg)
+    LOGGER.info(f"Aggregated model fetched")
 
     df = pd.read_csv("/data/california_housing.validation.csv")
 
-    X = df.drop("MedHouseValDiscrete", axis=1).values
+    X = df.drop("MedHouseValDiscrete", axis=1)
     Y = df["MedHouseValDiscrete"]
 
+    LOGGER.info("Performance evaluation")
+    LOGGER.info("")
+
     LOGGER.info("Partial Model 1")
-    evaluate(cls_pa1, X, Y)
+    evaluate(cls_pa1["model"], X, Y)
     LOGGER.info("")
 
     LOGGER.info("Partial Model 2")
-    evaluate(cls_pa2, X, Y)
+    evaluate(cls_pa2["model"], X, Y)
     LOGGER.info("")
 
     LOGGER.info("Aggregated model")
-    evaluate(cls_agg, X, Y)
+    evaluate(cls_agg["model"], X, Y)
     LOGGER.info("")

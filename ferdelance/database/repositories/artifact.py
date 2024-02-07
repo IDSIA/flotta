@@ -2,6 +2,7 @@ from ferdelance.config import config_manager
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
 from ferdelance.database.tables import Artifact as ArtifactDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
+from ferdelance.logging import get_logger
 from ferdelance.schemas.database import ServerArtifact
 from ferdelance.shared.status import ArtifactJobStatus
 
@@ -14,6 +15,9 @@ from uuid import uuid4
 import aiofiles
 import aiofiles.os as aos
 import json
+
+
+LOGGER = get_logger(__name__)
 
 
 def view(artifact: ArtifactDB) -> ServerArtifact:
@@ -79,6 +83,8 @@ class ArtifactRepository(Repository):
         await self.session.commit()
         await self.session.refresh(db_artifact)
 
+        LOGGER.info(f"artifact={db_artifact.id}: created in status={db_artifact.status}")
+
         return view(db_artifact)
 
     async def storage_location(self, artifact_id: str, filename: str = "artifact.json") -> Path:
@@ -121,8 +127,10 @@ class ArtifactRepository(Repository):
         path = await self.storage_location(artifact.id)
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(artifact.dict())
+            content = json.dumps(artifact.dict(), indent=True)
             await f.write(content)
+
+        LOGGER.info(f"artifact={artifact.id}: stored descriptor to path={path}")
 
         return path
 
@@ -147,6 +155,8 @@ class ArtifactRepository(Repository):
 
         try:
             artifact_path: Path = await self.storage_location(artifact_id)
+
+            LOGGER.info(f"artifact={artifact_id}: request loading from path={artifact_path}")
 
             if not await aos.path.exists(artifact_path):
                 raise ValueError(f"artifact={artifact_id} not found")
@@ -262,10 +272,28 @@ class ArtifactRepository(Repository):
         res = await self.session.scalars(select(ArtifactDB).where(ArtifactDB.id == artifact_id))
 
         artifact: ArtifactDB = res.one()
+
+        LOGGER.info(
+            f"artifact={artifact_id}: updating artifact status "
+            f"from status={artifact.status} it={artifact.iteration} "
+            f"to status={new_status} it={iteration}"
+        )
+
+        dirty = False
+
         if new_status is not None:
-            artifact.status = new_status.name
+            if artifact.status != new_status.name:
+                artifact.status = new_status.name
+                dirty = True
+
         if iteration > -1:
-            artifact.iteration = iteration
+            if artifact.iteration != iteration:
+                artifact.iteration = iteration
+                dirty = True
+
+        if not dirty:
+            LOGGER.info(f"artifact={artifact_id}: no status update required")
+            return view(artifact)
 
         await self.session.commit()
         await self.session.refresh(artifact)

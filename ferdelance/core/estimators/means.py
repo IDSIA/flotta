@@ -40,7 +40,7 @@ class Mean(QueryOperation):
 
         r = ids[0]
 
-        env["sum"] = env[r]["sum"] + env.df.sum(axis=1)
+        env["sum"] = env[r]["sum"] + env.df.sum(axis=0)
         env["count"] = env[r]["count"] + env.df.shape[0]
 
         return env

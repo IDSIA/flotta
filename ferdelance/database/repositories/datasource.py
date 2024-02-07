@@ -94,6 +94,7 @@ class DataSourceRepository(Repository):
         """
         dt_now = datetime.now()
 
+        # check if ds exists:
         res = await self.session.execute(
             select(DataSourceDB).where(
                 DataSourceDB.component_id == client_id,
@@ -101,7 +102,6 @@ class DataSourceRepository(Repository):
             )
         )
 
-        # check if ds exists:
         ds_db: DataSourceDB | None = res.scalar_one_or_none()
 
         if ds_db is None:
@@ -190,7 +190,7 @@ class DataSourceRepository(Repository):
         path = await self.storage_location(datasource.id)
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(datasource.dict())
+            content = json.dumps(datasource.dict(), indent=True)
             await f.write(content)
 
         return path

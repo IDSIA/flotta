@@ -105,7 +105,7 @@ class ComponentRepository(Repository):
             name (str):
                 Name sent by the client.
             version (str):
-                Version of the library used by teh client.
+                Version of the library used by the client.
             machine_system (str):
                 Operative system sent by the client.
             machine_mac_address (str):

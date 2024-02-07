@@ -1,4 +1,11 @@
 # %%
+from joblib import Parallel
+from ferdelance.core.distributions import Collect
+from ferdelance.core.estimators import GroupCountEstimator, MeanEstimator
+from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+from ferdelance.core.model_operations import Aggregation, Train, TrainTest
+from ferdelance.core.steps import Finalize
+from ferdelance.core.transformers import FederatedSplitter, FederatedKBinsDiscretizer
 from ferdelance.workbench import (
     Context,
     Project,
@@ -7,13 +14,6 @@ from ferdelance.workbench import (
     ArtifactStatus,
     DataSource,
 )
-from ferdelance.schemas.models import (
-    FederatedRandomForestClassifier,
-    ParametersRandomForestClassifier,
-    StrategyRandomForestClassifier,
-)
-from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.schemas.transformers import FederatedKBinsDiscretizer
 
 import numpy as np
 
@@ -67,63 +67,72 @@ for feature in ds.features:
 # %% develop a filter query
 
 # prepare transformation query with all features
-q = ds.extract()
+q = project.extract()
 
 # inspect a feature data type
 feature = q["variety"]
 
 print(feature)
 
-# add filter
+# add filter to the extraction query
 q = q.add(q["variety"] < 2)
 
 # %% add transformer
 
 q = q.add(
     FederatedKBinsDiscretizer(
-        q["variety"],
-        "variety_discr",
+        features_in=[q["variety"]],
+        features_out=[q["variety_discr"]],
     )
 )
 
 # %% statistics 1
 
-s1 = q.groupby(q["variety"])
-s1 = s1.count()
+gc = GroupCountEstimator(
+    query=q,
+    by=["variety_discr"],
+    features=["variety_discr"],
+)
 
-# this is a special kind of submit where the request hangs until the results is available
-ret = ctx.execute(project, s1)
-
-# output is something like:
-# submit: .........done!
+ret = ctx.submit(project, gc.get_steps())
 
 # %% statistics 2
 
-s2 = q.mean(q["variety"])
+me = MeanEstimator(query=q)
 
-ret = ctx.execute(project, s1)
+ret = ctx.submit(project, me.get_steps())
 
-# %% create an execution plan
-
-q = q.add_plan(
-    TrainTestSplit(
-        label="variety",
-        test_percentage=0.5,
-    )
-)
-
-# %% develop a model
-
+# %% prepare the model steps
 m = FederatedRandomForestClassifier(
+    n_estimators=10,
     strategy=StrategyRandomForestClassifier.MERGE,
-    parameters=ParametersRandomForestClassifier(n_estimators=10),
 )
 
-q = q.add_model(m)
+label = "MedHouseValDiscrete"
+
+steps = [
+    Parallel(
+        TrainTest(
+            query=project.extract().add(
+                FederatedSplitter(
+                    random_state=42,
+                    test_percentage=0.2,
+                    label=label,
+                )
+            ),
+            trainer=Train(model=m),
+            model=m,
+        ),
+        Collect(),
+    ),
+    Finalize(
+        Aggregation(model=m),
+    ),
+]
 
 # %% submit the task to the node, it will be converted to an Artifact
 
-a: Artifact = ctx.submit(project, q)
+a: Artifact = ctx.submit(project, steps)
 
 print(json.dumps(a.dict(), indent=True))  # view execution plan
 

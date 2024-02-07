@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ferdelance import __version__
+from ferdelance.commons import storage_job
 from ferdelance.config import DataSourceStorage, Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_USER
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
@@ -11,14 +12,20 @@ from ferdelance.database.repositories import (
     JobRepository,
     ProjectRepository,
 )
-from ferdelance.node.services import JobManagementService, WorkbenchService, TaskManagementService
+from ferdelance.node.services import (
+    JobManagementService,
+    WorkbenchService,
+    TaskManagementService,
+    ResourceManagementService,
+)
 from ferdelance.node.startup import NodeStartup
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Resource
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
+from ferdelance.schemas.resources import ResourceIdentifier
 from ferdelance.schemas.updates import UpdateData
-from ferdelance.tasks.services import ExecutionService
+from ferdelance.tasks.services.execution import load_environment
 from ferdelance.tasks.tasks import Task, TaskError
 
 from tests.utils import create_project
@@ -82,12 +89,18 @@ class ServerlessWorker:
         await self.node.task_completed(task)
 
     async def execute(self, task: Task) -> Resource:
-        es = ExecutionService(task, self.data, self.component.id)
-
-        es.load()
+        env = load_environment(
+            self.data,
+            task,
+            self.config.storage_job(
+                task.artifact_id,
+                task.job_id,
+                task.iteration,
+            ),
+        )
 
         for resource in task.required_resources:
-            es.env.add_resource(
+            env.add_resource(
                 resource.resource_id,
                 self.config.storage_job(
                     resource.artifact_id,
@@ -97,18 +110,18 @@ class ServerlessWorker:
                 / f"{resource.resource_id}.pkl",
             )
 
-        es.run()
+        env = task.run(env)
 
-        assert es.env.products is not None
+        env.store()
+
+        assert env.products is not None
 
         return Resource(
-            id=es.env.product_id,
-            artifact_id=task.artifact_id,
-            iteration=task.iteration,
-            job_id=task.job_id,
+            id=env.product_id,
             component_id=self.component.id,
             creation_time=None,
-            path=es.env.product_path(),
+            path=env.product_path(),
+            is_external=False,
             is_error=False,
             is_ready=True,
         )
@@ -143,6 +156,7 @@ class ServerlessExecution:
         self.jobs_service: JobManagementService
         self.task_service: TaskManagementService
         self.workbench_service: WorkbenchService
+        self.resource_service: ResourceManagementService
 
     async def setup(self):
         await NodeStartup(self.session).startup()
@@ -163,6 +177,7 @@ class ServerlessExecution:
         self.jobs_service = JobManagementService(self.session, self.self_component)
         self.task_service = TaskManagementService(self.session, self.self_component, "", "")
         self.workbench_service = WorkbenchService(self.session, self.user_component, self.self_component)
+        self.resource_service = ResourceManagementService(self.session)
 
     async def add_worker(
         self,
@@ -212,9 +227,10 @@ class ServerlessExecution:
 
     async def task_completed(self, task: Task) -> None:
         await self.jobs_service.task_completed(task.job_id)
+        await self.jobs_service.check(task.artifact_id)
 
     async def task_failed(self, job_id: str) -> None:
         await self.jobs_service.task_failed(TaskError(job_id=job_id))
 
     async def get_resource(self, resource_id: str) -> Resource:
-        return await self.jobs_service.load_resource(resource_id)
+        return await self.resource_service.load_resource(ResourceIdentifier(resource_id=resource_id))

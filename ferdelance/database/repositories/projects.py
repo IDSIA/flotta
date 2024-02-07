@@ -1,10 +1,10 @@
-from ferdelance.logging import get_logger
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.database.repositories.datasource import DataSourceRepository
 from ferdelance.database.tables import (
     DataSource as DataSourceDB,
     Project as ProjectDB,
 )
+from ferdelance.logging import get_logger
 from ferdelance.schemas.datasources import DataSource
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import (
@@ -144,7 +144,7 @@ class ProjectRepository(Repository):
             ds: DataSourceDB = res.one()
 
             if not mdds.tokens:
-                LOGGER.warn(f"no tokens assigned to datasource={mdds.id}")
+                LOGGER.warning(f"no tokens assigned to datasource={mdds.id}")
                 continue
 
             res = await self.session.scalars(select(ProjectDB).filter(ProjectDB.token.in_(mdds.tokens)))
@@ -158,7 +158,7 @@ class ProjectRepository(Repository):
                     missing_tokens.append(token)
 
             if missing_tokens:
-                LOGGER.warn(
+                LOGGER.warning(
                     f"{len(missing_tokens)} project token(s) not found for "
                     f"datasource={mdds.id} datasource_hash={mdds.hash}"
                 )

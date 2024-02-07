@@ -3,7 +3,7 @@ from typing import Any
 from ferdelance.config import config_manager
 from ferdelance.database.repositories.core import Repository, AsyncSession
 from ferdelance.database.tables import Setting
-from ferdelance.shared.checksums import str_checksum
+from ferdelance.security.checksums import str_checksum
 
 from cryptography.fernet import Fernet
 from sqlalchemy import select, update

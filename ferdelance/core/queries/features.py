@@ -3,8 +3,8 @@ from __future__ import annotations
 from ferdelance.core.entity import Entity
 from ferdelance.core.queries.operations import FilterOperation
 
-from pandas import DataFrame, to_datetime
 from datetime import datetime
+from pandas import DataFrame, to_datetime
 
 
 def is_numeric(other) -> bool:

@@ -1,9 +1,6 @@
-from typing import AsyncGenerator
-
-from ferdelance.logging import get_logger
-from ferdelance.database import AsyncSession
 from ferdelance.const import TYPE_USER
 from ferdelance.core.artifacts import ArtifactStatus, Artifact
+from ferdelance.database import AsyncSession
 from ferdelance.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
@@ -11,6 +8,8 @@ from ferdelance.database.repositories import (
     ProjectRepository,
     ResourceRepository,
 )
+from ferdelance.logging import get_logger
+from ferdelance.node.services import JobManagementService
 from ferdelance.schemas.client import ClientDetails
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.database import Resource
@@ -20,7 +19,6 @@ from ferdelance.schemas.workbench import (
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
 )
-from ferdelance.node.services import JobManagementService
 
 from sqlalchemy.exc import NoResultFound
 
@@ -79,8 +77,6 @@ class WorkbenchService:
         session: AsyncSession,
         wb_component: Component,
         self_component: Component,
-        private_key: str = "",
-        node_public_key: str = "",
     ) -> None:
         self.session: AsyncSession = session
         self.wb_component: Component = wb_component
@@ -89,8 +85,6 @@ class WorkbenchService:
         self.jms: JobManagementService = JobManagementService(
             self.session,
             self.self_component,
-            private_key,
-            node_public_key,
         )
 
     async def project(self, project_token: str) -> Project:
@@ -102,7 +96,7 @@ class WorkbenchService:
 
         project = await pr.get_by_token(project_token)
 
-        LOGGER.info(f"user={self.wb_component.id}: loaded project with project={project.id}")
+        LOGGER.info(f"user={self.wb_component.id}: loaded project={project.id}")
 
         return project
 
@@ -134,10 +128,9 @@ class WorkbenchService:
         return WorkbenchDataSourceIdList(datasources=datasources)
 
     async def submit_artifact(self, artifact: Artifact) -> ArtifactStatus:
-        return await self.jms.submit_artifact(artifact)
-
-    async def store_resource(self, request_stream: AsyncGenerator[bytes, None]) -> str:
-        return await self.jms.store_resource(request_stream)  # TODO: FIXME
+        status = await self.jms.submit_artifact(artifact)
+        await self.jms.check(status.id)
+        return await self.get_status_artifact(status.id)
 
     async def get_status_artifact(self, artifact_id: str) -> ArtifactStatus:
         """

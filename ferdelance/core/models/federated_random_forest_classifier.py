@@ -3,7 +3,6 @@ from enum import Enum
 
 from ferdelance.core.models.meta import AggregationModel
 from ferdelance.core.models.utils import get_model_parameters
-from ferdelance.logging import get_logger
 
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.preprocessing import LabelEncoder
@@ -11,8 +10,6 @@ from sklearn.preprocessing import LabelEncoder
 from numpy.typing import ArrayLike
 
 import numpy as np
-
-LOGGER = get_logger(__name__)
 
 
 class StrategyRandomForestClassifier(str, Enum):
@@ -60,8 +57,6 @@ class FederatedRandomForestClassifier(AggregationModel):
     def aggregate(
         self, model_a: RandomForestClassifier | VotingClassifier, model_b: RandomForestClassifier
     ) -> RandomForestClassifier | VotingClassifier:
-        LOGGER.info(f"AggregatorRandomForestClassifier: using strategy={self.strategy}")
-
         if self.strategy == StrategyRandomForestClassifier.MERGE:
             if not isinstance(model_a, RandomForestClassifier):
                 raise ValueError(

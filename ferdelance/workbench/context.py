@@ -1,11 +1,21 @@
-from typing import Any
+from typing import Any, Sequence
 
 from ferdelance import __version__
+from ferdelance.core.interfaces import Step
 from ferdelance.logging import get_logger
-
-# from ferdelance.core.queries import QueryModel, QueryEstimate
 from ferdelance.schemas.node import NodePublicKey
-from ferdelance.shared.checksums import str_checksum
+from ferdelance.schemas.workbench import (
+    WorkbenchArtifact,
+    WorkbenchClientList,
+    WorkbenchDataSourceIdList,
+    WorkbenchJoinRequest,
+    WorkbenchJoinResponse,
+    WorkbenchProjectToken,
+    WorkbenchResource,
+)
+from ferdelance.security.checksums import str_checksum
+from ferdelance.security.exchange import Exchange
+from ferdelance.shared.status import ArtifactJobStatus
 from ferdelance.workbench.interface import (
     Project,
     Client,
@@ -13,23 +23,15 @@ from ferdelance.workbench.interface import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.workbench import (
-    WorkbenchArtifact,
-    WorkbenchArtifactPartial,
-    WorkbenchClientList,
-    WorkbenchDataSourceIdList,
-    WorkbenchJoinRequest,
-    WorkbenchProjectToken,
-)
-from ferdelance.shared.exchange import Exchange
 
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
 import json
-import pickle
-import requests
 import os
+import pickle
+import time
 
 LOGGER = get_logger(__name__)
 
@@ -60,46 +62,13 @@ class Context:
             If True and `ssh_key` is None, then a new SSH key will be generated locally. Otherwise
             if False, the key stored in `HOME/.ssh/rsa_id` will be used.
         """
-        self.server: str = server.rstrip("/")
+        self.server_url: str = server.rstrip("/")
 
-        self.exc: Exchange = Exchange()
+        self.exc: Exchange
 
         os.makedirs(DATA_DIR, exist_ok=True)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         os.makedirs(CACHE_DIR, exist_ok=True)
-
-        if isinstance(ssh_key_path, str):
-            if ssh_key_path == "":
-                ssh_key_path = None
-            else:
-                ssh_key_path = Path(ssh_key_path)
-
-        if ssh_key_path is None:
-            if generate_keys:
-                ssh_key_path = DATA_DIR / "rsa_id"
-
-                if os.path.exists(ssh_key_path):
-                    LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-                    self.exc.load_key(ssh_key_path)
-
-                else:
-                    LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
-
-                    self.exc.generate_key()
-                    self.exc.save_private_key(ssh_key_path)
-
-            else:
-                ssh_key_path = HOME / ".ssh" / "rsa_id"
-
-                LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-                self.exc.load_key(ssh_key_path)
-
-        else:
-            LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-            self.exc.load_key(ssh_key_path)
 
         if isinstance(id_path, str):
             if id_path == "":
@@ -122,19 +91,52 @@ class Context:
             with open(id_path, "r") as f:
                 self.id: str = f.read()
 
-        # connecting to server
-        headers = self.exc.create_header(False)
+        if isinstance(ssh_key_path, str):
+            if ssh_key_path == "":
+                ssh_key_path = None
+            else:
+                ssh_key_path = Path(ssh_key_path)
 
-        response_key = requests.get(
-            f"{self.server}/node/key",
-            headers=headers,
+        if ssh_key_path is None:
+            if generate_keys:
+                ssh_key_path = DATA_DIR / "rsa_id"
+
+                if os.path.exists(ssh_key_path):
+                    LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+                    self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
+                else:
+                    LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
+
+                    self.exc = Exchange(self.id)
+                    self.exc.store_private_key(ssh_key_path)
+
+            else:
+                ssh_key_path = HOME / ".ssh" / "rsa_id"
+
+                if not os.path.exists(ssh_key_path):
+                    raise ValueError(f"Key not found at {ssh_key_path}, please set flag for generate a new one.")
+
+                LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+                self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
+        else:
+            LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+            self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
+        # connecting to server
+        response_key = httpx.get(
+            f"{self.server_url}/node/key",
         )
 
         response_key.raise_for_status()
 
         spk = NodePublicKey(**response_key.json())
 
-        self.exc.set_remote_key(spk.public_key)
+        self.exc.set_remote_key("JOIN", spk.public_key)
 
         public_key = self.exc.transfer_public_key()
 
@@ -152,16 +154,23 @@ class Context:
             signature=signature,
         )
 
-        _, payload = self.exc.create_payload(wjr.json())
-        headers = self.exc.create_header(True)
+        headers, payload = self.exc.create(wjr.json())
 
-        res = requests.post(
-            f"{self.server}/workbench/connect",
+        res = httpx.post(
+            f"{self.server_url}/workbench/connect",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
+
+        _, payload = self.exc.get_payload(res.content)
+
+        join_data = WorkbenchJoinResponse(**(json.loads(payload)))
+
+        self.exc.set_remote_key(join_data.component_id, spk.public_key)
+
+        self.server_id = join_data.component_id
 
     def project(self, token: str | None = None) -> Project:
         if token is None:
@@ -175,12 +184,13 @@ class Context:
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/project",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/project",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -201,12 +211,13 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/clients",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/clients",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -227,12 +238,13 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/datasources",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/datasources",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -243,106 +255,39 @@ class Context:
 
         return data.datasources
 
-    # def execute(
-    #     self,
-    #     project: Project,
-    #     estimate: QueryEstimate,
-    #     wait_interval: int = 1,
-    #     max_time: int = 30,
-    # ) -> Any:
-    #     """Execute a statistical query."""
+    def submit(self, project: Project, steps: Sequence[Step]) -> Artifact:
+        """Submit the query, model, and strategy and start a training task on the remote server.
 
-    #     artifact = Artifact(
-    #         project_id=project.id,
-    #         transform=estimate.transform,
-    #         estimator=estimate.estimator,
-    #     )
+        :param artifact:
+            Artifact to submit to the server for training.
+            This object will be updated with the id assigned by the server.
+        :raises HTTPError:
+            If the return code of the response is not a 2xx type.
+        :returns:
+            The same input artifact with an assigned artifact_id.
+            If the `ret_status` flag is true, the status of the artifact is also returned.
+        """
+        artifact: Artifact = Artifact(
+            project_id=project.id,
+            steps=steps,
+        )
 
-    #     headers, payload = self.exc.create(self.id, artifact.json())
+        headers, payload = self.exc.create(artifact.json())
 
-    #     res = requests.post(
-    #         f"{self.server}/workbench/artifact/submit",
-    #         headers=headers,
-    #         data=payload,
-    #     )
+        res = httpx.post(
+            f"{self.server_url}/workbench/artifact/submit",
+            headers=headers,
+            content=payload,
+        )
 
-    #     res.raise_for_status()
+        res.raise_for_status()
 
-    #     _, data = self.exc.get_payload(res.content)
+        _, data = self.exc.get_payload(res.content)
 
-    #     art_status = ArtifactStatus(**json.loads(data))
-    #     artifact.id = art_status.id
+        status = ArtifactStatus(**json.loads(data))
+        artifact.id = status.id
 
-    #     start_time = time()
-    #     last_state = ""
-
-    #     while art_status.status not in (
-    #         ArtifactJobStatus.ERROR.name,
-    #         ArtifactJobStatus.COMPLETED.name,
-    #     ):
-    #         if art_status.status == last_state:
-    #             LOGGER.info(".")
-    #         else:
-    #             last_state = art_status.status
-    #             LOGGER.info(last_state)
-
-    #         art_status = self.status(art_status)
-
-    #         sleep(wait_interval)
-
-    #         if time() > start_time + max_time:
-    #             LOGGER.warning("reached max wait time")
-    #             raise ValueError("Timeout exceeded")
-
-    #     if not art_status.id:
-    #         raise ValueError("Invalid artifact status")
-
-    #     estimate = self.get_result(artifact)
-
-    #     if art_status.status == ArtifactJobStatus.ERROR.name:
-    #         LOGGER.error(f"Error on artifact {art_status.id}")
-    #         LOGGER.error(estimate)
-    #         raise ValueError(f"Error on artifact {art_status.id}")
-
-    #     if art_status.status == ArtifactJobStatus.COMPLETED.name:
-    #         LOGGER.info("Completed")
-    #         return estimate
-
-    # def submit(self, project: Project, query: QueryModel) -> Artifact:
-    #     """Submit the query, model, and strategy and start a training task on the remote server.
-
-    #     :param artifact:
-    #         Artifact to submit to the server for training.
-    #         This object will be updated with the id assigned by the server.
-    #     :raises HTTPError:
-    #         If the return code of the response is not a 2xx type.
-    #     :returns:
-    #         The same input artifact with an assigned artifact_id.
-    #         If the `ret_status` flag is true, the status of the artifact is also returned.
-    #     """
-    #     artifact: Artifact = Artifact(
-    #         project_id=project.id,
-    #         transform=query.transform,
-    #         plan=query.plan,
-    #         model=query.model,
-    #     )
-
-    #     headers, payload = self.exc.create(self.id, artifact.json())
-
-    #     res = requests.post(
-    #         f"{self.server}/workbench/artifact/submit",
-    #         headers=headers,
-    #         data=payload,
-    #     )
-
-    #     res.raise_for_status()
-
-    #     _, data = self.exc.get_payload(res.content)
-
-    #     status = ArtifactStatus(**json.loads(data))
-    #     artifact.id = status.id
-
-    #     return artifact
+        return artifact
 
     def status(self, artifact: Artifact | ArtifactStatus) -> ArtifactStatus:
         """Poll the server to get an update of the status of the given artifact.
@@ -359,12 +304,13 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/artifact/status",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/artifact/status",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -372,6 +318,40 @@ class Context:
         _, data = self.exc.get_payload(res.content)
 
         return ArtifactStatus(**json.loads(data))
+
+    def wait(self, artifact: Artifact | ArtifactStatus, max_wait: int = 60, wait_time: int = 10) -> None:
+        """Waiting loop for artifact status until completion or waiting time is
+        reached.
+
+        Args:
+            artifact (Artifact | ArtifactStatus):
+                Artifact or ArtifactStatus to wait for.
+            max_wait (int, optional):
+                Max waiting time in seconds.
+                Defaults to 60.
+            wait_time (int, optional):
+                Wait interval in seconds.
+                Defaults to 10.
+        Raises:
+            ValueError:
+                When max waiting time is reached.
+        """
+        last_state = None
+
+        start_time = time.time()
+        while (status := self.status(artifact)).status != ArtifactJobStatus.COMPLETED:
+            if status.status == last_state:
+                LOGGER.info(".")
+            else:
+                last_state = status.status
+                start_time = time.time()
+                LOGGER.info(last_state)
+
+            time.sleep(wait_time)
+
+            if time.time() - start_time > max_wait:
+                LOGGER.error("reached max wait time")
+                raise ValueError("Reached max wait time")
 
     def get_artifact(self, artifact_id: str) -> Artifact:
         """Get the specified artifact from the server.
@@ -386,12 +366,13 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/artifact",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/artifact",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -400,71 +381,38 @@ class Context:
 
         return Artifact(**json.loads(data))
 
-    def get_result(self, artifact: Artifact) -> Any:
-        """Get the trained and aggregated result for the the artifact and save it
-        to disk. The result can be a model or an estimation.
-
-        :param artifact:
-            Artifact to get the result from.
-        :param path:
-            Optional, destination path on disk. If none, a UUID will be generated
-            and used to store the downloaded model.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        """
-        if not artifact.id:
-            raise ValueError("submit first the artifact to the server")
-
+    def list_resources(self, artifact: Artifact) -> list[WorkbenchResource]:
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
-        with requests.get(
-            f"{self.server}/workbench/resource",
-            headers=headers,
-            data=payload,
-            stream=True,
-        ) as res:
-            res.raise_for_status()
-
-            data, _ = self.exc.stream_response(res.iter_content())
-
-            obj = pickle.loads(data)
-
-            return obj
-
-    def get_partial_result(self, artifact: Artifact, client_id: str, iteration: int) -> Any:
-        """Get the trained partial model from the artifact and save it to disk.
-
-        :param artifact:
-            Artifact to get the model from.
-        :param client_id:
-            The client_it that trained the partial model.
-        :param path:
-            Optional, destination path on disk. If none, a UUID will be used to store the downloaded model.
-        :raises HTTPError:
-            If the return code of the response is not a 2xx type.
-        """
-        if not artifact.id:
-            raise ValueError("submit first the artifact to the server")
-
-        if artifact.model is None:
-            raise ValueError("no model associated with this artifact")
-
-        wap = WorkbenchArtifactPartial(artifact_id=artifact.id, producer_id=client_id, iteration=iteration)
-
-        headers, payload = self.exc.create(self.id, wap.json())
-
-        with requests.request(
+        res = httpx.request(
             "GET",
-            f"{self.server}/workbench/resource/partial",
+            f"{self.server_url}/workbench/resource/list",
             headers=headers,
-            data=payload,
-            stream=True,
+            content=payload,
+        )
+
+        res.raise_for_status()
+
+        _, data = self.exc.get_payload(res.content)
+
+        js = json.loads(data)
+
+        return [WorkbenchResource(**d) for d in js]
+
+    def get_resource(self, resource: WorkbenchResource) -> Any:
+        headers, payload = self.exc.create(resource.json())
+
+        with httpx.stream(
+            "GET",
+            f"{self.server_url}/workbench/resource",
+            headers=headers,
+            content=payload,
         ) as res:
             res.raise_for_status()
 
-            data, _ = self.exc.stream_response(res.iter_content())
+            data, _ = self.exc.stream_response(res.iter_bytes())
 
             obj = pickle.loads(data)
 

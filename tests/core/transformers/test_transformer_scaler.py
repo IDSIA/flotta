@@ -7,7 +7,6 @@ from ferdelance.core.transformers import (
 from . import run
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
 from pathlib import Path
 
 import pandas as pd
@@ -15,7 +14,7 @@ import os
 
 
 PATH_DIR = Path(os.path.abspath(os.path.dirname(__file__)))
-PATH_CALIFORNIA = PATH_DIR / "california.csv"
+PATH_CALIFORNIA = PATH_DIR / ".." / "data" / "california.csv"
 
 
 def test_mms_scaling_one_feature():

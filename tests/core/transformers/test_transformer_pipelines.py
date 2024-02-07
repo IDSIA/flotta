@@ -16,7 +16,7 @@ import pandas as pd
 import os
 
 PATH_DIR = Path(os.path.abspath(os.path.dirname(__file__)))
-PATH_CALIFORNIA = PATH_DIR / "california.csv"
+PATH_CALIFORNIA = PATH_DIR / ".." / "data" / "california.csv"
 
 
 def test_pipeline():
@@ -113,8 +113,8 @@ def test_pipeline():
     assert env.X_tr is not None
     assert env.Y_tr is not None
 
-    assert env.X_tr.shape == (20640, 7)
-    assert len(env.X_tr.columns) == 7
+    assert env.X_tr.shape == (20640, 8)
+    assert len(env.X_tr.columns) == 8
     for c in [
         "HouseAgeBins",
         "AveRoomsBins",

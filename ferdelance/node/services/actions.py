@@ -1,13 +1,13 @@
-from ferdelance.logging import get_logger
 from ferdelance.database.repositories import (
     AsyncSession,
     ComponentRepository,
     JobRepository,
 )
-from ferdelance.shared.actions import Action
+from ferdelance.logging import get_logger
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.updates import UpdateData
+from ferdelance.shared.actions import Action
 
 from sqlalchemy.exc import NoResultFound
 
@@ -44,6 +44,6 @@ class ActionService:
 
         except Exception as e:
             # real exception
-            LOGGER.warn(e)
+            LOGGER.exception(e)
 
         return await self._action_nothing()

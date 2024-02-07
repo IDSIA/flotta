@@ -2,20 +2,14 @@ from __future__ import annotations
 from typing import Any, Sequence
 from abc import ABC, abstractmethod
 
-from pydantic import PrivateAttr
-
 from ferdelance.core.entity import Entity
-from ferdelance.core.metrics import Metrics
 from ferdelance.core.interfaces import Step
+from ferdelance.core.metrics import Metrics
 from ferdelance.core.queries import Query
 
-from pathlib import Path
-
 from numpy.typing import ArrayLike
-
-import numpy as np
-import pickle
-
+from pathlib import Path
+from pydantic import PrivateAttr
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -23,6 +17,10 @@ from sklearn.metrics import (
     roc_auc_score,
     confusion_matrix,
 )
+
+
+import numpy as np
+import pickle
 
 
 class Model(ABC, Entity):

@@ -4,14 +4,13 @@ from ferdelance.const import TYPE_CLIENT, TYPE_NODE
 from ferdelance.datasources import DataSourceDB, DataSourceFile
 from ferdelance.logging import get_logger
 from ferdelance.schemas.metadata import Metadata
-from ferdelance.shared.exchange import Exchange
+from ferdelance.security.exchange import Exchange
 
 from .arguments import setup_config_from_arguments
 
-from pydantic import BaseSettings, BaseModel, root_validator, validator
 from dotenv import load_dotenv
-
 from pathlib import Path
+from pydantic import BaseSettings, BaseModel, root_validator, validator
 
 import os
 import re
@@ -75,6 +74,11 @@ def clean_protocol_port(protocol: str, port: int) -> tuple[str, str]:
     return _protocol, _port
 
 
+class ProjectConfiguration(BaseModel):
+    name: str
+    token: str
+
+
 class NodeConfiguration(BaseModel):
     name: str = ""
 
@@ -90,6 +94,9 @@ class NodeConfiguration(BaseModel):
     port: int = 1456
 
     token_project_default: str = ""
+    token_projects_initial: list[ProjectConfiguration] = list()
+
+    allow_resource_download: bool = False
 
     # self-check in seconds when mode=node
     healthcheck: float = 60
@@ -259,6 +266,9 @@ class Configuration(BaseSettings):
 
         return f"{_protocol}://{self.node.interface.rstrip('/')}{_port}"
 
+    def url_localhost(self) -> str:
+        return f"{self.node.protocol}://localhost:{self.node.port}"
+
     def get_workdir(self) -> Path:
         return Path(self.workdir)
 
@@ -278,6 +288,14 @@ class Configuration(BaseSettings):
         d = self.storage_artifact(artifact_id, iteration) / job_id
         os.makedirs(d, exist_ok=True)
         return d
+
+    def storage_resource_dir(self) -> Path:
+        return self.get_workdir() / "resources"
+
+    def storage_resource(self, resource_id: str) -> Path:
+        d = self.storage_resource_dir()
+        os.makedirs(d, exist_ok=True)
+        return d / f"{resource_id}.pkl"
 
     def storage_clients_dir(self) -> Path:
         return self.get_workdir() / "clients"
@@ -338,11 +356,11 @@ class ConfigManager:
             return
 
         if not os.path.exists(config_path):
-            LOGGER.warn(f"configuration file not found at {config_path}")
+            LOGGER.warning(f"configuration file not found at {config_path}")
             self._set_default_config()
             return
 
-        LOGGER.info(f"loading configuration from path={config_path}")
+        LOGGER.debug(f"loading configuration from path={config_path}")
 
         with open(config_path, "r") as f:
             try:
@@ -360,21 +378,19 @@ class ConfigManager:
         self.config.dump()
 
     def _set_keys(self) -> None:
-        exc = Exchange()
+        private_key_path = self.config.private_key_location()
 
-        path_private_key = self.config.private_key_location()
-
-        if os.path.exists(path_private_key):
+        if os.path.exists(private_key_path):
             # use existing one
-            LOGGER.info(f"private key found at {path_private_key}")
-            exc.load_key(path_private_key)
+            LOGGER.info(f"private key found at {private_key_path}")
+            exc = Exchange("", private_key_path=private_key_path)
 
         else:
             # generate new key
             LOGGER.info("private key location not found: creating a new one")
 
-            exc.generate_key()
-            exc.save_private_key(path_private_key)
+            exc = Exchange("")
+            exc.store_private_key(private_key_path)
 
     def _set_directories(self) -> None:
         LOGGER.info("directory initialization")
@@ -393,6 +409,9 @@ class ConfigManager:
 
     def get(self) -> Configuration:
         return self.config
+
+    def get_data(self) -> DataSourceStorage:
+        return self.data
 
     def leave(self) -> bool:
         return self._leave
