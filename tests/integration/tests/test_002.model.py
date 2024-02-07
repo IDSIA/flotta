@@ -107,6 +107,7 @@ if __name__ == "__main__":
     res_cl2 = None
 
     for r in resources:
+        LOGGER.info(f"found resource: {r.resource_id} produced by {r.producer_id}")
         if r.producer_id == client_id_1:
             res_cl1 = r
         elif r.producer_id == client_id_2:

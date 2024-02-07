@@ -4,6 +4,7 @@ mode: node
 node:
   name: AggregationNode
   healthcheck: 3600.0
+  allow_resource_download: true
 
   token_projects_initial:
     - name: california_clients

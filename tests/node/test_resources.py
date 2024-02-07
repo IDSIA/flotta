@@ -74,7 +74,7 @@ async def test_submit_and_download_resource(session: AsyncSession):
         )
 
         res = server.post(
-            "/resource",
+            "/resource/",
             headers=headers,
             content=payload,
         )
@@ -92,7 +92,7 @@ async def test_submit_and_download_resource(session: AsyncSession):
 
         with server.stream(
             "GET",
-            "/resource",
+            "/resource/",
             headers=headers,
             content=payload,
         ) as stream:
@@ -136,7 +136,7 @@ async def test_proxy_resource(session: AsyncSession):
         )
 
         res = server.post(
-            "/resource",
+            "/resource/",
             headers=headers,
             content=payload,
         )
@@ -164,7 +164,7 @@ async def test_proxy_resource(session: AsyncSession):
 
         with server.stream(
             "GET",
-            "/resource",
+            "/resource/",
             headers=headers,
             content=payload,
         ) as stream:
