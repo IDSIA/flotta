@@ -1,6 +1,7 @@
+from sched import scheduler
 from typing import Sequence
-
 from ferdelance.config.config import Configuration, config_manager
+from ferdelance.const import TYPE_CLIENT
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
 from ferdelance.core.interfaces import SchedulerContext, SchedulerJob
 from ferdelance.core.metrics import Metrics
@@ -39,8 +40,6 @@ class JobManagementService(Repository):
         self,
         session: AsyncSession,
         component: Component,
-        private_key: str = "",
-        node_public_key: str = "",
     ) -> None:
         super().__init__(session)
 
@@ -54,9 +53,6 @@ class JobManagementService(Repository):
         self.rr: ResourceRepository = ResourceRepository(session)
 
         self.config: Configuration = config_manager.get()
-
-        self.private_key: str = private_key
-        self.node_public_key: str = node_public_key
 
     async def update(self, component: Component) -> UpdateData:
         """This method is used to get an update for a client. Such update consists in the next action to execute and
@@ -111,11 +107,11 @@ class JobManagementService(Repository):
             raise e
 
     async def schedule_tasks(self, artifact: Artifact) -> None:
-        """Schedules all the jobs for the given artifact in the given iteration.
+        """Schedules all the jobs for the given artifact in the current iteration.
 
         Args:
             artifact (Artifact):
-                Artifact to complete.
+                Artifact to schedule jobs for.
         """
         LOGGER.info(f"artifact={artifact.id}: collecting jobs to be scheduled")
 
@@ -230,6 +226,8 @@ class JobManagementService(Repository):
         artifact_id: str = job.artifact_id
         it = job.iteration
 
+        worker = await self.cr.get_by_id(job.component_id)
+
         scheduler_job = await self.jr.load(job)
         artifact = await self.ar.load(artifact_id)
 
@@ -251,30 +249,45 @@ class JobManagementService(Repository):
         for p_job in prev_jobs:
             r = await self.rr.get_by_job_id(p_job.id)
 
-            if os.path.exists(r.path):
+            if worker.id == self.self_component.id:
+                # job for scheduler
                 available_locally = True
-                url = self.config.url_localhost()
                 component_id = self.self_component.id
                 public_key = self.self_component.public_key
                 path = str(r.path)
+                url = self.config.url_localhost()
+
+            elif worker.type_name == TYPE_CLIENT:
+                # job for clients
+                available_locally = False
+                component_id = self.self_component.id
+                public_key = self.self_component.public_key
+                path = None
+                url = self.config.url_extern()
+
             else:
+                # job for nodes
                 c = await self.cr.get_by_id(p_job.component_id)
 
-                available_locally = False
-                url = c.url
+                # TODO: This depends if resources need to be collected or not...
+                available_locally = True
                 component_id = c.id
                 public_key = c.public_key
-                path = None
+                path = str(r.path)
+                url = c.url
 
             task_resources.append(
                 TaskResource(
+                    # resource
                     resource_id=r.id,
                     artifact_id=job.artifact_id,
                     iteration=job.iteration,
                     job_id=p_job.id,
+                    # who has the resource
                     component_id=component_id,
-                    public_key=public_key,
-                    url=url,
+                    component_public_key=public_key,
+                    component_url=url,
+                    # local data
                     available_locally=available_locally,
                     local_path=path,
                 )
@@ -289,10 +302,12 @@ class JobManagementService(Repository):
             c = await self.cr.get_by_id(n_job.component_id)
             next_nodes.append(
                 TaskNode(
-                    component_id=c.id,
-                    public_key=c.public_key,
-                    url=c.url,
-                    available_locally=job.component_id == self.self_component.id,
+                    # target_data
+                    target_id=c.id,
+                    target_public_key=c.public_key,
+                    target_url=c.url,
+                    # use scheduler as proxy since target is a CLIENT
+                    use_scheduler_as_proxy=c.type_name == TYPE_CLIENT,
                 )
             )
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ferdelance import __version__
+from ferdelance.commons import storage_job
 from ferdelance.config import DataSourceStorage, Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_USER
 from ferdelance.core.artifacts import Artifact, ArtifactStatus
@@ -24,7 +25,7 @@ from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.project import Project
 from ferdelance.schemas.resources import ResourceIdentifier
 from ferdelance.schemas.updates import UpdateData
-from ferdelance.tasks.services import ExecutionService
+from ferdelance.tasks.services.execution import load_environment
 from ferdelance.tasks.tasks import Task, TaskError
 
 from tests.utils import create_project
@@ -88,12 +89,18 @@ class ServerlessWorker:
         await self.node.task_completed(task)
 
     async def execute(self, task: Task) -> Resource:
-        es = ExecutionService(task, self.data, self.component.id)
-
-        es.load()
+        env = load_environment(
+            self.data,
+            task,
+            self.config.storage_job(
+                task.artifact_id,
+                task.job_id,
+                task.iteration,
+            ),
+        )
 
         for resource in task.required_resources:
-            es.env.add_resource(
+            env.add_resource(
                 resource.resource_id,
                 self.config.storage_job(
                     resource.artifact_id,
@@ -103,15 +110,17 @@ class ServerlessWorker:
                 / f"{resource.resource_id}.pkl",
             )
 
-        es.run()
+        env = task.run(env)
 
-        assert es.env.products is not None
+        env.store()
+
+        assert env.products is not None
 
         return Resource(
-            id=es.env.product_id,
+            id=env.product_id,
             component_id=self.component.id,
             creation_time=None,
-            path=es.env.product_path(),
+            path=env.product_path(),
             is_external=False,
             is_error=False,
             is_ready=True,

@@ -8,51 +8,47 @@ from ferdelance.schemas.client import ClientUpdate
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
 from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
-from ferdelance.schemas.workbench import WorkbenchJoinRequest
+from ferdelance.schemas.workbench import WorkbenchJoinRequest, WorkbenchJoinResponse
+from ferdelance.security.checksums import str_checksum
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.actions import Action
-from ferdelance.shared.checksums import str_checksum
-from ferdelance.shared.exchange import Exchange
 from ferdelance.shared.status import JobStatus
 
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 import json
+import random
+import string
 import uuid
 
 
 LOGGER = get_logger(__name__)
 
 
-def setup_exchange() -> Exchange:
-    exc = Exchange()
-    exc.generate_key()
-    return exc
-
-
-def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, client_id: str = "") -> str:
+def create_node(api: TestClient, type_name: str = TYPE_CLIENT, client_id: str = "") -> Exchange:
     """Creates and register a new client.
     :return:
         Component id for this new client.
+        Component id of the joined node.
     """
-
-    headers = exc.create_header(False)
 
     response_key = api.get(
         "/node/key",
-        headers=headers,
     )
 
     response_key.raise_for_status()
 
     spk = NodePublicKey(**response_key.json())
 
-    exc.set_remote_key(spk.public_key)
+    if not client_id:
+        client_id = str(uuid.uuid4())
+
+    exc = Exchange(client_id)
+    exc.set_remote_key("JOIN", spk.public_key)
 
     assert exc.remote_key is not None
 
-    if not client_id:
-        client_id = str(uuid.uuid4())
     public_key = exc.transfer_public_key()
 
     data_to_sign = f"{client_id}:{public_key}"
@@ -71,8 +67,8 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
         signature=signature,
     )
 
-    _, payload = exc.create_payload(cjr.json())
-    headers = exc.create_header(True)
+    payload_checksum, payload = exc.create_payload(cjr.json())
+    headers = exc.create_signed_headers(payload_checksum)
 
     response_join = api.post(
         "/node/join",
@@ -88,9 +84,11 @@ def create_node(api: TestClient, exc: Exchange, type_name: str = TYPE_CLIENT, cl
 
     assert len(jd.nodes) == 1
 
+    exc.set_remote_key(jd.component_id, spk.public_key)
+
     LOGGER.info(f"component={client_id}: successfully created new client")
 
-    return cjr.id
+    return exc
 
 
 TEST_PROJECT_TOKEN: str = "a02a9e2ad5901e39bf53388d19e4be46d3ac7efd1366a961cf54c4a4eeb7faa0"
@@ -147,8 +145,8 @@ def get_metadata(
     )
 
 
-def send_metadata(component_id: str, api: TestClient, exc: Exchange, metadata: Metadata) -> None:
-    headers, payload = exc.create(component_id, metadata.json())
+def send_metadata(api: TestClient, exc: Exchange, metadata: Metadata) -> None:
+    headers, payload = exc.create(metadata.json())
 
     upload_response = api.post(
         "/node/metadata",
@@ -172,6 +170,7 @@ async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKE
 
 
 class ConnectionArguments(BaseModel):
+    sv_id: str
     cl_id: str
     wb_id: str
     cl_exc: Exchange
@@ -182,53 +181,38 @@ class ConnectionArguments(BaseModel):
         arbitrary_types_allowed = True
 
 
-async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> ConnectionArguments:
-    await create_project(session, p_token)
+def create_workbench(
+    api: TestClient,
+    remote_key: str,
+    id: str | None = None,
+    name: str = "test_workbench",
+) -> Exchange:
+    if not id:
+        id = str(uuid.uuid4())
+    exc = Exchange(id)
 
-    cl_exc = setup_exchange()
-    wb_exc = setup_exchange()
+    exc.set_remote_key("JOIN", remote_key)
 
-    # this is to have a client
-    client_id = create_node(api, cl_exc)
+    assert exc.remote_key is not None
 
-    metadata: Metadata = get_metadata()
-    send_metadata(client_id, api, cl_exc, metadata)
+    public_key = exc.transfer_public_key()
 
-    # this is to connect a new workbench
-    headers = wb_exc.create_header(False)
-
-    response_key = api.get(
-        "/node/key",
-        headers=headers,
-    )
-
-    response_key.raise_for_status()
-
-    spk = NodePublicKey(**response_key.json())
-
-    wb_exc.set_remote_key(spk.public_key)
-
-    assert wb_exc.remote_key is not None
-
-    wb_id = str(uuid.uuid4())
-    public_key = wb_exc.transfer_public_key()
-
-    data_to_sign = f"{wb_id}:{public_key}"
+    data_to_sign = f"{id}:{public_key}"
 
     checksum = str_checksum(data_to_sign)
-    signature = wb_exc.sign(data_to_sign)
+    signature = exc.sign(data_to_sign)
 
     wjr = WorkbenchJoinRequest(
-        id=wb_id,
-        name="test_workbench",
-        public_key=wb_exc.transfer_public_key(),
+        id=id,
+        name=name,
+        public_key=exc.transfer_public_key(),
         version="test",
         checksum=checksum,
         signature=signature,
     )
 
-    _, payload = wb_exc.create_payload(wjr.json())
-    headers = wb_exc.create_header(True)
+    payload_checksum, payload = exc.create_payload(wjr.json())
+    headers = exc.create_signed_headers(payload_checksum)
 
     res_connect = api.post(
         "/workbench/connect",
@@ -238,19 +222,53 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
 
     res_connect.raise_for_status()
 
+    _, payload = exc.get_payload(res_connect.content)
+
+    jr = WorkbenchJoinResponse(**json.loads(payload))
+
+    exc.set_remote_key(jr.component_id, remote_key)
+
+    return exc
+
+
+async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PROJECT_TOKEN) -> ConnectionArguments:
+    await create_project(session, p_token)
+
+    # this is to have a client
+    cl_exc = create_node(api)
+    client_id = cl_exc.source_id
+    server_id = cl_exc.target_id
+
+    assert server_id is not None
+
+    metadata: Metadata = get_metadata()
+    send_metadata(api, cl_exc, metadata)
+
+    # this is to connect a new workbench
+    response_key = api.get(
+        "/node/key",
+    )
+
+    response_key.raise_for_status()
+
+    spk = NodePublicKey(**response_key.json())
+
+    wb_exc = create_workbench(api, spk.public_key)
+
     return ConnectionArguments(
+        sv_id=server_id,
         cl_id=client_id,
         cl_exc=cl_exc,
-        wb_id=wb_id,
+        wb_id=wb_exc.source_id,
         wb_exc=wb_exc,
         project_token=p_token,
     )
 
 
-def client_update(component_id: str, api: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
+def client_update(api: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
     update = ClientUpdate(action=Action.DO_NOTHING.name)
 
-    headers, payload = exchange.create(component_id, update.json())
+    headers, payload = exchange.create(update.json())
 
     response = api.request(
         method="GET",
@@ -322,3 +340,7 @@ def get_scheduler_context(n_workers: int = 2) -> SchedulerContext:
         initiator=s,
         workers=workers,
     )
+
+
+def random_string(length: int) -> str:
+    return "".join(random.choice(string.ascii_letters) for _ in range(length))

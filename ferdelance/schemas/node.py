@@ -12,7 +12,7 @@ class NodeJoinRequest(BaseModel):
     name: str
     type_name: str
 
-    public_key: str  # b64encoded bytes
+    public_key: str
     version: str
 
     url: str = ""

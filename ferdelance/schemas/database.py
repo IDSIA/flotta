@@ -34,6 +34,8 @@ class Resource(BaseModel):
     is_error: bool
     is_ready: bool
 
+    encrypted_for: str | None = None
+
 
 class ResourceIdentifier(BaseModel):
     artifact_id: str

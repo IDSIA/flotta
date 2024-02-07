@@ -93,7 +93,8 @@ services:
     container_name: node1
     restart: unless-stopped
     environment:
-      - FERDELANCE_NODE_HOST=server
+      - FERDELANCE_NODE_HOST=node1
+      - FERDELANCE_JOIN_HOST=server
     volumes: 
       - node-1-data:/ferdelance/storage
       - ./conf/config.node.1.yaml:/ferdelance/config.yaml
@@ -109,7 +110,8 @@ services:
     container_name: node2
     restart: unless-stopped
     environment:
-      - FERDELANCE_NODE_HOST=server
+      - FERDELANCE_NODE_HOST=node2
+      - FERDELANCE_JOIN_HOST=server
     volumes: 
       - node-2-data:/ferdelance/storage
       - ./conf/config.node.2.yaml:/ferdelance/config.yaml

@@ -1,4 +1,4 @@
-from uuid import uuid4
+from ferdelance.const import TYPE_NODE
 from ferdelance.core.artifacts import Artifact
 from ferdelance.core.distributions import Collect, Distribute
 from ferdelance.core.interfaces import SchedulerContext
@@ -9,7 +9,7 @@ from ferdelance.node.api import api
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
 
-from tests.utils import create_project, create_node, setup_exchange
+from tests.utils import create_project, create_node
 from tests.dummies import DummyOp
 
 from fastapi.testclient import TestClient
@@ -30,10 +30,16 @@ async def test_job_change_status(session: AsyncSession):
         p_token: str = "123456789"
 
         await create_project(session, p_token)
-        node = create_node(client, setup_exchange())
-        worker1 = create_node(client, setup_exchange())
-        worker2 = create_node(client, setup_exchange())
-        worker3 = create_node(client, setup_exchange())
+
+        node_exc = create_node(client, TYPE_NODE)
+        worker1_exc = create_node(client)
+        worker2_exc = create_node(client)
+        worker3_exc = create_node(client)
+
+        node = node_exc.source_id
+        worker1 = worker1_exc.source_id
+        worker2 = worker2_exc.source_id
+        worker3 = worker3_exc.source_id
 
         a = Artifact(
             id="artifact",

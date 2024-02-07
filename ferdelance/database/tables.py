@@ -166,14 +166,20 @@ class Resource(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(default=None, nullable=True)
-    path: Mapped[str] = mapped_column(String)  # path local to the node
+    # path local to the node
+    path: Mapped[str] = mapped_column(String)
 
-    is_external: Mapped[bool] = mapped_column(default=False)  # True if created by a workbench
+    # True if created by a workbench
+    is_external: Mapped[bool] = mapped_column(default=False)
     is_error: Mapped[bool] = mapped_column(default=False)
     is_ready: Mapped[bool] = mapped_column(default=False)
 
-    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))  # producer, can be workbench
-    component = relationship("Component")
+    encrypted_for: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"), default=None, nullable=True)
+    target = relationship("Component", foreign_keys=[encrypted_for])
+
+    # producer, can be workbench
+    component_id: Mapped[str] = mapped_column(String(36), ForeignKey("components.id"))
+    component = relationship("Component", foreign_keys=[component_id])
 
     jobs: Mapped[list[Job]] = relationship()
 

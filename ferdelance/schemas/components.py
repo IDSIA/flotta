@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 
 class Component(BaseModel):
@@ -18,6 +18,10 @@ class Component(BaseModel):
 
     url: str = ""
     ip_address: str = ""
+
+    @validator("url")
+    def url_must_end_without_slash(cls, v: str):
+        return v.rstrip("/")
 
 
 class Event(BaseModel):

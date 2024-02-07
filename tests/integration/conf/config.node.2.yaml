@@ -4,6 +4,7 @@ mode: node
 node:
   name: Node2
   healthcheck: 120.0
+  url: ${FERDELANCE_NODE_HOST}
   
   token_projects_initial:
     - name: california_nodes
@@ -11,7 +12,7 @@ node:
 
 join:
   first: False
-  url: http://${FERDELANCE_NODE_HOST}:1456
+  url: http://${FERDELANCE_JOIN_HOST}:1456
 
 database:
   username: ""

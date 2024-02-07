@@ -4,10 +4,10 @@ from ferdelance.database.repositories import (
     JobRepository,
 )
 from ferdelance.logging import get_logger
-from ferdelance.shared.actions import Action
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.jobs import Job
 from ferdelance.schemas.updates import UpdateData
+from ferdelance.shared.actions import Action
 
 from sqlalchemy.exc import NoResultFound
 

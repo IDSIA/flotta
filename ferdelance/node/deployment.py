@@ -7,7 +7,7 @@ from ray import serve
 
 from time import sleep
 
-import requests
+import httpx
 
 LOGGER = get_logger(__name__)
 
@@ -37,7 +37,7 @@ def wait_node(config: Configuration, c):
     while True:
         sleep(config.node.healthcheck)
         try:
-            res = requests.get(f"{config.url_deploy()}/")
+            res = httpx.get(f"{config.url_deploy()}/")
             res.raise_for_status()
         except Exception as e:
             LOGGER.error(e)

@@ -9,11 +9,12 @@ from ferdelance.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
+    WorkbenchJoinResponse,
     WorkbenchProjectToken,
     WorkbenchResource,
 )
-from ferdelance.shared.exchange import Exchange
-from ferdelance.shared.checksums import str_checksum
+from ferdelance.security.checksums import str_checksum
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus
 from ferdelance.workbench.interface import (
     Project,
@@ -26,10 +27,10 @@ from ferdelance.workbench.interface import (
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
 import json
 import os
 import pickle
-import requests
 import time
 
 LOGGER = get_logger(__name__)
@@ -61,46 +62,13 @@ class Context:
             If True and `ssh_key` is None, then a new SSH key will be generated locally. Otherwise
             if False, the key stored in `HOME/.ssh/rsa_id` will be used.
         """
-        self.server: str = server.rstrip("/")
+        self.server_url: str = server.rstrip("/")
 
-        self.exc: Exchange = Exchange()
+        self.exc: Exchange
 
         os.makedirs(DATA_DIR, exist_ok=True)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         os.makedirs(CACHE_DIR, exist_ok=True)
-
-        if isinstance(ssh_key_path, str):
-            if ssh_key_path == "":
-                ssh_key_path = None
-            else:
-                ssh_key_path = Path(ssh_key_path)
-
-        if ssh_key_path is None:
-            if generate_keys:
-                ssh_key_path = DATA_DIR / "rsa_id"
-
-                if os.path.exists(ssh_key_path):
-                    LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-                    self.exc.load_key(ssh_key_path)
-
-                else:
-                    LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
-
-                    self.exc.generate_key()
-                    self.exc.save_private_key(ssh_key_path)
-
-            else:
-                ssh_key_path = HOME / ".ssh" / "rsa_id"
-
-                LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-                self.exc.load_key(ssh_key_path)
-
-        else:
-            LOGGER.debug(f"loading private key from {ssh_key_path}")
-
-            self.exc.load_key(ssh_key_path)
 
         if isinstance(id_path, str):
             if id_path == "":
@@ -123,19 +91,52 @@ class Context:
             with open(id_path, "r") as f:
                 self.id: str = f.read()
 
-        # connecting to server
-        headers = self.exc.create_header(False)
+        if isinstance(ssh_key_path, str):
+            if ssh_key_path == "":
+                ssh_key_path = None
+            else:
+                ssh_key_path = Path(ssh_key_path)
 
-        response_key = requests.get(
-            f"{self.server}/node/key",
-            headers=headers,
+        if ssh_key_path is None:
+            if generate_keys:
+                ssh_key_path = DATA_DIR / "rsa_id"
+
+                if os.path.exists(ssh_key_path):
+                    LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+                    self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
+                else:
+                    LOGGER.debug(f"generating and saving private key to {ssh_key_path}")
+
+                    self.exc = Exchange(self.id)
+                    self.exc.store_private_key(ssh_key_path)
+
+            else:
+                ssh_key_path = HOME / ".ssh" / "rsa_id"
+
+                if not os.path.exists(ssh_key_path):
+                    raise ValueError(f"Key not found at {ssh_key_path}, please set flag for generate a new one.")
+
+                LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+                self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
+        else:
+            LOGGER.debug(f"loading private key from {ssh_key_path}")
+
+            self.exc = Exchange(self.id, private_key_path=ssh_key_path)
+
+        # connecting to server
+        response_key = httpx.get(
+            f"{self.server_url}/node/key",
         )
 
         response_key.raise_for_status()
 
         spk = NodePublicKey(**response_key.json())
 
-        self.exc.set_remote_key(spk.public_key)
+        self.exc.set_remote_key("JOIN", spk.public_key)
 
         public_key = self.exc.transfer_public_key()
 
@@ -153,16 +154,23 @@ class Context:
             signature=signature,
         )
 
-        _, payload = self.exc.create_payload(wjr.json())
-        headers = self.exc.create_header(True)
+        headers, payload = self.exc.create(wjr.json())
 
-        res = requests.post(
-            f"{self.server}/workbench/connect",
+        res = httpx.post(
+            f"{self.server_url}/workbench/connect",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
+
+        _, payload = self.exc.get_payload(res.content)
+
+        join_data = WorkbenchJoinResponse(**(json.loads(payload)))
+
+        self.exc.set_remote_key(join_data.component_id, spk.public_key)
+
+        self.server_id = join_data.component_id
 
     def project(self, token: str | None = None) -> Project:
         if token is None:
@@ -176,12 +184,13 @@ class Context:
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/project",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/project",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -202,12 +211,13 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/clients",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/clients",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -228,12 +238,13 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(self.id, wpt.json())
+        headers, payload = self.exc.create(wpt.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/datasources",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/datasources",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -261,12 +272,12 @@ class Context:
             steps=steps,
         )
 
-        headers, payload = self.exc.create(self.id, artifact.json())
+        headers, payload = self.exc.create(artifact.json())
 
-        res = requests.post(
-            f"{self.server}/workbench/artifact/submit",
+        res = httpx.post(
+            f"{self.server_url}/workbench/artifact/submit",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -293,12 +304,13 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/artifact/status",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/artifact/status",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -354,12 +366,13 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/artifact",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/artifact",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -371,12 +384,13 @@ class Context:
     def list_resources(self, artifact: Artifact) -> list[WorkbenchResource]:
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(self.id, wba.json())
+        headers, payload = self.exc.create(wba.json())
 
-        res = requests.get(
-            f"{self.server}/workbench/resource/list",
+        res = httpx.request(
+            "GET",
+            f"{self.server_url}/workbench/resource/list",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()
@@ -388,17 +402,17 @@ class Context:
         return [WorkbenchResource(**d) for d in js]
 
     def get_resource(self, resource: WorkbenchResource) -> Any:
-        headers, payload = self.exc.create(self.id, resource.json())
+        headers, payload = self.exc.create(resource.json())
 
-        with requests.get(
-            f"{self.server}/workbench/resource",
+        with httpx.stream(
+            "GET",
+            f"{self.server_url}/workbench/resource",
             headers=headers,
-            data=payload,
-            stream=True,
+            content=payload,
         ) as res:
             res.raise_for_status()
 
-            data, _ = self.exc.stream_response(res.iter_content())
+            data, _ = self.exc.stream_response(res.iter_bytes())
 
             obj = pickle.loads(data)
 

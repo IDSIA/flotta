@@ -41,8 +41,13 @@ if __name__ == "__main__":
 
     resources = ctx.list_resources(artifact)
 
-    assert len(resources) == 1
+    resources.sort(key=lambda x: x.creation_time.timestamp() if x.creation_time else -1)
 
-    mean = ctx.get_resource(resources[0])
+    for r in resources:
+        LOGGER.info(f"resource: {r.resource_id} produced by {r.producer_id} at {r.creation_time}")
+
+    assert len(resources) == 4
+
+    mean = ctx.get_resource(resources[-1])
 
     LOGGER.info(mean)

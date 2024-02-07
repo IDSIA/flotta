@@ -1,53 +1,68 @@
-from typing import Iterator
-from .generate import (
-    generate_asymmetric_key,
-    bytes_from_private_key,
-    bytes_from_public_key,
-    private_key_from_bytes,
-    private_key_from_str,
-    public_key_from_bytes,
-    public_key_from_str,
-    RSAPrivateKey,
-    RSAPublicKey,
-)
-from .decode import (
-    HybridDecrypter,
-    decode_from_transfer,
-    decrypt,
-)
-from .encode import (
-    HybridEncrypter,
-    encode_to_transfer,
-    encrypt,
-)
-from .signatures import sign, verify
-from .checksums import str_checksum, file_checksum
+from typing import AsyncGenerator, Iterator
 
+from ferdelance.security.algorithms import DecryptionAlgorithm, EncryptionAlgorithm, Algorithm
+from ferdelance.security.checksums import str_checksum, file_checksum
+from ferdelance.security.headers import SignedHeaders
+from ferdelance.security.keys.asymmetric import PrivateKey, PublicKey
+
+from base64 import b64decode, b64encode
 from pathlib import Path
-from requests import Response
 
-import base64
 import json
 import os
 
 
 class Exchange:
-    def __init__(self, private_key_path: Path | None = None, encoding: str = "utf8") -> None:
-        self.private_key: RSAPrivateKey | None = None
-        self.public_key: RSAPublicKey | None = None
-        self.remote_key: RSAPublicKey | None = None
+    def __init__(
+        self,
+        source_id: str,
+        private_key: PrivateKey | str | bytes | None = None,
+        remote_id: str | None = None,
+        remote_key: PublicKey | str | bytes | None = None,
+        proxy_key: PublicKey | str | bytes | None = None,
+        private_key_path: Path | None = None,
+        algorithm: Algorithm = Algorithm.HYBRID,
+        encoding: str = "utf8",
+    ) -> None:
+        self.source_id: str = source_id
+        self.target_id: str | None = None
 
-        self.encoding = encoding
+        self.private_key: PrivateKey | None = None
+        self.public_key: PublicKey | None = None
 
-        if private_key_path is not None:
-            self.load_key(private_key_path)
+        self.remote_key: PublicKey | None = None
+        self.proxy_key: PublicKey | None = None
 
-    def generate_key(self) -> None:
+        self.algorithm: Algorithm = algorithm
+        self.encoding: str = encoding
+
+        if private_key is not None:
+            if not isinstance(private_key, PrivateKey):
+                private_key = PrivateKey(private_key)
+
+            self.private_key = private_key
+            self.public_key = self.private_key.public_key()
+
+        elif private_key_path is not None:
+            self.load_private_key(private_key_path)
+
+        else:
+            self.generate_keys()
+
+        if remote_key is not None and remote_id is not None:
+            self.set_remote_key(remote_id, remote_key)
+
+        if proxy_key is not None:
+            self.set_proxy_key(proxy_key)
+
+    # --- key management ----------------
+
+    def generate_keys(self) -> None:
         """Generates a new pair of asymmetric keys."""
-        self.private_key = generate_asymmetric_key()
+        self.private_key = PrivateKey()
         self.public_key = self.private_key.public_key()
 
-    def load_key(self, path: Path) -> None:
+    def load_private_key(self, path: Path) -> None:
         """Load a private key from disk.
 
         :param path:
@@ -60,7 +75,7 @@ class Exchange:
 
         with open(path, "rb") as f:
             pk_bytes: bytes = f.read()
-            self.private_key = private_key_from_bytes(pk_bytes)
+            self.private_key = PrivateKey(pk_bytes)
             self.public_key = self.private_key.public_key()
 
     def load_remote_key(self, path: Path) -> None:
@@ -76,9 +91,9 @@ class Exchange:
 
         with open(path, "rb") as f:
             rk_bytes: bytes = f.read()
-            self.remote_key = public_key_from_bytes(rk_bytes)
+            self.remote_key = PublicKey(rk_bytes)
 
-    def save_private_key(self, path: Path) -> None:
+    def store_private_key(self, path: Path) -> None:
         """Save the stored private key to disk.
 
         :param path:
@@ -94,10 +109,10 @@ class Exchange:
             raise ValueError("cannot save: no private key available")
 
         with open(path, "wb") as f:
-            pk_bytes: bytes = bytes_from_private_key(self.private_key)
+            pk_bytes: bytes = self.private_key.bytes()
             f.write(pk_bytes)
 
-    def save_public_key(self, path: Path) -> None:
+    def store_public_key(self, path: Path) -> None:
         """Save the stored public key to disk.
 
         :param path:
@@ -113,10 +128,10 @@ class Exchange:
             raise ValueError("cannot save: no public key available")
 
         with open(path, "wb") as f:
-            pk_bytes: bytes = bytes_from_public_key(self.public_key)
+            pk_bytes: bytes = self.public_key.bytes()
             f.write(pk_bytes)
 
-    def save_remote_key(self, path: Path) -> None:
+    def store_remote_key(self, path: Path) -> None:
         """Save the stored remote public key to disk.
 
         :param path:
@@ -132,79 +147,47 @@ class Exchange:
             raise ValueError("cannot save: no public key available")
 
         with open(path, "wb") as f:
-            pk_bytes: bytes = bytes_from_public_key(self.remote_key)
+            pk_bytes: bytes = self.remote_key.bytes()
             f.write(pk_bytes)
 
-    def set_private_key(self, private_key: str) -> None:
+    def set_private_key(self, data: str | bytes) -> None:
         """Set the private key and the public key from a private key
         in string format and encoded for transfer.
 
-        :param private_key:
+        :param data:
             Private key stored in memory and in string encoded for transfer format.
         """
-        self.private_key = private_key_from_str(decode_from_transfer(private_key, self.encoding))
+        if isinstance(data, str):
+            data = data.encode(self.encoding)
+
+        self.private_key = PrivateKey(data, self.encoding)
         self.public_key = self.private_key.public_key()
 
-    def set_key_bytes(self, private_key_bytes: bytes) -> None:
-        """Set the private key and the public key from a private key
-        in bytes format.
-
-        :param private_key_bytes:
-            Private key stored in memory and in bytes format.
-        """
-        self.private_key = private_key_from_bytes(private_key_bytes)
-        self.public_key = self.private_key.public_key()
-
-    def get_private_key_bytes(self) -> bytes:
-        """Get the private key in bytes format to be stored somewhere.
-
-        :raise:
-            ValueError if there is no private key.
-        """
-        if self.private_key is None:
-            raise ValueError("No private key available")
-
-        return bytes_from_private_key(self.private_key)
-
-    def get_public_key_bytes(self) -> bytes:
-        """Get the public key in bytes format to be stored somewhere.
-
-        :raise:
-            ValueError if there is no public key.
-        """
-        if self.public_key is None:
-            raise ValueError("No public key available")
-
-        return bytes_from_public_key(self.public_key)
-
-    def set_remote_key(self, data: str) -> None:
+    def set_remote_key(self, target_id: str, public_key: PublicKey | str | bytes) -> None:
         """Decode and set a public key from a remote host.
 
         :param data:
             String content not yet decoded.
         """
-        self.remote_key = public_key_from_str(data, self.encoding)
+        if not isinstance(public_key, PublicKey):
+            public_key = PublicKey(public_key, self.encoding)
 
-    def set_remote_key_bytes(self, remote_key: bytes) -> None:
-        """Set the public key of the remote host from bytes stored in memory.
+        self.remote_key = public_key
+        self.target_id = target_id
 
-        :param remote_key:
-            Public key of a remote host stored in memory and in bytes format.
+    def set_proxy_key(self, proxy_key: PublicKey | str | bytes) -> None:
+        """Decode and set a public key from a proxy host.
+
+        :param data:
+            String content not yet decoded.
         """
-        self.remote_key = public_key_from_bytes(remote_key)
+        if not isinstance(proxy_key, PublicKey):
+            proxy_key = PublicKey(proxy_key, self.encoding)
 
-    def transfer_public_key(self) -> str:
-        """Encode the stored public key for secure transfer to remote host.
+        self.proxy_key = proxy_key
 
-        :return:
-            An encoded public key in string format.
-        :raise:
-            ValueError if there is no public key available.
-        """
-        if self.public_key is None:
-            raise ValueError("public key not set")
-
-        return bytes_from_public_key(self.public_key).decode(self.encoding)
+    def clear_proxy(self) -> None:
+        self.proxy_key = None
 
     def transfer_private_key(self) -> str:
         """Encode the stored private key for secure transfer as string.
@@ -217,8 +200,20 @@ class Exchange:
         if self.private_key is None:
             raise ValueError("public key not set")
 
-        data: str = bytes_from_private_key(self.private_key).decode(self.encoding)
-        return encode_to_transfer(data, self.encoding)
+        return self.private_key.bytes().decode(self.encoding)
+
+    def transfer_public_key(self) -> str:
+        """Encode the stored public key for secure transfer to remote host.
+
+        :return:
+            An encoded public key in string format.
+        :raise:
+            ValueError if there is no public key available.
+        """
+        if self.public_key is None:
+            raise ValueError("public key not set")
+
+        return self.public_key.bytes().decode(self.encoding)
 
     def transfer_remote_key(self) -> str:
         """Encode the stored private key for secure transfer as string.
@@ -231,10 +226,24 @@ class Exchange:
         if self.remote_key is None:
             raise ValueError("remote public key not set")
 
-        data: str = bytes_from_public_key(self.remote_key).decode(self.encoding)
-        return encode_to_transfer(data, self.encoding)
+        return self.remote_key.bytes().decode(self.encoding)
 
-    def encrypt(self, content: str) -> str:
+    def transfer_proxy_key(self) -> str:
+        """Encode the stored proxy key for secure transfer as string.
+
+        :return:
+            The encoded remote public key in string format.
+        :raise:
+            ValueError if there is no remote key available.
+        """
+        if self.proxy_key is None:
+            raise ValueError("proxy public key not set")
+
+        return self.proxy_key.bytes().decode(self.encoding)
+
+    # --- body en/decryption with keys --
+
+    def encrypt(self, content: str | bytes) -> bytes:
         """Encrypt a text for the remote host using the stored remote public key.
 
         :param content:
@@ -245,9 +254,9 @@ class Exchange:
         if self.remote_key is None:
             raise ValueError("No remote host public key available")
 
-        return encrypt(self.remote_key, content, self.encoding)
+        return self.remote_key.encrypt(content, self.encoding)
 
-    def decrypt(self, content: str) -> str:
+    def decrypt(self, content: str | bytes) -> bytes:
         """Decrypt a text encrypted by the remote host with the public key,
         using the stored private key.
 
@@ -259,79 +268,83 @@ class Exchange:
         if self.private_key is None:
             raise ValueError("No private key available")
 
-        return decrypt(self.private_key, content, self.encoding)
+        return self.private_key.decrypt(content, self.encoding)
 
-    def sign(self, content: str) -> str:
+    # --- signatures with keys ----------
+
+    def sign(self, content: str | bytes) -> str:
         if self.private_key is None:
             raise ValueError("Private key not set")
 
-        return sign(self.private_key, content, self.encoding)
+        signature = self.private_key.sign(content, self.encoding)
 
-    def verify(self, content: str, signature: str) -> None:
+        return b64encode(signature).decode(self.encoding)
+
+    def verify(self, content: str | bytes, signature: str | bytes) -> None:
         if self.remote_key is None:
             raise ValueError("Remote key not set")
 
-        verify(self.remote_key, content, signature, self.encoding)
+        self.remote_key.verify(content, b64decode(signature), self.encoding)
 
-    def create_header(self, set_encryption: bool = True) -> dict[str, str]:
-        if set_encryption:
-            content_encoding = f"encrypted/{self.encoding}"
-            accept_encoding = f"encrypted/{self.encoding}"
-        else:
-            content_encoding = self.encoding
-            accept_encoding = self.encoding
+    # --- headers -----------------------
 
-        return {
-            "Content-Encoding": content_encoding,
-            "Accept-Encoding": accept_encoding,
-        }
-
-    def create_signed_header(
+    def create_signed_headers(
         self,
-        component_id: str,
         checksum: str,
-        set_encryption: bool = True,
         extra_headers: dict[str, str] = dict(),
+        algorithm: Algorithm | None = None,
     ) -> dict[str, str]:
-        if self.remote_key is None:
-            raise ValueError("No public remote key available")
+        key: PublicKey
 
-        data_to_sign = f"{component_id}:{checksum}"
+        if self.proxy_key is None:
+            if self.remote_key is None:
+                raise ValueError("No public remote key available")
+            else:
+                key = self.remote_key
+        else:
+            key = self.proxy_key
+
+        if self.target_id is None:
+            raise ValueError("No remote target_id set")
+
+        data_to_sign = f"{self.source_id}:{checksum}"
         signature = self.sign(data_to_sign)
 
-        token_data = {
-            "id": component_id,
-            "checksum": checksum,
-            "signature": signature,
-        } | extra_headers
+        if algorithm:
+            algorithm_name = algorithm.name
+        else:
+            algorithm_name = self.algorithm.name
 
-        enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
+        header = SignedHeaders(
+            source_id=self.source_id,
+            target_id=self.target_id,
+            checksum=checksum,
+            signature=signature,
+            encryption=algorithm_name,
+            extra=extra_headers,
+        )
 
-        data_json = json.dumps(token_data)
+        enc = Algorithm.HYBRID.enc(key, self.encoding)
+
+        data_json = header.json()
         data_enc = enc.encrypt(data_json)
-        data_b64 = base64.b64encode(data_enc)
+        data_b64 = b64encode(data_enc)
         data = data_b64.decode(self.encoding)
 
-        return self.create_header(set_encryption) | {
+        return {
             "Signature": data,
         }
 
-    def get_headers(self, content: str) -> tuple[str, str, str, dict[str, str]]:
+    def get_headers(self, content: str) -> SignedHeaders:
         if self.private_key is None:
             raise ValueError("No public remote key available")
 
-        dec = HybridDecrypter(self.private_key, encoding=self.encoding)
+        dec = self.algorithm.dec(self.private_key, self.encoding)
 
-        token = content.encode(self.encoding)
-        data_b64 = base64.b64decode(token)
-        data_enc = dec.decrypt(data_b64)
-        data: dict = json.loads(data_enc)
-
-        component_id, checksum, signature = data["id"], data["checksum"], data["signature"]
-
-        extra = {k: v for k, v in data.items() if k not in ("id", "checksum", "signature")}
-
-        return component_id, checksum, signature, extra
+        data = content.encode(self.encoding)
+        data_b64 = b64decode(data)
+        dec_data = dec.decrypt(data_b64)
+        return SignedHeaders(**json.loads(dec_data))
 
     def create_payload(self, content: str | bytes) -> tuple[str, bytes]:
         """Convert a dictionary of a JSON object in string format, then
@@ -344,12 +357,12 @@ class Exchange:
             ValueError if the remote key is not set.
 
         :return:
-            The headers to use and the data to send.
+            The checksum of teh data and the data to send.
         """
         if self.remote_key is None:
             raise ValueError("No public remote key available")
 
-        enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
+        enc: EncryptionAlgorithm = self.algorithm.enc(self.remote_key, self.encoding)
 
         payload = enc.encrypt(content)
         checksum = enc.get_checksum()
@@ -376,7 +389,7 @@ class Exchange:
         if isinstance(content, str):
             content = content.encode(self.encoding)
 
-        dec = HybridDecrypter(self.private_key, encoding=self.encoding)
+        dec: DecryptionAlgorithm = self.algorithm.dec(self.private_key, self.encoding)
 
         dec_payload = dec.decrypt(content)
         checksum = dec.get_checksum()
@@ -385,17 +398,17 @@ class Exchange:
 
     def create(
         self,
-        component_id: str,
         content: str | bytes = "",
-        set_encryption: bool = True,
         extra_headers: dict[str, str] = dict(),
     ) -> tuple[dict[str, str], bytes]:
         checksum, payload = self.create_payload(content)
-        headers = self.create_signed_header(component_id, checksum, set_encryption, extra_headers)
+        headers = self.create_signed_headers(checksum, extra_headers)
 
         return headers, payload
 
-    def stream(self, content: str | bytes) -> tuple[str, Iterator[bytes]]:
+    # --- data streaming ----------------
+
+    def encrypt_to_stream(self, content: str | bytes) -> tuple[str, Iterator[bytes]]:
         """Creates a stream from content in memory.
 
         :param content:
@@ -410,11 +423,11 @@ class Exchange:
 
         checksum = str_checksum(content)
 
-        enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
+        enc = self.algorithm.enc(self.remote_key, self.encoding)
 
-        return checksum, enc.encrypt_to_stream(content)
+        return checksum, enc.encrypt_content_to_stream(content)
 
-    def stream_from_file(self, path: Path) -> tuple[str, Iterator[bytes]]:
+    def encrypt_file_to_stream(self, path: Path) -> tuple[str, Iterator[bytes]]:
         """Creates a stream from content from a file.
 
         :param path:
@@ -427,7 +440,7 @@ class Exchange:
         if self.remote_key is None:
             raise ValueError("No remote key available")
 
-        enc = HybridEncrypter(self.remote_key, encoding=self.encoding)
+        enc = self.algorithm.enc(self.remote_key, self.encoding)
 
         checksum = file_checksum(path)
 
@@ -444,14 +457,12 @@ class Exchange:
         if self.private_key is None:
             raise ValueError("No private key available")
 
-        dec = HybridDecrypter(self.private_key, encoding=self.encoding)
+        dec = self.algorithm.dec(self.private_key, self.encoding)
 
         data = dec.decrypt_stream(content)
         return data, dec.get_checksum()
 
-    def stream_response_to_file(
-        self, stream: Response, path_out: str | os.PathLike[str], CHUNK_SIZE: int = 4096
-    ) -> str:
+    def stream_response_to_file(self, stream: Iterator[bytes], path_out: Path) -> str:
         """Consumes the stream content of a response, and save the content to file.
 
         :param stream:
@@ -467,12 +478,10 @@ class Exchange:
         if os.path.exists(path_out):
             raise ValueError(f"path {path_out} already exists")
 
-        dec = HybridDecrypter(self.private_key, encoding=self.encoding)
-        dec.decrypt_stream_to_file(stream.iter_content(chunk_size=CHUNK_SIZE), path_out)
+        dec = self.algorithm.dec(self.private_key, self.encoding)
+        return dec.decrypt_stream_to_file(stream, path_out)
 
-        return dec.get_checksum()
-
-    def encrypt_file_for_remote(self, path_in: str | os.PathLike[str], path_out: str | os.PathLike[str]) -> str:
+    def encrypt_file_for_remote(self, path_in: Path, path_out: Path) -> str:
         """Encrypt a file from disk to another file on disk. This file can be sent
         to the remote host.
 
@@ -487,17 +496,10 @@ class Exchange:
         if self.remote_key is None:
             raise ValueError("No remote key available")
 
-        enc = HybridEncrypter(self.remote_key)
-        with open(path_out, "wb") as w:
-            w.write(enc.start())
-            with open(path_in, "rb") as r:
-                while content := r.read():
-                    w.write(enc.update(content))
-                w.write(enc.end())
+        enc = self.algorithm.enc(self.remote_key, self.encoding)
+        return enc.encrypt_file(path_in, path_out)
 
-        return enc.get_checksum()
-
-    def encrypt_file(self, path_in: str | os.PathLike[str], path_out: str | os.PathLike[str]) -> str:
+    def encrypt_file(self, path_in: Path, path_out: Path) -> str:
         """Encrypt a file from disk to another file on disk. This file can be decrypted
         only with a private key.
 
@@ -512,17 +514,10 @@ class Exchange:
         if self.public_key is None:
             raise ValueError("No public key available")
 
-        enc = HybridEncrypter(self.public_key)
-        with open(path_out, "wb") as w:
-            w.write(enc.start())
-            with open(path_in, "rb") as r:
-                while content := r.read():
-                    w.write(enc.update(content))
-                w.write(enc.end())
+        enc = self.algorithm.enc(self.public_key, self.encoding)
+        return enc.encrypt_file(path_in, path_out)
 
-        return enc.get_checksum()
-
-    def decrypt_file(self, path_in: str | os.PathLike[str], path_out: str | os.PathLike[str]) -> None:
+    def decrypt_file(self, path_in: Path, path_out: Path) -> str:
         """Decrypt a file from disk to another file on disk. This file can must be
         encrypted with a valid public key.
 
@@ -532,15 +527,30 @@ class Exchange:
             Destination path of the decrypted file.
         :raise:
             ValueError if there is no private key available.
+
+        :return:
+            Checksum of the decrypted file.
         """
 
         if self.private_key is None:
             raise ValueError("No private key available")
 
-        enc = HybridDecrypter(self.private_key)
-        with open(path_out, "wb") as w:
-            w.write(enc.start())
-            with open(path_in, "rb") as r:
-                while content := r.read():
-                    w.write(enc.update(content))
-                w.write(enc.end())
+        dec = self.algorithm.dec(self.private_key, self.encoding)
+        return dec.decrypt_file(path_in, path_out)
+
+    def stream_decrypt(self, stream: Iterator[bytes]) -> tuple[str, bytes]:
+        if self.private_key is None:
+            raise ValueError("No private key available")
+
+        dec = self.algorithm.dec(self.private_key, self.encoding)
+
+        data = dec.decrypt_stream(stream)
+
+        return dec.get_checksum(), data
+
+    async def stream_decrypt_file(self, stream: AsyncGenerator[bytes, None], path_out: Path) -> str:
+        if self.private_key is None:
+            raise ValueError("No private key available")
+
+        dec = self.algorithm.dec(self.private_key, self.encoding)
+        return await dec.decrypt_stream_to_file_a(stream, path_out)

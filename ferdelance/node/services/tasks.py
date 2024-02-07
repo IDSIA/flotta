@@ -12,12 +12,12 @@ from ferdelance.database.repositories import (
 from ferdelance.logging import get_logger
 from ferdelance.node.services.jobs import JobManagementService
 from ferdelance.schemas.components import Component
-from ferdelance.shared.exchange import Exchange
+from ferdelance.security.exchange import Exchange
 from ferdelance.shared.status import ArtifactJobStatus, JobStatus
 from ferdelance.tasks.backends import get_jobs_backend
 from ferdelance.tasks.tasks import Task
 
-import requests
+import httpx
 
 
 LOGGER = get_logger(__name__)
@@ -123,10 +123,10 @@ class TaskManagementService(Repository):
             job_id,
             component_id,
             private_key,
+            component_id,
             self.config.url_localhost(),
             public_key,
             self.local_datasources,
-            True,
         )
 
     async def start_task(self, task: Task, scheduler_id: str) -> None:
@@ -137,20 +137,20 @@ class TaskManagementService(Repository):
             task.job_id,
             self.self_component.id,
             self.private_key,
+            scheduler_node.id,
             scheduler_node.url,
             scheduler_node.public_key,
             self.local_datasources,
-            False,
         )
 
     async def start_remote(
         self,
         job_id: str,
-        component_id: str,
+        remote_component_id: str,
         # this node private key used for communication
         private_key: str,
     ) -> None:
-        remote = await self.cr.get_by_id(component_id)
+        remote = await self.cr.get_by_id(remote_component_id)
 
         if remote.type_name == TYPE_CLIENT:
             LOGGER.info(
@@ -164,16 +164,15 @@ class TaskManagementService(Repository):
 
         task: Task = await jms.get_task_by_job_id(job_id)
 
-        exc: Exchange = Exchange()
-        exc.set_private_key(private_key)
-        exc.set_remote_key(remote.public_key)
+        exc: Exchange = Exchange(self.self_component.id, private_key)
+        exc.set_remote_key(remote.id, remote.public_key)
 
-        headers, payload = exc.create(self.self_component.id, task.json())
+        headers, payload = exc.create(task.json())
 
-        res = requests.post(
-            f"{remote.url}/task",
+        res = httpx.post(
+            f"{remote.url.rstrip('/')}/task/",
             headers=headers,
-            data=payload,
+            content=payload,
         )
 
         res.raise_for_status()

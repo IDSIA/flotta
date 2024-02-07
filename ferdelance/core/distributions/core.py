@@ -4,6 +4,8 @@ from ferdelance.core.entity import Entity
 
 
 class Distribution(ABC, Entity):
+    encryption: bool = True
+
     @abstractmethod
     def bind_locks(self, job_ids0: list[int], job_ids1: list[int]) -> list[list[int]]:
         """Defines the locks between the given job ids lists. The locks are

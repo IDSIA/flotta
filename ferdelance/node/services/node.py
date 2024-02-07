@@ -1,3 +1,4 @@
+from ferdelance.config import config_manager
 from ferdelance.const import TYPE_NODE
 from ferdelance.logging import get_logger
 from ferdelance.database import AsyncSession
@@ -6,32 +7,30 @@ from ferdelance.database.repositories import (
     DataSourceRepository,
     ProjectRepository,
 )
-from ferdelance.node.services.security import SecurityService
 from ferdelance.schemas.components import Component
 from ferdelance.schemas.metadata import Metadata
 from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata
+from ferdelance.security.exchange import Exchange
 
+from pathlib import Path
 from sqlalchemy.exc import NoResultFound
 
-import requests
+import httpx
 
 
 LOGGER = get_logger(__name__)
 
 
 class NodeService:
-    def __init__(self, session: AsyncSession, component: Component | None = None) -> None:
+    def __init__(self, session: AsyncSession, self_component: Component) -> None:
         self.session: AsyncSession = session
 
-        self.ss: SecurityService = SecurityService()
+        self.self_component: Component = self_component
+
+        private_key_path: Path = config_manager.get().private_key_location()
+        self.exc: Exchange = Exchange(self_component.id, private_key_path=private_key_path)
+
         self.cr: ComponentRepository = ComponentRepository(self.session)
-
-        if component:
-            self.component: Component = component
-            self.ss.set_remote_key(component.public_key)
-
-        else:
-            self.component: Component
 
     async def connect(self, data: NodeJoinRequest, ip_address: str) -> JoinData:
         """
@@ -57,7 +56,7 @@ class NodeService:
 
         LOGGER.info(f"component={data.id}: joining procedure start")
 
-        self.component = await self.cr.create_component(
+        component = await self.cr.create_component(
             data.id,
             data.type_name,
             data.public_key,
@@ -67,9 +66,9 @@ class NodeService:
             data.url,
         )
 
-        self.ss.set_remote_key(data.public_key)
+        self.exc.set_remote_key(data.id, data.public_key)
 
-        LOGGER.info(f"component={self.component.id}: created as new {data.type_name}")
+        LOGGER.info(f"component={component.id}: created as new {data.type_name}")
 
         self_component = await self.cr.get_self_component()
 
@@ -82,7 +81,7 @@ class NodeService:
                 if node.id not in (data.id, self_component.id):
                     nodes.append(node)
 
-        await self.distribute_add(self.component, nodes)
+        await self.distribute_add(component, nodes)
 
         nodes.append(self_component)
 
@@ -93,24 +92,24 @@ class NodeService:
             nodes=nodes,
         )
 
-    async def leave(self) -> None:
+    async def leave(self, component: Component) -> None:
         """
         :raise:
             NoResultFound when there is no project with the given token.
         """
-        await self.cr.component_leave(self.component.id)
-        await self.distribute_remove(self.component)
+        await self.cr.component_leave(component.id)
+        await self.distribute_remove(component)
 
-        LOGGER.info(f"component={self.component.id}: left")
+        LOGGER.info(f"component={component.id}: left")
 
-    async def metadata(self, metadata: Metadata) -> Metadata:
+    async def metadata(self, component: Component, metadata: Metadata) -> Metadata:
         dsr: DataSourceRepository = DataSourceRepository(self.session)
         pr: ProjectRepository = ProjectRepository(self.session)
 
-        LOGGER.info(f"component={self.component.id}: metadata updating")
+        LOGGER.info(f"component={self.self_component.id}: metadata updating")
 
         # this will also update existing metadata
-        await dsr.create_or_update_from_metadata(self.component.id, metadata)
+        await dsr.create_or_update_from_metadata(component.id, metadata)
         await pr.add_datasources_from_metadata(metadata)
 
         return metadata
@@ -118,7 +117,7 @@ class NodeService:
     async def add(self, new_component: Component) -> None:
         try:
             await self.cr.get_by_id(new_component.id)
-            LOGGER.warning(f"component={self.component.id}: new component={new_component.id} already exists")
+            LOGGER.warning(f"component={self.self_component.id}: new component={new_component.id} already exists")
             return
         except NoResultFound:
             pass
@@ -126,7 +125,7 @@ class NodeService:
         try:
             c = await self.cr.get_by_key(new_component.public_key)
             LOGGER.warning(
-                f"component={self.component.id}: public key already exists for new component={new_component.id} "
+                f"component={self.self_component.id}: public key already exists for new component={new_component.id} "
                 f"under component={c.id}"
             )
             return
@@ -151,7 +150,7 @@ class NodeService:
             return
 
         for node in nodes:
-            if node.id not in (self.component.id, new_component.id):
+            if node.id not in (self.self_component.id, new_component.id):
                 # skip self node
                 continue
 
@@ -163,21 +162,21 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
-            LOGGER.info(f"component={self.component.id}: distributing node add to component={node.id}")
+            LOGGER.info(f"component={self.self_component.id}: distributing node add to component={node.id}")
 
-            self.ss.set_remote_key(node.public_key)
+            self.exc.set_remote_key(node.id, node.public_key)
 
-            headers, payload = self.ss.create(self.component.id, new_component.json())
+            headers, payload = self.exc.create(new_component.json())
 
-            res = requests.put(
+            res = httpx.put(
                 f"{node.url}/node/add",
                 headers=headers,
-                data=payload,
+                content=payload,
             )
 
             if res.status_code != 200:
                 LOGGER.error(
-                    f"component={self.component.id}: could not add component={new_component.id} to node={node.id}"
+                    f"component={self.self_component.id}: could not add component={new_component.id} to node={node.id}"
                 )
 
     async def distribute_remove(self, component: Component) -> None:
@@ -185,7 +184,7 @@ class NodeService:
             return
 
         for node in await self.cr.list_nodes():
-            if node.id == self.component.id:
+            if node.id == self.self_component.id:
                 # skip self node
                 continue
 
@@ -193,25 +192,26 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
-            headers, payload = self.ss.create(self.component.id, component.json())
+            headers, payload = self.exc.create(component.json())
 
-            res = requests.put(
+            res = httpx.put(
                 f"{node.url}/node/remove",
                 headers=headers,
-                data=payload,
+                content=payload,
             )
             if res.status_code != 200:
                 LOGGER.error(
-                    f"component={self.component.id}: could not remove " f"component={component.id} from node={node.id}"
+                    f"component={self.self_component.id}: could not remove "
+                    f"component={component.id} from node={node.id}"
                 )
 
     async def distribute_metadata(self, metadata: Metadata) -> None:
         # TODO: not used at the moment, how do we want to distribute metadata between NODES? (not clients!)
 
-        node_metadata = NodeMetadata(id=self.component.id, metadata=metadata)
+        node_metadata = NodeMetadata(id=self.self_component.id, metadata=metadata)
 
         for node in await self.cr.list_nodes():
-            if node.id == self.component.id:
+            if node.id == self.self_component.id:
                 # skip self node
                 continue
 
@@ -219,17 +219,17 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
-            LOGGER.info(f"component={self.component.id}: sending metadata to component={node.id}")
+            LOGGER.info(f"component={self.self_component.id}: sending metadata to component={node.id}")
 
-            self.ss.set_remote_key(node.public_key)
+            self.exc.set_remote_key(node.id, node.public_key)
 
-            headers, payload = self.ss.create(self.component.id, node_metadata.json())
+            headers, payload = self.exc.create(node_metadata.json())
 
-            res = requests.put(
+            res = httpx.put(
                 f"{node.url}/node/metadata",
                 headers=headers,
-                data=payload,
+                content=payload,
             )
 
             if res.status_code != 200:
-                LOGGER.error(f"component={self.component.id}: could not send metadata from to node={node.id}")
+                LOGGER.error(f"component={self.self_component.id}: could not send metadata to node={node.id}")
