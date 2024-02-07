@@ -3,6 +3,8 @@ from ferdelance.schemas.client import ClientDetails
 
 from pydantic import BaseModel
 
+from datetime import datetime
+
 
 class WorkbenchJoinRequest(BaseModel):
     """Data sent by the workbench to join the server."""
@@ -40,3 +42,4 @@ class WorkbenchArtifact(BaseModel):
 class WorkbenchResource(BaseModel):
     resource_id: str
     producer_id: str
+    creation_time: datetime | None = None

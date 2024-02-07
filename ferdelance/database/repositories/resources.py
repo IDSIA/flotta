@@ -3,6 +3,7 @@ from ferdelance.database.tables import Job as JobDB, Resource as ResourceDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
 from ferdelance.schemas.database import Resource
 
+from datetime import datetime
 from sqlalchemy import select
 from pathlib import Path
 from uuid import uuid4
@@ -104,6 +105,7 @@ class ResourceRepository(Repository):
         resource = res.one()
 
         resource.is_ready = True
+        resource.creation_time = datetime.now()
         await self.session.commit()
         await self.session.refresh(resource)
 
