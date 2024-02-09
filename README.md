@@ -10,7 +10,7 @@ Instead of collecting data from various sources and centralizing it in one locat
 In FL the training of models is distributed across a series of data holders (client nodes) that have direct and exclusive access to their data.
 The particularity of this approach is that the training data never leave these nodes, while only aggregated data, such as model parameters, are exchanged to build an aggregated model.
 
-The current implementation support both a centralized setup, where model's parameters are sent from the client nodes to an aggregation server, and distributed setup, where a model is shared across multiple nodes and multiple model aggregation can happen on different nodes.
+The current implementation support both a centralized setup, where model's parameters are sent from the client nodes to an aggregation ndoe, and distributed setup, where a model is shared across multiple nodes and multiple model aggregation can happen on different nodes.
 
 The intent of this framework is to develop a solution that enable researcher to develop and test new ML models in a FL context without interacting directly with the data.
 The framework wraps a familiar set of Python packages and libraries, such as Scikit-Learn and Pandas.
@@ -52,12 +52,15 @@ Once installed, just create a context object and obtain a project handler with a
 A project is a collection of data sources.
 The token is created by the node network administrator and it is unique for each project.
 
-Following an example of how to use the workbench library to connect to a server.
+Following an example of how to use the workbench library to connect to a node.
 
 ```python
-from ferdelance.workbench import Context, Project
-from ferdelance.schemas.plans import TrainTestSplit
-from ferdelance.schemas.models import FederatedRandomForestClassifier, ParametersRandomForestClassifier, StrategyRandomForestClassifier
+from ferdelance.core.distributions import Collect
+from ferdelance.core.model_operations import Aggregation, Train, TrainTest
+from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+from ferdelance.core.steps import Finalize, Parallel
+from ferdelance.core.transformers import FederatedSplitter
+from ferdelance.workbench import Context, Artifact
 
 server_url = "http://localhost:1456"
 project_token = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
@@ -77,77 +80,82 @@ for feature in ds.features:
 
 # create a query starting from the project's data
 q = ds.extract()
+q = q.add(q["feature"] < 2)
 
-# add an execution plan for the data
-q = q.add_plan(
-    TrainTestSplit(
-        label="variety",
-        test_percentage=0.5,
-    )
+# create a Federated model
+model = FederatedRandomForestClassifier(
+    n_estimators=10,
+    strategy=StrategyRandomForestClassifier.MERGE,
 )
 
-# ad a Federated model
-q = q.add_model(
-    FederatedRandomForestClassifier(
-        strategy=StrategyRandomForestClassifier.MERGE,
-        parameters=ParametersRandomForestClassifier(n_estimators=10),
-    )
-)
+label = "label"
 
-# submit new artifact
-a = ctx.submit(project, q)
+# describe how to distribute the work and how to train teh model
+steps = [
+    Parallel(
+        TrainTest(
+            query=project.extract().add(
+                FederatedSplitter(
+                    random_state=42,
+                    test_percentage=0.2,
+                    label=label,
+                )
+            ),
+            trainer=Train(model=model),
+            model=model,
+        ),
+        Collect(),
+    ),
+    Finalize(
+        Aggregation(model=model),
+    ),
+]
+
+# submit artifact
+artifact: Artifact = ctx.submit(project, steps)
 ```
 
 > **Note:** More examples are available in the [`examples`](./examples/) and in the [`tests`](./tests/) folders.
 
-### Server
+### Node
 
-The _aggregation server_ is the central node of the framework.
-All workbenches send their payload, called artifacts, to the aggregation server; while all the clients query the server for the next job to run.
+The _aggregation node_ is a node reachable from all nodes in the network and the central node of the framework.
+All workbenches send their payload, called Artifacts, to the aggregation node; while all the clients query the same node for the next job to run.
+This allows the clients to have more control on the access and an additional layer of protection: a client node is not reachable from the internet and it is the client that contact the known reference node and initiate the execution process.
 
-The installation of the server is simple:
+The installation of a node is simple:
 
 ```bash
 pip install ferdelance
 ```
 
-The server is composed by a web API that runs and spawns [Ray](https://ray.io) aggregation tasks.
-The server also uses a database to keep track of every stored object.
+The node is composed by a web API written with [FastAPI](https://fastapi.tiangolo.com/) that runs and spawns [Ray](https://ray.io) tasks.
+The node also uses a database to keep track of every stored object.
 
-The easiest way to deploy a server is using **Docker Compose**.
+The easiest way to deploy a node is using **Docker Compose**.
 
-The file [docker-compose.server.yaml](./docker-compose.server.yaml) contains a definition of all services required for the server's stack.
+The file [docker-compose.integration.yaml](./tests/integration/docker-compose.integration.yaml) contains a definition of all services required to create a stack that simulates a central server node and some client nodes.
 
 This stack includes:
 - a Python repository used to update clients and workbenches,
 - a [PostgreSQL](https://www.postgresql.org/) database,
-- the server service.
-
-> **Note:** The services that need to be exposed to the world (server and repository) are labeled to be used with [Traefik proxy](https://traefik.io/traefik/) (highly recommended to use).
+- the node service,
+- two clients node.
 
 The compose stack requires some environment variables that can be collected in a `.env` file as follows:
 
 ```bash
-DOMAIN=<external url>
-
 DATABASE_USER=ferdelance
 DATABASE_PASS=<something good>
 DATABASE_SCHEMA=ferdelance
-
-SERVER_MAIN_PASSWORD=<something strong>
 ```
 
-> **Note:** `SERVER_MAIN_PASSWORD` defines the main secret key of the server.
-> This key is used to encrypt sensible information and data in the database.
-
-> ⚠ Losing this key will cause data loss in the server application!
-
-Once the stack is up and running, thanks to Traefik support, the server will be reachable at `ferdelance.${DOMAIN}` while the repository at `fdl-repo.${DOMAIN}`.
+Once the stack is up and running, the server will be reachable at `http://server:1456/` while the repository at `htp://repository/`.
 
 
-### Client
+### Client mode
 
-The client application is an executable library that is written exclusively in Python:
+A node can be run as a client application.
 
 ```bash
 pip install ferdelance

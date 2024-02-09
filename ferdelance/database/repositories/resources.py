@@ -1,3 +1,4 @@
+from matplotlib.cbook import contiguous_regions
 from ferdelance.config import config_manager
 from ferdelance.database.tables import Job as JobDB, Resource as ResourceDB
 from ferdelance.database.repositories.core import AsyncSession, Repository
@@ -191,7 +192,9 @@ class ResourceRepository(Repository):
         )
         return view(res.one())
 
-    async def list_resources_by_artifact_id(self, artifact_id: str, iteration: int = -1) -> list[Resource]:
+    async def list_resources_by_artifact_id(
+        self, artifact_id: str, only_complete: bool, iteration: int = -1
+    ) -> list[Resource]:
         """Get a list of resources associated with the given artifact_id. This
         returns all kind of resources, models and estimations, aggregated or not.
 
@@ -209,6 +212,9 @@ class ResourceRepository(Repository):
         ]
         if iteration > -1:
             conditions.append(JobDB.iteration == iteration)
+
+        if only_complete:
+            conditions.append(ResourceDB.is_ready == only_complete)
 
         res = await self.session.scalars(
             select(ResourceDB)
