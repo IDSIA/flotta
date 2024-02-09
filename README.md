@@ -3,23 +3,22 @@
 
 ## What is Ferdelance?
 
-_Ferdelance_ is a **distributed framework** used for research tasks based on Federated Learning (FL).
-FL is a particular branch of Machine Learning (ML) that increase privacy of data holders.
-In FL the training of models is distributed across a series of data holders (client nodes) that can access directly to their data. Each node has an exclusive access to their data.
-The particularity of this approach is that the training data never leave these nodes, but only aggregated data, such model parameters, are exchanged to build an aggregated model.
+_Ferdelance_ is a **distributed framework** intended to be used both as a workbench to develop new distributed algorithm within a Federated Learning (FL) based environment, and perform distributed statistical analysis on private data.
 
-The current implementation support only a centralized setup, where model's parameters are sent from the client nodes to an aggregation server.
+Federated Learning is a Machine Learning (ML) approach that allows for training models across decentralized devices or servers while keeping the data localized, increasing the privacy of data holders.
+Instead of collecting data from various sources and centralizing it in one location for training, federated learning enables model training directly on the devices where the data resides.
+In FL the training of models is distributed across a series of data holders (client nodes) that have direct and exclusive access to their data.
+The particularity of this approach is that the training data never leave these nodes, while only aggregated data, such as model parameters, are exchanged to build an aggregated model.
 
-The intent of this framework is to develop a solution that enable researcher to develop and test new ML models without interacting directly with the data.
+The current implementation support both a centralized setup, where model's parameters are sent from the client nodes to an aggregation server, and distributed setup, where a model is shared across multiple nodes and multiple model aggregation can happen on different nodes.
+
+The intent of this framework is to develop a solution that enable researcher to develop and test new ML models in a FL context without interacting directly with the data.
 The framework wraps a familiar set of Python packages and libraries, such as Scikit-Learn and Pandas.
-This allows researchers to quickly setup data extraction pipeline, following the Extract-Transform-Load paradigm, and build models or analyze data.
+This allows researchers to quickly setup data extraction pipeline, following the _Extract-Transform-Load_ paradigm, and build models or analyze data.
 
-The framework is composed by three main components:
-* a **server** that merge multiple ML models in a single one,
-* a **client** that interact locally with the data,
-* a **workbench** used as entrypoint by the researchers.
+The main component of the framework is the **node**: a [FastAPI](https://fastapi.tiangolo.com/) based application capable of manage, schedule, and execute jobs in a [Ray](https://www.ray.io/) worker.
 
-All these components are necessary in order to run the framework.
+The implementation of the distributed network of node have been inspired by the [Apache Spark](https://spark.apache.org/) framework; to interact with the framework, the researchers can use a **workbench** context to create and submit jobs to the distributed network through a node.
 
 
 ## Why this name?
@@ -34,15 +33,14 @@ All these components are necessary in order to run the framework.
 
 ## Use the framework
 
-The framework is available as a Python 3.10 package, with multiple configuration available.
-
-Each component has its own way to be used and/or installed.
+The framework is available as a Python 3.10 package
+Configuring a node can be done through environment variables or a YAML configuration file.
 
 
 ### Workbench
 
-The _workbench_ is not a standalone application but a library to include.
-It is used to communicate with an aggregation server and submit Artifacts.
+The _workbench_ is not a standalone application but a library that need to be imported.
+It is used to communicate with a node and submit Artifacts, that encapsulate instructions for the job scheduling and execution.
 
 Installation is straightforward.
 
@@ -52,7 +50,7 @@ pip install ferdelance[workbench]
 
 Once installed, just create a context object and obtain a project handler with a token.
 A project is a collection of data sources.
-The token is created by the framework administrator and it is unique for each project.
+The token is created by the node network administrator and it is unique for each project.
 
 Following an example of how to use the workbench library to connect to a server.
 
