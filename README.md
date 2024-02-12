@@ -10,7 +10,7 @@ Instead of collecting data from various sources and centralizing it in one locat
 In FL the training of models is distributed across a series of data holders (client nodes) that have direct and exclusive access to their data.
 The particularity of this approach is that the training data never leave these nodes, while only aggregated data, such as model parameters, are exchanged to build an aggregated model.
 
-The current implementation support both a centralized setup, where model's parameters are sent from the client nodes to an aggregation ndoe, and distributed setup, where a model is shared across multiple nodes and multiple model aggregation can happen on different nodes.
+The current implementation support both a centralized setup, where model's parameters are sent from the client nodes to an aggregation node, and distributed setup, where a model is shared across multiple nodes and multiple model aggregation can happen on different nodes.
 
 The intent of this framework is to develop a solution that enable researcher to develop and test new ML models in a FL context without interacting directly with the data.
 The framework wraps a familiar set of Python packages and libraries, such as Scikit-Learn and Pandas.
@@ -117,7 +117,7 @@ artifact: Artifact = ctx.submit(project, steps)
 
 > **Note:** More examples are available in the [`examples`](./examples/) and in the [`tests`](./tests/) folders.
 
-### Node
+### Node deployment
 
 The _aggregation node_ is a node reachable from all nodes in the network and the central node of the framework.
 All workbenches send their payload, called Artifacts, to the aggregation node; while all the clients query the same node for the next job to run.
@@ -129,6 +129,12 @@ The installation of a node is simple:
 pip install ferdelance
 ```
 
+Once installed it can be run by specifying a YAML configuration file:
+
+```bash
+python -m ferdelance -c ./config.yaml
+```
+
 The node is composed by a web API written with [FastAPI](https://fastapi.tiangolo.com/) that runs and spawns [Ray](https://ray.io) tasks.
 The node also uses a database to keep track of every stored object.
 
@@ -136,36 +142,10 @@ The easiest way to deploy a node is using **Docker Compose**.
 
 The file [docker-compose.integration.yaml](./tests/integration/docker-compose.integration.yaml) contains a definition of all services required to create a stack that simulates a central server node and some client nodes.
 
-This stack includes:
-- a Python repository used to update clients and workbenches,
-- a [PostgreSQL](https://www.postgresql.org/) database,
-- the node service,
-- two clients node.
-
-The compose stack requires some environment variables that can be collected in a `.env` file as follows:
-
-```bash
-DATABASE_USER=ferdelance
-DATABASE_PASS=<something good>
-DATABASE_SCHEMA=ferdelance
-```
-
-Once the stack is up and running, the server will be reachable at `http://server:1456/` while the repository at `htp://repository/`.
+Once one node is up and running, with default parameters the node will be reachable at `http://server:1456/`.
 
 
-### Client mode
-
-A node can be run as a client application.
-
-```bash
-pip install ferdelance
-```
-
-Once installed it can be run by specifying a YAML configuration file:
-
-```bash
-python -m ferdelance.client -c ./config.yaml
-```
+### Node configuration
 
 The minimal content of the configuration file is the definition of the server url to use and at least one datasource.
 The datasource must have a name and be associated with one or more project thought the `token` field. 
@@ -199,7 +179,7 @@ It is also required to specify through environment variables or with a `.env` fi
 
 The Ferdelance framework is open for contributions and offer a quick development environment.
 
-It is usefull to use a local Python virtual environment, like [virtualenv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/), during the development of the library.
+It is useful to use a local Python virtual environment, like [virtualenv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/), during the development of the library.
 
 The repository contains a `Makefile` that can be used to quickly create an environment and install the framework in development mode.
 
@@ -230,22 +210,55 @@ pip install ferdelance[test]
 
 > **Note:** The development version already include the test part
 
+
 ### Standalone mode
 
 One of the simplest way to test changes to the framework is through the so called `standalone mode`.
-In this mode, the framework is executed as a standalone application. 
+In this mode, the framework is executed as a standalone application: this is just a node scheduling jobs for itself with an hardcoded base configuration.
 
 ```bash
-python -m ferdelance.standalone -c ./config.yaml
+python -m ferdelance.standalone
 ```
 
-The server's variables can be set as environment variables, while the client config file can be set through the `-c` or `--config` arguments.
 
-Instead, to develop for the whole infrastructure, the Docker Compose is the right way.
+### Integration tests
+
+Integration tests are the perfect entrypoint for start deploying and use the framework.
+These tests simulates a real deployment, although on the same machine, with a dataset split and shared across multiple nodes.
+
+The execution requires a special [Docker Compose](./tests/integration/docker-compose.integration.yaml) that will produce a stack with:
+
+* repository with the packed wheel of the library
+* a postgres database
+* a node acting as an aggregation server
+* 2 nodes in client mode
+* 2 nodes in default mode (*not used yet*)
+* a workbench service
+
+The two client nodes and the two default nodes include the [California Housing Pricing dataset](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html).
+This dataset has been split in three: two parts for the nodes, one part for the evaluation in the workbench.
+These datasets are saved in CSV format in the [data](./tests/integration/conf) folder.
+
+Configuration of single nodes are stored in the [conf](./tests/integration/conf) folder in YAML format.
+
+Integration tests are written as scripts and simulates what an user could write through the workbench interface.
+Although a little bit primitive (and not so fast to setup and teardown), it is an effective way to test the workflow of the framework.
+
+All integration tests should be placed in the `tests/integration/tests` folder.
+These test should be named following the convention `test_NNN.<name>.py`, where `NNN` is an incremental number padded with zeros and `<name>` is just a reference.
+
+To execute the integration tests, simply run the following command from inside the integration folder:
+
+```bash
+make start
+```
+
+> **Note:** The Makefile included in `tests/integration` folder has other useful commands to start, stop, clear, and reload the Docker compose stack and also dump and clean the internal logs.
+
 
 ### Unit tests
 
-To test single part of code, such as transformers, models, or estimators, it is possible to write test files with the [`pytest`](https://docs.pytest.org/) library.
+To test single part of code, such as transformers, models, or estimators, it is advised to write test files using the [`pytest`](https://docs.pytest.org/) library.
 
 A simple test case can be setup as follow:
 
@@ -272,31 +285,12 @@ async def test_workbench_read_home(session: AsyncSession):
         assert res.status_code == 200
 ```
 
-The fixture to connect to the test db (which is an [`SQLite`](https://www.sqlite.org/) database) through the `session` object are defined in the `/tests/conftests.py` file.
+The fixture to connect to the test db (which for tests is an [`SQLite`](https://www.sqlite.org/) database) through the `session` object are defined in the [`conftest.py`](`./tests/conftests.py`) file.
 
 Other utility (component connection, clients operations, ...) methods are defined in the `/tests/utils.py` file.
 
-> **Note:** Remember that the framework uses [`FastAPI`](https://fastapi.tiangolo.com/) in full asynchronous mode: the test functions need to be defined as `async` and decorated with `@pytest.mark.asyncio` to work with the fixtures.
+> **Note:** Remember that the APIs defined in the framework use [`FastAPI`](https://fastapi.tiangolo.com/) in full _asynchronous_ mode: the test functions need to be defined as `async` and decorated with `@pytest.mark.asyncio` to work with the fixtures.
 
-
-### Integration tests
-
-Integration tests are done using a special [Docker Compose](./tests/integration/docker-compose.2clients.yaml) file.
-This file defines a framework with two clients and the [California Housing Pricing dataset](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html).
-This dataset has been split between the two clients.
-
-Integration tests are written as a script and simulates what a researcher could writhe through the workbench interface.
-Although a little bit primitive (and not so fast to setup and teardown), it is an effective way to test the workflow of the framework.
-
-All integration tests should be placed in the `tests/integration/tests` folder.
-These test should be named with the format `test_NNN.<name>.py`, where `NNN` is an incremental number padded with zeros.
-
-To execute the integration tests, simply run the following command from inside the integration folder:
-
-```bash
-make start
-```
-
-> **Note:** A practical Makefile is included in the `tests/integration` folder with useful commands to start, stop, clear, and reload the Docker compose stack.
+> **Note:** Code executed by the Ray's workers are _synchronous_ and these workers are designed to never access a database. Only the asynchronous APIs can access the database.
 
 ---
