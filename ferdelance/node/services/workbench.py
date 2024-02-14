@@ -178,7 +178,7 @@ class WorkbenchService:
 
         return resource
 
-    async def list_resources(self, artifact_id: str) -> list[Resource]:
+    async def list_resources(self, artifact_id: str, only_complete: bool) -> list[Resource]:
         rr: ResourceRepository = ResourceRepository(self.session)
 
-        return await rr.list_resources_by_artifact_id(artifact_id)
+        return await rr.list_resources_by_artifact_id(artifact_id, only_complete)

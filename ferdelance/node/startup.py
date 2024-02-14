@@ -1,6 +1,6 @@
 from ferdelance import __version__
 from ferdelance.config import config_manager, Configuration, DataSourceStorage
-from ferdelance.const import COMPONENT_TYPES
+from ferdelance.const import COMPONENT_TYPES, TYPE_CLIENT
 from ferdelance.database.repositories import (
     Repository,
     AsyncSession,
@@ -216,7 +216,7 @@ class NodeStartup(Repository):
             return
 
     async def start_heartbeat(self):
-        if self.config.mode in ("client", "standalone"):
+        if self.config.mode in (TYPE_CLIENT):
             LOGGER.info(f"component={self.self_component.id}: starting client heartbeat")
 
             get_jobs_backend().start_heartbeat(

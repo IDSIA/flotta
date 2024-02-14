@@ -39,7 +39,13 @@ class WorkbenchArtifact(BaseModel):
     artifact_id: str
 
 
+class WorkbenchResourceList(BaseModel):
+    artifact_id: str
+    only_complete: bool
+
+
 class WorkbenchResource(BaseModel):
     resource_id: str
     producer_id: str
     creation_time: datetime | None = None
+    is_ready: bool

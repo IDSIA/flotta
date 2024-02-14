@@ -29,12 +29,7 @@ if __name__ == "__main__":
         "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"  # this is a dummy token
     )
 
-    config.node.machine_mac_address = "02:00:00:%02x:%02x:%02x" % (
-        random.randint(0, 255),
-        random.randint(0, 255),
-        random.randint(0, 255),
-    )
-    config.node.machine_node = str(1000000000000 + int(random.uniform(0, 1.0) * 1000000000))
+    config.join.first = True
 
     config.dump()
 

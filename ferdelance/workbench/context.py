@@ -12,6 +12,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchJoinResponse,
     WorkbenchProjectToken,
     WorkbenchResource,
+    WorkbenchResourceList,
 )
 from ferdelance.security.checksums import str_checksum
 from ferdelance.security.exchange import Exchange
@@ -381,10 +382,10 @@ class Context:
 
         return Artifact(**json.loads(data))
 
-    def list_resources(self, artifact: Artifact) -> list[WorkbenchResource]:
-        wba = WorkbenchArtifact(artifact_id=artifact.id)
+    def list_resources(self, artifact: Artifact, only_complete: bool = True) -> list[WorkbenchResource]:
+        wbrl = WorkbenchResourceList(artifact_id=artifact.id, only_complete=only_complete)
 
-        headers, payload = self.exc.create(wba.json())
+        headers, payload = self.exc.create(wbrl.json())
 
         res = httpx.request(
             "GET",
@@ -402,6 +403,33 @@ class Context:
         return [WorkbenchResource(**d) for d in js]
 
     def get_resource(self, resource: WorkbenchResource) -> Any:
+        headers, payload = self.exc.create(resource.json())
+
+        with httpx.stream(
+            "GET",
+            f"{self.server_url}/workbench/resource",
+            headers=headers,
+            content=payload,
+        ) as res:
+            res.raise_for_status()
+
+            data, _ = self.exc.stream_response(res.iter_bytes())
+
+            obj = pickle.loads(data)
+
+            return obj
+
+    def get_latest_resource(self, artifact: Artifact, only_complete: bool = True) -> Any:
+        resources: list[WorkbenchResource] = self.list_resources(artifact, only_complete)
+
+        if not resources:
+            raise ValueError("No resources found")
+
+        resource: WorkbenchResource = max(
+            resources,
+            key=lambda x: x.creation_time.timestamp() if x.creation_time else -1,
+        )
+
         headers, payload = self.exc.create(resource.json())
 
         with httpx.stream(

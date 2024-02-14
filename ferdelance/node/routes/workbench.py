@@ -13,6 +13,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchResource,
     WorkbenchProjectToken,
     WorkbenchArtifact,
+    WorkbenchResourceList,
 )
 from ferdelance.security.checksums import str_checksum
 
@@ -194,20 +195,21 @@ async def wb_get_artifact(
 
 @workbench_router.get("/resource/list", response_model=list[WorkbenchResource])
 async def wb_get_resource_list(
-    wba: WorkbenchArtifact,
+    wbrl: WorkbenchResourceList,
     args: ValidSessionArgs = Depends(allow_access),
 ):
-    LOGGER.info(f"user={args.source.id}: requested resource list for artifact={wba.artifact_id}")
+    LOGGER.info(f"user={args.source.id}: requested resource list for artifact={wbrl.artifact_id}")
 
     ws: WorkbenchService = WorkbenchService(args.session, args.source, args.self_component)
 
-    res_list = await ws.list_resources(wba.artifact_id)
+    res_list = await ws.list_resources(wbrl.artifact_id, wbrl.only_complete)
 
     return [
         WorkbenchResource(
             resource_id=r.id,
             producer_id=r.component_id,
             creation_time=r.creation_time,
+            is_ready=r.is_ready,
         )
         for r in res_list
     ]

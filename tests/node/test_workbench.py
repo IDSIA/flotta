@@ -353,7 +353,7 @@ async def test_get_results(session: AsyncSession):
         with open(resource.path, "w") as f:
             f.write('{"message": "results!"}')
 
-        wbr = WorkbenchResource(resource_id=resource.id, producer_id=job2.component_id)
+        wbr = WorkbenchResource(resource_id=resource.id, producer_id=job2.component_id, is_ready=True)
 
         headers, payload = wb_exc.create(wbr.json())
 
