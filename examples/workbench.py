@@ -1,11 +1,11 @@
 # %%
-from joblib import Parallel
 from ferdelance.core.distributions import Collect
 from ferdelance.core.estimators import GroupCountEstimator, MeanEstimator
-from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
 from ferdelance.core.model_operations import Aggregation, Train, TrainTest
-from ferdelance.core.steps import Finalize
+from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+from ferdelance.core.steps import Finalize, Parallel
 from ferdelance.core.transformers import FederatedSplitter, FederatedKBinsDiscretizer
+from ferdelance.schemas.workbench import WorkbenchResource
 from ferdelance.workbench import (
     Context,
     Project,
@@ -22,10 +22,6 @@ import json
 
 # %% create the context
 ctx = Context("http://localhost:1456")
-
-# nice to have:
-# with Context(...) as ctx:
-#     ...
 
 # %% load a project given a token
 project_token = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
@@ -53,12 +49,6 @@ for datasource in datasources:
 ds = project.data  # <--- AggregatedDataSource
 
 print(ds)
-
-# list of AggregatedFeature:
-# distributions, not discrete values
-# min, max, std, mean, %missing
-# total amount of records
-# in tabular (dataframe) format
 
 # this is like a describe, but per single feature
 for feature in ds.features:
@@ -103,7 +93,7 @@ me = MeanEstimator(query=q)
 ret = ctx.submit(project, me.get_steps())
 
 # %% prepare the model steps
-m = FederatedRandomForestClassifier(
+model = FederatedRandomForestClassifier(
     n_estimators=10,
     strategy=StrategyRandomForestClassifier.MERGE,
 )
@@ -120,13 +110,13 @@ steps = [
                     label=label,
                 )
             ),
-            trainer=Train(model=m),
-            model=m,
+            trainer=Train(model=model),
+            model=model,
         ),
         Collect(),
     ),
     Finalize(
-        Aggregation(model=m),
+        Aggregation(model=model),
     ),
 ]
 
@@ -141,35 +131,17 @@ status: ArtifactStatus = ctx.status(a)
 
 print(status)
 
-# %% download trained model:
-m.load(ctx.get_result(a))
+# %% list produced resources
+resources: list[WorkbenchResource] = ctx.list_resources(a)
+
+for r in resources:
+    print(r.resource_id, r.creation_time, r.is_ready)
+
+# %% get latest produced resource (the result)
+
+agg_model: FederatedRandomForestClassifier = ctx.get_latest_resource(a)["model"]
 
 # %%
 
-print(m.predict(np.array([[0, 0, 0, 0]])))
-print(m.predict(np.array([[1, 1, 1, 1]])))
-
-# %%
-
-# AggregatedDataSource(
-#     project_id="123-456-789",
-#     project_name="Housing",
-#     n_records=69,
-#     n_features=420,
-#     features=[
-#         AggregatedFeature(
-#             "Price",
-#             float,
-#             min=Distrib(
-#                 min=1000,
-#                 max=2000,
-#                 mean=1600,
-#                 stdd=3.5
-#             ),
-#             max=Distrib(
-#                 ...
-#             ),
-#             ...
-#         )
-#     ]
-# )
+print(agg_model.predict(np.array([[0, 0, 0, 0]])))
+print(agg_model.predict(np.array([[1, 1, 1, 1]])))
