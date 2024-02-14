@@ -151,27 +151,82 @@ The minimal content of the configuration file is the definition of the server ur
 The datasource must have a name and be associated with one or more project thought the `token` field. 
 
 ```yaml
-workdir: ./storage               # OPTIONAL: local path of the working directory
+workdir: ./storage                  # OPTIONAL: local path of the working directory
 
-server:
-    host: http://localhost:1456/ # url of remote server
+mode: node                          # one of: node, client, standalone
 
-client:
-    heartbeat: 10.0              # OPTIONAL: float, waiting seconds for server updates
+node:
+  name: FerdelanceNode
+  healthcheck: 3600.0               # wait in seconds for check self status
+  heartbeat: 10.0                   # wait in seconds for clients to fetch updates
+  allow_resource_download: true     # if false, nobody can download resources from this node
 
-datasources:
-  - name: iris                   # name of the source
-    kind: file                   # how the datasource is stored (only 'file')
-    type: csv                    # file format supported (only 'csv' or 'tsv')
-    path: /data/iris.csv         # path to the file to use
-    token: 
-    - 58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94
+  protocol: http                    # external protocol (http or https)
+  interface: 0.0.0.0                # interface to use (0.0.0.0 for node, "localhost" for clients)
+  url: ""                           # external url that the node will be reachable at
+  port: 1456                        # external port to use to reach the APIs
+
+  token_projects_initial:           # initial projects available at node start
+    - name: my_beautiful_project    # name of the project
+      token: 58981bcbab...          # unique token assigned to the project
+
+join:
+  first: true                       # if true, this is the first node in the distributed network
+  url: ""                           # when a node is note the first, set the url for the join node
+
+datasources:                        # list of available datasources
+  - name: iris                      # name of the source
+    kind: file                      # how the datasource is stored (only 'file')
+    type: csv                       # file format supported (only 'csv' or 'tsv')
+    path: /data/iris.csv            # path to the file to use
+    token:                          # list of project token that can access this datasource
+    - 58981bcbab7...                
+
+database:
+  username: ""                      # username used to access the database
+  password: ""                      # password used to access the database
+  scheme: ferdelance                # specify the name of the database schema to use
+  memory: false                     # when set to true, a SQLite in-memory database will be used
+  dialect: sqlite                   # current accepted dialects are: SQLite and Postgresql
+  host: ./sqlite.db                 # local path for local file (QSLite) or url for remote database
+  port: ""                          # port to use to connect to a remote database
 ```
 
-Like th server, a Docker Compose is also available for the client through the [docker-compose.client.yaml](./docker-compose.client.yaml) file.
-To work correctly, there must exists a valid `./config/config.yaml` file and the data sources files must be stored in the `./data/` folder (and correctly defined in the `config.yaml` file).
+> **Note:** It is also possible to specify environment variables in the configuration file using the syntax `${ENVIRONMENT_VARIABLE_NAME}` inside the fields of parameters.
+This is specially useful when setting parameters, such as domains or password, through a Docker compose file.
 
-It is also required to specify through environment variables or with a `.env` file the server url using the `FDL_SERVER` variable name.
+For the first node of the distributed network, the `join.first` parameter must always be set to `true`.
+In the network it must always be a first node with this configuration.
+In all the other cases, both for `client` and `node` mode, the configuration need to specify the `join.url` parameter to a valid url of an existing node.
+Only urls of nodes in `node` mode can be used in this parameter.
+
+Database configuration is completely optional.
+Every node needs a database to work properly.
+Minimal setup is to use an SQLite in-memory database by setting `database.memory: true`.
+If not database is configured, then the in-memory database will be used.
+Other supported database are:
+* SQLite file database,
+
+```yaml
+database:
+  scheme: ferdelance
+  dialect: sqlite
+  host: ./sqlite.db
+  memory: false
+```
+
+* Postgresql remote database.
+
+```yaml
+database:
+  username: "${DATABASE_USER}"
+  password: "${DATABASE_PASSWORD}"
+  scheme: ferdelance
+  dialect: postgresql
+  host: remote_url
+  port: 5432
+  memory: false
+```
 
 ---
 
@@ -183,7 +238,7 @@ It is useful to use a local Python virtual environment, like [virtualenv](https:
 
 The repository contains a `Makefile` that can be used to quickly create an environment and install the framework in development mode.
 
-> **Note:** Make sure that the `make` command is available.
+> **Note:** Make sure that the `make` command is available on the test machine.
 
 To install the library in development mode, use the following command:
 
