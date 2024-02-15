@@ -33,7 +33,7 @@ The implementation of the distributed network of node have been inspired by the 
 
 ## Use the framework
 
-The framework is available as a Python 3.10 package
+The framework is available as a Python 3.10 package.
 Configuring a node can be done through environment variables or a YAML configuration file.
 
 
@@ -292,7 +292,7 @@ The execution requires a special [Docker Compose](./tests/integration/docker-com
 
 The two client nodes and the two default nodes include the [California Housing Pricing dataset](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html).
 This dataset has been split in three: two parts for the nodes, one part for the evaluation in the workbench.
-These datasets are saved in CSV format in the [data](./tests/integration/conf) folder.
+These datasets are saved in CSV format in the [data](./tests/integration/data) folder.
 
 Configuration of single nodes are stored in the [conf](./tests/integration/conf) folder in YAML format.
 
