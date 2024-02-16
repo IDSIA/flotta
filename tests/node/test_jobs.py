@@ -6,7 +6,7 @@ from ferdelance.database.tables import Artifact, Component, Resource
 from ferdelance.logging import get_logger
 from ferdelance.shared.status import JobStatus
 
-from tests.dummies import DummyStep
+from tests.dummies import DummyOp, DummyStep
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -92,9 +92,9 @@ async def test_jobs_next(session: AsyncSession):
     c1 = await cr.get_by_id(client_id_1)
     c2 = await cr.get_by_id(client_id_2)
 
-    job_a1_c1 = SchedulerJob(id=0, worker=c1, iteration=0, step=DummyStep(), locks=[1])
-    job_a1_c2 = SchedulerJob(id=1, worker=c2, iteration=0, step=DummyStep(), locks=[1])
-    job_a2_c1 = SchedulerJob(id=2, worker=c1, iteration=0, step=DummyStep(), locks=[1])
+    job_a1_c1 = SchedulerJob(id=0, worker=c1, iteration=0, step=DummyStep(operation=DummyOp()), locks=[1])
+    job_a1_c2 = SchedulerJob(id=1, worker=c2, iteration=0, step=DummyStep(operation=DummyOp()), locks=[1])
+    job_a2_c1 = SchedulerJob(id=2, worker=c1, iteration=0, step=DummyStep(operation=DummyOp()), locks=[1])
 
     jr: JobRepository = JobRepository(session)
 

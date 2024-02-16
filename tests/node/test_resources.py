@@ -70,7 +70,7 @@ async def test_submit_and_download_resource(session: AsyncSession):
                 job_id=job_id,
                 resource_id=resource.id,
                 file="attached",
-            ).dict(),
+            ).model_dump(),
         )
 
         res = server.post(
@@ -88,7 +88,7 @@ async def test_submit_and_download_resource(session: AsyncSession):
         assert ri.resource_id == resource.id
 
         # get resource
-        headers, payload = exchange.create(ri.json())
+        headers, payload = exchange.create(ri.model_dump_json())
 
         with server.stream(
             "GET",
@@ -132,7 +132,7 @@ async def test_proxy_resource(session: AsyncSession):
                 job_id=job_id,
                 resource_id=resource.id,
                 file="attached",
-            ).dict(),
+            ).model_dump(),
         )
 
         res = server.post(
@@ -160,7 +160,7 @@ async def test_proxy_resource(session: AsyncSession):
         exchange.clear_proxy()
         exchange.set_remote_key(sv.id, sv.public_key)
 
-        headers, payload = exchange.create(ri.json())
+        headers, payload = exchange.create(ri.model_dump_json())
 
         with server.stream(
             "GET",

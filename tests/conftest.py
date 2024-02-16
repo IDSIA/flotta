@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
 
 import os
-import pytest
 import pytest_asyncio
 import shutil
 

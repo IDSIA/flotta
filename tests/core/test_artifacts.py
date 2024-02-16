@@ -29,7 +29,7 @@ def test_simple_artifact():
         ],
     )
 
-    artifact_str = artifact.json()
+    artifact_str = artifact.model_dump_json()
     artifact_json = json.loads(artifact_str)
 
     assert "steps" in artifact_json
@@ -68,7 +68,7 @@ def test_aggregate_model_rf_artifact():
         steps=model.get_steps(),
     )
 
-    artifact_str = artifact.json()
+    artifact_str = artifact.model_dump_json()
     artifact_json = json.loads(artifact_str)
 
     assert "steps" in artifact_json
@@ -102,7 +102,7 @@ def test_plan_sequence():
         steps=count.get_steps(),
     )
 
-    artifact_str = artifact.json()
+    artifact_str = artifact.model_dump_json()
     artifact_json = json.loads(artifact_str)
 
     assert "steps" in artifact_json
@@ -156,7 +156,7 @@ def test_steps_conversion():
 
     for job in jobs:
         print(
-            job.step._name,
+            job.step.entity,
             job.id,
             f"{str(job.locks):8}",
             job.resource_required,

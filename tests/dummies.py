@@ -1,10 +1,10 @@
 from typing import Any, Sequence
 
 from ferdelance.core.environment import Environment
-from ferdelance.core.interfaces import SchedulerContext, SchedulerJob, Step
+from ferdelance.core.interfaces import SchedulerContext, SchedulerJob, BaseStep
 from ferdelance.core.models import AggregationModel
-from ferdelance.core.operations import Operation
-from ferdelance.core.transformers import QueryTransformer
+from ferdelance.core.operations.core import Operation
+from ferdelance.core.transformers.core import QueryTransformer
 from ferdelance.logging import get_logger
 
 from numpy.typing import ArrayLike
@@ -19,7 +19,7 @@ class DummyOp(Operation):
         return env
 
 
-class DummyStep(Step):
+class DummyStep(BaseStep):
     def step(self, env: Environment) -> Environment:
         return env
 
