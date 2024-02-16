@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ferdelance.core.environment import Environment
-from ferdelance.core.model_operations import ModelOperation
+from ferdelance.core.model_operations.core import ModelOperation
 
 
 class Aggregation(ModelOperation):
@@ -20,4 +20,4 @@ class Aggregation(ModelOperation):
         return env
 
 
-Aggregation.update_forward_refs()
+Aggregation.model_rebuild()

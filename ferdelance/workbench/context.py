@@ -155,7 +155,7 @@ class Context:
             signature=signature,
         )
 
-        headers, payload = self.exc.create(wjr.json())
+        headers, payload = self.exc.create(wjr.model_dump_json())
 
         res = httpx.post(
             f"{self.server_url}/workbench/connect",
@@ -185,7 +185,7 @@ class Context:
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = self.exc.create(wpt.json())
+        headers, payload = self.exc.create(wpt.model_dump_json())
 
         res = httpx.request(
             "GET",
@@ -212,7 +212,7 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(wpt.json())
+        headers, payload = self.exc.create(wpt.model_dump_json())
 
         res = httpx.request(
             "GET",
@@ -239,7 +239,7 @@ class Context:
         """
         wpt = WorkbenchProjectToken(token=project.token)
 
-        headers, payload = self.exc.create(wpt.json())
+        headers, payload = self.exc.create(wpt.model_dump_json())
 
         res = httpx.request(
             "GET",
@@ -273,7 +273,7 @@ class Context:
             steps=steps,
         )
 
-        headers, payload = self.exc.create(artifact.json())
+        headers, payload = self.exc.create(artifact.model_dump_json())
 
         res = httpx.post(
             f"{self.server_url}/workbench/artifact/submit",
@@ -305,7 +305,7 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact.id)
 
-        headers, payload = self.exc.create(wba.json())
+        headers, payload = self.exc.create(wba.model_dump_json())
 
         res = httpx.request(
             "GET",
@@ -367,7 +367,7 @@ class Context:
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = self.exc.create(wba.json())
+        headers, payload = self.exc.create(wba.model_dump_json())
 
         res = httpx.request(
             "GET",
@@ -385,7 +385,7 @@ class Context:
     def list_resources(self, artifact: Artifact, only_complete: bool = True) -> list[WorkbenchResource]:
         wbrl = WorkbenchResourceList(artifact_id=artifact.id, only_complete=only_complete)
 
-        headers, payload = self.exc.create(wbrl.json())
+        headers, payload = self.exc.create(wbrl.model_dump_json())
 
         res = httpx.request(
             "GET",
@@ -403,7 +403,7 @@ class Context:
         return [WorkbenchResource(**d) for d in js]
 
     def get_resource(self, resource: WorkbenchResource) -> Any:
-        headers, payload = self.exc.create(resource.json())
+        headers, payload = self.exc.create(resource.model_dump_json())
 
         with httpx.stream(
             "GET",
@@ -430,7 +430,7 @@ class Context:
             key=lambda x: x.creation_time.timestamp() if x.creation_time else -1,
         )
 
-        headers, payload = self.exc.create(resource.json())
+        headers, payload = self.exc.create(resource.model_dump_json())
 
         with httpx.stream(
             "GET",

@@ -43,7 +43,7 @@ class TaskManagementService(Repository):
 
         self.config: Configuration = config_manager.get()
 
-        self.local_datasources: list[dict[str, Any]] = [ds.dict() for ds in config_manager.get_data().ds_configs]
+        self.local_datasources: list[dict[str, Any]] = [ds.model_dump() for ds in config_manager.get_data().ds_configs]
 
     async def check(self, artifact_id: str) -> None:
         """Checks if there are scheduled tasks that need to be started, locally or remotely.
@@ -167,7 +167,7 @@ class TaskManagementService(Repository):
         exc: Exchange = Exchange(self.self_component.id, private_key)
         exc.set_remote_key(remote.id, remote.public_key)
 
-        headers, payload = exc.create(task.json())
+        headers, payload = exc.create(task.model_dump_json())
 
         res = httpx.post(
             f"{remote.url.rstrip('/')}/task/",

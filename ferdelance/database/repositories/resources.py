@@ -1,4 +1,3 @@
-from matplotlib.cbook import contiguous_regions
 from ferdelance.config import config_manager
 from ferdelance.database.tables import Job as JobDB, Resource as ResourceDB
 from ferdelance.database.repositories.core import AsyncSession, Repository

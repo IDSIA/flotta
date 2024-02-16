@@ -3,7 +3,8 @@ from __future__ import annotations
 from ferdelance.core.environment import Environment
 from ferdelance.core.entity import Entity
 from ferdelance.core.queries.features import QueryFeature, QueryFilter, FilterOperation
-from ferdelance.core.queries.stages import QueryStage, QueryTransformer
+from ferdelance.core.queries.stages import QueryStage
+from ferdelance.core.transformers.core import QueryTransformer
 from ferdelance.core.transformers import FederatedFilter
 
 from datetime import datetime
@@ -140,7 +141,7 @@ class Query(Entity):
                 A copy of the original Query object with the new state.
         """
 
-        q = self.copy(deep=True)
+        q = self.model_copy(deep=True)
 
         if isinstance(arg, QueryTransformer):
             q.add_transformer(arg)

@@ -10,7 +10,7 @@ __all__ = [
 ]
 
 
-from .core import ModelOperation
+from .core import TModelOperation as ModelOperation
 from .train import Train, TrainTest
 from .aggregations import Aggregation
 from .cross_validation import LocalCrossValidation

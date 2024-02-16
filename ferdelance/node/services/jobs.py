@@ -1,4 +1,3 @@
-from sched import scheduler
 from typing import Sequence
 from ferdelance.config.config import Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT
@@ -382,7 +381,7 @@ class JobManagementService(Repository):
             await self.ar.update_status(job.artifact_id, ArtifactJobStatus.ERROR)
 
             async with aiofiles.open(resource.path, "w") as out_file:
-                content = json.dumps(error.dict(), indent=True)
+                content = json.dumps(error.model_dump(), indent=True)
                 await out_file.write(content)
 
             return resource
@@ -401,5 +400,5 @@ class JobManagementService(Repository):
         LOGGER.info(f"component={self.self_component.id}: saving metrics for job={metrics.job_id}")
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(metrics.dict(), indent=True)
+            content = json.dumps(metrics.model_dump(), indent=True)
             await f.write(content)

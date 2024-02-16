@@ -6,6 +6,8 @@ from ferdelance.core.entity import Entity
 from ferdelance.core.interfaces import Step
 from ferdelance.core.queries import Query
 
+from pydantic import SerializeAsAny
+
 
 class Estimator(ABC, Entity):
     query: Query | None = None
@@ -25,3 +27,6 @@ class Estimator(ABC, Entity):
     @abstractmethod
     def get_steps(self) -> Sequence[Step]:
         raise NotImplementedError()
+
+
+TEstimator = SerializeAsAny[Estimator]

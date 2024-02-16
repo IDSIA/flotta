@@ -87,7 +87,7 @@ class AggregatedFeature(Feature):
         name = features[0].name
         dtype = features[0].dtype
 
-        df = pd.DataFrame([f.dict() for f in features])
+        df = pd.DataFrame([f.model_dump() for f in features])
 
         if dtype == DataType.NUMERIC.name:
             return AggregatedFeature(

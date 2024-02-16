@@ -9,7 +9,7 @@ from ferdelance.core.queries import Query
 
 from numpy.typing import ArrayLike
 from pathlib import Path
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, SerializeAsAny
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -113,3 +113,6 @@ class Model(ABC, Entity):
     @abstractmethod
     def get_steps(self) -> Sequence[Step]:
         raise NotImplementedError()
+
+
+TModel = SerializeAsAny[Model]
