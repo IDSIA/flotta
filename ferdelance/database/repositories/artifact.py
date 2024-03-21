@@ -127,7 +127,7 @@ class ArtifactRepository(Repository):
         path = await self.storage_location(artifact.id)
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(artifact.dict(), indent=True)
+            content = json.dumps(artifact.model_dump(), indent=True)
             await f.write(content)
 
         LOGGER.info(f"artifact={artifact.id}: stored descriptor to path={path}")

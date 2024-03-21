@@ -1,12 +1,12 @@
 from typing import Any
 
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, model_validator
 
 class_registry: dict[str, Any] = dict()
 
 
 class Entity(BaseModel):
-    _name: str = ""
+    entity: str = ""
     random_state: Any = None
 
     # register subclasses when created
@@ -16,39 +16,42 @@ class Entity(BaseModel):
             class_registry[cls.__name__] = cls
 
     # set the _name field with the correct class-name
-    @root_validator(pre=False)
-    def set_entity_type(cls, values):
-        values["_name"] = cls.__name__
-        return values
+    @model_validator(mode="after")
+    def set_entity_type(self):
+        self.entity = type(self).__name__
+        return self
 
-    @root_validator(pre=True)
-    def set_entities(cls, values: Any) -> Any:
+    @model_validator(mode="before")
+    def set_entities(cls, values: dict[str, Any]) -> Any:
         return create_entities(values)
 
 
-def class_from_name(entity: Any) -> Any:
-    class_name = entity["_name"]
+def class_from_name(args: dict[str, Any]) -> Any:
+    class_name = args["entity"]
     subclass = class_registry[class_name]
-    return subclass(**entity)
+    return subclass(**args)
 
 
 def create_entities(values: Any) -> Any:
     if not isinstance(values, dict):
         return values
 
-    for key in values.keys():
-        entities = values[key]
+    for key, args in values.items():
 
-        if isinstance(entities, list):
-            for index, entity in enumerate(entities):
-                if isinstance(entity, dict) and "_name" in entity:
-                    entities[index] = class_from_name(entity)
+        if isinstance(args, list):
+
+            for index, params in enumerate(args):
+                if isinstance(params, dict) and "entity" in params:
+                    values[key][index] = class_from_name(params)
+
                 else:
-                    create_entities(entity)
-        elif isinstance(entities, dict):
-            entity = entities
-            if "_name" in entity:
-                values[key] = class_from_name(entity)
+                    create_entities(params)
+
+        elif isinstance(args, dict):
+            params = args
+
+            if "entity" in params:
+                values[key] = class_from_name(params)
 
     return values
 

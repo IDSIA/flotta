@@ -4,7 +4,7 @@ from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 from ferdelance.core.queries import QueryFeature, FilterOperation
 
-from pydantic import validator
+from pydantic import field_validator
 
 import pandas as pd
 
@@ -14,7 +14,7 @@ class FederatedFilter(QueryTransformer):
     operation: FilterOperation
     value: str | Any
 
-    @validator("value")
+    @field_validator("value")
     def validate_value(cls, value):
         if not isinstance(value, str):
             return f"{value}"
@@ -23,7 +23,7 @@ class FederatedFilter(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()
 
     def apply(self, df: pd.DataFrame) -> pd.Series:
         feature: str = self.feature if isinstance(self.feature, str) else self.feature.name

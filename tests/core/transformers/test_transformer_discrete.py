@@ -24,7 +24,7 @@ def test_kbin_one_feature():
     f_out = QueryFeature("HouseAgeBin")
     fkbd = FederatedKBinsDiscretizer(features_in=[f_in], features_out=[f_out], n_bins=10, random_state=42)
 
-    print(fkbd.json())
+    print(fkbd.model_dump_json())
 
     df = run(df, fkbd)
 

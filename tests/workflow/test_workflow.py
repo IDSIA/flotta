@@ -52,7 +52,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
         # workbench part
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(wpt.json())
+        headers, payload = wb_exc.create(wpt.model_dump_json())
 
         res = server.request(
             "GET",
@@ -108,7 +108,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
             ],
         )
 
-        headers, payload = wb_exc.create(artifact.json())
+        headers, payload = wb_exc.create(artifact.model_dump_json())
 
         res = server.post(
             "/workbench/artifact/submit",
@@ -129,7 +129,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = wb_exc.create(wba.json())
+        headers, payload = wb_exc.create(wba.model_dump_json())
 
         res = server.request(
             "GET",
@@ -148,7 +148,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         assert status.status == ArtifactJobStatus.RUNNING
 
-        headers, payload = wb_exc.create(wba.json())
+        headers, payload = wb_exc.create(wba.model_dump_json())
 
         res = server.request(
             "GET",
@@ -194,7 +194,7 @@ async def test_workflow_wb_submit_client_get(session: AsyncSession):
 
         LOGGER.info("get task for client")
 
-        headers, payload = cl_exc.create(update_execute.json())
+        headers, payload = cl_exc.create(update_execute.model_dump_json())
 
         task_response = server.request(
             method="GET",

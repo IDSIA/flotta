@@ -24,10 +24,10 @@ __all__ = [
 
 from .entity import Entity
 from .environment import Environment, EnvResource, EnvProduct
-from .interfaces import SchedulerContext, SchedulerJob, Step
-from .steps import BaseStep, Initialize, Parallel, Sequential, RoundRobin, Finalize, Iterate
+from .interfaces import SchedulerContext, SchedulerJob, Step, BaseStep, Iterate
+from .steps import Initialize, Parallel, Sequential, RoundRobin, Finalize
 from .artifacts import Artifact, ArtifactStatus
-from .model import Model
+from .model import TModel as Model
 from .metrics import Metrics
 from .utils import convert_list, convert_features_in_to_list, convert_features_out_to_list
 

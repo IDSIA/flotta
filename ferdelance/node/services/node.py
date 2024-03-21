@@ -166,7 +166,7 @@ class NodeService:
 
             self.exc.set_remote_key(node.id, node.public_key)
 
-            headers, payload = self.exc.create(new_component.json())
+            headers, payload = self.exc.create(new_component.model_dump_json())
 
             res = httpx.put(
                 f"{node.url}/node/add",
@@ -192,7 +192,7 @@ class NodeService:
                 # skip nodes that are not server nodes
                 continue
 
-            headers, payload = self.exc.create(component.json())
+            headers, payload = self.exc.create(component.model_dump_json())
 
             res = httpx.put(
                 f"{node.url}/node/remove",
@@ -223,7 +223,7 @@ class NodeService:
 
             self.exc.set_remote_key(node.id, node.public_key)
 
-            headers, payload = self.exc.create(node_metadata.json())
+            headers, payload = self.exc.create(node_metadata.model_dump_json())
 
             res = httpx.put(
                 f"{node.url}/node/metadata",

@@ -7,7 +7,7 @@ __all__ = [
     "DirectToNext",
 ]
 
-from .core import Distribution
+from .core import TDistribution as Distribution
 from .many import Distribute, Collect, Arrange
 from .circulars import RoundRobin
 from .sequentials import DirectToNext

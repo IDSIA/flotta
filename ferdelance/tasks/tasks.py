@@ -1,6 +1,4 @@
-from ferdelance.core.entity import Entity
-from ferdelance.core.environment import Environment
-from ferdelance.core.interfaces import Step
+from ferdelance.core import Entity, Environment, BaseStep, Iterate
 
 from pydantic import BaseModel
 
@@ -60,7 +58,7 @@ class Task(Entity):
 
     iteration: int
 
-    step: Step  # what execute
+    step: BaseStep | Iterate  # what execute
 
     required_resources: list[TaskResource]  # what collect from
     next_nodes: list[TaskNode]  # receivers of the produced resources

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from ferdelance.database import DataBase, Base
 from ferdelance.logging import get_logger
 from ferdelance.node.middlewares import SignedAPIRoute
@@ -18,9 +19,16 @@ from fastapi.responses import JSONResponse
 LOGGER = get_logger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await startup()
+    yield
+    await shutdown()
+
+
 def init_api() -> FastAPI:
     """Initializes the API by adding the routers."""
-    api: FastAPI = FastAPI()
+    api: FastAPI = FastAPI(lifespan=lifespan)
 
     api.include_router(node_router)
     api.include_router(workbench_router)
@@ -38,9 +46,8 @@ def init_api() -> FastAPI:
 api = init_api()
 
 
-@api.on_event("startup")
-async def populate_database() -> None:
-    """All operations marked as `on_event('startup')` are executed when the API are started."""
+async def startup() -> None:
+    """Operations executed before the API are started."""
     LOGGER.info("server startup procedure started")
 
     try:
@@ -59,7 +66,6 @@ async def populate_database() -> None:
         LOGGER.exception(e)
 
 
-@api.on_event("shutdown")
 async def shutdown() -> None:
     LOGGER.info("server shutdown procedure started")
     inst = DataBase()

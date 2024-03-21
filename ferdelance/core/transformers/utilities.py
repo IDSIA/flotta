@@ -42,7 +42,7 @@ class FederatedDrop(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()
 
 
 class FederatedRename(QueryTransformer):
@@ -70,4 +70,4 @@ class FederatedRename(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()

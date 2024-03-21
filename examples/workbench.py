@@ -124,7 +124,7 @@ steps = [
 
 a: Artifact = ctx.submit(project, steps)
 
-print(json.dumps(a.dict(), indent=True))  # view execution plan
+print(json.dumps(a.model_dump(), indent=True))  # view execution plan
 
 # %% monitor learning progress
 status: ArtifactStatus = ctx.status(a)

@@ -4,9 +4,10 @@ from itertools import pairwise
 
 from ferdelance.core.entity import Entity
 from ferdelance.core.interfaces import Step, SchedulerJob, SchedulerContext
+from ferdelance.core.interfaces import BaseStep, Iterate
 from ferdelance.shared.status import ArtifactJobStatus
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SerializeAsAny
 
 
 class Artifact(Entity):
@@ -14,7 +15,7 @@ class Artifact(Entity):
 
     id: str = ""
     project_id: str
-    steps: Sequence[Step]
+    steps: SerializeAsAny[Sequence[BaseStep | Iterate | Step]]
     random_state: Any = None
 
     def jobs(self, context: SchedulerContext) -> Sequence[SchedulerJob]:

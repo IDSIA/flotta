@@ -17,7 +17,7 @@ async def list_resource(artifact_id: str | None = None) -> list[Resource]:
         resource_repository = ResourceRepository(session)
 
         if artifact_id is not None:
-            resources: list[Resource] = await resource_repository.list_resources_by_artifact_id(artifact_id)
+            resources: list[Resource] = await resource_repository.list_resources_by_artifact_id(artifact_id, False)
         else:
             resources: list[Resource] = await resource_repository.list_resources()
 

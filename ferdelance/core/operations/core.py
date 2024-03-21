@@ -4,6 +4,8 @@ from ferdelance.core.entity import Entity
 from ferdelance.core.environment import Environment
 from ferdelance.core.queries import Query
 
+from pydantic import SerializeAsAny
+
 
 class Operation(Entity):
     data_names: list[str] = list()  # variables from local data
@@ -21,3 +23,6 @@ class QueryOperation(Operation):
 class DoNothing(Operation):
     def exec(self, env: Environment) -> Environment:
         return env
+
+
+TOperation = SerializeAsAny[Operation]

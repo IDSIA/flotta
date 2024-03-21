@@ -15,7 +15,7 @@ from ferdelance.shared.actions import Action
 from ferdelance.shared.status import JobStatus
 
 from fastapi.testclient import TestClient
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import json
 import random
@@ -67,7 +67,7 @@ def create_node(api: TestClient, type_name: str = TYPE_CLIENT, client_id: str = 
         signature=signature,
     )
 
-    payload_checksum, payload = exc.create_payload(cjr.json())
+    payload_checksum, payload = exc.create_payload(cjr.model_dump_json())
     headers = exc.create_signed_headers(payload_checksum)
 
     response_join = api.post(
@@ -146,7 +146,7 @@ def get_metadata(
 
 
 def send_metadata(api: TestClient, exc: Exchange, metadata: Metadata) -> None:
-    headers, payload = exc.create(metadata.json())
+    headers, payload = exc.create(metadata.model_dump_json())
 
     upload_response = api.post(
         "/node/metadata",
@@ -170,15 +170,14 @@ async def create_project(session: AsyncSession, p_token: str = TEST_PROJECT_TOKE
 
 
 class ConnectionArguments(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     sv_id: str
     cl_id: str
     wb_id: str
     cl_exc: Exchange
     wb_exc: Exchange
     project_token: str
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 def create_workbench(
@@ -211,7 +210,7 @@ def create_workbench(
         signature=signature,
     )
 
-    payload_checksum, payload = exc.create_payload(wjr.json())
+    payload_checksum, payload = exc.create_payload(wjr.model_dump_json())
     headers = exc.create_signed_headers(payload_checksum)
 
     res_connect = api.post(
@@ -268,7 +267,7 @@ async def connect(api: TestClient, session: AsyncSession, p_token: str = TEST_PR
 def client_update(api: TestClient, exchange: Exchange) -> tuple[int, str, Any]:
     update = ClientUpdate(action=Action.DO_NOTHING.name)
 
-    headers, payload = exchange.create(update.json())
+    headers, payload = exchange.create(update.model_dump_json())
 
     response = api.request(
         method="GET",

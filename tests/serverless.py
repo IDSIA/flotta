@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from ferdelance import __version__
-from ferdelance.commons import storage_job
 from ferdelance.config import DataSourceStorage, Configuration, config_manager
 from ferdelance.const import TYPE_CLIENT, TYPE_USER
 from ferdelance.core.artifacts import Artifact, ArtifactStatus

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pydantic import SerializeAsAny
+
 from ferdelance.core.metrics import Metrics
-from ferdelance.core.model import Model
+from ferdelance.core.model import TModel as Model
 from ferdelance.core.operations import QueryOperation
 from ferdelance.logging import get_logger
 
@@ -22,3 +24,6 @@ class ModelOperation(QueryOperation):
         with open(path, "w") as f:
             content = json.dumps(metrics, indent=True)
             f.write(content)
+
+
+TModelOperation = SerializeAsAny[ModelOperation]

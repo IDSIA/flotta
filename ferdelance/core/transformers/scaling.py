@@ -8,7 +8,7 @@ from sklearn.preprocessing import (
     StandardScaler,
 )
 
-from pydantic import validator
+from pydantic import field_validator
 
 
 class FederatedMinMaxScaler(QueryTransformer):
@@ -43,7 +43,7 @@ class FederatedMinMaxScaler(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()
 
 
 class FederatedStandardScaler(QueryTransformer):
@@ -75,7 +75,7 @@ class FederatedStandardScaler(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()
 
 
 class FederatedClamp(QueryTransformer):
@@ -86,7 +86,7 @@ class FederatedClamp(QueryTransformer):
     min_value: float | None = None
     max_value: float | None = None
 
-    @validator("min_value", "max_value")
+    @field_validator("min_value", "max_value")
     def min_max_values(cls, values: dict):
         min_value = values.get("min_value", None)
         max_value = values.get("max_value", None)
@@ -118,4 +118,4 @@ class FederatedClamp(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()

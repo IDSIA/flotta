@@ -6,7 +6,7 @@ __all__ = [
     "MeanEstimator",
 ]
 
-from .core import Estimator
+from .core import TEstimator as Estimator
 from .counters import CountEstimator
 from .means import MeanEstimator
 from .group_means import GroupMeanEstimator

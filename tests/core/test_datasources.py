@@ -65,4 +65,4 @@ def test_datasources():
     assert ads.n_features == 4
     assert ads.n_records == 40
 
-    print(json.dumps(ads.dict(), indent=True))
+    print(json.dumps(ads.model_dump(), indent=True))

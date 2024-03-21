@@ -71,7 +71,7 @@ class Heartbeat:
         LOGGER.debug("requesting update")
 
         headers, payload = self.exc.create(
-            content.json(),
+            content.model_dump_json(),
         )
 
         res = httpx.request(
@@ -101,7 +101,7 @@ class Heartbeat:
             self.remote_url,
             self.remote_public_key,
             self.exc.transfer_private_key(),
-            [d.dict() for d in dsc],
+            [d.model_dump() for d in dsc],
         )
         _ = actor_handler.run.remote()  # type: ignore
 

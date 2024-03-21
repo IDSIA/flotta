@@ -108,7 +108,7 @@ class WorkbenchService:
 
         clients = await cr.list_clients_by_ids(client_ids)
 
-        client_details = [ClientDetails(**c.dict()) for c in clients]
+        client_details = [ClientDetails(**c.model_dump()) for c in clients]
 
         LOGGER.info(
             f"user={self.wb_component.id}: found {len(client_details)} datasource(s) with token={project_token}"
