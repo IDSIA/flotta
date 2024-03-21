@@ -216,7 +216,7 @@ class NodeStartup(Repository):
             return
 
     async def start_heartbeat(self):
-        if self.config.mode in (TYPE_CLIENT):
+        if self.config.mode == "client":
             LOGGER.info(f"component={self.self_component.id}: starting client heartbeat")
 
             get_jobs_backend().start_heartbeat(

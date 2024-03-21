@@ -214,7 +214,7 @@ class Configuration(BaseSettings):
 
     @field_validator("mode")
     @classmethod
-    def mode_validator(cls, v, values, **kwargs):
+    def mode_validator(cls, v: str):
         valid_modes = [
             "client",
             "node",
@@ -224,15 +224,6 @@ class Configuration(BaseSettings):
         # check for valid mode
         if v not in valid_modes:
             raise ValueError(f"Invalid mode: expected one of {[valid_modes]}")
-
-        # check for existing join url
-        if v == "client":
-            os.environ["FERDELANCE_MODE"] = "client"
-
-            j: JoinConfiguration = values["join"]
-
-            if j.first or not j.url:
-                raise ValueError("No join node set!")
 
         return v
 
@@ -250,6 +241,22 @@ class Configuration(BaseSettings):
             node["port"] = 1456
 
         return values
+
+    @model_validator(mode="after")
+    def check_for_join_data(self):
+        # check for existing join url
+        if self.mode == "client":
+            os.environ["FERDELANCE_MODE"] = "client"
+
+            j: JoinConfiguration = self.join
+
+            if j.first:
+                raise ValueError("A client cannot be the first node!")
+
+            if not j.url:
+                raise ValueError("No url for join node set!")
+
+        return self
 
     def get_node_type(self) -> str:
         if self.mode == "client":
