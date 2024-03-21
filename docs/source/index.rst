@@ -46,6 +46,14 @@ This allows researchers to quickly setup data extraction pipeline, following the
 .. toctree::
    :includehidden:
    :maxdepth: 1
+   :caption: Workflow
+
+   workflow/overview  
+   workflow/entities
+
+.. toctree::
+   :includehidden:
+   :maxdepth: 1
    :caption: Development
 
    development/development

@@ -1,5 +1,5 @@
 ==============================
-Development
+Setup
 ==============================
 
 The Ferdelance framework is open for contributions and offer a quick development environment.
