@@ -48,7 +48,8 @@ This allows researchers to quickly setup data extraction pipeline, following the
    :maxdepth: 1
    :caption: Workflow
 
-   workflow/overview  
+   workflow/overview
+   workflow/scheduling
    workflow/entities
 
 .. toctree::
