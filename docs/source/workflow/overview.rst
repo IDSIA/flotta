@@ -77,9 +77,23 @@ This aims to prepare the same *working environment* (mostly a dictionary of vari
 xIn this way, each step will always have access to the required data, from local source or received as external resources, and will produce a resource.
 
 
-Resources
+Resources and Distribution
 ==============================
 
 A ``resource`` is anything that can be exchanged between two nodes and that can be consumed or produced by a task.
-Each task will always produce a resource that will be consumed by the next worker node based on the scheduled task.
+Each task will always produce a resource, also named *a product*, that will be consumed by the next worker node based on the scheduled task.
 A task can consume a resource produced by a previous node, but there are tasks that will just work with local data that does not consume extra resources.
+
+The flow of *consume a resource, produce a resource* where the type of resource does not change (as an example, a simple count or a mean) is also named an *update of the resource*.
+
+How these resources are practically exchanged between nodes is defined by ``Distribution`` algorithms.
+Distribution algorithms need to be defined in an artifact.
+Basic distribution algorithm consist in send a resources to all worker nodes and then collect the produced resources in one point.
+More complex distribution algorithms can have a more fine graded control over this procedure allowing more complex exchanges between nodes.
+
+An example of a more complex algorithm is a *sequential distribution*.
+In this case, the worker nodes are arranged in a list and their products are sent only to the next node in the list.
+This distribution continues until all workers have updated the resource.
+This sequential algorithm is useful when there is the need to update a resource where the merge of all resources are not possible because, as an example, there are security reasons involved, or the merge is linear and the order is important.
+
+Distribution algorithms are of two types: when instruct a node to send resources to another node we define them as ``Distributors``; when it is the opposite, where a node need to search the required resources by previous nodes, we define them as ``Collectors``.
