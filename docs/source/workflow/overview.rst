@@ -3,9 +3,9 @@ Overview
 ==============================
 
 The workflow in Ferdelance always starts with a workbench submitting an ``Artifact`` to a scheduler node.
-Then, the node will elaborate the artifact and split it in ``tasks`` (or ``jobs``, in this context these two words are used as synonym) and scheduled based on the worker nodes that will execute each task.
+Then, the node will elaborate the Artifact and split it in ``tasks`` (or ``jobs``, in this context these two words are used as synonym) and scheduled based on the worker nodes that will execute each task.
 The advancement in the completion of the Artifact is strictly controlled by the scheduling node.
-During the execution of the tasks, the worker nodes will share ``resources`` between them, as defined in the artifact.
+During the execution of the tasks, the worker nodes will share ``resources`` between them, as defined in the Artifact.
 Once all task have been completed, the final resource (it can be a result of a query, or a trained model) is returned to the scheduling node, where it will be possible to download it, if the node configuration allows it.
 
 
@@ -14,15 +14,15 @@ Artifact
 
 This is the core unit of the framework.
 This object defines the sequence of *steps* that will be deployed and execute in the worker network.
-Workbenches submit artifacts to a node in charge to act as a scheduler.
+Workbenches submit Artifacts to a node in charge to act as a scheduler.
 
-Once submitted, an artifact is converted to a sequence of jobs based on the available worker nodes.
+Once submitted, an Artifact is converted to a sequence of jobs based on the available worker nodes.
 The collection of available nodes define the ``Scheduler Context``.
-The scheduler node uses this context and the list of steps defined in the artifact, to define how the jobs will be executed by which worker.
+The scheduler node uses this context and the list of steps defined in the Artifact, to define how the jobs will be executed by which worker.
 The chosen workers will at this point fetch and execute the tasks assigned.
 
-At any time, the workbench will be able to query the scheduler on the status of the artifact and following its development.
-Once all tasks defined by an artifact are completed, and the scheduler node's configuration allows it, it will be possible to download the produced resources.
+At any time, the workbench will be able to query the scheduler on the status of the Artifact and following its development.
+Once all tasks defined by an Artifact are completed, and the scheduler node's configuration allows it, it will be possible to download the produced resources.
 
 
 
@@ -87,7 +87,7 @@ A task can consume a resource produced by a previous node, but there are tasks t
 The flow of *consume a resource, produce a resource* where the type of resource does not change (as an example, a simple count or a mean) is also named an *update of the resource*.
 
 How these resources are practically exchanged between nodes is defined by ``Distribution`` algorithms.
-Distribution algorithms need to be defined in an artifact.
+Distribution algorithms need to be defined in an Artifact.
 Basic distribution algorithm consist in send a resources to all worker nodes and then collect the produced resources in one point.
 More complex distribution algorithms can have a more fine graded control over this procedure allowing more complex exchanges between nodes.
 
