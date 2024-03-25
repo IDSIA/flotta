@@ -36,4 +36,4 @@ async def test_load_project(session: AsyncSession):
         assert p.data.n_datasources == 1
         assert p.data.n_clients == 1
 
-        print(json.dumps(p.dict(), indent=True, default=str))
+        print(json.dumps(p.model_dump(), indent=True, default=str))

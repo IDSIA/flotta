@@ -1,6 +1,5 @@
-from typing import Any, Iterator
+from typing import Any
 
-from ferdelance.config import config_manager
 from ferdelance.core.metrics import Metrics
 from ferdelance.logging import get_logger
 from ferdelance.schemas.resources import NewResource, ResourceIdentifier
@@ -111,7 +110,7 @@ class RouteService:
 
         req = TaskRequest(artifact_id=artifact_id, job_id=job_id)
 
-        headers, payload = self.exc.create(req.json())
+        headers, payload = self.exc.create(req.model_dump_json())
 
         res = self._get(
             "/task/",
@@ -179,7 +178,7 @@ class RouteService:
             iteration=iteration,
         )
 
-        headers, payload = self.exc.create(req.json())
+        headers, payload = self.exc.create(req.model_dump_json())
 
         with self._stream_get(
             "/resource/",
@@ -247,7 +246,7 @@ class RouteService:
             checksum = self.exc.encrypt_file_for_remote(path_in, path_out)
             headers = self.exc.create_signed_headers(
                 checksum,
-                extra_headers=nr.dict(),
+                extra_headers=nr.model_dump(),
             )
 
             res = self._post(
@@ -260,7 +259,7 @@ class RouteService:
                 os.remove(path_out)
 
         elif content is not None:
-            headers, payload = self.exc.create(extra_headers=nr.dict())
+            headers, payload = self.exc.create(extra_headers=nr.model_dump())
 
             _, data = self.exc.encrypt_to_stream(payload)
 
@@ -273,7 +272,7 @@ class RouteService:
         else:
             nr.file = "local"
 
-            headers, _ = self.exc.create(extra_headers=nr.dict())
+            headers, _ = self.exc.create(extra_headers=nr.model_dump())
 
             res = self._post(
                 "/resource/",
@@ -301,7 +300,7 @@ class RouteService:
         """
         LOGGER.info(f"JOB job={job_id}: posting metrics")
 
-        headers, payload = self.exc.create(metrics.json())
+        headers, payload = self.exc.create(metrics.model_dump_json())
 
         res = self._post(
             "/task/metrics",
@@ -327,7 +326,7 @@ class RouteService:
         """
         LOGGER.error(f"JOB job={job_id}: error_message={error.message}")
 
-        headers, payload = self.exc.create(error.json())
+        headers, payload = self.exc.create(error.model_dump_json())
 
         res = self._post(
             "/task/error",
@@ -353,7 +352,7 @@ class RouteService:
             job_id=job_id,
         )
 
-        headers, payload = self.exc.create(done.json())
+        headers, payload = self.exc.create(done.model_dump_json())
 
         res = self._post(
             "/task/done",

@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 from ferdelance.core.entity import Entity
 
+from pydantic import SerializeAsAny
+
 
 class Distribution(ABC, Entity):
     encryption: bool = True
@@ -29,3 +31,6 @@ class Distribution(ABC, Entity):
                 The list of locks (ids of jobs1) to apply to each job in jobs0.
         """
         raise NotImplementedError()
+
+
+TDistribution = SerializeAsAny[Distribution]

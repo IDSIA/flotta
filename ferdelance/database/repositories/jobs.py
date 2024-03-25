@@ -111,7 +111,7 @@ class JobRepository(Repository):
         path = config_manager.get().storage_job(artifact_id, job_id, job.iteration) / "job.json"
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(job.dict(), indent=True)
+            content = json.dumps(job.model_dump(), indent=True)
             await f.write(content)
 
         return path

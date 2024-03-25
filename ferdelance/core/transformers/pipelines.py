@@ -3,6 +3,8 @@ from typing import Any, Sequence
 from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 
+from pydantic import SerializeAsAny
+
 
 class FederatedPipeline(QueryTransformer):
     """A pipeline that can be used to group sequence of Transformers.
@@ -11,7 +13,7 @@ class FederatedPipeline(QueryTransformer):
     A pipeline can also be nested inside another pipeline.
     """
 
-    stages: Sequence[QueryTransformer] = list()
+    stages: SerializeAsAny[Sequence[QueryTransformer]] = list()
 
     def transform(self, env: Environment) -> tuple[Environment, Any]:
         trs = list()
@@ -23,4 +25,4 @@ class FederatedPipeline(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()

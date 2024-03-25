@@ -10,7 +10,8 @@ from .arguments import setup_config_from_arguments
 
 from dotenv import load_dotenv
 from pathlib import Path
-from pydantic import BaseSettings, BaseModel, root_validator, validator
+from pydantic import BaseModel, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 import os
 import re
@@ -103,7 +104,7 @@ class NodeConfiguration(BaseModel):
     # concat server node each interval in second for update when mode=client
     heartbeat: float = 2.0
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         return check_for_env_variables(values, "ferdelance_node")
@@ -113,7 +114,7 @@ class JoinConfiguration(BaseModel):
     first: bool = False
     url: str | None = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         return check_for_env_variables(values, "ferdelance_client")
@@ -130,7 +131,7 @@ class DatabaseConfiguration(BaseModel):
 
     memory: bool = False
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         return check_for_env_variables(values, "ferdelance_database")
@@ -144,7 +145,7 @@ class DataSourceConfiguration(BaseModel):
     conn: str | None = None
     path: str | None = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         return check_for_env_variables(values, "ferdelance_datasource")
@@ -192,6 +193,12 @@ class DataSourceStorage:
 
 
 class Configuration(BaseSettings):
+
+    model_config = SettingsConfigDict(
+        env_prefix="ferdelance_",
+        env_nested_delimiter="__",
+    )
+
     database: DatabaseConfiguration = DatabaseConfiguration()
 
     node: NodeConfiguration = NodeConfiguration()
@@ -205,9 +212,9 @@ class Configuration(BaseSettings):
 
     file_chunk_size: int = 4096
 
-    @validator("mode")
+    @field_validator("mode")
     @classmethod
-    def mode_validator(cls, v, values, **kwargs):
+    def mode_validator(cls, v: str):
         valid_modes = [
             "client",
             "node",
@@ -218,18 +225,9 @@ class Configuration(BaseSettings):
         if v not in valid_modes:
             raise ValueError(f"Invalid mode: expected one of {[valid_modes]}")
 
-        # check for existing join url
-        if v == "client":
-            os.environ["FERDELANCE_MODE"] = "client"
-
-            j: JoinConfiguration = values["join"]
-
-            if j.first or not j.url:
-                raise ValueError("No join node set!")
-
         return v
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
         values = check_for_env_variables(values, "ferdelance")
@@ -243,6 +241,22 @@ class Configuration(BaseSettings):
             node["port"] = 1456
 
         return values
+
+    @model_validator(mode="after")
+    def check_for_join_data(self):
+        # check for existing join url
+        if self.mode == "client":
+            os.environ["FERDELANCE_MODE"] = "client"
+
+            j: JoinConfiguration = self.join
+
+            if j.first:
+                raise ValueError("A client cannot be the first node!")
+
+            if not j.url:
+                raise ValueError("No url for join node set!")
+
+        return self
 
     def get_node_type(self) -> str:
         if self.mode == "client":
@@ -316,17 +330,13 @@ class Configuration(BaseSettings):
         os.makedirs(self.get_workdir(), exist_ok=True)
         with open(self.storage_config(), "w") as f:
             try:
-                yaml.safe_dump(self.dict(), f)
+                yaml.safe_dump(self.model_dump(), f)
 
                 os.environ["FERDELANCE_CONFIG_FILE"] = str(self.storage_config())
 
             except yaml.YAMLError as e:
                 LOGGER.error(f"could not dump config file to {self.storage_config()}")
                 LOGGER.exception(e)
-
-    class Config:
-        env_prefix = "ferdelance_"
-        env_nested_delimiter = "_"
 
 
 class ConfigManager:

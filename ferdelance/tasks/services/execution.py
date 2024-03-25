@@ -153,7 +153,7 @@ class TaskExecutionService:
         LOGGER.debug(f"working directory: {self.work_directory}")
 
         with open(self.work_directory / "task.json", "w") as f:
-            json.dump(task.dict(), f, indent=True)
+            json.dump(task.model_dump(), f, indent=True)
 
         return task
 

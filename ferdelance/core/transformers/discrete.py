@@ -48,7 +48,7 @@ class FederatedKBinsDiscretizer(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()
 
 
 class FederatedBinarizer(QueryTransformer):
@@ -68,7 +68,7 @@ class FederatedBinarizer(QueryTransformer):
         c_out = self._columns_out()
 
         if self.threshold == 0:
-            self.threshold = env.X_tr[c_in].mean()[0]
+            self.threshold = env.X_tr[c_in].mean().iloc[0]
 
         tr = Binarizer(
             threshold=self.threshold,
@@ -86,7 +86,7 @@ class FederatedBinarizer(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()
 
 
 class FederatedLabelBinarizer(QueryTransformer):
@@ -124,7 +124,7 @@ class FederatedLabelBinarizer(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()
 
 
 class FederatedOneHotEncoder(QueryTransformer):
@@ -135,7 +135,6 @@ class FederatedOneHotEncoder(QueryTransformer):
     handle_unknown: Literal["error", "ignore", "infrequent_if_exist"] = "error"
     min_frequency: float | int | None = None
     max_categories: int | None = None
-    sparse: bool = False
 
     def transform(self, env: Environment) -> tuple[Environment, Any]:
         if env.X_tr is None:
@@ -144,7 +143,7 @@ class FederatedOneHotEncoder(QueryTransformer):
         tr = OneHotEncoder(
             categories=self.categories,
             drop=self.drop,
-            sparse=self.sparse,
+            sparse_output=False,
             handle_unknown=self.handle_unknown,
             min_frequency=self.min_frequency,
             max_categories=self.max_categories,
@@ -153,7 +152,7 @@ class FederatedOneHotEncoder(QueryTransformer):
         c_in = self._columns_in()
         c_out = self._columns_out()
 
-        tr.fit(env.X_tr[self._columns_in()])
+        tr.fit(env.X_tr[c_in])
 
         cats_found = tr.categories_[0]
         n_cats = len(cats_found)  # type: ignore # TODO: check this
@@ -174,4 +173,4 @@ class FederatedOneHotEncoder(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()

@@ -49,7 +49,7 @@ class FederatedRandomForestClassifier(AggregationModel):
     max_samples: int | None = None
 
     def train(self, x, y) -> RandomForestClassifier:
-        params = get_model_parameters(RandomForestClassifier, self.dict())
+        params = get_model_parameters(RandomForestClassifier, self.model_dump())
         self._model: RandomForestClassifier = RandomForestClassifier(**params)
         self._model.fit(x, y)
         return self._model

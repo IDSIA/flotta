@@ -35,7 +35,7 @@ async def test_task_task_not_found(session: AsyncSession):
             job_id=str(uuid.uuid4()),
         )
 
-        headers, payload = exchange.create(tpr.json())
+        headers, payload = exchange.create(tpr.model_dump_json())
 
         res = server.request(
             "GET",

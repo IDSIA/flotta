@@ -110,7 +110,7 @@ class DataSourceRepository(Repository):
 
             meta_ds.id = str(uuid4())
 
-            ds = DataSource(**meta_ds.dict(), component_id=client_id)
+            ds = DataSource(**meta_ds.model_dump(), component_id=client_id)
             path = await self.store(ds)
 
             ds_db = DataSourceDB(
@@ -146,7 +146,7 @@ class DataSourceRepository(Repository):
                 ds_db.n_features = meta_ds.n_features
                 ds_db.update_time = dt_now
 
-                ds = DataSource(**meta_ds.dict(), component_id=client_id)
+                ds = DataSource(**meta_ds.model_dump(), component_id=client_id)
                 path = await self.store(ds)
 
         if commit:
@@ -190,7 +190,7 @@ class DataSourceRepository(Repository):
         path = await self.storage_location(datasource.id)
 
         async with aiofiles.open(path, "w") as f:
-            content = json.dumps(datasource.dict(), indent=True)
+            content = json.dumps(datasource.model_dump(), indent=True)
             await f.write(content)
 
         return path

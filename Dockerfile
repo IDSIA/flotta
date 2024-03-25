@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1.5
 
-# This image is used for different containers with different commands
-# They will be provided at compose level.
+# This image is used for host the node.
 
 # Build stage -----------------------------------------------------------------
 FROM python:3.10 AS builder
@@ -11,12 +10,12 @@ RUN python -m venv /opt/venv
 
 ENV PATH="/opt/venv/bin:${PATH}"
 
-RUN python -m pip install --upgrade pip
-
 # copy source files
 COPY . /ferdelance
 
 RUN --mount=type=cache,target=/root/.cache \
+    python -m pip install --upgrade pip \
+    && \
     pip install "/ferdelance"
 
 # Installation stage ----------------------------------------------------------

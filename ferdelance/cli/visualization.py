@@ -1,4 +1,5 @@
 """Define how to visualize resources on the CLI"""
+
 from typing import TypeVar
 
 import pandas as pd
@@ -13,7 +14,7 @@ def show_one(resource: BaseModel) -> None:
     Args:
         resource (BaseModel): Single object (View) to print
     """
-    print(pd.Series(resource.dict()))
+    print(pd.Series(resource.model_dump()))
 
 
 def show_many(resource: list[T]) -> None:
@@ -22,7 +23,7 @@ def show_many(resource: list[T]) -> None:
     Args:
         resource (List[BaseModel]): List of objects to print
     """
-    print(pd.DataFrame([r.dict() for r in resource]))
+    print(pd.DataFrame([r.model_dump() for r in resource]))
 
 
 def show_string(s: str) -> None:

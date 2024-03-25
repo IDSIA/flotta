@@ -5,7 +5,6 @@ from ferdelance.node.deployment import start_node, wait_node
 import ray
 
 import os
-import random
 
 LOGGER = get_logger(f"{__package__}.{__name__}")
 

@@ -1,7 +1,7 @@
 from ferdelance.core.environment import Environment
 from ferdelance.core.operations.core import Operation
 
-from pydantic import validator
+from pydantic import field_validator
 
 import numpy as np
 
@@ -12,7 +12,7 @@ class UniformMatrix(Operation):
     high: float = 1.0
     persist: bool = False  # <- save the created environment on disk for reuse!
 
-    @validator("data_names")
+    @field_validator("data_names")
     def set_data_names(cls, _) -> list[str]:
         return list()
 

@@ -82,7 +82,7 @@ async def test_workbench_get_project(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = wb_exc.create(wpt.json())
+        headers, payload = wb_exc.create(wpt.model_dump_json())
 
         res = server.request(
             method="GET",
@@ -112,7 +112,7 @@ async def test_workbench_list_client(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(wpt.json())
+        headers, payload = wb_exc.create(wpt.model_dump_json())
 
         res = server.request(
             method="GET",
@@ -139,7 +139,7 @@ async def test_workbench_list_datasources(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(wpt.json())
+        headers, payload = wb_exc.create(wpt.model_dump_json())
 
         res = server.request(
             method="GET",
@@ -165,7 +165,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         wpt = WorkbenchProjectToken(token=TEST_PROJECT_TOKEN)
 
-        headers, payload = wb_exc.create(wpt.json())
+        headers, payload = wb_exc.create(wpt.model_dump_json())
 
         res = server.request(
             method="GET",
@@ -201,7 +201,7 @@ async def test_workflow_submit(session: AsyncSession):
             steps=model.get_steps(),
         )
 
-        headers, payload = wb_exc.create(artifact.json())
+        headers, payload = wb_exc.create(artifact.model_dump_json())
 
         res = server.post(
             "/workbench/artifact/submit",
@@ -223,7 +223,7 @@ async def test_workflow_submit(session: AsyncSession):
 
         wba = WorkbenchArtifact(artifact_id=artifact_id)
 
-        headers, payload = wb_exc.create(wba.json())
+        headers, payload = wb_exc.create(wba.model_dump_json())
 
         res = server.request(
             method="GET",
@@ -241,7 +241,7 @@ async def test_workflow_submit(session: AsyncSession):
         assert status.status is not None
         assert status.status == ArtifactJobStatus.RUNNING
 
-        headers, payload = wb_exc.create(wba.json())
+        headers, payload = wb_exc.create(wba.model_dump_json())
 
         res = server.request(
             method="GET",
@@ -355,7 +355,7 @@ async def test_get_results(session: AsyncSession):
 
         wbr = WorkbenchResource(resource_id=resource.id, producer_id=job2.component_id, is_ready=True)
 
-        headers, payload = wb_exc.create(wbr.json())
+        headers, payload = wb_exc.create(wbr.model_dump_json())
 
         res = server.request(
             "GET",
@@ -385,7 +385,7 @@ async def test_workbench_access(session):
         project_token = args.project_token
         wpt = WorkbenchProjectToken(token=project_token)
 
-        headers, payload = wb_exc.create(wpt.json())
+        headers, payload = wb_exc.create(wpt.model_dump_json())
 
         res = server.get(
             "/client/update",

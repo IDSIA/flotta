@@ -8,6 +8,6 @@ __all__ = [
     "Define",
 ]
 
-from .core import Operation, QueryOperation, DoNothing
+from .core import TOperation as Operation, QueryOperation, DoNothing
 from .matrices import SubtractMatrix, SumMatrix, UniformMatrix
 from .models import Define

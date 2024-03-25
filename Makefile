@@ -11,13 +11,7 @@ standalone:
 
 # docker build 
 build:
-	docker compose -f docker-compose.build.yaml build
-
-build-node:
-	docker compose -f docker-compose.build.yaml build ferdelance
-
-build-repo:
-	docker compose -f docker-compose.build.yaml build repository
+	docker build -t idsia.ferdelance:latest .
 
 # development
 create:

@@ -15,7 +15,7 @@ __all__ = [
     "FederatedRename",
 ]
 
-from .core import QueryTransformer
+from .core import TQueryTransformer as QueryTransformer
 from .filters import FederatedFilter
 from .pipelines import FederatedPipeline
 from .splitters import FederatedSplitter

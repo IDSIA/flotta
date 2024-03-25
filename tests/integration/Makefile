@@ -1,3 +1,6 @@
+build:
+	docker compose -f docker-compose.integration.yaml build
+
 start:
 	docker compose -f docker-compose.integration.yaml up -d
 

@@ -3,7 +3,7 @@ from typing import Any
 from ferdelance.core.environment import Environment
 from ferdelance.core.transformers.core import QueryTransformer
 
-from pydantic import validator
+from pydantic import field_validator
 from sklearn.impute import SimpleImputer
 
 import numpy as np
@@ -14,7 +14,7 @@ class FederatedSimpleImputer(QueryTransformer):
     strategy: str = "mean"
     fill_value: Any = None
 
-    @validator("fill_value")
+    @field_validator("fill_value")
     def set_strategy_from_fill_value(cls, values: dict[str, Any]):
         if not values.get("fill_value", None):
             values["strategy"] = "constant"
@@ -43,4 +43,4 @@ class FederatedSimpleImputer(QueryTransformer):
 
     def aggregate(self, env: Environment) -> Environment:
         # TODO
-        return super().aggregate(env)
+        raise NotImplementedError()

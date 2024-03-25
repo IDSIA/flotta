@@ -326,7 +326,7 @@ class Exchange:
 
         enc = Algorithm.HYBRID.enc(key, self.encoding)
 
-        data_json = header.json()
+        data_json = header.model_dump_json()
         data_enc = enc.encrypt(data_json)
         data_b64 = b64encode(data_enc)
         data = data_b64.decode(self.encoding)

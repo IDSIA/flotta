@@ -7,6 +7,8 @@ from ferdelance.core.environment import Environment
 from ferdelance.core.queries import QueryFeature
 from ferdelance.core.utils import convert_features_in_to_list, convert_features_out_to_list
 
+from pydantic import SerializeAsAny
+
 
 class QueryTransformer(ABC, Entity):
     """Basic class that defines a transformer. A transformer is an object that can transform
@@ -48,14 +50,14 @@ class QueryTransformer(ABC, Entity):
         return (
             self.features_in == other.features_in
             and self.features_out == other.features_out
-            and self._name == other._name
+            and self.entity == other.entity
         )
 
     def __hash__(self) -> int:
-        return hash((self.features_in, self.features_out, self._name))
+        return hash((self.features_in, self.features_out, self.entity))
 
     def __str__(self) -> str:
-        return f"{self._name}({self.features_in} -> {self.features_out})"
+        return f"{self.entity}({self.features_in} -> {self.features_out})"
 
     @abstractmethod
     def aggregate(self, env: Environment) -> Environment:
@@ -93,3 +95,6 @@ class QueryTransformer(ABC, Entity):
                 and the returned object are are the same.
         """
         raise NotImplementedError()
+
+
+TQueryTransformer = SerializeAsAny[QueryTransformer]

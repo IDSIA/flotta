@@ -1,7 +1,8 @@
 from ferdelance.config import config_manager
 from ferdelance.core.distributions import Collect
+from ferdelance.core.interfaces import Iterate
 from ferdelance.core.model_operations import Train, TrainTest, Aggregation
-from ferdelance.core.steps import Iterate, Finalize, Parallel
+from ferdelance.core.steps import Finalize, Parallel
 from ferdelance.core.transformers import FederatedSplitter
 from ferdelance.logging import get_logger
 from ferdelance.schemas.updates import UpdateData

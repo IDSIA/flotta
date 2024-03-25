@@ -77,7 +77,7 @@ class ClientNode(SimpleNode):
         send_metadata(api, self.exc, self.data.metadata())
 
     def datasources(self) -> list[dict[str, Any]]:
-        return [ds.dict() for ds in self.data.ds_configs]
+        return [ds.model_dump() for ds in self.data.ds_configs]
 
 
 class WorkBenchNode(SimpleNode):
@@ -89,7 +89,7 @@ class WorkBenchNode(SimpleNode):
     def project(self, token: str = TEST_PROJECT_TOKEN) -> Project:
         wpt = WorkbenchProjectToken(token=token)
 
-        headers, payload = self.exc.create(wpt.json())
+        headers, payload = self.exc.create(wpt.model_dump_json())
 
         res = self.api.request(
             "GET",

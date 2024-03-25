@@ -1,5 +1,6 @@
 **/*.git*
 **/.vscode
+**/*.pytest*
 
 **/build
 **/dist
@@ -18,19 +19,16 @@ docs/_build
 **/tests
 **/*env
 
-*workdir
-
 *.yaml
 *.md
 *.csv
 *.tsv
 *.model
 
-experiments/*
-logs/*
-data/*
-docker/*
-examples/*
-storage/*
-tests/*
-workdir/*
+**/data
+**/docs
+**/examples
+**/experiments
+**/logs
+**/storage
+**/tests
