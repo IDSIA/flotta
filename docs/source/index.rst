@@ -59,6 +59,7 @@ This allows researchers to quickly setup data extraction pipeline, following the
 
    development/development
    development/testing
+   development/plugins
 
 .. toctree::
    :includehidden:
