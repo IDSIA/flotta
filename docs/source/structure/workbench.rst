@@ -74,8 +74,8 @@ Following an example of how to use the workbench library to connect to a node. :
         ),
     ]
 
-    # submit artifact
-    artifact: Artifact = ctx.submit(project, steps)
+    # submit Artifact
+    Artifact: Artifact = ctx.submit(project, steps)
 
 .. Note:
    More examples are available in the `examples <https://github.com/IDSIA/Ferdelance/tree/main/examples>`_ and in the `tests <https://github.com/IDSIA/Ferdelance/tree/main/tests>`_ folders.
