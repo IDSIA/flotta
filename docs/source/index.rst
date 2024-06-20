@@ -3,11 +3,11 @@
    	:align: left
 
 ==========================================================
-Ferdelance: A Federated Learning Framework
+flotta: A Federated Learning Framework
 ==========================================================
 
 
-*Ferdelance* is a **distributed framework** intended to be used both as a workbench to develop new distributed algorithm within a Federated Learning based environment, and perform distributed statistical analysis on private data.
+*flotta* is a **distributed framework** intended to be used both as a workbench to develop new distributed algorithm within a Federated Learning based environment, and perform distributed statistical analysis on private data.
 
 Federated Learning is a Machine Learning approach that allows for training models across decentralized devices or servers while keeping the data localized, increasing the privacy of data holders.
 Instead of collecting data from various sources and centralizing it in one location for training, federated learning enables model training directly on the devices where the data resides.

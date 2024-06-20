@@ -11,12 +11,12 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 
 # copy source files
-COPY . /ferdelance
+COPY . /flotta
 
 RUN --mount=type=cache,target=/root/.cache \
     python -m pip install --upgrade pip \
     && \
-    pip install "/ferdelance"
+    pip install "/flotta"
 
 # Installation stage ----------------------------------------------------------
 FROM python:3.10-slim-buster AS base
@@ -26,20 +26,20 @@ COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:${PATH}"
 
-RUN useradd -m -d /ferdelance ferdelance
+RUN useradd -m -d /flotta flotta
 
 # create and populate workdir
-USER ferdelance
-WORKDIR /ferdelance
+USER flotta
+WORKDIR /flotta
 
 RUN mkdir -p \ 
-    /ferdelance/storage/datasources \ 
-    /ferdelance/storage/artifacts \ 
-    /ferdelance/storage/clients \ 
-    /ferdelance/storage/results \
-    /ferdelance/logs && \
-    chown -R ferdelance:ferdelance /ferdelance/
+    /flotta/storage/datasources \ 
+    /flotta/storage/artifacts \ 
+    /flotta/storage/clients \ 
+    /flotta/storage/results \
+    /flotta/logs && \
+    chown -R flotta:flotta /flotta/
 
 EXPOSE 1456
 
-ENTRYPOINT ["python3", "-m", "ferdelance", "-c", "/ferdelance/config.yaml"]
+ENTRYPOINT ["python3", "-m", "flotta", "-c", "/flotta/config.yaml"]

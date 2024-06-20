@@ -1,15 +1,15 @@
 from contextlib import asynccontextmanager
-from ferdelance.database import DataBase, Base
-from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SignedAPIRoute
-from ferdelance.node.routes import (
+from flotta.database import DataBase, Base
+from flotta.logging import get_logger
+from flotta.node.middlewares import SignedAPIRoute
+from flotta.node.routes import (
     client_router,
     node_router,
     resource_router,
     task_router,
     workbench_router,
 )
-from ferdelance.node.startup import NodeStartup
+from flotta.node.startup import NodeStartup
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError

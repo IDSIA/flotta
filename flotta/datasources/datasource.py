@@ -1,6 +1,6 @@
 from typing import Any
 
-from ferdelance.schemas.metadata import MetaDataSource
+from flotta.schemas.metadata import MetaDataSource
 
 import pandas as pd
 import hashlib

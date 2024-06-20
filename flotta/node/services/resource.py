@@ -1,6 +1,6 @@
-from ferdelance.database.repositories import ArtifactRepository, JobRepository, Repository, ResourceRepository
-from ferdelance.schemas.database import Resource
-from ferdelance.schemas.resources import ResourceIdentifier
+from flotta.database.repositories import ArtifactRepository, JobRepository, Repository, ResourceRepository
+from flotta.schemas.database import Resource
+from flotta.schemas.resources import ResourceIdentifier
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound

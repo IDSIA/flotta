@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from ferdelance.core.entity import Entity
-from ferdelance.core.queries.operations import FilterOperation
+from flotta.core.entity import Entity
+from flotta.core.queries.operations import FilterOperation
 
 from datetime import datetime
 from pandas import DataFrame, to_datetime

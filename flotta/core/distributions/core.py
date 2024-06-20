@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from ferdelance.core.entity import Entity
+from flotta.core.entity import Entity
 
 from pydantic import SerializeAsAny
 

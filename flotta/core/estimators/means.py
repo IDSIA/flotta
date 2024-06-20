@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Sequence
 
-from ferdelance.core.environment import Environment
-from ferdelance.core.estimators.core import Estimator
-from ferdelance.core.interfaces import Step
-from ferdelance.core.operations import Operation, QueryOperation
-from ferdelance.core.steps import Sequential
+from flotta.core.environment import Environment
+from flotta.core.estimators.core import Estimator
+from flotta.core.interfaces import Step
+from flotta.core.operations import Operation, QueryOperation
+from flotta.core.steps import Sequential
 
 import numpy as np
 

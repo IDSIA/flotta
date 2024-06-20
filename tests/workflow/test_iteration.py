@@ -1,12 +1,12 @@
-from ferdelance.config import config_manager
-from ferdelance.core.distributions import Collect
-from ferdelance.core.interfaces import Iterate
-from ferdelance.core.model_operations import Train, TrainTest, Aggregation
-from ferdelance.core.steps import Finalize, Parallel
-from ferdelance.core.transformers import FederatedSplitter
-from ferdelance.logging import get_logger
-from ferdelance.schemas.updates import UpdateData
-from ferdelance.workbench.interface import Artifact
+from flotta.config import config_manager
+from flotta.core.distributions import Collect
+from flotta.core.interfaces import Iterate
+from flotta.core.model_operations import Train, TrainTest, Aggregation
+from flotta.core.steps import Finalize, Parallel
+from flotta.core.transformers import FederatedSplitter
+from flotta.logging import get_logger
+from flotta.schemas.updates import UpdateData
+from flotta.workbench.interface import Artifact
 
 from tests.dummies import DummyModel
 from tests.serverless import ServerlessExecution

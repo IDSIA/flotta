@@ -1,6 +1,6 @@
-from ferdelance.config import config_manager
-from ferdelance.logging import get_logger
-from ferdelance.node.deployment import start_node, wait_node
+from flotta.config import config_manager
+from flotta.logging import get_logger
+from flotta.node.deployment import start_node, wait_node
 
 import ray
 
@@ -12,7 +12,7 @@ LOGGER = get_logger(f"{__package__}.{__name__}")
 if __name__ == "__main__":
     LOGGER.info("standalone application starting")
 
-    os.environ["FERDELANCE_MODE"] = "standalone"
+    os.environ["flotta_MODE"] = "standalone"
 
     config = config_manager.get()
 

@@ -1,10 +1,10 @@
 from typing import Sequence
-from ferdelance.config.config import Configuration, config_manager
-from ferdelance.const import TYPE_CLIENT
-from ferdelance.core.artifacts import Artifact, ArtifactStatus
-from ferdelance.core.interfaces import SchedulerContext, SchedulerJob
-from ferdelance.core.metrics import Metrics
-from ferdelance.database.repositories import (
+from flotta.config.config import Configuration, config_manager
+from flotta.const import TYPE_CLIENT
+from flotta.core.artifacts import Artifact, ArtifactStatus
+from flotta.core.interfaces import SchedulerContext, SchedulerJob
+from flotta.core.metrics import Metrics
+from flotta.database.repositories import (
     AsyncSession,
     ArtifactRepository,
     ComponentRepository,
@@ -14,14 +14,14 @@ from ferdelance.database.repositories import (
     ResourceRepository,
     Repository,
 )
-from ferdelance.logging import get_logger
-from ferdelance.node.services import ActionService
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.database import ServerArtifact, Resource
-from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.updates import UpdateData
-from ferdelance.shared.status import JobStatus, ArtifactJobStatus
-from ferdelance.tasks.tasks import Task, TaskError, TaskNode, TaskResource
+from flotta.logging import get_logger
+from flotta.node.services import ActionService
+from flotta.schemas.components import Component
+from flotta.schemas.database import ServerArtifact, Resource
+from flotta.schemas.jobs import Job
+from flotta.schemas.updates import UpdateData
+from flotta.shared.status import JobStatus, ArtifactJobStatus
+from flotta.tasks.tasks import Task, TaskError, TaskNode, TaskResource
 
 from sqlalchemy.exc import NoResultFound
 from uuid import uuid4

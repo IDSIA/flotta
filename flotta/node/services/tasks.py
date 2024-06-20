@@ -1,21 +1,21 @@
 from typing import Any
 
-from ferdelance.config import config_manager, Configuration
-from ferdelance.const import TYPE_CLIENT
-from ferdelance.database.repositories import (
+from flotta.config import config_manager, Configuration
+from flotta.const import TYPE_CLIENT
+from flotta.database.repositories import (
     AsyncSession,
     ArtifactRepository,
     ComponentRepository,
     JobRepository,
     Repository,
 )
-from ferdelance.logging import get_logger
-from ferdelance.node.services.jobs import JobManagementService
-from ferdelance.schemas.components import Component
-from ferdelance.security.exchange import Exchange
-from ferdelance.shared.status import ArtifactJobStatus, JobStatus
-from ferdelance.tasks.backends import get_jobs_backend
-from ferdelance.tasks.tasks import Task
+from flotta.logging import get_logger
+from flotta.node.services.jobs import JobManagementService
+from flotta.schemas.components import Component
+from flotta.security.exchange import Exchange
+from flotta.shared.status import ArtifactJobStatus, JobStatus
+from flotta.tasks.backends import get_jobs_backend
+from flotta.tasks.tasks import Task
 
 import httpx
 

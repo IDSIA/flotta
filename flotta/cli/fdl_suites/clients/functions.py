@@ -1,7 +1,7 @@
-from ferdelance.cli.visualization import show_many, show_one
-from ferdelance.database import DataBase
-from ferdelance.database.repositories import ComponentRepository
-from ferdelance.schemas.components import Component
+from flotta.cli.visualization import show_many, show_one
+from flotta.database import DataBase
+from flotta.database.repositories import ComponentRepository
+from flotta.schemas.components import Component
 
 from sqlalchemy.exc import NoResultFound
 

@@ -3,11 +3,11 @@ from typing import Any, Sequence
 from abc import abstractmethod, ABC
 from itertools import pairwise
 
-from ferdelance.core.entity import Entity, create_entities
-from ferdelance.core.environment import Environment
-from ferdelance.core.distributions import Distribution
-from ferdelance.core.operations import Operation
-from ferdelance.schemas.components import Component
+from flotta.core.entity import Entity, create_entities
+from flotta.core.environment import Environment
+from flotta.core.distributions import Distribution
+from flotta.core.operations import Operation
+from flotta.schemas.components import Component
 
 from pydantic import BaseModel, SerializeAsAny, model_validator
 

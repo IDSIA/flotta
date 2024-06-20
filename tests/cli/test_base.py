@@ -1,5 +1,5 @@
-from ferdelance.cli.base import CLICommandSuite, CLIParser
-from ferdelance.cli.fdl_suites import artifacts_cli_suite
+from flotta.cli.base import CLICommandSuite, CLIParser
+from flotta.cli.fdl_suites import artifacts_cli_suite
 
 import pytest
 
@@ -8,7 +8,7 @@ import pytest
 def parser() -> CLIParser:
     """An empty CLIParser"""
     return CLIParser(
-        prog="Ferdelance Admin CLI",
+        prog="flotta Admin CLI",
         description="Command Line Interface to administrate the server",
     )
 

@@ -1,11 +1,11 @@
-from ferdelance.config import config_manager, DataSourceConfiguration
-from ferdelance.exceptions import ConfigError, ErrorClient, UpdateClient, InvalidAction
-from ferdelance.logging import get_logger
-from ferdelance.schemas.client import ClientUpdate
-from ferdelance.schemas.updates import UpdateData
-from ferdelance.security.exchange import Exchange
-from ferdelance.shared.actions import Action
-from ferdelance.tasks.jobs.execution import Execution
+from flotta.config import config_manager, DataSourceConfiguration
+from flotta.exceptions import ConfigError, ErrorClient, UpdateClient, InvalidAction
+from flotta.logging import get_logger
+from flotta.schemas.client import ClientUpdate
+from flotta.schemas.updates import UpdateData
+from flotta.security.exchange import Exchange
+from flotta.shared.actions import Action
+from flotta.tasks.jobs.execution import Execution
 
 from pathlib import Path
 from time import sleep

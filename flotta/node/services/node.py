@@ -1,16 +1,16 @@
-from ferdelance.config import config_manager
-from ferdelance.const import TYPE_NODE
-from ferdelance.logging import get_logger
-from ferdelance.database import AsyncSession
-from ferdelance.database.repositories import (
+from flotta.config import config_manager
+from flotta.const import TYPE_NODE
+from flotta.logging import get_logger
+from flotta.database import AsyncSession
+from flotta.database.repositories import (
     ComponentRepository,
     DataSourceRepository,
     ProjectRepository,
 )
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata
-from ferdelance.security.exchange import Exchange
+from flotta.schemas.components import Component
+from flotta.schemas.metadata import Metadata
+from flotta.schemas.node import JoinData, NodeJoinRequest, NodeMetadata
+from flotta.security.exchange import Exchange
 
 from pathlib import Path
 from sqlalchemy.exc import NoResultFound

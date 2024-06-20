@@ -14,7 +14,7 @@ node:
 
   protocol: http
   interface: 0.0.0.0
-  url: "${FERDELANCE_NODE_HOST}"
+  url: "${flotta_NODE_HOST}"
   port: 1456
 
 join:
@@ -31,7 +31,7 @@ database:
 
   # username: ""
   # password: ""
-  # scheme: ferdelance
+  # scheme: flotta
   # dialect: sqlite
   # host: ./sqlite.db
   # memory: False

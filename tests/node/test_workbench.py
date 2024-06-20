@@ -1,30 +1,30 @@
-from ferdelance.config import config_manager
-from ferdelance.core.steps import Finalize, Parallel
-from ferdelance.database.repositories.projects import ProjectRepository
-from ferdelance.logging import get_logger
-from ferdelance.database.repositories import (
+from flotta.config import config_manager
+from flotta.core.steps import Finalize, Parallel
+from flotta.database.repositories.projects import ProjectRepository
+from flotta.logging import get_logger
+from flotta.database.repositories import (
     ComponentRepository,
     ResourceRepository,
     JobRepository,
     ArtifactRepository,
 )
-from ferdelance.node.api import api
-from ferdelance.node.services.jobs import JobManagementService
-from ferdelance.node.services.resource import ResourceManagementService
-from ferdelance.workbench.interface import (
+from flotta.node.api import api
+from flotta.node.services.jobs import JobManagementService
+from flotta.node.services.resource import ResourceManagementService
+from flotta.workbench.interface import (
     AggregatedDataSource,
     Project,
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.workbench import (
+from flotta.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchProjectToken,
     WorkbenchArtifact,
     WorkbenchResource,
 )
-from ferdelance.shared.status import ArtifactJobStatus, JobStatus
+from flotta.shared.status import ArtifactJobStatus, JobStatus
 
 from tests.utils import connect, TEST_PROJECT_TOKEN
 from tests.dummies import DummyModel

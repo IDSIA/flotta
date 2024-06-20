@@ -1,11 +1,11 @@
-from ferdelance.database.repositories import ComponentRepository
-from ferdelance.database.tables import DataSource as DataSourceDB
-from ferdelance.logging import get_logger
-from ferdelance.node.api import api
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.metadata import Metadata
-from ferdelance.security.exchange import Exchange
-from ferdelance.shared.actions import Action
+from flotta.database.repositories import ComponentRepository
+from flotta.database.tables import DataSource as DataSourceDB
+from flotta.logging import get_logger
+from flotta.node.api import api
+from flotta.schemas.components import Component
+from flotta.schemas.metadata import Metadata
+from flotta.security.exchange import Exchange
+from flotta.shared.actions import Action
 
 from tests.utils import (
     create_node,

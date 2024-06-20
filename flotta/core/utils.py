@@ -1,4 +1,4 @@
-from ferdelance.core.queries import QueryFeature
+from flotta.core.queries import QueryFeature
 
 
 def convert_list(features: str | list[str] | QueryFeature | list[QueryFeature]) -> list[QueryFeature]:

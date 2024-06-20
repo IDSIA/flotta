@@ -1,5 +1,5 @@
-from ferdelance.core.distributions.core import Distribution
-from ferdelance.schemas.components import Component
+from flotta.core.distributions.core import Distribution
+from flotta.schemas.components import Component
 
 
 class DirectToNext(Distribution):

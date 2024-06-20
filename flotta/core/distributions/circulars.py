@@ -1,4 +1,4 @@
-from ferdelance.core.distributions.core import Distribution
+from flotta.core.distributions.core import Distribution
 
 
 class RoundRobin(Distribution):

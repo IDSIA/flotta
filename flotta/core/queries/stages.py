@@ -1,7 +1,7 @@
-from ferdelance.core.entity import Entity
-from ferdelance.core.environment import Environment
-from ferdelance.core.queries.features import QueryFeature
-from ferdelance.core.transformers import QueryTransformer
+from flotta.core.entity import Entity
+from flotta.core.environment import Environment
+from flotta.core.queries.features import QueryFeature
+from flotta.core.transformers import QueryTransformer
 
 
 class QueryStage(Entity):

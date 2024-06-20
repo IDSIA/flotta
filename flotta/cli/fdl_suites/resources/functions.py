@@ -1,9 +1,9 @@
 """Implementation of the CLI features regarding models"""
 
-from ferdelance.cli.visualization import show_many, show_one
-from ferdelance.database import DataBase
-from ferdelance.database.repositories import ResourceRepository
-from ferdelance.schemas.database import Resource
+from flotta.cli.visualization import show_many, show_one
+from flotta.database import DataBase
+from flotta.database.repositories import ResourceRepository
+from flotta.schemas.database import Resource
 
 from sqlalchemy.exc import NoResultFound
 

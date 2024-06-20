@@ -1,20 +1,20 @@
-from ferdelance.const import TYPE_USER
-from ferdelance.core.artifacts import ArtifactStatus, Artifact
-from ferdelance.database import AsyncSession
-from ferdelance.database.repositories import (
+from flotta.const import TYPE_USER
+from flotta.core.artifacts import ArtifactStatus, Artifact
+from flotta.database import AsyncSession
+from flotta.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
     DataSourceRepository,
     ProjectRepository,
     ResourceRepository,
 )
-from ferdelance.logging import get_logger
-from ferdelance.node.services import JobManagementService
-from ferdelance.schemas.client import ClientDetails
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.database import Resource
-from ferdelance.schemas.project import Project
-from ferdelance.schemas.workbench import (
+from flotta.logging import get_logger
+from flotta.node.services import JobManagementService
+from flotta.schemas.client import ClientDetails
+from flotta.schemas.components import Component
+from flotta.schemas.database import Resource
+from flotta.schemas.project import Project
+from flotta.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,

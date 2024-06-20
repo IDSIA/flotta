@@ -1,9 +1,9 @@
-from ferdelance.const import TYPE_CLIENT, TYPE_NODE
-from ferdelance.core.metrics import Metrics
-from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
-from ferdelance.node.services import JobManagementService, TaskManagementService
-from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
+from flotta.const import TYPE_CLIENT, TYPE_NODE
+from flotta.core.metrics import Metrics
+from flotta.logging import get_logger
+from flotta.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
+from flotta.node.services import JobManagementService, TaskManagementService
+from flotta.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 
 from fastapi import APIRouter, Depends, HTTPException
 

@@ -1,8 +1,8 @@
 from typing import Any
 
-from ferdelance.core.environment import Environment
-from ferdelance.core.transformers.core import QueryTransformer
-from ferdelance.core.queries import QueryFeature, FilterOperation
+from flotta.core.environment import Environment
+from flotta.core.transformers.core import QueryTransformer
+from flotta.core.queries import QueryFeature, FilterOperation
 
 from pydantic import field_validator
 

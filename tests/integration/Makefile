@@ -42,10 +42,10 @@ logs-workbench:
 dump:
 	rm -rf log
 	mkdir -p log
-	docker compose -f docker-compose.integration.yaml logs server > log/ferdelance.integration.server.log
-	docker compose -f docker-compose.integration.yaml logs client1 > log/ferdelance.integration.client1.log
-	docker compose -f docker-compose.integration.yaml logs client2 > log/ferdelance.integration.client2.log
-	docker compose -f docker-compose.integration.yaml logs node1 > log/ferdelance.integration.node1.log
-	docker compose -f docker-compose.integration.yaml logs node2 > log/ferdelance.integration.node2.log
-	docker compose -f docker-compose.integration.yaml logs workbench > log/ferdelance.integration.workbench.log
+	docker compose -f docker-compose.integration.yaml logs server > log/flotta.integration.server.log
+	docker compose -f docker-compose.integration.yaml logs client1 > log/flotta.integration.client1.log
+	docker compose -f docker-compose.integration.yaml logs client2 > log/flotta.integration.client2.log
+	docker compose -f docker-compose.integration.yaml logs node1 > log/flotta.integration.node1.log
+	docker compose -f docker-compose.integration.yaml logs node2 > log/flotta.integration.node2.log
+	docker compose -f docker-compose.integration.yaml logs workbench > log/flotta.integration.workbench.log
 	python3 log_clean.py

@@ -1,10 +1,10 @@
-from ferdelance.config import config_manager
-from ferdelance.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
-from ferdelance.database.repositories.core import AsyncSession, Repository
-from ferdelance.database.repositories.component import ComponentDB, Component, viewComponent
-from ferdelance.logging import get_logger
-from ferdelance.schemas.metadata import Metadata, MetaDataSource
-from ferdelance.schemas.datasources import DataSource, Feature
+from flotta.config import config_manager
+from flotta.database.tables import DataSource as DataSourceDB, Project as ProjectDB, project_datasource
+from flotta.database.repositories.core import AsyncSession, Repository
+from flotta.database.repositories.component import ComponentDB, Component, viewComponent
+from flotta.logging import get_logger
+from flotta.schemas.metadata import Metadata, MetaDataSource
+from flotta.schemas.datasources import DataSource, Feature
 
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound

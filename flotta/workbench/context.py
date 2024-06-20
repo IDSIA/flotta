@@ -1,10 +1,10 @@
 from typing import Any, Sequence
 
-from ferdelance import __version__
-from ferdelance.core.interfaces import Step
-from ferdelance.logging import get_logger
-from ferdelance.schemas.node import NodePublicKey
-from ferdelance.schemas.workbench import (
+from flotta import __version__
+from flotta.core.interfaces import Step
+from flotta.logging import get_logger
+from flotta.schemas.node import NodePublicKey
+from flotta.schemas.workbench import (
     WorkbenchArtifact,
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
@@ -14,10 +14,10 @@ from ferdelance.schemas.workbench import (
     WorkbenchResource,
     WorkbenchResourceList,
 )
-from ferdelance.security.checksums import str_checksum
-from ferdelance.security.exchange import Exchange
-from ferdelance.shared.status import ArtifactJobStatus
-from ferdelance.workbench.interface import (
+from flotta.security.checksums import str_checksum
+from flotta.security.exchange import Exchange
+from flotta.shared.status import ArtifactJobStatus
+from flotta.workbench.interface import (
     Project,
     Client,
     DataSource,
@@ -37,9 +37,9 @@ import time
 LOGGER = get_logger(__name__)
 
 HOME: Path = Path(os.path.expanduser("~"))
-DATA_DIR: Path = Path(os.environ.get("DATA_HOME", str(HOME / ".local" / "share" / "ferdelance")))
-CONFIG_DIR: Path = Path(os.environ.get("CONFIG_HOME", str(HOME / ".config" / "ferdelance")))
-CACHE_DIR: Path = Path(os.environ.get("CACHE_HOME", str(HOME / ".cache" / "ferdelance")))
+DATA_DIR: Path = Path(os.environ.get("DATA_HOME", str(HOME / ".local" / "share" / "flotta")))
+CONFIG_DIR: Path = Path(os.environ.get("CONFIG_HOME", str(HOME / ".config" / "flotta")))
+CACHE_DIR: Path = Path(os.environ.get("CACHE_HOME", str(HOME / ".cache" / "flotta")))
 
 
 class Context:

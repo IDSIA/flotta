@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum, auto
 
-from ferdelance.core.queries import (
+from flotta.core.queries import (
     Query,
     QueryFeature,
     QueryStage,

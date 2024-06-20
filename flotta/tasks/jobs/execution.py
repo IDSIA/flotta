@@ -1,9 +1,9 @@
 from typing import Any
 
-from ferdelance.config import config_manager
-from ferdelance.logging import get_logger
-from ferdelance.tasks.services import RouteService
-from ferdelance.tasks.services.execution import TaskExecutionService
+from flotta.config import config_manager
+from flotta.logging import get_logger
+from flotta.tasks.services import RouteService
+from flotta.tasks.services.execution import TaskExecutionService
 
 import ray
 

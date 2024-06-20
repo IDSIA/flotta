@@ -1,12 +1,12 @@
 # %%
-from ferdelance.core.distributions import Collect
-from ferdelance.core.estimators import GroupCountEstimator, MeanEstimator
-from ferdelance.core.model_operations import Aggregation, Train, TrainTest
-from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
-from ferdelance.core.steps import Finalize, Parallel
-from ferdelance.core.transformers import FederatedSplitter, FederatedKBinsDiscretizer
-from ferdelance.schemas.workbench import WorkbenchResource
-from ferdelance.workbench import (
+from flotta.core.distributions import Collect
+from flotta.core.estimators import GroupCountEstimator, MeanEstimator
+from flotta.core.model_operations import Aggregation, Train, TrainTest
+from flotta.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+from flotta.core.steps import Finalize, Parallel
+from flotta.core.transformers import FederatedSplitter, FederatedKBinsDiscretizer
+from flotta.schemas.workbench import WorkbenchResource
+from flotta.workbench import (
     Context,
     Project,
     Client,

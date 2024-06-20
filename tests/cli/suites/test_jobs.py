@@ -1,9 +1,9 @@
-from ferdelance.cli.fdl_suites.jobs.functions import list_jobs
-from ferdelance.const import TYPE_CLIENT
-from ferdelance.database import AsyncSession
-from ferdelance.database.tables import Artifact, Component, Job, Resource
-from ferdelance.schemas.jobs import Job as JobView
-from ferdelance.shared.status import JobStatus
+from flotta.cli.fdl_suites.jobs.functions import list_jobs
+from flotta.const import TYPE_CLIENT
+from flotta.database import AsyncSession
+from flotta.database.tables import Artifact, Component, Job, Resource
+from flotta.schemas.jobs import Job as JobView
+from flotta.shared.status import JobStatus
 
 import pytest
 

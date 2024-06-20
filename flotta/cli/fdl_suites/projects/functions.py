@@ -1,7 +1,7 @@
-from ferdelance.cli.visualization import show_many, show_one, show_string
-from ferdelance.database import DataBase
-from ferdelance.database.repositories import ProjectRepository
-from ferdelance.schemas.project import BaseProject as ProjectView
+from flotta.cli.visualization import show_many, show_one, show_string
+from flotta.database import DataBase
+from flotta.database.repositories import ProjectRepository
+from flotta.schemas.project import BaseProject as ProjectView
 
 from sqlalchemy.exc import NoResultFound
 

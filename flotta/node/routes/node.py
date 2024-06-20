@@ -1,12 +1,12 @@
-from ferdelance.const import TYPE_NODE, TYPE_CLIENT
-from ferdelance.database.repositories.component import ComponentRepository
-from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, session_args, valid_session_args, ValidSessionArgs
-from ferdelance.node.services import NodeService
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodeMetadata, NodePublicKey
-from ferdelance.security.checksums import str_checksum
+from flotta.const import TYPE_NODE, TYPE_CLIENT
+from flotta.database.repositories.component import ComponentRepository
+from flotta.logging import get_logger
+from flotta.node.middlewares import SignedAPIRoute, SessionArgs, session_args, valid_session_args, ValidSessionArgs
+from flotta.node.services import NodeService
+from flotta.schemas.components import Component
+from flotta.schemas.metadata import Metadata
+from flotta.schemas.node import JoinData, NodeJoinRequest, NodeMetadata, NodePublicKey
+from flotta.security.checksums import str_checksum
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 

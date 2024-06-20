@@ -1,22 +1,22 @@
-from ferdelance.config import config_manager
-from ferdelance.core.distributions.many import Collect
-from ferdelance.core.model_operations.aggregations import Aggregation
-from ferdelance.core.model_operations.train import Train, TrainTest
-from ferdelance.core.operations.core import QueryOperation
-from ferdelance.core.steps import Finalize, Parallel
-from ferdelance.core.transformers.splitters import FederatedSplitter
-from ferdelance.database.tables import Job
-from ferdelance.logging import get_logger
-from ferdelance.node.api import api
-from ferdelance.schemas.updates import UpdateData
-from ferdelance.schemas.workbench import (
+from flotta.config import config_manager
+from flotta.core.distributions.many import Collect
+from flotta.core.model_operations.aggregations import Aggregation
+from flotta.core.model_operations.train import Train, TrainTest
+from flotta.core.operations.core import QueryOperation
+from flotta.core.steps import Finalize, Parallel
+from flotta.core.transformers.splitters import FederatedSplitter
+from flotta.database.tables import Job
+from flotta.logging import get_logger
+from flotta.node.api import api
+from flotta.schemas.updates import UpdateData
+from flotta.schemas.workbench import (
     WorkbenchProjectToken,
     WorkbenchArtifact,
 )
-from ferdelance.shared.actions import Action
-from ferdelance.shared.status import ArtifactJobStatus
-from ferdelance.tasks.tasks import Task
-from ferdelance.workbench.interface import (
+from flotta.shared.actions import Action
+from flotta.shared.status import ArtifactJobStatus
+from flotta.tasks.tasks import Task
+from flotta.workbench.interface import (
     AggregatedDataSource,
     Project,
     Artifact,

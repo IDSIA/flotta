@@ -1,5 +1,5 @@
-from ferdelance.core.artifacts import ArtifactStatus
-from ferdelance.shared.status import ArtifactJobStatus
+from flotta.core.artifacts import ArtifactStatus
+from flotta.shared.status import ArtifactJobStatus
 
 from datetime import datetime
 from pathlib import Path

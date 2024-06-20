@@ -1,9 +1,9 @@
-# Ferdelance, a Federated Learning framework
+# flotta, a Federated Learning framework
 
 
-## What is Ferdelance?
+## What is flotta?
 
-_Ferdelance_ is a **distributed framework** intended to be used both as a workbench to develop new distributed algorithm within a Federated Learning (FL) based environment, and perform distributed statistical analysis on private data.
+_flotta_ is a **distributed framework** intended to be used both as a workbench to develop new distributed algorithm within a Federated Learning (FL) based environment, and perform distributed statistical analysis on private data.
 
 Federated Learning is a Machine Learning (ML) approach that allows for training models across decentralized devices or servers while keeping the data localized, increasing the privacy of data holders.
 Instead of collecting data from various sources and centralizing it in one location for training, federated learning enables model training directly on the devices where the data resides.
@@ -19,15 +19,6 @@ This allows researchers to quickly setup data extraction pipeline, following the
 The main component of the framework is the **node**: a [FastAPI](https://fastapi.tiangolo.com/) based application capable of manage, schedule, and execute jobs in a [Ray](https://www.ray.io/) worker.
 
 The implementation of the distributed network of node have been inspired by the [Apache Spark](https://spark.apache.org/) framework; to interact with the framework, the researchers can use a **workbench** context to create and submit jobs to the distributed network through a node.
-
-
-## Why this name?
-
-* _Fer-De-Lance_ means "Spearhead" in French.
-* It is also a kind of snake of the genus *Bothrops*. 
-* Asclepius, the greek divinity of the medicine, had a staff entwined with snakes, which is the symbol of medicine today.
-* Many letters in _Federated Learning_ can also be found in _Fer-De-Lance_.
-* Python _is_ a snake!
 
 ---
 
@@ -45,7 +36,7 @@ It is used to communicate with a node and submit Artifacts, that encapsulate ins
 Installation is straightforward.
 
 ```bash
-pip install ferdelance[workbench]
+pip install flotta[workbench]
 ```
 
 Once installed, just create a context object and obtain a project handler with a token.
@@ -55,12 +46,12 @@ The token is created by the node network administrator and it is unique for each
 Following an example of how to use the workbench library to connect to a node.
 
 ```python
-from ferdelance.core.distributions import Collect
-from ferdelance.core.model_operations import Aggregation, Train, TrainTest
-from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
-from ferdelance.core.steps import Finalize, Parallel
-from ferdelance.core.transformers import FederatedSplitter
-from ferdelance.workbench import Context, Artifact
+from flotta.core.distributions import Collect
+from flotta.core.model_operations import Aggregation, Train, TrainTest
+from flotta.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+from flotta.core.steps import Finalize, Parallel
+from flotta.core.transformers import FederatedSplitter
+from flotta.workbench import Context, Artifact
 
 server_url = "http://localhost:1456"
 project_token = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
@@ -126,13 +117,13 @@ This allows the clients to have more control on the access and an additional lay
 The installation of a node is simple:
 
 ```bash
-pip install ferdelance
+pip install flotta
 ```
 
 Once installed it can be run by specifying a YAML configuration file:
 
 ```bash
-python -m ferdelance -c ./config.yaml
+python -m flotta -c ./config.yaml
 ```
 
 The node is composed by a web API written with [FastAPI](https://fastapi.tiangolo.com/) that runs and spawns [Ray](https://ray.io) tasks.
@@ -156,7 +147,7 @@ workdir: ./storage                  # OPTIONAL: local path of the working direct
 mode: node                          # one of: node, client, standalone
 
 node:
-  name: FerdelanceNode
+  name: flottaNode
   healthcheck: 3600.0               # wait in seconds for check self status
   heartbeat: 10.0                   # wait in seconds for clients to fetch updates
   allow_resource_download: true     # if false, nobody can download resources from this node
@@ -185,7 +176,7 @@ datasources:                        # list of available datasources
 database:
   username: ""                      # username used to access the database
   password: ""                      # password used to access the database
-  scheme: ferdelance                # specify the name of the database schema to use
+  scheme: flotta                # specify the name of the database schema to use
   memory: false                     # when set to true, a SQLite in-memory database will be used
   dialect: sqlite                   # current accepted dialects are: SQLite and Postgresql
   host: ./sqlite.db                 # local path for local file (QSLite) or url for remote database
@@ -209,7 +200,7 @@ Other supported database are:
 
 ```yaml
 database:
-  scheme: ferdelance
+  scheme: flotta
   dialect: sqlite
   host: ./sqlite.db
   memory: false
@@ -221,7 +212,7 @@ database:
 database:
   username: "${DATABASE_USER}"
   password: "${DATABASE_PASSWORD}"
-  scheme: ferdelance
+  scheme: flotta
   dialect: postgresql
   host: remote_url
   port: 5432
@@ -232,7 +223,7 @@ database:
 
 ## Development
 
-The Ferdelance framework is open for contributions and offer a quick development environment.
+The flotta framework is open for contributions and offer a quick development environment.
 
 It is useful to use a local Python virtual environment, like [virtualenv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/), during the development of the library.
 
@@ -260,7 +251,7 @@ To test the changes in development mode there are a number of possibilities:
 For testing purposes it is useful to install the test version of the framework:
 
 ```bash
-pip install ferdelance[test]
+pip install flotta[test]
 ```
 
 > **Note:** The development version already include the test part
@@ -272,7 +263,7 @@ One of the simplest way to test changes to the framework is through the so calle
 In this mode, the framework is executed as a standalone application: this is just a node scheduling jobs for itself with an hardcoded base configuration.
 
 ```bash
-python -m ferdelance.standalone
+python -m flotta.standalone
 ```
 
 
@@ -318,7 +309,7 @@ To test single part of code, such as transformers, models, or estimators, it is 
 A simple test case can be setup as follow:
 
 ```python
-from ferdelance.server.api import api
+from flotta.server.api import api
 
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession

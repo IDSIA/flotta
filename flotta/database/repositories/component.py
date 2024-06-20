@@ -1,12 +1,12 @@
-from ferdelance.const import TYPE_CLIENT, TYPE_NODE, TYPE_USER
-from ferdelance.database.tables import (
+from flotta.const import TYPE_CLIENT, TYPE_NODE, TYPE_USER
+from flotta.database.tables import (
     Component as ComponentDB,
     ComponentType,
     Event as EventDB,
 )
-from ferdelance.database.repositories.core import AsyncSession, Repository
-from ferdelance.logging import get_logger
-from ferdelance.schemas.components import Component, Event
+from flotta.database.repositories.core import AsyncSession, Repository
+from flotta.logging import get_logger
+from flotta.schemas.components import Component, Event
 
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
@@ -99,7 +99,7 @@ class ComponentRepository(Repository):
                 Id assigned to the component.
             type_name (str):
                 Name of the type of the component. Refer to the
-                ferdelance.const.COMPONENT_TYPE list for all the types.
+                flotta.const.COMPONENT_TYPE list for all the types.
             public_key (str):
                 Public key sent by the remote component and used for encryption.
             name (str):

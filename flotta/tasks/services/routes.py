@@ -1,11 +1,11 @@
 from typing import Any
 
-from ferdelance.core.metrics import Metrics
-from ferdelance.logging import get_logger
-from ferdelance.schemas.resources import NewResource, ResourceIdentifier
-from ferdelance.security.algorithms import Algorithm
-from ferdelance.security.exchange import Exchange
-from ferdelance.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
+from flotta.core.metrics import Metrics
+from flotta.logging import get_logger
+from flotta.schemas.resources import NewResource, ResourceIdentifier
+from flotta.security.algorithms import Algorithm
+from flotta.security.exchange import Exchange
+from flotta.tasks.tasks import Task, TaskDone, TaskError, TaskRequest
 
 from pathlib import Path
 

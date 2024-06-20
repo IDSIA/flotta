@@ -1,5 +1,5 @@
-from ferdelance.logging import get_logger
-from ferdelance.node.api import api
+from flotta.logging import get_logger
+from flotta.node.api import api
 
 from fastapi.testclient import TestClient
 

@@ -1,6 +1,6 @@
-from ferdelance.config.config import DataSourceConfiguration, DataSourceStorage
-from ferdelance.core.estimators import CountEstimator
-from ferdelance.workbench.interface import Artifact
+from flotta.config.config import DataSourceConfiguration, DataSourceStorage
+from flotta.core.estimators import CountEstimator
+from flotta.workbench.interface import Artifact
 
 from tests.utils import TEST_PROJECT_TOKEN, assert_jobs_count
 from tests.serverless import ServerlessExecution, ServerlessWorker

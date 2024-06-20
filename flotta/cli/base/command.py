@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from ferdelance.cli.base import CLIArgument
+from flotta.cli.base import CLIArgument
 
 
 async def function_not_implemented():

@@ -1,8 +1,8 @@
 from __future__ import annotations
 from enum import Enum
 
-from ferdelance.core.models.meta import AggregationModel
-from ferdelance.core.models.utils import get_model_parameters
+from flotta.core.models.meta import AggregationModel
+from flotta.core.models.utils import get_model_parameters
 
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.preprocessing import LabelEncoder

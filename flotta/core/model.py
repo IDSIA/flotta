@@ -2,10 +2,10 @@ from __future__ import annotations
 from typing import Any, Sequence
 from abc import ABC, abstractmethod
 
-from ferdelance.core.entity import Entity
-from ferdelance.core.interfaces import Step
-from ferdelance.core.metrics import Metrics
-from ferdelance.core.queries import Query
+from flotta.core.entity import Entity
+from flotta.core.interfaces import Step
+from flotta.core.metrics import Metrics
+from flotta.core.queries import Query
 
 from numpy.typing import ArrayLike
 from pathlib import Path

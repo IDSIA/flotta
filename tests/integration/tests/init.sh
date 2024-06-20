@@ -9,7 +9,7 @@ PATH="/venv/bin:${PATH}"
 
 pip install --upgrade pip
 
-pip install --index-url http://${REPOSITORY_HOST}/simple/ --trusted-host ${REPOSITORY_HOST} ferdelance
+pip install --index-url http://${REPOSITORY_HOST}/simple/ --trusted-host ${REPOSITORY_HOST} flotta
 
 python /tests/health_check.py
 

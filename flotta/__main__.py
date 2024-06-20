@@ -1,6 +1,6 @@
-from ferdelance.config import config_manager
-from ferdelance.logging import get_logger, get_log_formatter
-from ferdelance.node.deployment import start_node, wait_node
+from flotta.config import config_manager
+from flotta.logging import get_logger, get_log_formatter
+from flotta.node.deployment import start_node, wait_node
 
 import logging
 import ray

@@ -1,9 +1,9 @@
-from ferdelance.const import TYPE_CLIENT
-from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
-from ferdelance.node.services import JobManagementService
-from ferdelance.schemas.client import ClientUpdate
-from ferdelance.schemas.updates import UpdateData
+from flotta.const import TYPE_CLIENT
+from flotta.logging import get_logger
+from flotta.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
+from flotta.node.services import JobManagementService
+from flotta.schemas.client import ClientUpdate
+from flotta.schemas.updates import UpdateData
 
 from fastapi import APIRouter, Depends, HTTPException
 

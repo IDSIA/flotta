@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.schemas.datasources import BaseDataSource, BaseFeature
+from flotta.schemas.datasources import BaseDataSource, BaseFeature
 
 from pydantic import BaseModel
 

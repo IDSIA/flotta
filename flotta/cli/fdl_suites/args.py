@@ -1,8 +1,8 @@
-from ferdelance.cli.base import CLIArgument
+from flotta.cli.base import CLIArgument
 
 
 class FDLCLIArgs:
-    """All possible args in the Ferdelance CLI"""
+    """All possible args in the flotta CLI"""
 
     ARTIFACT_ID: CLIArgument = CLIArgument(
         dash_string="--artifact-id",

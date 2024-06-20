@@ -2,7 +2,7 @@
 Setup
 ==============================
 
-The Ferdelance framework is open for contributions and offer a quick development environment.
+The flotta framework is open for contributions and offer a quick development environment.
 
 It is useful to use a local Python virtual environment, like `virtualenv <https://docs.python.org/3/library/venv.html>`_ or `conda <https://docs.conda.io/>`_, during the development of the library.
 

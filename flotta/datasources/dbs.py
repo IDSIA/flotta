@@ -1,4 +1,4 @@
-from ferdelance.datasources.datasource import DataSource
+from flotta.datasources.datasource import DataSource
 
 import pandas as pd
 

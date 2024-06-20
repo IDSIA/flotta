@@ -1,10 +1,10 @@
 from typing import Any
 
-from ferdelance.const import TYPE_CLIENT, TYPE_NODE
-from ferdelance.datasources import DataSourceDB, DataSourceFile
-from ferdelance.logging import get_logger
-from ferdelance.schemas.metadata import Metadata
-from ferdelance.security.exchange import Exchange
+from flotta.const import TYPE_CLIENT, TYPE_NODE
+from flotta.datasources import DataSourceDB, DataSourceFile
+from flotta.logging import get_logger
+from flotta.schemas.metadata import Metadata
+from flotta.security.exchange import Exchange
 
 from .arguments import setup_config_from_arguments
 
@@ -107,7 +107,7 @@ class NodeConfiguration(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
-        return check_for_env_variables(values, "ferdelance_node")
+        return check_for_env_variables(values, "flotta_node")
 
 
 class JoinConfiguration(BaseModel):
@@ -117,7 +117,7 @@ class JoinConfiguration(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
-        return check_for_env_variables(values, "ferdelance_client")
+        return check_for_env_variables(values, "flotta_client")
 
 
 class DatabaseConfiguration(BaseModel):
@@ -127,14 +127,14 @@ class DatabaseConfiguration(BaseModel):
     dialect: str = "sqlite"  # "postgresql"
     port: int = -1  # 5432
     host: str | None = "./storage/sqlite.db"  # None
-    scheme: str = "ferdelance"
+    scheme: str = "flotta"
 
     memory: bool = False
 
     @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
-        return check_for_env_variables(values, "ferdelance_database")
+        return check_for_env_variables(values, "flotta_database")
 
 
 class DataSourceConfiguration(BaseModel):
@@ -148,7 +148,7 @@ class DataSourceConfiguration(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
-        return check_for_env_variables(values, "ferdelance_datasource")
+        return check_for_env_variables(values, "flotta_datasource")
 
 
 class DataSourceStorage:
@@ -195,7 +195,7 @@ class DataSourceStorage:
 class Configuration(BaseSettings):
 
     model_config = SettingsConfigDict(
-        env_prefix="ferdelance_",
+        env_prefix="flotta_",
         env_nested_delimiter="__",
     )
 
@@ -230,7 +230,7 @@ class Configuration(BaseSettings):
     @model_validator(mode="before")
     @classmethod
     def env_var_validate(cls, values: dict[str, Any]):
-        values = check_for_env_variables(values, "ferdelance")
+        values = check_for_env_variables(values, "flotta")
 
         # Force node url to localhost when mode=client
         if "mode" in values and values["mode"] == "client":
@@ -246,7 +246,7 @@ class Configuration(BaseSettings):
     def check_for_join_data(self):
         # check for existing join url
         if self.mode == "client":
-            os.environ["FERDELANCE_MODE"] = "client"
+            os.environ["flotta_MODE"] = "client"
 
             j: JoinConfiguration = self.join
 
@@ -332,7 +332,7 @@ class Configuration(BaseSettings):
             try:
                 yaml.safe_dump(self.model_dump(), f)
 
-                os.environ["FERDELANCE_CONFIG_FILE"] = str(self.storage_config())
+                os.environ["flotta_CONFIG_FILE"] = str(self.storage_config())
 
             except yaml.YAMLError as e:
                 LOGGER.error(f"could not dump config file to {self.storage_config()}")
@@ -353,7 +353,7 @@ class ConfigManager:
         config_path, self._leave = setup_config_from_arguments()
 
         # config path from env variable
-        env_path = os.environ.get("FERDELANCE_CONFIG_FILE", None)
+        env_path = os.environ.get("flotta_CONFIG_FILE", None)
 
         if env_path is not None:
             config_path = Path(env_path)

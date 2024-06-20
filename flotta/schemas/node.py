@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.metadata import Metadata
+from flotta.schemas.components import Component
+from flotta.schemas.metadata import Metadata
 
 
 class NodeJoinRequest(BaseModel):

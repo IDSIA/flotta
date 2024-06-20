@@ -2,9 +2,9 @@ from __future__ import annotations
 from typing import Sequence
 from itertools import pairwise
 
-from ferdelance.core.distributions import Distribution, DirectToNext
-from ferdelance.core.interfaces import SchedulerJob, SchedulerContext, BaseStep
-from ferdelance.core.operations import Operation
+from flotta.core.distributions import Distribution, DirectToNext
+from flotta.core.interfaces import SchedulerJob, SchedulerContext, BaseStep
+from flotta.core.operations import Operation
 
 from pydantic import SerializeAsAny
 

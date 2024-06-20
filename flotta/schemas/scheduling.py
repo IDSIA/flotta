@@ -1,4 +1,4 @@
-from ferdelance.schemas.components import Component
+from flotta.schemas.components import Component
 
 from pydantic import BaseModel
 

@@ -1,5 +1,5 @@
-from ferdelance.security.keys import PrivateKey, PublicKey
-from ferdelance.security.algorithms import HybridDecryptionAlgorithm, HybridEncryptionAlgorithm
+from flotta.security.keys import PrivateKey, PublicKey
+from flotta.security.algorithms import HybridDecryptionAlgorithm, HybridEncryptionAlgorithm
 
 import numpy as np
 

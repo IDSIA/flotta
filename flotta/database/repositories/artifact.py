@@ -1,10 +1,10 @@
-from ferdelance.config import config_manager
-from ferdelance.core.artifacts import Artifact, ArtifactStatus
-from ferdelance.database.tables import Artifact as ArtifactDB
-from ferdelance.database.repositories.core import AsyncSession, Repository
-from ferdelance.logging import get_logger
-from ferdelance.schemas.database import ServerArtifact
-from ferdelance.shared.status import ArtifactJobStatus
+from flotta.config import config_manager
+from flotta.core.artifacts import Artifact, ArtifactStatus
+from flotta.database.tables import Artifact as ArtifactDB
+from flotta.database.repositories.core import AsyncSession, Repository
+from flotta.logging import get_logger
+from flotta.schemas.database import ServerArtifact
+from flotta.shared.status import ArtifactJobStatus
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import NoResultFound

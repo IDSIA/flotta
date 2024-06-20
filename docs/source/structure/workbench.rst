@@ -8,7 +8,7 @@ It is used to communicate with a node and submit Artifacts, that encapsulate ins
 
 Installation is straightforward::
 
-  pip install ferdelance[workbench]
+  pip install flotta[workbench]
 
 
 Once installed, just create a context object and obtain a project handler with a token.
@@ -18,12 +18,12 @@ The token is created by the node network administrator and it is unique for each
 Following an example of how to use the workbench library to connect to a node. ::
 
 
-    from ferdelance.core.distributions import Collect
-    from ferdelance.core.model_operations import Aggregation, Train, TrainTest
-    from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
-    from ferdelance.core.steps import Finalize, Parallel
-    from ferdelance.core.transformers import FederatedSplitter
-    from ferdelance.workbench import Context, Artifact
+    from flotta.core.distributions import Collect
+    from flotta.core.model_operations import Aggregation, Train, TrainTest
+    from flotta.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+    from flotta.core.steps import Finalize, Parallel
+    from flotta.core.transformers import FederatedSplitter
+    from flotta.workbench import Context, Artifact
 
     server_url = "http://localhost:1456"
     project_token = "58981bcbab77ef4b8e01207134c38873e0936a9ab88cd76b243a2e2c85390b94"
@@ -78,4 +78,4 @@ Following an example of how to use the workbench library to connect to a node. :
     Artifact: Artifact = ctx.submit(project, steps)
 
 .. Note:
-   More examples are available in the `examples <https://github.com/IDSIA/Ferdelance/tree/main/examples>`_ and in the `tests <https://github.com/IDSIA/Ferdelance/tree/main/tests>`_ folders.
+   More examples are available in the `examples <https://github.com/IDSIA/flotta/tree/main/examples>`_ and in the `tests <https://github.com/IDSIA/flotta/tree/main/tests>`_ folders.

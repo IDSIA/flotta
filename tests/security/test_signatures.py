@@ -1,4 +1,4 @@
-from ferdelance.security.keys import PrivateKey
+from flotta.security.keys import PrivateKey
 
 from tests.utils import random_string
 

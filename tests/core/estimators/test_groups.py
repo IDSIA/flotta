@@ -1,6 +1,6 @@
-from ferdelance.core.environment import EnvResource, Environment
-from ferdelance.core.estimators import GroupCountEstimator, GroupMeanEstimator
-from ferdelance.core.steps import Sequential
+from flotta.core.environment import EnvResource, Environment
+from flotta.core.estimators import GroupCountEstimator, GroupMeanEstimator
+from flotta.core.steps import Sequential
 
 from pathlib import Path
 

@@ -1,14 +1,14 @@
 from typing import Callable, Coroutine, Any
 from dataclasses import dataclass
 
-from ferdelance.config import config_manager
-from ferdelance.database import DataBase, AsyncSession
-from ferdelance.database.repositories import ComponentRepository
-from ferdelance.logging import get_logger
-from ferdelance.schemas.components import Component
-from ferdelance.security.algorithms import Algorithm
-from ferdelance.security.exchange import Exchange
-from ferdelance.security.headers import SignedHeaders
+from flotta.config import config_manager
+from flotta.database import DataBase, AsyncSession
+from flotta.database.repositories import ComponentRepository
+from flotta.logging import get_logger
+from flotta.schemas.components import Component
+from flotta.security.algorithms import Algorithm
+from flotta.security.exchange import Exchange
+from flotta.security.headers import SignedHeaders
 
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from ferdelance.core.environment import Environment
-from ferdelance.core.model_operations.core import ModelOperation
+from flotta.core.environment import Environment
+from flotta.core.model_operations.core import ModelOperation
 
 
 class Aggregation(ModelOperation):

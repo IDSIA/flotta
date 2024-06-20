@@ -1,11 +1,11 @@
 from typing import Any
 
-from ferdelance.commons import storage_job
-from ferdelance.config import DataSourceConfiguration, DataSourceStorage
-from ferdelance.core import Environment
-from ferdelance.logging import get_logger
-from ferdelance.tasks.services.routes import RouteService
-from ferdelance.tasks.tasks import Task, TaskError
+from flotta.commons import storage_job
+from flotta.config import DataSourceConfiguration, DataSourceStorage
+from flotta.core import Environment
+from flotta.logging import get_logger
+from flotta.tasks.services.routes import RouteService
+from flotta.tasks.tasks import Task, TaskError
 
 from pathlib import Path
 

@@ -1,7 +1,7 @@
-from ferdelance.cli.fdl_suites.resources.functions import describe_resource, list_resource
-from ferdelance.const import TYPE_CLIENT
-from ferdelance.database.tables import Artifact, Component, Resource as ResourceDB
-from ferdelance.schemas.database import Resource
+from flotta.cli.fdl_suites.resources.functions import describe_resource, list_resource
+from flotta.const import TYPE_CLIENT
+from flotta.database.tables import Artifact, Component, Resource as ResourceDB
+from flotta.schemas.database import Resource
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

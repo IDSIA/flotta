@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Ferdelance"
+project = "flotta"
 copyright = "2024, IDSIA"
 author = "IDSIA"
 

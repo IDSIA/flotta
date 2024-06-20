@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ferdelance.cli.base import CLICommand
+from flotta.cli.base import CLICommand
 
 
 @dataclass

@@ -1,9 +1,9 @@
 from typing import AsyncGenerator
 
-from ferdelance.config import config_manager
-from ferdelance.const import COMPONENT_TYPES
-from ferdelance.database import Base, DataBase
-from ferdelance.database.tables import ComponentType
+from flotta.config import config_manager
+from flotta.const import COMPONENT_TYPES
+from flotta.database import Base, DataBase
+from flotta.database.tables import ComponentType
 
 from .utils import TEST_PROJECT_TOKEN
 

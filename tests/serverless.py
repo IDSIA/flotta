@@ -1,31 +1,31 @@
 from __future__ import annotations
 
-from ferdelance import __version__
-from ferdelance.config import DataSourceStorage, Configuration, config_manager
-from ferdelance.const import TYPE_CLIENT, TYPE_USER
-from ferdelance.core.artifacts import Artifact, ArtifactStatus
-from ferdelance.database.repositories import (
+from flotta import __version__
+from flotta.config import DataSourceStorage, Configuration, config_manager
+from flotta.const import TYPE_CLIENT, TYPE_USER
+from flotta.core.artifacts import Artifact, ArtifactStatus
+from flotta.database.repositories import (
     ArtifactRepository,
     ComponentRepository,
     DataSourceRepository,
     JobRepository,
     ProjectRepository,
 )
-from ferdelance.node.services import (
+from flotta.node.services import (
     JobManagementService,
     WorkbenchService,
     TaskManagementService,
     ResourceManagementService,
 )
-from ferdelance.node.startup import NodeStartup
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.database import Resource
-from ferdelance.schemas.metadata import Metadata
-from ferdelance.schemas.project import Project
-from ferdelance.schemas.resources import ResourceIdentifier
-from ferdelance.schemas.updates import UpdateData
-from ferdelance.tasks.services.execution import load_environment
-from ferdelance.tasks.tasks import Task, TaskError
+from flotta.node.startup import NodeStartup
+from flotta.schemas.components import Component
+from flotta.schemas.database import Resource
+from flotta.schemas.metadata import Metadata
+from flotta.schemas.project import Project
+from flotta.schemas.resources import ResourceIdentifier
+from flotta.schemas.updates import UpdateData
+from flotta.tasks.services.execution import load_environment
+from flotta.tasks.tasks import Task, TaskError
 
 from tests.utils import create_project
 

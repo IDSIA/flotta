@@ -1,18 +1,18 @@
 from typing import Any
 
-from ferdelance.const import TYPE_CLIENT
-from ferdelance.core.interfaces import SchedulerContext
-from ferdelance.database.repositories import ProjectRepository, AsyncSession, ArtifactRepository, JobRepository
-from ferdelance.logging import get_logger
-from ferdelance.schemas.client import ClientUpdate
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
-from ferdelance.schemas.metadata import Metadata, MetaDataSource, MetaFeature
-from ferdelance.schemas.workbench import WorkbenchJoinRequest, WorkbenchJoinResponse
-from ferdelance.security.checksums import str_checksum
-from ferdelance.security.exchange import Exchange
-from ferdelance.shared.actions import Action
-from ferdelance.shared.status import JobStatus
+from flotta.const import TYPE_CLIENT
+from flotta.core.interfaces import SchedulerContext
+from flotta.database.repositories import ProjectRepository, AsyncSession, ArtifactRepository, JobRepository
+from flotta.logging import get_logger
+from flotta.schemas.client import ClientUpdate
+from flotta.schemas.components import Component
+from flotta.schemas.node import JoinData, NodeJoinRequest, NodePublicKey
+from flotta.schemas.metadata import Metadata, MetaDataSource, MetaFeature
+from flotta.schemas.workbench import WorkbenchJoinRequest, WorkbenchJoinResponse
+from flotta.security.checksums import str_checksum
+from flotta.security.exchange import Exchange
+from flotta.shared.actions import Action
+from flotta.shared.status import JobStatus
 
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict

@@ -1,10 +1,10 @@
-from ferdelance.const import TYPE_CLIENT
-from ferdelance.core.interfaces import SchedulerJob
-from ferdelance.database.repositories.component import ComponentRepository
-from ferdelance.database.repositories import JobRepository
-from ferdelance.database.tables import Artifact, Component, Resource
-from ferdelance.logging import get_logger
-from ferdelance.shared.status import JobStatus
+from flotta.const import TYPE_CLIENT
+from flotta.core.interfaces import SchedulerJob
+from flotta.database.repositories.component import ComponentRepository
+from flotta.database.repositories import JobRepository
+from flotta.database.tables import Artifact, Component, Resource
+from flotta.logging import get_logger
+from flotta.shared.status import JobStatus
 
 from tests.dummies import DummyOp, DummyStep
 

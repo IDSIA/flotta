@@ -1,11 +1,11 @@
-from ferdelance.const import TYPE_USER
-from ferdelance.core.artifacts import ArtifactStatus, Artifact
-from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, session_args, valid_session_args
-from ferdelance.node.services import WorkbenchService, WorkbenchConnectService
-from ferdelance.node.services.tasks import TaskManagementService
-from ferdelance.schemas.project import Project
-from ferdelance.schemas.workbench import (
+from flotta.const import TYPE_USER
+from flotta.core.artifacts import ArtifactStatus, Artifact
+from flotta.logging import get_logger
+from flotta.node.middlewares import SignedAPIRoute, SessionArgs, ValidSessionArgs, session_args, valid_session_args
+from flotta.node.services import WorkbenchService, WorkbenchConnectService
+from flotta.node.services.tasks import TaskManagementService
+from flotta.schemas.project import Project
+from flotta.schemas.workbench import (
     WorkbenchClientList,
     WorkbenchDataSourceIdList,
     WorkbenchJoinRequest,
@@ -15,7 +15,7 @@ from ferdelance.schemas.workbench import (
     WorkbenchArtifact,
     WorkbenchResourceList,
 )
-from ferdelance.security.checksums import str_checksum
+from flotta.security.checksums import str_checksum
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse

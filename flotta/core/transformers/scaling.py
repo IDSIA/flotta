@@ -1,7 +1,7 @@
 from typing import Any
 
-from ferdelance.core.environment import Environment
-from ferdelance.core.transformers.core import QueryTransformer
+from flotta.core.environment import Environment
+from flotta.core.transformers.core import QueryTransformer
 
 from sklearn.preprocessing import (
     MinMaxScaler,

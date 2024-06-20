@@ -1,6 +1,6 @@
-from ferdelance.config import Configuration
-from ferdelance.logging import get_logger
-from ferdelance.node.api import api
+from flotta.config import Configuration
+from flotta.logging import get_logger
+from flotta.node.api import api
 
 from ray.serve.handle import DeploymentHandle
 from ray import serve
@@ -19,7 +19,7 @@ class ServerWrapper:
     pass
 
 
-def start_node(configuration: Configuration, name: str = "Ferdelance_node") -> DeploymentHandle:
+def start_node(configuration: Configuration, name: str = "flotta_node") -> DeploymentHandle:
     LOGGER.info(f"creating server at host={configuration.node.interface} port={configuration.node.port}")
 
     return serve.run(

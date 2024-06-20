@@ -1,9 +1,9 @@
 """Implementation of the CLI features regarding artifacts"""
 
-from ferdelance.cli.visualization import show_many, show_one
-from ferdelance.database import DataBase
-from ferdelance.database.repositories import ArtifactRepository
-from ferdelance.schemas.database import ServerArtifact
+from flotta.cli.visualization import show_many, show_one
+from flotta.database import DataBase
+from flotta.database.repositories import ArtifactRepository
+from flotta.schemas.database import ServerArtifact
 
 from sqlalchemy.exc import NoResultFound
 

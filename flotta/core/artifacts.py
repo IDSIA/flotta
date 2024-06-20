@@ -2,10 +2,10 @@ from __future__ import annotations
 from typing import Any, Sequence
 from itertools import pairwise
 
-from ferdelance.core.entity import Entity
-from ferdelance.core.interfaces import Step, SchedulerJob, SchedulerContext
-from ferdelance.core.interfaces import BaseStep, Iterate
-from ferdelance.shared.status import ArtifactJobStatus
+from flotta.core.entity import Entity
+from flotta.core.interfaces import Step, SchedulerJob, SchedulerContext
+from flotta.core.interfaces import BaseStep, Iterate
+from flotta.shared.status import ArtifactJobStatus
 
 from pydantic import BaseModel, SerializeAsAny
 

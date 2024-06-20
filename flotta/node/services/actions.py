@@ -1,13 +1,13 @@
-from ferdelance.database.repositories import (
+from flotta.database.repositories import (
     AsyncSession,
     ComponentRepository,
     JobRepository,
 )
-from ferdelance.logging import get_logger
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.jobs import Job
-from ferdelance.schemas.updates import UpdateData
-from ferdelance.shared.actions import Action
+from flotta.logging import get_logger
+from flotta.schemas.components import Component
+from flotta.schemas.jobs import Job
+from flotta.schemas.updates import UpdateData
+from flotta.shared.actions import Action
 
 from sqlalchemy.exc import NoResultFound
 

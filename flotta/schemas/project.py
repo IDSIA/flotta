@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ferdelance.schemas.datasources import AggregatedDataSource, Query
+from flotta.schemas.datasources import AggregatedDataSource, Query
 
 from datetime import datetime
 from pydantic import BaseModel

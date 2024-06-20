@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from ferdelance.core.environment import Environment
-from ferdelance.core.entity import Entity
-from ferdelance.core.queries.features import QueryFeature, QueryFilter, FilterOperation
-from ferdelance.core.queries.stages import QueryStage
-from ferdelance.core.transformers.core import QueryTransformer
-from ferdelance.core.transformers import FederatedFilter
+from flotta.core.environment import Environment
+from flotta.core.entity import Entity
+from flotta.core.queries.features import QueryFeature, QueryFilter, FilterOperation
+from flotta.core.queries.stages import QueryStage
+from flotta.core.transformers.core import QueryTransformer
+from flotta.core.transformers import FederatedFilter
 
 from datetime import datetime
 

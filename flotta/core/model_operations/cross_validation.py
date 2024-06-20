@@ -1,7 +1,7 @@
-from ferdelance.core.environment import Environment
-from ferdelance.core.metrics import Metrics
-from ferdelance.core.model_operations.core import ModelOperation
-from ferdelance.logging import get_logger
+from flotta.core.environment import Environment
+from flotta.core.metrics import Metrics
+from flotta.core.model_operations.core import ModelOperation
+from flotta.logging import get_logger
 
 from sklearn.model_selection import StratifiedKFold, KFold
 

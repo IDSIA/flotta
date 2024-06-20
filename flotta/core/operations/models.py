@@ -1,4 +1,4 @@
-from ferdelance.core.operations.core import Operation
+from flotta.core.operations.core import Operation
 
 from pydantic import field_validator
 

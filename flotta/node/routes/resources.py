@@ -1,9 +1,9 @@
-from ferdelance.config import config_manager
-from ferdelance.const import TYPE_CLIENT, TYPE_NODE, TYPE_USER
-from ferdelance.logging import get_logger
-from ferdelance.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
-from ferdelance.node.services.resource import ResourceManagementService
-from ferdelance.schemas.resources import ResourceIdentifier
+from flotta.config import config_manager
+from flotta.const import TYPE_CLIENT, TYPE_NODE, TYPE_USER
+from flotta.logging import get_logger
+from flotta.node.middlewares import SignedAPIRoute, ValidSessionArgs, valid_session_args
+from flotta.node.services.resource import ResourceManagementService
+from flotta.schemas.resources import ResourceIdentifier
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse

@@ -1,10 +1,10 @@
 from typing import Sequence
 
-from ferdelance.core.distributions import Collect
-from ferdelance.core.interfaces import Step
-from ferdelance.core.model import Model
-from ferdelance.core.model_operations import Aggregation, Train
-from ferdelance.core.steps import Finalize, Parallel
+from flotta.core.distributions import Collect
+from flotta.core.interfaces import Step
+from flotta.core.model import Model
+from flotta.core.model_operations import Aggregation, Train
+from flotta.core.steps import Finalize, Parallel
 
 
 class AggregationModel(Model):

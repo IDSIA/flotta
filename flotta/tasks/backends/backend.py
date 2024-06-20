@@ -1,7 +1,7 @@
 from typing import Any
 
-from ferdelance.logging import get_logger
-from ferdelance.tasks.jobs import Heartbeat, Execution
+from flotta.logging import get_logger
+from flotta.tasks.jobs import Heartbeat, Execution
 
 LOGGER = get_logger(__name__)
 

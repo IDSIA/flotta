@@ -1,9 +1,9 @@
 from typing import AsyncGenerator, Iterator
 
-from ferdelance.security.algorithms import DecryptionAlgorithm, EncryptionAlgorithm, Algorithm
-from ferdelance.security.checksums import str_checksum, file_checksum
-from ferdelance.security.headers import SignedHeaders
-from ferdelance.security.keys.asymmetric import PrivateKey, PublicKey
+from flotta.security.algorithms import DecryptionAlgorithm, EncryptionAlgorithm, Algorithm
+from flotta.security.checksums import str_checksum, file_checksum
+from flotta.security.headers import SignedHeaders
+from flotta.security.keys.asymmetric import PrivateKey, PublicKey
 
 from base64 import b64decode, b64encode
 from pathlib import Path

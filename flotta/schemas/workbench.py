@@ -1,5 +1,5 @@
-from ferdelance.schemas.datasources import DataSource
-from ferdelance.schemas.client import ClientDetails
+from flotta.schemas.datasources import DataSource
+from flotta.schemas.client import ClientDetails
 
 from pydantic import BaseModel
 

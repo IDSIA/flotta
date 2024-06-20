@@ -11,8 +11,8 @@ This is related to manage projects, users, clients, etc. As an example:
 """
 from typing import List
 
-from ferdelance.cli.base import CLICommandSuite, CLIParser
-from ferdelance.cli.fdl_suites import (
+from flotta.cli.base import CLICommandSuite, CLIParser
+from flotta.cli.fdl_suites import (
     models_cli_suite,
     artifacts_cli_suite,
     jobs_cli_suite,
@@ -27,7 +27,7 @@ import asyncio
 async def main() -> None:
     """Execute CLI command"""
     parser: CLIParser = CLIParser(
-        prog="Ferdelance CLI",
+        prog="flotta CLI",
         description="Command Line Interface to administrate client/server",
     )
 

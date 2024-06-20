@@ -30,7 +30,7 @@ def get_logger(name: str) -> logging.Logger:
     os.makedirs(path, exist_ok=True)
 
     file_handler = logging.handlers.RotatingFileHandler(
-        filename=path / "ferdelance.log",
+        filename=path / "flotta.log",
         maxBytes=1024 * 1024 * 1024,  # 1GB
         backupCount=100,
     )

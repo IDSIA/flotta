@@ -9,17 +9,17 @@ __all__ = [
     "Project",
 ]
 
-from ferdelance.core.artifacts import (
+from flotta.core.artifacts import (
     Artifact,
     ArtifactStatus,
 )
-from ferdelance.schemas.datasources import (
+from flotta.schemas.datasources import (
     DataSource,
     Feature,
     AggregatedDataSource,
     AggregatedFeature,
 )
-from ferdelance.schemas.client import (
+from flotta.schemas.client import (
     ClientDetails as Client,
 )
-from ferdelance.schemas.project import Project
+from flotta.schemas.project import Project

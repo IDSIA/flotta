@@ -8,7 +8,7 @@ mode: node
 
 # descriptor for the node setup
 node:
-  name: FerdelanceNode
+  name: flottaNode
 
   main_password: "7386ee647d14852db417a0eacb46c0499909aee90671395cb5e7a2f861f68ca1" # TODO: remove?
 
@@ -41,7 +41,7 @@ node:
 database:
   username: ""
   password: ""
-  scheme: ferdelance
+  scheme: flotta
 
   # in memory db (True)
   memory: False

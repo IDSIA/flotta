@@ -1,4 +1,4 @@
-from ferdelance.core import Entity, Environment, BaseStep, Iterate
+from flotta.core import Entity, Environment, BaseStep, Iterate
 
 from pydantic import BaseModel
 

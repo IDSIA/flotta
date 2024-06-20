@@ -1,7 +1,7 @@
-from ferdelance.config import config_manager
-from ferdelance.database.tables import Job as JobDB, Resource as ResourceDB
-from ferdelance.database.repositories.core import AsyncSession, Repository
-from ferdelance.schemas.database import Resource
+from flotta.config import config_manager
+from flotta.database.tables import Job as JobDB, Resource as ResourceDB
+from flotta.database.repositories.core import AsyncSession, Repository
+from flotta.schemas.database import Resource
 
 from datetime import datetime
 from sqlalchemy import select

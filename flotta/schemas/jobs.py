@@ -1,4 +1,4 @@
-from ferdelance.shared.status import JobStatus
+from flotta.shared.status import JobStatus
 
 from datetime import datetime
 from pathlib import Path

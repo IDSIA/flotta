@@ -11,7 +11,7 @@ The node also uses a database to keep track of every stored object.
 
 The easiest way to deploy a node is using **Docker Compose**.
 
-The file `docker-compose.integration.yaml <https://github.com/IDSIA/Ferdelance/blob/main/tests/integration/docker-compose.integration.yaml>`_ contains a definition of all services required to create a stack that simulates a central server node and some client nodes.
+The file `docker-compose.integration.yaml <https://github.com/IDSIA/flotta/blob/main/tests/integration/docker-compose.integration.yaml>`_ contains a definition of all services required to create a stack that simulates a central server node and some client nodes.
 
 
 Installation
@@ -19,11 +19,11 @@ Installation
 
 The installation of a node is simple::
 
-  pip install ferdelance
+  pip install flotta
 
 Once installed it can be run by specifying a YAML configuration file::
 
-  python -m ferdelance -c ./config.yaml
+  python -m flotta -c ./config.yaml
 
 Once one node is up and running, with default parameters the node will be reachable at `http://server:1456/`.
 
@@ -39,7 +39,7 @@ The datasource must have a name and be associated with one or more project thoug
   mode: node                          # one of: node, client, standalone
 
   node:
-    name: FerdelanceNode
+    name: flottaNode
     healthcheck: 3600.0               # wait in seconds for check self status
     heartbeat: 10.0                   # wait in seconds for clients to fetch updates
     allow_resource_download: true     # if false, nobody can download resources from this node
@@ -68,7 +68,7 @@ The datasource must have a name and be associated with one or more project thoug
   database:
     username: ""                      # username used to access the database
     password: ""                      # password used to access the database
-    scheme: ferdelance                # specify the name of the database schema to use
+    scheme: flotta                # specify the name of the database schema to use
     memory: false                     # when set to true, a SQLite in-memory database will be used
     dialect: sqlite                   # current accepted dialects are: SQLite and Postgresql
     host: ./sqlite.db                 # local path for local file (QSLite) or url for remote database
@@ -96,7 +96,7 @@ Other supported database are:
 - SQLite file database::
 
     database:
-      scheme: ferdelance
+      scheme: flotta
       dialect: sqlite
       host: ./sqlite.db
       memory: false
@@ -106,7 +106,7 @@ Other supported database are:
     database:
       username: "${DATABASE_USER}"
       password: "${DATABASE_PASSWORD}"
-      scheme: ferdelance
+      scheme: flotta
       dialect: postgresql
       host: remote_url
       port: 5432

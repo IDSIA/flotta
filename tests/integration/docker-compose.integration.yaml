@@ -1,5 +1,5 @@
 networks:
-  ferdelance:
+  flotta:
 
 volumes:
   db-data:
@@ -12,13 +12,13 @@ volumes:
 services:
 
   repository:
-    image: idsia.ferdelance.repository
+    image: idsia.flotta.repository
     build:
       context: ../../
       dockerfile: tests/integration/Dockerfile.pypirepo
     container_name: repository
     networks:
-      - ferdelance
+      - flotta
     entrypoint: pypi-server run -p 80 --log-stream stdout /packages
 
   database:
@@ -31,98 +31,98 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     networks:
-      - ferdelance
+      - flotta
     ports:
      - 15432:5432
 
   server: 
-    image: idsia.ferdelance
+    image: idsia.flotta
     build:
       context: ../../
       dockerfile: ./Dockerfile
     container_name: server
     restart: unless-stopped
     environment:
-      - FERDELANCE_NODE_HOST=server
+      - flotta_NODE_HOST=server
       - DATABASE_HOST=database
       - DATABASE_PORT=5432
       - DATABASE_USER=${DATABASE_USER?Missing DATABASE_USER for server}
       - DATABASE_PASSWORD=${DATABASE_PASS?Missing DATABASE_PASS for server}
       - DATABASE_SCHEMA=${DATABASE_SCHEMA?Missing DATABASE_SCHEMA for server}
     volumes:
-      - server-data:/ferdelance/storage
-      - ./conf/config.server.yaml:/ferdelance/config.yaml
+      - server-data:/flotta/storage
+      - ./conf/config.server.yaml:/flotta/config.yaml
       - /dev/shm:/dev/shm # this is for ray
     networks:
-      - ferdelance
+      - flotta
     ports:
       - 1456:1456
     depends_on:
       - database
 
   client1:
-    image: idsia.ferdelance
+    image: idsia.flotta
     container_name: client1
     restart: unless-stopped
     environment:
-      - FERDELANCE_NODE_HOST=server
+      - flotta_NODE_HOST=server
     volumes: 
-      - client-1-data:/ferdelance/storage
-      - ./conf/config.client.1.yaml:/ferdelance/config.yaml
-      - ./data:/ferdelance/data
+      - client-1-data:/flotta/storage
+      - ./conf/config.client.1.yaml:/flotta/config.yaml
+      - ./data:/flotta/data
       - /dev/shm:/dev/shm # this is for ray
     networks:
-      - ferdelance
+      - flotta
     depends_on:
       - server
 
   client2:
-    image: idsia.ferdelance
+    image: idsia.flotta
     container_name: client2
     restart: unless-stopped
     environment:
-      - FERDELANCE_NODE_HOST=server
+      - flotta_NODE_HOST=server
     volumes: 
-      - client-2-data:/ferdelance/storage
-      - ./conf/config.client.2.yaml:/ferdelance/config.yaml
-      - ./data:/ferdelance/data
+      - client-2-data:/flotta/storage
+      - ./conf/config.client.2.yaml:/flotta/config.yaml
+      - ./data:/flotta/data
       - /dev/shm:/dev/shm # this is for ray
     networks:
-      - ferdelance
+      - flotta
     depends_on:
       - server
 
   node1:
-    image: idsia.ferdelance
+    image: idsia.flotta
     container_name: node1
     restart: unless-stopped
     environment:
-      - FERDELANCE_NODE_HOST=node1
-      - FERDELANCE_JOIN_HOST=server
+      - flotta_NODE_HOST=node1
+      - flotta_JOIN_HOST=server
     volumes: 
-      - node-1-data:/ferdelance/storage
-      - ./conf/config.node.1.yaml:/ferdelance/config.yaml
-      - ./data:/ferdelance/data
+      - node-1-data:/flotta/storage
+      - ./conf/config.node.1.yaml:/flotta/config.yaml
+      - ./data:/flotta/data
       - /dev/shm:/dev/shm # this is for ray
     networks:
-      - ferdelance
+      - flotta
     depends_on:
       - server
   
   node2:
-    image: idsia.ferdelance
+    image: idsia.flotta
     container_name: node2
     restart: unless-stopped
     environment:
-      - FERDELANCE_NODE_HOST=node2
-      - FERDELANCE_JOIN_HOST=server
+      - flotta_NODE_HOST=node2
+      - flotta_JOIN_HOST=server
     volumes: 
-      - node-2-data:/ferdelance/storage
-      - ./conf/config.node.2.yaml:/ferdelance/config.yaml
-      - ./data:/ferdelance/data
+      - node-2-data:/flotta/storage
+      - ./conf/config.node.2.yaml:/flotta/config.yaml
+      - ./data:/flotta/data
       - /dev/shm:/dev/shm # this is for ray
     networks:
-      - ferdelance
+      - flotta
     depends_on:
       - server
 
@@ -138,7 +138,7 @@ services:
       - ./data:/data
     entrypoint: /tests/init.sh
     networks:
-      - ferdelance
+      - flotta
     depends_on:
       - repository
       - server

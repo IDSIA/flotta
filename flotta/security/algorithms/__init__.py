@@ -14,7 +14,7 @@ from .core import DecryptionAlgorithm, EncryptionAlgorithm
 from .plain import NoDecryptionAlgorithm, NoEncryptionAlgorithm
 from .hybrid import HybridDecryptionAlgorithm, HybridEncryptionAlgorithm
 
-from ferdelance.security.keys import PrivateKey, PublicKey
+from flotta.security.keys import PrivateKey, PublicKey
 
 
 class Algorithm(Enum):

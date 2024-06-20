@@ -1,10 +1,10 @@
-from ferdelance.config import config_manager
-from ferdelance.core.interfaces import SchedulerJob
-from ferdelance.database.tables import Job as JobDB, JobLock as JobLockDB
-from ferdelance.database.repositories import AsyncSession, Repository
-from ferdelance.logging import get_logger
-from ferdelance.schemas.jobs import Job, JobLock
-from ferdelance.shared.status import JobStatus
+from flotta.config import config_manager
+from flotta.core.interfaces import SchedulerJob
+from flotta.database.tables import Job as JobDB, JobLock as JobLockDB
+from flotta.database.repositories import AsyncSession, Repository
+from flotta.logging import get_logger
+from flotta.schemas.jobs import Job, JobLock
+from flotta.shared.status import JobStatus
 
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import NoResultFound

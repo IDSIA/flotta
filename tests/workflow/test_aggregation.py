@@ -1,14 +1,14 @@
 from typing import Any
 
-from ferdelance.config import DataSourceConfiguration, DataSourceStorage
-from ferdelance.core.artifacts import Artifact
-from ferdelance.core.distributions import Collect
-from ferdelance.core.model_operations import Train, TrainTest, Aggregation
-from ferdelance.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
-from ferdelance.core.steps import Finalize, Parallel
-from ferdelance.core.transformers import FederatedSplitter
-from ferdelance.database import AsyncSession
-from ferdelance.schemas.database import Resource
+from flotta.config import DataSourceConfiguration, DataSourceStorage
+from flotta.core.artifacts import Artifact
+from flotta.core.distributions import Collect
+from flotta.core.model_operations import Train, TrainTest, Aggregation
+from flotta.core.models import FederatedRandomForestClassifier, StrategyRandomForestClassifier
+from flotta.core.steps import Finalize, Parallel
+from flotta.core.transformers import FederatedSplitter
+from flotta.database import AsyncSession
+from flotta.schemas.database import Resource
 
 from tests.serverless import ServerlessExecution
 from tests.utils import TEST_PROJECT_TOKEN, assert_jobs_count

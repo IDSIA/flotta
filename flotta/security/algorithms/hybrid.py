@@ -1,6 +1,6 @@
-from ferdelance.security.algorithms.core import EncryptionAlgorithm, DecryptionAlgorithm
-from ferdelance.security.commons import DEFAULT_SEPARATOR
-from ferdelance.security.keys import SymmetricKey, PrivateKey, PublicKey
+from flotta.security.algorithms.core import EncryptionAlgorithm, DecryptionAlgorithm
+from flotta.security.commons import DEFAULT_SEPARATOR
+from flotta.security.keys import SymmetricKey, PrivateKey, PublicKey
 
 from hashlib import sha256
 

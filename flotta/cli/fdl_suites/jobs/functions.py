@@ -1,7 +1,7 @@
-from ferdelance.cli.visualization import show_many
-from ferdelance.database import DataBase
-from ferdelance.database.repositories import JobRepository
-from ferdelance.schemas.jobs import Job
+from flotta.cli.visualization import show_many
+from flotta.database import DataBase
+from flotta.database.repositories import JobRepository
+from flotta.schemas.jobs import Job
 
 
 async def list_jobs(artifact_id: str | None = None, client_id: str | None = None) -> list[Job]:

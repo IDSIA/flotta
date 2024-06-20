@@ -1,13 +1,13 @@
-from ferdelance.core.artifacts import Artifact
-from ferdelance.core.environment import EnvResource, Environment
-from ferdelance.core.estimators import MeanEstimator
+from flotta.core.artifacts import Artifact
+from flotta.core.environment import EnvResource, Environment
+from flotta.core.estimators import MeanEstimator
 
 from pathlib import Path
 
 import pandas as pd
 import os
 
-from ferdelance.core.steps import Sequential
+from flotta.core.steps import Sequential
 from tests.utils import get_scheduler_context
 
 PATH_DIR = Path(os.path.abspath(os.path.dirname(__file__)))

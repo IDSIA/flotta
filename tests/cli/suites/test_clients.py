@@ -1,8 +1,8 @@
-from ferdelance.cli.fdl_suites.clients.functions import describe_client, list_clients
-from ferdelance.const import TYPE_CLIENT
-from ferdelance.database import AsyncSession
-from ferdelance.database.tables import Component
-from ferdelance.schemas.components import Component as ComponentView
+from flotta.cli.fdl_suites.clients.functions import describe_client, list_clients
+from flotta.const import TYPE_CLIENT
+from flotta.database import AsyncSession
+from flotta.database.tables import Component
+from flotta.schemas.components import Component as ComponentView
 
 import pytest
 

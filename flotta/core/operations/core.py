@@ -1,8 +1,8 @@
 from abc import abstractmethod
 
-from ferdelance.core.entity import Entity
-from ferdelance.core.environment import Environment
-from ferdelance.core.queries import Query
+from flotta.core.entity import Entity
+from flotta.core.environment import Environment
+from flotta.core.queries import Query
 
 from pydantic import SerializeAsAny
 

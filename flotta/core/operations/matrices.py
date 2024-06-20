@@ -1,5 +1,5 @@
-from ferdelance.core.environment import Environment
-from ferdelance.core.operations.core import Operation
+from flotta.core.environment import Environment
+from flotta.core.operations.core import Operation
 
 from pydantic import field_validator
 

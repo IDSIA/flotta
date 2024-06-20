@@ -2,10 +2,10 @@ from __future__ import annotations
 from typing import Any
 from abc import ABC, abstractmethod
 
-from ferdelance.core.entity import Entity
-from ferdelance.core.environment import Environment
-from ferdelance.core.queries import QueryFeature
-from ferdelance.core.utils import convert_features_in_to_list, convert_features_out_to_list
+from flotta.core.entity import Entity
+from flotta.core.environment import Environment
+from flotta.core.queries import QueryFeature
+from flotta.core.utils import convert_features_in_to_list, convert_features_out_to_list
 
 from pydantic import SerializeAsAny
 

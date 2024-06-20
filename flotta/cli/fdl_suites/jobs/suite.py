@@ -1,8 +1,8 @@
 """Jobs CLI suite"""
 
-from ferdelance.cli.base import CLICommand, CLICommandSuite
-from ferdelance.cli.fdl_suites.args import FDLCLIArgs
-from ferdelance.cli.fdl_suites.commands import FDLCommands
+from flotta.cli.base import CLICommand, CLICommandSuite
+from flotta.cli.fdl_suites.args import FDLCLIArgs
+from flotta.cli.fdl_suites.commands import FDLCommands
 
 from .functions import list_jobs
 

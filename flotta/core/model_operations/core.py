@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pydantic import SerializeAsAny
 
-from ferdelance.core.metrics import Metrics
-from ferdelance.core.model import TModel as Model
-from ferdelance.core.operations import QueryOperation
-from ferdelance.logging import get_logger
+from flotta.core.metrics import Metrics
+from flotta.core.model import TModel as Model
+from flotta.core.operations import QueryOperation
+from flotta.logging import get_logger
 
 from pathlib import Path
 

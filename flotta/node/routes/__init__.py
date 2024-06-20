@@ -6,8 +6,8 @@ __all__ = [
     "workbench_router",
 ]
 
-from ferdelance.node.routes.client import client_router
-from ferdelance.node.routes.node import node_router
-from ferdelance.node.routes.task import task_router
-from ferdelance.node.routes.workbench import workbench_router
-from ferdelance.node.routes.resources import resource_router
+from flotta.node.routes.client import client_router
+from flotta.node.routes.node import node_router
+from flotta.node.routes.task import task_router
+from flotta.node.routes.workbench import workbench_router
+from flotta.node.routes.resources import resource_router
