@@ -1,7 +1,7 @@
 from flotta.cli.base import CLIArgument
 
 
-class FDLCLIArgs:
+class CLIArgs:
     """All possible args in the flotta CLI"""
 
     ARTIFACT_ID: CLIArgument = CLIArgument(

@@ -56,7 +56,7 @@ class Component(Base):
     # this is b64+utf8 encoded bytes
     public_key: Mapped[str] = mapped_column(nullable=False)
 
-    # fdl component's version
+    # component's version
     version: Mapped[str | None] = mapped_column(String)
 
     # node component ip addresses (for indirect communication)

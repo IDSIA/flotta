@@ -15,14 +15,14 @@ build:
 
 # development
 create:
-	python -m venv flotta_env
+	python -m venv env
 
 delete:
-	rm -rf flotta_env
+	rm -rf env
 
 recreate:
-	rm -rf flotta_env
-	python -m venv flotta_env
+	rm -rf env
+	python -m venv env
 
 dev:
 	pip install -e ".[dev]"

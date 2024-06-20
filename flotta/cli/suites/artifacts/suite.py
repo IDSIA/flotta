@@ -1,18 +1,18 @@
 """Artifacts CLI suite"""
 
 from flotta.cli.base import CLICommand, CLICommandSuite
-from flotta.cli.suites.args import FDLCLIArgs
-from flotta.cli.suites.commands import FDLCommands
+from flotta.cli.suites.args import CLIArgs
+from flotta.cli.suites.commands import Commands
 from .functions import describe_artifact, list_artifacts
 
 #
 #   COMMANDS
 #
 
-ls_command: CLICommand = CLICommand(command=FDLCommands.list, arguments=[], function=list_artifacts)
+ls_command: CLICommand = CLICommand(command=Commands.list, arguments=[], function=list_artifacts)
 
 descr_command: CLICommand = CLICommand(
-    command=FDLCommands.describe, arguments=[FDLCLIArgs.ARTIFACT_ID], function=describe_artifact
+    command=Commands.describe, arguments=[CLIArgs.ARTIFACT_ID], function=describe_artifact
 )
 
 #

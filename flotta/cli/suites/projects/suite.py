@@ -1,8 +1,8 @@
 """Projects CLI suite"""
 
 from flotta.cli.base import CLICommand, CLICommandSuite
-from flotta.cli.suites.args import FDLCLIArgs
-from flotta.cli.suites.commands import FDLCommands
+from flotta.cli.suites.args import CLIArgs
+from flotta.cli.suites.commands import Commands
 from .functions import create_project, list_projects, describe_project
 
 #
@@ -10,20 +10,20 @@ from .functions import create_project, list_projects, describe_project
 #
 
 list_command: CLICommand = CLICommand(
-    command=FDLCommands.list,
+    command=Commands.list,
     arguments=[],
     function=list_projects,
 )
 
 create_command: CLICommand = CLICommand(
-    command=FDLCommands.create,
-    arguments=[FDLCLIArgs.NAME],
+    command=Commands.create,
+    arguments=[CLIArgs.NAME],
     function=create_project,
 )
 
 describe_command: CLICommand = CLICommand(
-    command=FDLCommands.describe,
-    arguments=[FDLCLIArgs.PROJECT_ID, FDLCLIArgs.TOKEN],
+    command=Commands.describe,
+    arguments=[CLIArgs.PROJECT_ID, CLIArgs.TOKEN],
     function=describe_project,
 )
 

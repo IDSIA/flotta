@@ -2,7 +2,7 @@ from flotta.schemas.components import Component
 
 from pydantic import BaseModel
 
-# TODO: this has been/need to be moved to fdl.core
+# TODO: this has been/need to be moved to flotta.core
 
 
 class SchedulerContext(BaseModel):  # this is internal to the server

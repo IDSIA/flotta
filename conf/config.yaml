@@ -32,7 +32,7 @@ node:
 
 # # join an existing node/network
 # join:
-#   # if first=true, then it will be the first node in the FDL network
+#   # if first=true, then it will be the first node in the network
 #   first: False
 #   url: http://localhost:1456
 # TODO: enable the block above

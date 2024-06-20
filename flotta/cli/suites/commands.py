@@ -1,4 +1,4 @@
-class FDLCommands:
+class Commands:
     """Command reference list available for the flotta CLI. StrEnums are in python 3.11"""
 
     list: str = "ls"
