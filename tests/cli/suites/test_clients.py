@@ -1,4 +1,4 @@
-from flotta.cli.fdl_suites.clients.functions import describe_client, list_clients
+from flotta.cli.suites.clients.functions import describe_client, list_clients
 from flotta.const import TYPE_CLIENT
 from flotta.database import AsyncSession
 from flotta.database.tables import Component

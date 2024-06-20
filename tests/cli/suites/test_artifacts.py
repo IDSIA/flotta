@@ -1,4 +1,4 @@
-from flotta.cli.fdl_suites.artifacts.functions import describe_artifact, list_artifacts
+from flotta.cli.suites.artifacts.functions import describe_artifact, list_artifacts
 from flotta.database.tables import Artifact as ArtifactDB
 from flotta.schemas.database import ServerArtifact
 from flotta.shared.status import ArtifactJobStatus

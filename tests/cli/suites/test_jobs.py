@@ -1,4 +1,4 @@
-from flotta.cli.fdl_suites.jobs.functions import list_jobs
+from flotta.cli.suites.jobs.functions import list_jobs
 from flotta.const import TYPE_CLIENT
 from flotta.database import AsyncSession
 from flotta.database.tables import Artifact, Component, Job, Resource

@@ -1,4 +1,4 @@
-from flotta.cli.fdl_suites.datasources.functions import describe_datasource, list_datasources
+from flotta.cli.suites.datasources.functions import describe_datasource, list_datasources
 from flotta.const import TYPE_CLIENT
 from flotta.database.repositories import DataSourceRepository, ProjectRepository
 from flotta.database.tables import Component

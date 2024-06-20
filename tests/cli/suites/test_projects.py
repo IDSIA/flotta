@@ -1,4 +1,4 @@
-from flotta.cli.fdl_suites.projects.functions import create_project, describe_project, list_projects
+from flotta.cli.suites.projects.functions import create_project, describe_project, list_projects
 from flotta.database.tables import Project as ProjectDB
 from flotta.schemas.project import BaseProject as ProjectView
 

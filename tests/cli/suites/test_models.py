@@ -1,4 +1,4 @@
-from flotta.cli.fdl_suites.resources.functions import describe_resource, list_resource
+from flotta.cli.suites.resources.functions import describe_resource, list_resource
 from flotta.const import TYPE_CLIENT
 from flotta.database.tables import Artifact, Component, Resource as ResourceDB
 from flotta.schemas.database import Resource

@@ -1,5 +1,5 @@
 from flotta.cli.base import CLICommandSuite, CLIParser
-from flotta.cli.fdl_suites import artifacts_cli_suite
+from flotta.cli.suites import artifacts_cli_suite
 
 import pytest
 

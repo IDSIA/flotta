@@ -1,8 +1,8 @@
 """Datasources CLI suite"""
 
 from flotta.cli.base import CLICommand, CLICommandSuite
-from flotta.cli.fdl_suites.args import FDLCLIArgs
-from flotta.cli.fdl_suites.commands import FDLCommands
+from flotta.cli.suites.args import FDLCLIArgs
+from flotta.cli.suites.commands import FDLCommands
 from .functions import describe_datasource, list_datasources
 
 #

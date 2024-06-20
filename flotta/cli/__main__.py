@@ -12,7 +12,7 @@ This is related to manage projects, users, clients, etc. As an example:
 from typing import List
 
 from flotta.cli.base import CLICommandSuite, CLIParser
-from flotta.cli.fdl_suites import (
+from flotta.cli.suites import (
     models_cli_suite,
     artifacts_cli_suite,
     jobs_cli_suite,
