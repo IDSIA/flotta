@@ -1,5 +1,5 @@
-from ferdelance.security.algorithms.hybrid import HybridEncryptionAlgorithm, HybridDecryptionAlgorithm
-from ferdelance.security.keys.asymmetric import PrivateKey, PublicKey
+from flotta.security.algorithms.hybrid import HybridEncryptionAlgorithm, HybridDecryptionAlgorithm
+from flotta.security.keys.asymmetric import PrivateKey, PublicKey
 
 from tests.utils import random_string
 

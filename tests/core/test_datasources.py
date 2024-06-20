@@ -1,4 +1,4 @@
-from ferdelance.schemas.datasources import AggregatedDataSource, Feature, DataSource, DataType
+from flotta.schemas.datasources import AggregatedDataSource, Feature, DataSource, DataType
 
 import json
 

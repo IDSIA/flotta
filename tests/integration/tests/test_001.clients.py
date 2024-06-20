@@ -1,5 +1,5 @@
-from ferdelance.workbench.context import Context
-from ferdelance.logging import get_logger
+from flotta.workbench.context import Context
+from flotta.logging import get_logger
 
 import os
 import sys

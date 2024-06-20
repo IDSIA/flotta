@@ -1,6 +1,6 @@
-from ferdelance.core.queries import Query, QueryFilter, QueryFeature
-from ferdelance.core.transformers import FederatedBinarizer
-from ferdelance.schemas.datasources import Feature, DataSource
+from flotta.core.queries import Query, QueryFilter, QueryFeature
+from flotta.core.transformers import FederatedBinarizer
+from flotta.schemas.datasources import Feature, DataSource
 
 DS1_NAME, DS1_ID = "data_source_1", "ds1"
 DS2_NAME, DS2_ID = "data_source_2", "ds2"

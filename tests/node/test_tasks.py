@@ -1,16 +1,16 @@
-from ferdelance.const import TYPE_NODE
-from ferdelance.config import config_manager
-from ferdelance.core.artifacts import Artifact
-from ferdelance.database.repositories.artifact import ArtifactRepository
-from ferdelance.database.tables import Artifact as ArtifactDB, Job as JobDB
-from ferdelance.database.repositories import ProjectRepository, ComponentRepository, AsyncSession, JobRepository
-from ferdelance.logging import get_logger
-from ferdelance.node.api import api
-from ferdelance.node.services import JobManagementService
-from ferdelance.schemas.components import Component
-from ferdelance.security.exchange import Exchange
-from ferdelance.shared.status import JobStatus, ArtifactJobStatus
-from ferdelance.tasks.tasks import TaskRequest
+from flotta.const import TYPE_NODE
+from flotta.config import config_manager
+from flotta.core.artifacts import Artifact
+from flotta.database.repositories.artifact import ArtifactRepository
+from flotta.database.tables import Artifact as ArtifactDB, Job as JobDB
+from flotta.database.repositories import ProjectRepository, ComponentRepository, AsyncSession, JobRepository
+from flotta.logging import get_logger
+from flotta.node.api import api
+from flotta.node.services import JobManagementService
+from flotta.schemas.components import Component
+from flotta.security.exchange import Exchange
+from flotta.shared.status import JobStatus, ArtifactJobStatus
+from flotta.tasks.tasks import TaskRequest
 
 from tests.utils import connect, TEST_PROJECT_TOKEN, create_node
 from tests.dummies import DummyModel

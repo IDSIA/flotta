@@ -4,7 +4,7 @@ Testing
 
 For testing purposes it is useful to install the test version of the framework::
 
-   pip install ferdelance[test]
+   pip install flotta[test]
 
 
 .. Note:
@@ -17,7 +17,7 @@ Integration tests
 Integration tests are the perfect entrypoint for start deploying and use the framework.
 These tests simulates a real deployment, although on the same machine, with a dataset split and shared across multiple nodes.
 
-The execution requires a special `Docker Compose <https://github.com/IDSIA/Ferdelance/blob/main/tests/integration/docker-compose.integration.yaml>`_ that will produce a stack with:
+The execution requires a special `Docker Compose <https://github.com/IDSIA/flotta/blob/main/tests/integration/docker-compose.integration.yaml>`_ that will produce a stack with:
 
 - repository with the packed wheel of the library
 - a postgres database
@@ -28,9 +28,9 @@ The execution requires a special `Docker Compose <https://github.com/IDSIA/Ferde
 
 The two client nodes and the two default nodes include the `California Housing Pricing dataset <https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html>`_.
 This dataset has been split in three: two parts for the nodes, one part for the evaluation in the workbench.
-These datasets are saved in CSV format in the `data <https://github.com/IDSIA/Ferdelance/tree/main/tests/integration/data>`_ folder.
+These datasets are saved in CSV format in the `data <https://github.com/IDSIA/flotta/tree/main/tests/integration/data>`_ folder.
 
-Configuration of single nodes are stored in the `conf <https://github.com/IDSIA/Ferdelance/tree/main/tests/integration/conf>`_ folder in YAML format.
+Configuration of single nodes are stored in the `conf <https://github.com/IDSIA/flotta/tree/main/tests/integration/conf>`_ folder in YAML format.
 
 Integration tests are written as scripts and simulates what an user could write through the workbench interface.
 Although a little bit primitive (and not so fast to setup and teardown), it is an effective way to test the workflow of the framework.
@@ -54,7 +54,7 @@ To test single part of code, such as transformers, models, or estimators, it is 
 
 A simple test case can be setup as follow::
 
-  from ferdelance.server.api import api
+  from flotta.server.api import api
 
   from fastapi.testclient import TestClient
   from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,7 +76,7 @@ A simple test case can be setup as follow::
           assert res.status_code == 200
 
 
-The fixture to connect to the test db (which for tests is an `SQLite <https://www.sqlite.org/>`_ database) through the `session` object are defined in the `conftest.py <https://github.com/IDSIA/Ferdelance/blob/main/tests/conftest.py>`_ file.
+The fixture to connect to the test db (which for tests is an `SQLite <https://www.sqlite.org/>`_ database) through the `session` object are defined in the `conftest.py <https://github.com/IDSIA/flotta/blob/main/tests/conftest.py>`_ file.
 
 Other utility (component connection, clients operations, ...) methods are defined in the ``tests/utils.py`` file.
 

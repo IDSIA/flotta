@@ -1,5 +1,5 @@
-from ferdelance.core.environment import Environment
-from ferdelance.core.transformers import QueryTransformer
+from flotta.core.environment import Environment
+from flotta.core.transformers import QueryTransformer
 
 from pathlib import Path
 

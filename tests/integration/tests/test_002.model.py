@@ -1,14 +1,14 @@
-from ferdelance.core.artifacts import Artifact
-from ferdelance.core.distributions import Collect
-from ferdelance.core.model_operations import Aggregation, Train, TrainTest
-from ferdelance.core.models import (
+from flotta.core.artifacts import Artifact
+from flotta.core.distributions import Collect
+from flotta.core.model_operations import Aggregation, Train, TrainTest
+from flotta.core.models import (
     FederatedRandomForestClassifier,
     StrategyRandomForestClassifier,
 )
-from ferdelance.core.steps import Finalize, Parallel
-from ferdelance.core.transformers import FederatedSplitter
-from ferdelance.logging import get_logger
-from ferdelance.workbench import Context
+from flotta.core.steps import Finalize, Parallel
+from flotta.core.transformers import FederatedSplitter
+from flotta.logging import get_logger
+from flotta.workbench import Context
 
 from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, f1_score
 

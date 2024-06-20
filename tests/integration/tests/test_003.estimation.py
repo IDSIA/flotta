@@ -1,8 +1,8 @@
-from ferdelance.core import Artifact
-from ferdelance.core.estimators import MeanEstimator
-from ferdelance.core.queries import Query
-from ferdelance.logging import get_logger
-from ferdelance.workbench.context import Context
+from flotta.core import Artifact
+from flotta.core.estimators import MeanEstimator
+from flotta.core.queries import Query
+from flotta.logging import get_logger
+from flotta.workbench.context import Context
 
 import os
 import sys

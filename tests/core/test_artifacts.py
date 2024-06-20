@@ -1,9 +1,9 @@
-from ferdelance.core.artifacts import Artifact
-from ferdelance.core.distributions import Collect, Distribute
-from ferdelance.core.estimators.counters import CountEstimator
-from ferdelance.core.models import FederatedRandomForestClassifier
-from ferdelance.core.operations import SubtractMatrix, SumMatrix, UniformMatrix
-from ferdelance.core.steps import Finalize, Initialize, Parallel
+from flotta.core.artifacts import Artifact
+from flotta.core.distributions import Collect, Distribute
+from flotta.core.estimators.counters import CountEstimator
+from flotta.core.models import FederatedRandomForestClassifier
+from flotta.core.operations import SubtractMatrix, SumMatrix, UniformMatrix
+from flotta.core.steps import Finalize, Initialize, Parallel
 
 from tests.utils import get_scheduler_context
 

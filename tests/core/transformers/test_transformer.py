@@ -1,4 +1,4 @@
-from ferdelance.core.queries import QueryFeature
+from flotta.core.queries import QueryFeature
 
 from tests.dummies import DummyTransformer
 

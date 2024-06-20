@@ -1,19 +1,19 @@
 from typing import Any
 
-from ferdelance.commons import storage_job
-from ferdelance.config.config import DataSourceConfiguration, DataSourceStorage, config_manager
-from ferdelance.core.artifacts import Artifact
-from ferdelance.core.estimators import MeanEstimator
-from ferdelance.database.repositories import AsyncSession, ComponentRepository, JobRepository
-from ferdelance.node.api import api
-from ferdelance.node.services.jobs import JobManagementService
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.project import Project
-from ferdelance.schemas.workbench import WorkbenchProjectToken
-from ferdelance.security.exchange import Exchange
-from ferdelance.shared.status import JobStatus
-from ferdelance.tasks.services import RouteService, TaskExecutionService
-from ferdelance.tasks.tasks import TaskError
+from flotta.commons import storage_job
+from flotta.config.config import DataSourceConfiguration, DataSourceStorage, config_manager
+from flotta.core.artifacts import Artifact
+from flotta.core.estimators import MeanEstimator
+from flotta.database.repositories import AsyncSession, ComponentRepository, JobRepository
+from flotta.node.api import api
+from flotta.node.services.jobs import JobManagementService
+from flotta.schemas.components import Component
+from flotta.schemas.project import Project
+from flotta.schemas.workbench import WorkbenchProjectToken
+from flotta.security.exchange import Exchange
+from flotta.shared.status import JobStatus
+from flotta.tasks.services import RouteService, TaskExecutionService
+from flotta.tasks.tasks import TaskError
 
 from tests.utils import TEST_PROJECT_TOKEN, create_node, create_workbench, send_metadata
 

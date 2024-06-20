@@ -1,19 +1,19 @@
 import json
-from ferdelance.core.artifacts import Artifact
-from ferdelance.core.interfaces import SchedulerJob
-from ferdelance.core.operations import DoNothing
-from ferdelance.core.steps import BaseStep
-from ferdelance.database.repositories import (
+from flotta.core.artifacts import Artifact
+from flotta.core.interfaces import SchedulerJob
+from flotta.core.operations import DoNothing
+from flotta.core.steps import BaseStep
+from flotta.database.repositories import (
     AsyncSession,
     ArtifactRepository,
     ComponentRepository,
     JobRepository,
     ResourceRepository,
 )
-from ferdelance.node.api import api
-from ferdelance.schemas.database import Resource
-from ferdelance.schemas.resources import NewResource, ResourceIdentifier
-from ferdelance.security.exchange import Exchange
+from flotta.node.api import api
+from flotta.schemas.database import Resource
+from flotta.schemas.resources import NewResource, ResourceIdentifier
+from flotta.security.exchange import Exchange
 
 from tests.utils import TEST_PROJECT_TOKEN, create_node
 

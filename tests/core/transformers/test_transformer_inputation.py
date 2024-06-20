@@ -1,5 +1,5 @@
-from ferdelance.core.queries import QueryFeature
-from ferdelance.core.transformers import FederatedSimpleImputer
+from flotta.core.queries import QueryFeature
+from flotta.core.transformers import FederatedSimpleImputer
 
 from . import run
 

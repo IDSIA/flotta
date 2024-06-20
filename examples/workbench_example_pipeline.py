@@ -1,6 +1,6 @@
 # %%
-from ferdelance.core.queries import Query
-from ferdelance.core.transformers import (
+from flotta.core.queries import Query
+from flotta.core.transformers import (
     FederatedPipeline,
     FederatedMinMaxScaler,
     FederatedSimpleImputer,
@@ -11,9 +11,9 @@ from ferdelance.core.transformers import (
     FederatedOneHotEncoder,
     FederatedClamp,
 )
-from ferdelance.schemas.datasources import DataSource
-from ferdelance.schemas.project import Project
-from ferdelance.workbench.context import Context
+from flotta.schemas.datasources import DataSource
+from flotta.schemas.project import Project
+from flotta.workbench.context import Context
 
 # %% create the context
 ctx = Context("http://localhost:1456")

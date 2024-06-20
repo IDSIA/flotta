@@ -1,7 +1,7 @@
-from ferdelance.logging import get_logger
-from ferdelance.security.keys.asymmetric import PrivateKey, PublicKey
-from ferdelance.security.keys.symmetric import SymmetricKey
-from ferdelance.security.utils import decode_from_transfer, encode_to_transfer
+from flotta.logging import get_logger
+from flotta.security.keys.asymmetric import PrivateKey, PublicKey
+from flotta.security.keys.symmetric import SymmetricKey
+from flotta.security.utils import decode_from_transfer, encode_to_transfer
 
 from tests.utils import random_string
 

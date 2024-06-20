@@ -2,7 +2,7 @@
 Core objects
 ==============================
 
-Core objects can be instantiated from class defined in the ``ferdelance.core`` submodule.
+Core objects can be instantiated from class defined in the ``flotta.core`` submodule.
 In this page we explain the thought flow from a code point of view.
 
 Entities

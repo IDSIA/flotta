@@ -1,6 +1,6 @@
-from ferdelance.cli.fdl_suites.projects.functions import create_project, describe_project, list_projects
-from ferdelance.database.tables import Project as ProjectDB
-from ferdelance.schemas.project import BaseProject as ProjectView
+from flotta.cli.suites.projects.functions import create_project, describe_project, list_projects
+from flotta.database.tables import Project as ProjectDB
+from flotta.schemas.project import BaseProject as ProjectView
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select

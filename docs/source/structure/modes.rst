@@ -2,7 +2,7 @@
 Execution mode
 ==============================
 
-A node in Ferdelance can be executed in three different flavours, based on the needs of the data provider: ``node``, ``client``, and ``standalone`` mode.
+A node in flotta can be executed in three different flavours, based on the needs of the data provider: ``node``, ``client``, and ``standalone`` mode.
 
 
 Node mode
@@ -35,6 +35,6 @@ In this mode, the framework is executed as a standalone application.
 The hardcoded configuration guarantees that a scheduling node capable of scheduling jobs for itself with is deployed.
 To run in standalone mode there is no need to pass, although it is possible, a configuration parameter::
 
-  python -m ferdelance.standalone
+  python -m flotta.standalone
 
 This mode is not suitable for production environment and should be used only for learning of testing purposes.

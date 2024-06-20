@@ -1,4 +1,4 @@
-from ferdelance.logging import get_logger
+from flotta.logging import get_logger
 
 LOGGER = get_logger(__name__)
 

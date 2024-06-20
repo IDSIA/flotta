@@ -1,6 +1,6 @@
-from ferdelance.core.environment import Environment
-from ferdelance.core.queries import QueryFeature
-from ferdelance.core.transformers import (
+from flotta.core.environment import Environment
+from flotta.core.queries import QueryFeature
+from flotta.core.transformers import (
     FederatedKBinsDiscretizer,
     FederatedBinarizer,
     FederatedLabelBinarizer,

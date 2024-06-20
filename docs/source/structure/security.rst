@@ -30,7 +30,7 @@ Each node offers the ``/key`` endpoint where the public key is freely available.
 Node Identification
 ==============================
 
-.. image:: ../_static/images/ferdelance_exchange_full.png
+.. image:: ../_static/images/flotta_exchange_full.png
    :scale: 60 %
    :align: center
    :target: https://www.idsia.ch/

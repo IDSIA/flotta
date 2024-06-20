@@ -1,7 +1,7 @@
-from ferdelance.cli.fdl_suites.artifacts.functions import describe_artifact, list_artifacts
-from ferdelance.database.tables import Artifact as ArtifactDB
-from ferdelance.schemas.database import ServerArtifact
-from ferdelance.shared.status import ArtifactJobStatus
+from flotta.cli.suites.artifacts.functions import describe_artifact, list_artifacts
+from flotta.database.tables import Artifact as ArtifactDB
+from flotta.schemas.database import ServerArtifact
+from flotta.shared.status import ArtifactJobStatus
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path

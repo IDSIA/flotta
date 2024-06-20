@@ -1,13 +1,13 @@
-from ferdelance.const import TYPE_NODE
-from ferdelance.core.artifacts import Artifact
-from ferdelance.core.distributions import Collect, Distribute
-from ferdelance.core.interfaces import SchedulerContext
-from ferdelance.core.steps import Finalize, Initialize, Parallel
-from ferdelance.database.tables import JobLock as JobLockDB, Job as JobDB
-from ferdelance.database.repositories import JobRepository, ArtifactRepository, ResourceRepository
-from ferdelance.node.api import api
-from ferdelance.schemas.components import Component
-from ferdelance.schemas.jobs import Job
+from flotta.const import TYPE_NODE
+from flotta.core.artifacts import Artifact
+from flotta.core.distributions import Collect, Distribute
+from flotta.core.interfaces import SchedulerContext
+from flotta.core.steps import Finalize, Initialize, Parallel
+from flotta.database.tables import JobLock as JobLockDB, Job as JobDB
+from flotta.database.repositories import JobRepository, ArtifactRepository, ResourceRepository
+from flotta.node.api import api
+from flotta.schemas.components import Component
+from flotta.schemas.jobs import Job
 
 from tests.utils import create_project, create_node
 from tests.dummies import DummyOp

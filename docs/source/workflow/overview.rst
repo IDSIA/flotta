@@ -2,7 +2,7 @@
 Overview
 ==============================
 
-The workflow in Ferdelance always starts with a workbench submitting an ``Artifact`` to a scheduler node.
+The workflow in flotta always starts with a workbench submitting an ``Artifact`` to a scheduler node.
 Then, the node will elaborate the Artifact and split it in ``tasks`` (or ``jobs``, in this context these two words are used as synonym) and scheduled based on the worker nodes that will execute each task.
 The advancement in the completion of the Artifact is strictly controlled by the scheduling node.
 During the execution of the tasks, the worker nodes will share ``resources`` between them, as defined in the Artifact.

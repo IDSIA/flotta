@@ -1,11 +1,11 @@
 from typing import Any, Sequence
 
-from ferdelance.core.environment import Environment
-from ferdelance.core.interfaces import SchedulerContext, SchedulerJob, BaseStep
-from ferdelance.core.models import AggregationModel
-from ferdelance.core.operations.core import Operation
-from ferdelance.core.transformers.core import QueryTransformer
-from ferdelance.logging import get_logger
+from flotta.core.environment import Environment
+from flotta.core.interfaces import SchedulerContext, SchedulerJob, BaseStep
+from flotta.core.models import AggregationModel
+from flotta.core.operations.core import Operation
+from flotta.core.transformers.core import QueryTransformer
+from flotta.logging import get_logger
 
 from numpy.typing import ArrayLike
 
